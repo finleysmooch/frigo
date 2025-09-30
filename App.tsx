@@ -134,7 +134,7 @@ export default function App() {
       <View style={styles.previewContainer}>
         <Text style={styles.title}>{recipe.title}</Text>
         <Text style={styles.subtitle}>
-          Ready in {recipe.prep_time + recipe.cook_time} minutes
+          Ready in {(recipe.prep_time_min || 0) + (recipe.cook_time_min || 0)} minutes
         </Text>
         
         <TouchableOpacity style={styles.startButton} onPress={startCooking}>
