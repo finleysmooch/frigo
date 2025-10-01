@@ -17,7 +17,7 @@
   - posts table (cooking activities)
   - follows table
   - post_likes table
-✅ 10 test recipes loaded (Molly Baz, Eden Grinshpan)
+✅ 7 test recipes loaded (Molly Baz, Eden Grinshpan)
 ✅ App displays recipes and allows cooking mode
 
 ## Known Issues
@@ -33,9 +33,9 @@
 - Social features ready (follows, likes)
 
 ## Next Priority Tasks
-1. Fix NaN display issue in App.tsx
-2. Build recipe list screen to browse all recipes
-3. Add navigation between list and cooking mode
+1. Fix NaN display issue in App.tsx ✅
+2. Build recipe list screen to browse all recipes ✅
+3. Add navigation between list and cooking mode ✅
 4. Add user authentication (signup/login)
 5. Create feed showing posts from followed users
 
@@ -51,3 +51,14 @@ github.com/finleysmooch/frigo
 ID: 6523b955-827e-4179-92c7-0aeb9ae281d4
 Email: tommorley33@gmail.com
 Password: EASYpassword123
+
+## Database Migration Status
+- ✅ Core tables created
+- ⚠️ recipe_ingredients junction table needed
+- ⚠️ ingredients table needs population (245 items)
+- ⚠️ Need to migrate JSON ingredients to relational structure
+
+## Current Work Thread
+- Creating proper ingredients relationships
+- Building recipe list view in app
+- Fixing NaN display bug
