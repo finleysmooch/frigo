@@ -1,64 +1,82 @@
-# Frigo - Strava for Cooking
+Frigo - Strava for Cooking
+Tech Stack
+Frontend: React Native (Expo) with TypeScript
+Backend: Supabase (PostgreSQL)
+Language: TypeScript
+Platform: iOS & Android mobile app
+Current State (October 2025)
+✅ Core Features Working
+Basic cooking mode with keep-awake functionality
+Recipe list view with chef attribution
+Recipe detail screen with ingredients grouped by family
+Admin testing panel for ingredient parsing
+Connected to Supabase backend with RLS policies
+✅ Database Schema Complete
+User & Social:
 
-## Tech Stack
-- Frontend: React Native (Expo) with TypeScript
-- Backend: Supabase (PostgreSQL)
-- Language: TypeScript
-- Platform: iOS & Android mobile app
+user_profiles - extends Supabase auth
+follows - social following relationships
+post_likes - engagement tracking
+Recipe System:
 
-## Current State (Dec 2024)
-✅ Basic cooking mode implemented and working
-✅ Connected to Supabase backend
-✅ Database schema complete with:
-  - user_profiles table
-  - recipes table (with chef attribution)
-  - chefs table
-  - ingredients table
-  - posts table (cooking activities)
-  - follows table
-  - post_likes table
-✅ 7 test recipes loaded (Molly Baz, Eden Grinshpan)
-✅ App displays recipes and allows cooking mode
+recipes - main recipe data with chef attribution
+chefs - chef profiles (Molly Baz, Eden Grinshpan)
+ingredients - master ingredient list with hierarchy support
+recipe_ingredients - junction table with confidence scoring
+recipe_ingredient_alternatives - OR pattern support
+posts - cooking activity tracking
+Tracking & Analytics:
 
-## Known Issues
-- "Ready in NaN minutes" - need to use prep_time_min and cook_time_min fields
-- Only shows one recipe - need recipe list screen
-- No user authentication yet
-- Posts creation needs to be connected properly
-
-## Database Structure
-- Recipes have chef_id linking to chefs table
-- Users tracked in user_profiles (extends Supabase auth)
-- Posts track when users cook recipes
-- Social features ready (follows, likes)
-
-## Next Priority Tasks
-1. Fix NaN display issue in App.tsx ✅
-2. Build recipe list screen to browse all recipes ✅
-3. Add navigation between list and cooking mode ✅
-4. Add user authentication (signup/login)
-5. Create feed showing posts from followed users
-
-## GitHub Repo
+or_pattern_decisions - tracks every OR pattern for learning
+Views: or_pattern_analysis, migration_readiness, remaining_review_items
+✅ Ingredient Parser v2.2
+Parses quantities, units, and preparations from recipe text
+Confidence-based matching (0.0 to 1.0 scores)
+OR pattern detection ("jalapeños or fresno chiles")
+Color variant recognition (red/green = equivalent)
+Parent-child ingredient hierarchy (generic "sugar" vs specific types)
+Flags new ingredients for database addition
+Preserves original recipe text for display
+Tracks all decisions for future ML migration
+📊 Data Status
+7 test recipes loaded
+300+ ingredients in master table
+OR pattern tracking active (Option A - simple rules)
+Ready for Option B migration at 100+ patterns
+Known Issues & TODOs
+Current Issues
+Some color variants still need proper detection refinement
+Missing ingredients need continuous addition
+Recipe display should use original_text not matched names
+Next Priority Tasks
+✅ Fix NaN display issue
+✅ Build recipe list screen
+✅ Add navigation between screens
+✅ Create junction table structure
+✅ Implement ingredient parser
+🔄 Add user authentication (signup/login)
+🔄 Create feed showing posts from followed users
+🔄 Implement pantry/inventory tracking
+🔄 Build smart shopping list generation
+File Structure
+Frigo/
+├── lib/
+│   ├── supabase.ts           # Supabase client config
+│   └── ingredientsParser.ts  # v2.2 parser with OR patterns
+├── screens/
+│   ├── CookingScreen.tsx     # Cooking mode UI
+│   ├── RecipeListScreen.tsx  # Browse recipes
+│   ├── RecipeDetailScreen.tsx # Recipe with ingredients
+│   └── AdminScreen.tsx       # Testing & debugging panel
+├── App.tsx                   # Main app with tab navigation
+└── package.json             # Dependencies
+GitHub Repo
 github.com/finleysmooch/frigo
 
-## Key Files
-- App.tsx - Main app component with cooking mode
-- lib/supabase.ts - Supabase connection config
-- package.json - Dependencies
-
-## Test User
+Test User
 ID: 6523b955-827e-4179-92c7-0aeb9ae281d4
 Email: tommorley33@gmail.com
 Password: EASYpassword123
+Migration Status
+Option A (Current): Simple hardcoded rules for OR patterns Option B (Future): Database-driven relationships based on tracked patterns Tracking: All OR patterns logged to or_pattern_decisions table Ready at: 100+ tracked patterns (check migration_readiness view)
 
-## Database Migration Status
-- ✅ Core tables created
-- ⚠️ recipe_ingredients junction table needed
-- ⚠️ ingredients table needs population (245 items)
-- ⚠️ Need to migrate JSON ingredients to relational structure
-
-## Current Work Thread
-- Creating proper ingredients relationships
-- Building recipe list view in app
-- Fixing NaN display bug
