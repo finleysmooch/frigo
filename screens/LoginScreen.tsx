@@ -1,0 +1,194 @@
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../lib/supabase';
+
+interface LoginScreenProps {
+  onLoginSuccess: () => void;
+  onNavigateToSignup: () => void;
+}
+
+export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: LoginScreenProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert('Login Failed', error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Check if user_profile exists, create if not
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError && profileError.code === 'PGRST116') {
+          // Profile doesn't exist, create it
+          await supabase.from('user_profiles').insert({
+            id: data.user.id,
+            email: data.user.email,
+            username: data.user.email,
+            display_name: data.user.email?.split('@')[0],
+          });
+        }
+
+        onLoginSuccess();
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>Frigo</Text>
+          <Text style={styles.subtitle}>Strava for Cooking</Text>
+
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Log In</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.signupLink}
+              onPress={onNavigateToSignup}
+            >
+              <Text style={styles.signupText}>
+                Don't have an account? <Text style={styles.signupTextBold}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+    color: '#000',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 48,
+    color: '#666',
+  },
+  form: {
+    gap: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  button: {
+    backgroundColor: '#FC4C02',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  signupLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  signupText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  signupTextBold: {
+    fontWeight: '600',
+    color: '#FC4C02',
+  },
+});
