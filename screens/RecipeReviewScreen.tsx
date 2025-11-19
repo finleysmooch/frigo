@@ -1,34 +1,21 @@
 // screens/RecipeReviewScreen.tsx
-// Screen where user reviews and edits extracted recipe data before saving
+// Review and edit recipe before saving
+// UPDATED: Fixed navigation flow to prevent modal stacking
+// Date: November 19, 2025
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { ProcessedRecipe } from '../lib/types/recipeExtraction';
 import { saveRecipeToDatabase } from '../lib/services/recipeExtraction/recipeService';
+import { colors } from '../lib/theme';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RecipesStackParamList } from '../App';
 
-interface Props {
-  processedRecipe: ProcessedRecipe;
-  bookId?: string;
-  userId: string;
-  onSave: (recipeId: string) => void;
-  onCancel: () => void;
-}
+type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeReview'>;
 
-export function RecipeReviewScreen({
-  processedRecipe,
-  bookId,
-  userId,
-  onSave,
-  onCancel,
-}: Props) {
+export function RecipeReviewScreen({ route, navigation }: Props) {
+  const { processedRecipe, bookId, userId } = route.params;
+  
   const [title, setTitle] = useState(processedRecipe.recipe.title);
   const [saving, setSaving] = useState(false);
 
@@ -49,16 +36,31 @@ export function RecipeReviewScreen({
       );
 
       console.log('✅ Recipe saved successfully! Recipe ID:', recipeId);
-      Alert.alert('Success!', 'Recipe added successfully');
-      onSave(recipeId);
+      
+      // Show success alert
+      Alert.alert(
+        'Success!',
+        'Recipe added successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // FIXED: Use replace to prevent stacking, navigate to recipe detail
+              navigation.replace('RecipeDetail', { recipe: { id: recipeId } });
+            }
+          }
+        ]
+      );
       
     } catch (error) {
       console.error('❌ Error saving recipe:', error);
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
-    } finally {
       setSaving(false);
-      console.log('🏁 Save process complete');
     }
+  }
+
+  function handleCancel() {
+    navigation.goBack();
   }
 
   return (
@@ -78,58 +80,104 @@ export function RecipeReviewScreen({
         {processedRecipe.book_metadata && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Book Info</Text>
-            <Text>{processedRecipe.book_metadata.book_title}</Text>
-            {processedRecipe.book_metadata.page_number && (
-              <Text>Page {processedRecipe.book_metadata.page_number}</Text>
-            )}
+            <Text style={styles.infoText}>
+              {processedRecipe.book_metadata.title}
+              {processedRecipe.book_metadata.author && ` by ${processedRecipe.book_metadata.author}`}
+            </Text>
           </View>
         )}
 
-        {/* Ingredients */}
+        {/* Web source info */}
+        {processedRecipe.recipe.source_author && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recipe Author</Text>
+            <Text style={styles.infoText}>{processedRecipe.recipe.source_author}</Text>
+          </View>
+        )}
+
+        {/* Description */}
+        {processedRecipe.recipe.description && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.infoText}>{processedRecipe.recipe.description}</Text>
+          </View>
+        )}
+
+        {/* Times */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Ingredients ({processedRecipe.ingredients_with_matches.length})
-          </Text>
-          {processedRecipe.ingredients_with_matches.map((ing: any, index: any) => (
-            <View key={index} style={styles.ingredient}>
-              <Text style={styles.ingredientText}>{ing.original_text}</Text>
-              {ing.needs_review && (
-                <Text style={styles.warning}>⚠️ Needs review</Text>
-              )}
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Cooking Times</Text>
+          {processedRecipe.recipe.prep_time_min && (
+            <Text style={styles.infoText}>Prep: {processedRecipe.recipe.prep_time_min} min</Text>
+          )}
+          {processedRecipe.recipe.cook_time_min && (
+            <Text style={styles.infoText}>Cook: {processedRecipe.recipe.cook_time_min} min</Text>
+          )}
+          {processedRecipe.recipe.inactive_time_min && (
+            <Text style={styles.infoText}>Inactive: {processedRecipe.recipe.inactive_time_min} min</Text>
+          )}
         </View>
+
+        {/* Ingredients */}
+        <Text style={styles.sectionTitle}>
+          Ingredients ({processedRecipe.ingredients_with_matches.length})
+        </Text>
+        {processedRecipe.ingredients_with_matches.map((ingredient: any, index: number) => (
+          <View key={`ingredient-${index}`} style={styles.ingredientRow}>
+            <Text style={styles.ingredientText}>{ingredient.original_text}</Text>
+            {ingredient.needs_review && (
+              <Text style={styles.reviewBadge}>⚠️ Needs review</Text>
+            )}
+          </View>
+        ))}
 
         {/* Instructions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Instructions ({processedRecipe.instructions.length})
-          </Text>
-          {processedRecipe.instructions.map((inst: any) => (
-            <Text key={inst.step_number} style={styles.instruction}>
-              {inst.step_number}. {inst.instruction}
+        <Text style={styles.sectionTitle}>Instructions</Text>
+        {processedRecipe.instruction_sections && processedRecipe.instruction_sections.length > 0 ? (
+          processedRecipe.instruction_sections.map((section: any, sectionIndex: number) => (
+            <View key={`section-${sectionIndex}`} style={styles.instructionSection}>
+              <Text style={styles.instructionSectionTitle}>{section.section_title}</Text>
+              {section.steps.map((step: any, stepIndex: number) => (
+                <View key={`section-${sectionIndex}-step-${stepIndex}`} style={styles.instructionStep}>
+                  <Text style={styles.stepNumber}>{step.step_number}.</Text>
+                  <Text style={styles.stepText}>{step.instruction}</Text>
+                </View>
+              ))}
+            </View>
+          ))
+        ) : (
+          <Text style={styles.infoText}>Instructions will be organized into sections</Text>
+        )}
+
+        {/* Raw data info */}
+        {processedRecipe.raw_extraction_data && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📦 Additional Data Saved</Text>
+            <Text style={styles.infoTextSmall}>
+              Recipe notes, ingredient swaps, and other details have been saved for future use.
             </Text>
-          ))}
-        </View>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Actions */}
-      <View style={styles.actions}>
+      {/* Action Buttons */}
+      <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={onCancel}
+          style={styles.cancelButton}
+          onPress={handleCancel}
+          disabled={saving}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.button, styles.saveButton]}
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : 'Save Recipe'}
-          </Text>
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Recipe</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -143,17 +191,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
   header: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 20,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    color: '#333',
+    marginTop: 15,
+    marginBottom: 5,
   },
   input: {
     borderWidth: 1,
@@ -161,17 +212,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 16,
   },
   section: {
-    marginBottom: 24,
+    marginTop: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 10,
   },
-  ingredient: {
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  infoTextSmall: {
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 18,
+  },
+  ingredientRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -180,45 +242,73 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   ingredientText: {
-    flex: 1,
     fontSize: 14,
+    color: '#333',
+    flex: 1,
   },
-  warning: {
+  reviewBadge: {
     fontSize: 12,
     color: '#ff9800',
   },
-  instruction: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
+  instructionSection: {
+    marginBottom: 20,
   },
-  actions: {
+  instructionSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 10,
+  },
+  instructionStep: {
     flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    gap: 12,
+    marginBottom: 10,
   },
-  button: {
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 8,
+    minWidth: 20,
+  },
+  stepText: {
+    fontSize: 14,
+    color: '#333',
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+    lineHeight: 20,
+  },
+  footer: {
+    flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 10,
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#333',
     fontSize: 16,
     fontWeight: '600',
+    color: '#666',
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    flex: 2,
+    padding: 15,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    color: '#fff',
   },
 });

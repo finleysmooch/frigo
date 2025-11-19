@@ -12,6 +12,7 @@ import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import { AddRecipeFromPhotoScreen } from './screens/AddRecipeFromPhotoScreen';
 import { AddRecipeFromUrlScreen } from './screens/AddRecipeFromUrlScreen';
 import { MissingIngredientsScreen } from './screens/MissingIngredientsScreen';
+import { RecipeReviewScreen } from './screens/RecipeReviewScreen';
 import CookingScreen from './screens/CookingScreen';
 import MyPostsScreen from './screens/MyPostsScreen';
 import AdminScreen from './screens/AdminScreen';
@@ -60,6 +61,11 @@ export type RecipesStackParamList = {
     missingIngredients: ProcessedIngredient[];
     allIngredients: ProcessedIngredient[];
     onComplete: (updatedIngredients: ProcessedIngredient[]) => void;
+  };
+  RecipeReview: {
+    processedRecipe: any;
+    bookId?: string;
+    userId: string;
   };
 };
 
@@ -187,6 +193,14 @@ function RecipesStackNavigator() {
       <RecipesStack.Screen 
         name="MissingIngredients" 
         component={MissingIngredientsScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal'
+        }}
+      />
+      <RecipesStack.Screen 
+        name="RecipeReview" 
+        component={RecipeReviewScreen}
         options={{ 
           headerShown: false, 
           presentation: 'modal'

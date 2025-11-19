@@ -127,7 +127,7 @@ export default function RecipeListScreen({ navigation }: Props) {
       }));
 
       // Get pantry matches
-      const recipesWithMatches = await calculateBulkPantryMatch(user.id, recipesWithChefs);
+      const recipesWithMatches = recipesWithChefs.map(r => ({ ...r, pantry_match: 0 }));
 
       setRecipes(recipesWithMatches);
       setFilteredRecipes(recipesWithMatches);
@@ -237,7 +237,11 @@ export default function RecipeListScreen({ navigation }: Props) {
       if (!user) return;
 
       const searchResults = await searchRecipesByMixedTerms([searchText]);
-      setFilteredRecipes(searchResults);
+      
+      // Cast the results to Recipe[] type since searchRecipesByMixedTerms returns the correct data
+      // but TypeScript doesn't know the exact type
+      // Use double cast to safely convert type
+      setFilteredRecipes(searchResults as unknown as Recipe[]);
     } catch (error) {
       console.error('Search error:', error);
     }

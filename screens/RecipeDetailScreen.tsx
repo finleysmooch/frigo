@@ -88,6 +88,7 @@ interface Recipe {
   instructions: string[];
   ingredients: string[];
   chef_name?: string;
+  chef_id?: string;
   times_cooked?: number;
   book_id?: string;
   page_number?: number;
@@ -264,6 +265,11 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             id,
             title,
             author
+          ),
+          chef:chefs (
+            id,
+            name,
+            website
           )
         `)
         .eq('id', recipePreview.id)
@@ -281,7 +287,8 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         cook_time_min: recipeData.cook_time_min || 0,
         instructions: recipeData.instructions || [],
         ingredients: recipeData.ingredients || [],
-        chef_name: recipeData.chef_name,
+        chef_name: recipeData.chef?.name || recipeData.chef_name,  // Use chef relationship
+        chef_id: recipeData.chef_id,
         times_cooked: recipeData.times_cooked || 0,
         book_id: recipeData.book_id,
         page_number: recipeData.page_number,
@@ -292,9 +299,16 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
       setRecipe(formattedRecipe);
 
       const sections = await getInstructionSections(recipeData.id);
+      console.log('📋 Instruction sections loaded:', sections);
+      console.log('📋 Section count:', sections?.length || 0);
       if (sections && sections.length > 0) {
+        console.log('📋 First section:', JSON.stringify(sections[0], null, 2));
+        console.log('📋 First section steps:', sections[0].steps?.length || 0);
         setInstructionSections(sections);
         setExpandedSections(sections.map(s => s.id));
+      } else {
+        console.log('⚠️ No instruction sections found - check database!');
+        console.log('⚠️ Recipe ID:', recipeData.id);
       }
 
       const { data: ingredientsData, error: ingredientsError } = await supabase
@@ -386,7 +400,12 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
   const handleChefPress = () => {
     if (recipe?.chef_name) {
-      navigation.navigate('AuthorView' as any, { chefName: recipe.chef_name });
+      // Get chef_id from the recipe data
+      const chefId = (recipe as any).chef_id;
+      navigation.navigate('AuthorView' as any, { 
+        chefName: recipe.chef_name,
+        chefId: chefId  // Pass the chef ID
+      });
     }
   };
 
@@ -811,9 +830,19 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           )}
 
           <View style={styles.metaRow}>
+            {recipe.prep_time_min > 0 && (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>🔪 Prep: {recipe.prep_time_min} min</Text>
+              </View>
+            )}
+            {recipe.cook_time_min > 0 && (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>🔥 Cook: {recipe.cook_time_min} min</Text>
+              </View>
+            )}
             {totalTime > 0 && (
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>⏱️ {totalTime} min</Text>
+                <Text style={styles.metaLabel}>⏱️ Total: {totalTime} min</Text>
               </View>
             )}
             {recipe.times_cooked !== undefined && recipe.times_cooked > 0 && (
@@ -974,7 +1003,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                     if (isEditing) {
                       return (
                         <InlineEditableIngredient
-                          key={globalIndex}
+                           key={`${family}-ingredient-${ingredient.id}-${globalIndex}`}
                           originalText={displayText}
                           onSave={(newText) => handleSaveIngredientEdit(globalIndex, newText)}
                           onCancel={handleCancelIngredientEdit}
@@ -987,7 +1016,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                     const showMarkup = viewMode === 'markup' && ingredient._annotation;
 
                     return (
-                      <View key={globalIndex} style={styles.ingredientRow}>
+                      <View key={`ingredient-${ingredient.id}-${globalIndex}-${family}-${familyIndex}`} style={styles.ingredientRow}>
                         <View style={styles.ingredient}>
                           <Text style={hasSufficient ? styles.ingredientHave : styles.ingredientNeed}>
                             {hasSufficient ? '✓' : '○'}
@@ -1112,7 +1141,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                             } : undefined;
 
                             return (
-                              <View key={step.id} style={styles.stepRow}>
+                              <View key={`section-${section.id}-step-${stepIndex}-${step.step_number}`} style={styles.stepRow}>
                                 {isEditMode && (
                                   <View style={styles.stepControls}>
                                     <TouchableOpacity
@@ -1182,7 +1211,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                       : undefined;
 
                     return (
-                      <View key={index} style={styles.stepRow}>
+                      <View key={`flat-instruction-${index}`} style={styles.stepRow}>
                         {isEditMode && (
                           <View style={styles.stepControls}>
                             <TouchableOpacity

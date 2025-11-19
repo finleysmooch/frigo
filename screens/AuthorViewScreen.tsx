@@ -27,11 +27,18 @@ interface Chef {
   website?: string;
 }
 
+interface RecipeForAuthorView extends RecipeWithBook {
+  page_number?: number;
+  prep_time_min?: number;
+  cook_time_min?: number;
+  cuisine_types?: string[];
+}
+
 export default function AuthorViewScreen({ route, navigation }: Props) {
   const { chefName } = route.params;
   const [chef, setChef] = useState<Chef | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
-  const [recipes, setRecipes] = useState<RecipeWithBook[]>([]);
+  const [recipes, setRecipes] = useState<RecipeForAuthorView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,41 +70,51 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
       if (booksError) throw booksError;
       setBooks(booksData as Book[]);
 
-      // Fetch all recipes by this chef (from any book or direct attribution)
-      const { data: recipesData, error: recipesError } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          title,
-          description,
-          image_url,
-          prep_time_min,
-          cook_time_min,
-          cuisine_types,
-          book_id,
-          page_number,
-          book:books (
-            title
-          )
-        `)
-        .or(`chef_id.eq.${chef?.id},source_author.ilike.%${chefName}%`)
-        .order('created_at', { ascending: false });
+  // Fetch all recipes by this chef (from any book or direct attribution)
+        let recipesQuery = supabase
+          .from('recipes')
+          .select(`
+            id,
+            title,
+            description,
+            image_url,
+            prep_time_min,
+            cook_time_min,
+            cuisine_types,
+            book_id,
+            page_number,
+            book:books (
+              title
+            )
+          `);
 
-      if (recipesError) throw recipesError;
+        // Build query based on what data we have
+        if (chefData?.id) {
+          // If we have a chef ID, search by both ID and name
+          recipesQuery = recipesQuery.or(`chef_id.eq.${chefData.id},source_author.ilike.%${chefName}%`);
+        } else {
+          // If no chef ID, search only by name
+          recipesQuery = recipesQuery.ilike('source_author', `%${chefName}%`);
+        }
 
-      const formattedRecipes = recipesData.map((r: any) => ({
-        ...r,
-        book_title: r.book?.title,
-      }));
+        const { data: recipesData, error: recipesError } = await recipesQuery
+          .order('created_at', { ascending: false });
 
-      setRecipes(formattedRecipes as RecipeWithBook[]);
-    } catch (error) {
-      console.error('Error loading author:', error);
-      Alert.alert('Error', 'Failed to load author details');
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (recipesError) throw recipesError;
+
+        const formattedRecipes = recipesData.map((r: any) => ({
+          ...r,
+          book_title: r.book?.title,
+        }));
+
+        setRecipes(formattedRecipes as RecipeForAuthorView[]);
+      } catch (error) {
+        console.error('Error loading author:', error);
+        Alert.alert('Error', 'Failed to load author details');
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const handleRecipePress = (recipe: RecipeWithBook) => {
     navigation.navigate('RecipeDetail', { recipe });

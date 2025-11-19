@@ -1,5 +1,6 @@
 // services/recipeExtraction/chefService.ts
 // Handle chef lookup and creation from book authors
+// UPDATED: Now stores website URL when creating from web recipes
 
 import { supabase } from '../../supabase';
 
@@ -8,6 +9,7 @@ export interface Chef {
   name: string;
   bio?: string;
   image_url?: string;
+  website?: string;  // ADDED
   created_at: string;
 }
 
@@ -39,19 +41,24 @@ export async function findChefByName(name: string): Promise<Chef | null> {
 
 /**
  * Create new chef record
+ * UPDATED: Now accepts optional website URL
  */
-export async function createChef(name: string): Promise<Chef> {
+export async function createChef(name: string, website?: string): Promise<Chef> {
   if (!name || !name.trim()) {
     throw new Error('Chef name is required');
   }
 
   console.log('👨‍🍳 Creating new chef:', name);
+  if (website) {
+    console.log('🌐 With website:', website);
+  }
 
   try {
     const { data, error } = await supabase
       .from('chefs')
       .insert({
         name: name.trim(),
+        website: website || null,  // ADDED
       })
       .select()
       .single();
@@ -71,8 +78,12 @@ export async function createChef(name: string): Promise<Chef> {
 /**
  * Get or create chef by name
  * Returns existing chef if found, creates new one if not
+ * UPDATED: Now accepts optional website URL
  */
-export async function getOrCreateChef(name: string | null | undefined): Promise<Chef | null> {
+export async function getOrCreateChef(
+  name: string | null | undefined, 
+  website?: string
+): Promise<Chef | null> {
   if (!name || !name.trim()) {
     console.log('⚠️ No chef name provided');
     return null;
@@ -80,16 +91,35 @@ export async function getOrCreateChef(name: string | null | undefined): Promise<
 
   console.log('\n👨‍🍳 ===== CHEF LOOKUP =====');
   console.log('Chef name:', name);
+  if (website) {
+    console.log('Website:', website);
+  }
 
   // Try to find existing chef
   let chef = await findChefByName(name);
 
   if (chef) {
     console.log('✅ Found existing chef:', chef.name, `(${chef.id})`);
+    
+    // ADDED: Update website if chef exists but doesn't have one
+    if (website && !chef.website) {
+      console.log('📝 Updating chef with website...');
+      const { data, error } = await supabase
+        .from('chefs')
+        .update({ website })
+        .eq('id', chef.id)
+        .select()
+        .single();
+      
+      if (!error && data) {
+        chef = data as Chef;
+        console.log('✅ Chef website updated');
+      }
+    }
   } else {
     // Create new chef
     console.log('📝 Chef not found, creating new chef...');
-    chef = await createChef(name);
+    chef = await createChef(name, website);
     console.log('✅ New chef created:', chef.name, `(${chef.id})`);
   }
 
@@ -103,12 +133,27 @@ export async function getOrCreateChef(name: string | null | undefined): Promise<
  * If book has an author, find or create a chef with that name
  */
 export async function getChefFromBookAuthor(
-  bookAuthor: string | null | undefined
+  bookAuthor: string | null | undefined,
+  website?: string  // ADDED
 ): Promise<string | null> {
   if (!bookAuthor) {
     return null;
   }
 
-  const chef = await getOrCreateChef(bookAuthor);
+  const chef = await getOrCreateChef(bookAuthor, website);
   return chef?.id || null;
+}
+
+/**
+ * Extract domain from URL for website field
+ * Example: "https://www.ambitiouskitchen.com/recipe" -> "https://ambitiouskitchen.com"
+ */
+export function extractWebsiteFromUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.replace('www.', '');
+    return `https://${hostname}`;
+  } catch {
+    return url;
+  }
 }

@@ -1,6 +1,7 @@
 // lib/services/recipeExtraction/unifiedParser.ts
 // Unified parser for standardized recipe data
 // Takes text from web scraper or image OCR and structures it for database
+// UPDATED: Now preserves raw extraction data for future parsing
 
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_API_KEY } from '@env';
@@ -26,6 +27,7 @@ CRITICAL RULES:
 6. For servings: extract the number only (e.g., "12 cups" = 12, "Serves 4-6" = 5)
 7. Group instructions into logical sections with descriptive titles
 8. If uncertain about any value, use null rather than guessing
+9. ALWAYS extract the author if available
 
 FRACTION CONVERSIONS:
 - ½, 1/2 → 0.5
@@ -96,6 +98,8 @@ Score 0-100 and assign level:
   "recipe": {
     "title": "string",
     "description": "string or null",
+    "source_author": "string or null",
+    "image_url": "string or null",
     "servings": number or null,
     "prep_time_min": number or null,
     "cook_time_min": number or null,
@@ -168,7 +172,7 @@ export async function parseStandardizedRecipe(
 
     // Use Claude Haiku for cheaper parsing
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-20250514', // Much cheaper than Sonnet
+      model: 'claude-3-haiku-20240307',
       max_tokens: 3000,
       messages: [
         {
@@ -199,97 +203,76 @@ export async function parseStandardizedRecipe(
     // Parse JSON
     const parsedData: ExtractedRecipeData = JSON.parse(responseText);
 
-    console.log('✅ Recipe parsed successfully');
-    console.log(`📊 Parsed: ${parsedData.ingredients.length} ingredients, ${parsedData.instruction_sections?.length || 0} sections`);
-
-    // Validate instruction sections exist
-    if (!parsedData.instruction_sections || parsedData.instruction_sections.length === 0) {
-      console.warn('⚠️ No instruction sections found, creating default section');
-      parsedData.instruction_sections = [
-        {
-          section_title: 'Instructions',
-          section_order: 1,
-          steps: [],
-        },
-      ];
+    // Validate we got required fields
+    if (!parsedData.recipe || !parsedData.ingredients || !parsedData.instruction_sections) {
+      throw new Error('Parsed data missing required fields');
     }
 
-    return parsedData;
+    console.log('✅ Parser validation passed');
+    console.log(`📊 Parsed: ${parsedData.ingredients.length} ingredients, ${parsedData.instruction_sections.length} sections`);
+
+    // FIXED: Force preserve author from source (Claude often misses it)
+    if (standardizedData.source.author) {
+      parsedData.recipe.source_author = standardizedData.source.author;
+      console.log('✅ Preserved author from source:', standardizedData.source.author);
+    } else if (standardizedData.rawText.author) {
+      parsedData.recipe.source_author = standardizedData.rawText.author;
+      console.log('✅ Preserved author from rawText:', standardizedData.rawText.author);
+    }
+
+    // FIXED: Force preserve image URL (Claude often misses it)
+    if (standardizedData.rawText.imageUrl) {
+      parsedData.recipe.image_url = standardizedData.rawText.imageUrl;
+      console.log('✅ Preserved image URL');
+    }
+
+    // FIXED: Force preserve description if available
+    if (standardizedData.rawText.description && !parsedData.recipe.description) {
+      parsedData.recipe.description = standardizedData.rawText.description;
+      console.log('✅ Preserved description');
+    }
+
+    // ADD: Build raw extraction data blob for future parsing
+    const rawExtractionData = {
+      extraction_date: new Date().toISOString(),
+      source_url: standardizedData.source.url,
+      source_site: standardizedData.source.siteName,
+      raw_data: {
+        title: standardizedData.rawText.title,
+        author: standardizedData.source.author,
+        description: standardizedData.rawText.description,
+        image_url: standardizedData.rawText.imageUrl,
+        notes: standardizedData.rawText.notes,
+        ingredient_swaps: standardizedData.rawText.ingredientSwaps,
+        storage_notes: standardizedData.rawText.storageNotes,
+        category: standardizedData.rawText.category,
+        cuisine: standardizedData.rawText.cuisine,
+        tags: standardizedData.rawText.tags,
+        prep_time: standardizedData.rawText.prepTime,
+        cook_time: standardizedData.rawText.cookTime,
+        total_time: standardizedData.rawText.totalTime,
+        servings: standardizedData.rawText.servings,
+        yield_text: standardizedData.rawText.yieldText,
+        ingredients: standardizedData.rawText.ingredients,
+        instructions: standardizedData.rawText.instructions,
+      },
+      parsed_data: {
+        recipe: parsedData.recipe,
+        ingredients_count: parsedData.ingredients.length,
+        instruction_sections_count: parsedData.instruction_sections.length,
+        ai_difficulty: parsedData.ai_difficulty_assessment,
+      },
+    };
+
+    // Add raw extraction data to result
+    return {
+      ...parsedData,
+      raw_extraction_data: rawExtractionData,
+    };
 
   } catch (error: any) {
-    console.error('❌ Error parsing recipe:', error);
-    
-    if (error.message?.includes('JSON')) {
-      throw new Error('Failed to parse recipe data. The recipe format may be invalid.');
-    }
-    
-    throw new Error(`Recipe parsing failed: ${error.message}`);
+    console.error('❌ Parser error:', error);
+    console.error('Error details:', error.message);
+    throw new Error(`Failed to parse recipe: ${error.message}`);
   }
-}
-
-/**
- * Helper: Parse time string to minutes
- * Useful for quick conversions without AI
- */
-export function parseTimeToMinutes(timeString: string): number | null {
-  if (!timeString) return null;
-
-  const lower = timeString.toLowerCase().trim();
-
-  // Handle ISO duration format (PT1H30M)
-  if (lower.startsWith('pt')) {
-    const hours = lower.match(/(\d+)h/);
-    const minutes = lower.match(/(\d+)m/);
-    return (hours ? parseInt(hours[1]) * 60 : 0) + (minutes ? parseInt(minutes[1]) : 0);
-  }
-
-  // Handle common formats
-  let total = 0;
-
-  // Hours
-  const hoursMatch = lower.match(/(\d+)\s*(hour|hr|h)/);
-  if (hoursMatch) {
-    total += parseInt(hoursMatch[1]) * 60;
-  }
-
-  // Minutes
-  const minutesMatch = lower.match(/(\d+)\s*(minute|min|m)/);
-  if (minutesMatch) {
-    total += parseInt(minutesMatch[1]);
-  }
-
-  // If no units found, assume minutes
-  if (total === 0) {
-    const numberMatch = lower.match(/(\d+)/);
-    if (numberMatch) {
-      total = parseInt(numberMatch[1]);
-    }
-  }
-
-  return total > 0 ? total : null;
-}
-
-/**
- * Helper: Parse servings from string
- */
-export function parseServings(servingsString: string): number | null {
-  if (!servingsString) return null;
-
-  const lower = servingsString.toLowerCase().trim();
-
-  // Handle ranges (e.g., "4-6 servings") - take middle
-  const rangeMatch = lower.match(/(\d+)\s*-\s*(\d+)/);
-  if (rangeMatch) {
-    const start = parseInt(rangeMatch[1]);
-    const end = parseInt(rangeMatch[2]);
-    return Math.round((start + end) / 2);
-  }
-
-  // Extract first number found
-  const numberMatch = lower.match(/(\d+)/);
-  if (numberMatch) {
-    return parseInt(numberMatch[1]);
-  }
-
-  return null;
 }

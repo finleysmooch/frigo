@@ -1,8 +1,9 @@
 // screens/AddRecipeFromUrlScreen.tsx
 // Screen for adding recipes from web URLs
-// Similar flow to AddRecipeFromPhotoScreen but for web scraping
+// UPDATED: Fixed navigation issue (no more modal overlay), improved URL validation
+// Date: November 19, 2025
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text,
@@ -19,9 +20,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { extractRecipeFromUrl, isLikelyRecipeUrl, getDomainFromUrl } from '../lib/services/recipeExtraction/webExtractor';
 import { parseStandardizedRecipe } from '../lib/services/recipeExtraction/unifiedParser';
 import { matchIngredientsToDatabase } from '../lib/services/recipeExtraction/ingredientMatcher';
-import { saveRecipeToDatabase } from '../lib/services/recipeExtraction/recipeService';
-import { saveInstructionSections } from '../lib/services/instructionSectionsService';
-import { RecipeReviewScreen } from './RecipeReviewScreen';
 import { RecipesStackParamList } from '../App';
 import { ProcessedRecipe, ProcessedIngredient  } from '../lib/types/recipeExtraction';
 import { colors } from '../lib/theme';
@@ -47,7 +45,8 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
 
   // Handle navigation callbacks
   const handleComplete = (recipeId: string) => {
-    navigation.navigate('RecipeDetail', { recipe: { id: recipeId } });
+    // FIXED: Use replace instead of navigate to avoid modal stacking
+    navigation.replace('RecipeDetail', { recipe: { id: recipeId } });
   };
 
   const handleCancel = () => {
@@ -67,11 +66,23 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
       fullUrl = 'https://' + fullUrl;
     }
 
-    // Quick validation
-    if (!isLikelyRecipeUrl(fullUrl)) {
+    // IMPROVED: More lenient URL validation
+    const urlValidation = validateRecipeUrl(fullUrl);
+    
+    if (!urlValidation.isValid) {
+      Alert.alert(
+        'Invalid URL',
+        urlValidation.message,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Only warn if URL looks suspicious (but still allow trying)
+    if (urlValidation.warning) {
       Alert.alert(
         'Not a Recipe URL?',
-        'This URL doesn\'t look like a recipe page. Do you want to try anyway?',
+        urlValidation.warning + ' Do you want to try anyway?',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Try Anyway', onPress: () => extractFromUrl(fullUrl) },
@@ -92,55 +103,67 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
 
       const standardizedData = await extractRecipeFromUrl(fullUrl);
 
+      console.log('✅ Standardized data received');
+      console.log('Author:', standardizedData.source.author || 'none');
+      console.log('Description:', standardizedData.rawText.description || 'none');
+      console.log('Image:', standardizedData.rawText.imageUrl || 'none');
+      console.log('Notes:', standardizedData.rawText.notes || 'none');
+      console.log('Swaps:', standardizedData.rawText.ingredientSwaps || 'none');
+
       // Step 2: Parse with Claude
       setStatus('parsing');
       setStatusMessage('Understanding recipe structure...');
 
       const extractedData = await parseStandardizedRecipe(standardizedData);
 
+      console.log('📦 Extracted data received');
+      console.log('Recipe title:', extractedData.recipe.title);
+      console.log('Recipe author:', extractedData.recipe.source_author || 'none');
+      console.log('Recipe description:', extractedData.recipe.description || 'none');
+      console.log('Recipe image:', extractedData.recipe.image_url || 'none');
+      console.log('Prep time:', extractedData.recipe.prep_time_min || 'none');
+      console.log('Cook time:', extractedData.recipe.cook_time_min || 'none');
+      console.log('Ingredients count:', extractedData.ingredients?.length || 0);
+      console.log('Instruction sections:', extractedData.instruction_sections?.length || 0);
+      console.log('Raw extraction data:', extractedData.raw_extraction_data ? 'YES' : 'NO');
+      
       // Step 3: Match ingredients
       setStatus('matching');
       setStatusMessage('Matching ingredients to database...');
 
-      const ingredientsWithMatches = await matchIngredientsToDatabase(
-        extractedData.ingredients
+      const ingredientsWithMatches = await matchIngredientsToDatabase(extractedData);
+
+      console.log(`🔍 Matched ${ingredientsWithMatches.ingredients_with_matches.filter(i => i.ingredient_id).length}/${ingredientsWithMatches.ingredients_with_matches.length} ingredients`);
+      
+      // Step 4: Check for missing ingredients
+      const missingIngredients = ingredientsWithMatches.ingredients_with_matches.filter(
+        (ing) => ing.ingredient_id === null
       );
 
-      console.log(`🔍 Matched ${ingredientsWithMatches.filter(i => i.ingredient_id).length}/${ingredientsWithMatches.length} ingredients`);
-
-      // Step 4: Prepare for review
-      const processed: ProcessedRecipe = {
-        ...extractedData,
-        ingredients_with_matches: ingredientsWithMatches,
-        book: null, // Web recipes don't have books
-        needsOwnershipVerification: false,
-      };
-
-      // Step 5: Check for missing ingredients
-      const missingIngredients = ingredientsWithMatches.filter(
-        (ing) => ing.ingredient_id === null
-        );
-
-        if (missingIngredients.length > 0) {
-            console.log(`⚠️ Found ${missingIngredients.length} missing ingredients`);
+      if (missingIngredients.length > 0) {
+        console.log(`⚠️ Found ${missingIngredients.length} missing ingredients`);
         
-            navigation.navigate('MissingIngredients', {
-                missingIngredients,
-                allIngredients: ingredientsWithMatches,
-                onComplete: (updatedIngredients: ProcessedIngredient[]) => {
-                const updatedProcessed: ProcessedRecipe = {
-                    ...processed,
-                    ingredients_with_matches: updatedIngredients,
-                };
-                setProcessedRecipe(updatedProcessed);
-                setStatus('reviewing');
-                },
-            });
-            return;
-        }
+        navigation.navigate('MissingIngredients', {
+          missingIngredients,
+          allIngredients: ingredientsWithMatches.ingredients_with_matches,
+          onComplete: (updatedIngredients: ProcessedIngredient[]) => {
+            const updatedProcessed: ProcessedRecipe = {
+              ...ingredientsWithMatches,
+              ingredients_with_matches: updatedIngredients,
+            };
+            setProcessedRecipe(updatedProcessed);
+            setStatus('reviewing');
+          },
+        });
+        return;
+      }
 
-    // No missing ingredients, proceed to review
-      setProcessedRecipe(processed);
+      // No missing ingredients, proceed to review
+      console.log('🎯 Final processed recipe ready');
+      console.log('Has instruction_sections:', !!ingredientsWithMatches.instruction_sections);
+      console.log('Has raw_extraction_data:', !!ingredientsWithMatches.raw_extraction_data);
+
+      setProcessedRecipe(ingredientsWithMatches);
       setStatus('reviewing');
 
     } catch (error: any) {
@@ -159,16 +182,28 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
     }
   }
 
-  // Render review screen
+  // FIXED: Navigate to RecipeReview when status changes
+  // useEffect must be at component top level, before any returns
+  useEffect(() => {
+    if (status === 'reviewing' && processedRecipe) {
+      console.log('📋 Navigating to RecipeReview screen');
+      navigation.navigate('RecipeReview', {
+        processedRecipe,
+        bookId: undefined,
+        userId,
+      });
+      // Reset status to prevent re-navigation
+      setStatus('input');
+    }
+  }, [status, processedRecipe]);
+
+  // Show loading while preparing review
   if (status === 'reviewing' && processedRecipe) {
     return (
-      <RecipeReviewScreen
-        processedRecipe={processedRecipe}
-        bookId={undefined}
-        userId={userId}
-        onSave={handleComplete}
-        onCancel={handleCancel}
-      />
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Preparing review...</Text>
+      </View>
     );
   }
 
@@ -229,6 +264,7 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
                 • Bon Appétit{'\n'}
                 • NYT Cooking{'\n'}
                 • Serious Eats{'\n'}
+                • Ambitious Kitchen{'\n'}
                 • And many more!
               </Text>
             </View>
@@ -260,11 +296,69 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
           <View style={styles.errorSection}>
             <Text style={styles.errorIcon}>⚠️</Text>
             <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => setStatus('input')}
+            >
+              <Text style={styles.retryButtonText}>Try Another URL</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+/**
+ * Improved URL validation
+ * Returns more lenient validation with warnings instead of hard blocks
+ */
+function validateRecipeUrl(url: string): { isValid: boolean; message?: string; warning?: string } {
+  // Basic URL format check
+  try {
+    const urlObj = new URL(url);
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+      return { isValid: false, message: 'URL must start with http:// or https://' };
+    }
+  } catch {
+    return { isValid: false, message: 'Invalid URL format' };
+  }
+
+  const lowerUrl = url.toLowerCase();
+
+  // Hard blocks (definitely not recipes)
+  const blockedPatterns = [
+    'youtube.com', 'youtu.be', // Video sites
+    'instagram.com', 'tiktok.com', // Social media (for now)
+    'pinterest.com', // Usually links to other sites
+    'google.com', 'bing.com', // Search engines
+  ];
+
+  for (const pattern of blockedPatterns) {
+    if (lowerUrl.includes(pattern)) {
+      return { 
+        isValid: false, 
+        message: `Cannot extract recipes from ${pattern}. Please use the direct recipe website.` 
+      };
+    }
+  }
+
+  // Soft warnings (might be recipes but look unusual)
+  const recipeIndicators = [
+    '/recipe/', '/recipes/', 'recipe?', 'recipes?', '-recipe', 'recipe-',
+    '/cook/', '/cooking/', '/food/', '/dish/', '/meal/',
+  ];
+
+  const hasRecipeIndicator = recipeIndicators.some(indicator => lowerUrl.includes(indicator));
+
+  if (!hasRecipeIndicator) {
+    return {
+      isValid: true,
+      warning: 'This URL doesn\'t look like a typical recipe page.'
+    };
+  }
+
+  return { isValid: true };
 }
 
 const styles = StyleSheet.create({
@@ -278,15 +372,15 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 30,
   },
   backButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   backButtonText: {
     fontSize: 24,
@@ -314,16 +408,15 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 15,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   extractButton: {
     backgroundColor: colors.primary,
-    padding: 18,
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 8,
     alignItems: 'center',
   },
   extractButtonText: {
@@ -332,9 +425,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   exampleSection: {
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: '#f8f8f8',
+    padding: 15,
+    borderRadius: 8,
   },
   exampleTitle: {
     fontSize: 14,
@@ -345,32 +438,33 @@ const styles = StyleSheet.create({
   exampleText: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   loadingSection: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 60,
+    paddingVertical: 50,
   },
   loadingText: {
+    marginTop: 20,
     fontSize: 16,
     color: '#666',
-    marginTop: 20,
     textAlign: 'center',
   },
   progressSteps: {
     flexDirection: 'row',
-    marginTop: 40,
-    gap: 20,
+    marginTop: 30,
+    gap: 10,
   },
   progressStep: {
-    padding: 10,
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
   },
   progressStepActive: {
-    backgroundColor: colors.primary + '20',
+    backgroundColor: colors.primary,
   },
   progressStepText: {
     fontSize: 12,
@@ -380,16 +474,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 60,
+    paddingVertical: 50,
   },
   errorIcon: {
-    fontSize: 60,
+    fontSize: 48,
     marginBottom: 20,
   },
   errorText: {
     fontSize: 16,
-    color: '#e74c3c',
+    color: '#666',
     textAlign: 'center',
+    marginBottom: 20,
     paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    padding: 15,
+    borderRadius: 8,
+    paddingHorizontal: 30,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

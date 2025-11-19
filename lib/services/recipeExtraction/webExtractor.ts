@@ -1,6 +1,8 @@
 // lib/services/recipeExtraction/webExtractor.ts
 // Web recipe extraction service
 // Calls Supabase Edge Function to scrape recipe from URL
+// UPDATED: Added image_url, notes, and ingredient_swaps fields
+// Date: November 19, 2025
 
 import { supabase } from '../../supabase';
 
@@ -15,13 +17,15 @@ export interface StandardizedRecipeData {
     title: string;
     author?: string;
     description?: string;
+    imageUrl?: string; // NEW: Recipe main image
     prepTime?: string;
     cookTime?: string;
     totalTime?: string;
     servings?: string;
     ingredients: string[];
     instructions: string[];
-    notes?: string;
+    notes?: string; // NEW: Recipe notes from website
+    ingredientSwaps?: string; // NEW: Ingredient substitutions
     yieldText?: string;
     category?: string;
     cuisine?: string;
@@ -34,7 +38,7 @@ export interface StandardizedRecipeData {
  * Extract recipe from URL using Supabase Edge Function
  * 
  * @param url - Recipe URL to scrape
- * @returns Standardized recipe data
+ * @returns Standardized recipe data with all extracted fields
  */
 export async function extractRecipeFromUrl(url: string): Promise<StandardizedRecipeData> {
   try {
@@ -74,6 +78,11 @@ export async function extractRecipeFromUrl(url: string): Promise<StandardizedRec
 
     console.log('✅ Recipe extracted successfully');
     console.log(`📝 Found ${data.rawText.ingredients.length} ingredients, ${data.rawText.instructions.length} steps`);
+    console.log('📸 Image:', data.rawText.imageUrl ? 'YES' : 'NO');
+    console.log('👨‍🍳 Author:', data.source.author || 'none');
+    console.log('📋 Description:', data.rawText.description ? 'YES' : 'NO');
+    console.log('📝 Notes:', data.rawText.notes ? 'YES' : 'NO');
+    console.log('🔄 Ingredient Swaps:', data.rawText.ingredientSwaps ? 'YES' : 'NO');
 
     return data as StandardizedRecipeData;
 
@@ -97,24 +106,59 @@ function isValidUrl(urlString: string): boolean {
 
 /**
  * Test if a URL is likely a recipe page (pre-validation)
- * This is a quick check before attempting full extraction
+ * This is a LENIENT check - we prefer false positives over false negatives
  */
 export function isLikelyRecipeUrl(url: string): boolean {
   if (!isValidUrl(url)) return false;
 
   const lowerUrl = url.toLowerCase();
   
-  // Common recipe URL patterns
-  const recipeIndicators = [
-    '/recipe/',
-    '/recipes/',
-    'recipe?',
-    'recipes?',
-    '-recipe',
-    'recipe-',
+  // Hard blocks (definitely not recipes)
+  const blockedPatterns = [
+    'youtube.com',
+    'youtu.be',
+    'instagram.com',
+    'tiktok.com',
+    'pinterest.com',
+    'google.com',
+    'bing.com',
   ];
 
-  return recipeIndicators.some(indicator => lowerUrl.includes(indicator));
+  for (const pattern of blockedPatterns) {
+    if (lowerUrl.includes(pattern)) {
+      return false;
+    }
+  }
+
+  // If it has recipe indicators, it's probably a recipe
+  const recipeIndicators = [
+    '/recipe/', '/recipes/', 'recipe?', 'recipes?', '-recipe', 'recipe-',
+    '/cook/', '/cooking/', '/food/', '/dish/', '/meal/',
+  ];
+
+  const hasIndicator = recipeIndicators.some(indicator => lowerUrl.includes(indicator));
+  
+  // CHANGED: Default to true if no clear blocker
+  // We'd rather try to extract and fail than reject valid recipes
+  return hasIndicator || !hasObviousNonRecipePattern(lowerUrl);
+}
+
+/**
+ * Check if URL has patterns that clearly indicate it's not a recipe
+ */
+function hasObviousNonRecipePattern(url: string): boolean {
+  const nonRecipePatterns = [
+    '/category/',
+    '/tag/',
+    '/author/',
+    '/search',
+    '/about',
+    '/contact',
+    '/blog-post',
+    '/article',
+  ];
+
+  return nonRecipePatterns.some(pattern => url.includes(pattern));
 }
 
 /**
@@ -127,4 +171,20 @@ export function getDomainFromUrl(url: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * Get a user-friendly site name
+ */
+export function getFriendlySiteName(url: string): string {
+  const domain = getDomainFromUrl(url);
+  
+  // Convert to title case and remove TLD
+  const name = domain
+    .split('.')[0]
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+    
+  return name;
 }

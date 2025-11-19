@@ -170,6 +170,8 @@ export interface ExtractedRecipeData {
   recipe: {
     title: string;
     description?: string;
+    image_url?: string; // NEW: Recipe image URL
+    source_author?: string; // NEW: Author name for chef creation
     servings?: number;
     prep_time_min?: number;
     cook_time_min?: number;
@@ -204,12 +206,22 @@ export interface ExtractedRecipeData {
   };
   ingredients: ExtractedIngredient[];
   
-  // NEW: Instruction sections instead of flat array
+  // Instruction sections (for structured instructions)
   instruction_sections: ExtractedInstructionSection[];
   
   cross_references?: CrossReference[];
   media_references?: MediaReference[];
+  
+  // NEW: Store raw extraction data for future parsing
+  // This includes recipe notes, ingredient swaps, and other text not yet fully parsed
+  raw_extraction_data?: {
+    source_url?: string;
+    source_site?: string;
+    scraped_at?: string;
+    raw_text?: any; // All the raw text from scraping
+  };
 }
+
 
 // NEW: Extracted sections from Claude
 export interface ExtractedInstructionSection {

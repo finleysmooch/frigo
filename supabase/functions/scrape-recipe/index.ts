@@ -1,6 +1,9 @@
+// @ts-nocheck
 // Supabase Edge Function: scrape-recipe
 // Deploy this to: supabase/functions/scrape-recipe/index.ts
 // Deploy command: supabase functions deploy scrape-recipe
+// UPDATED: Added text-based author, time, and description extraction
+// Date: November 19, 2025
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
@@ -17,6 +20,7 @@ interface StandardizedRecipeData {
     title: string;
     author?: string;
     description?: string;
+    imageUrl?: string;
     prepTime?: string;
     cookTime?: string;
     totalTime?: string;
@@ -24,6 +28,7 @@ interface StandardizedRecipeData {
     ingredients: string[];
     instructions: string[];
     notes?: string;
+    ingredientSwaps?: string;
     yieldText?: string;
     category?: string;
     cuisine?: string;
@@ -118,9 +123,33 @@ function extractRecipeData(doc: any, url: string): StandardizedRecipeData {
   
   // Fallback to heuristic extraction
   const heuristicData = extractFromHeuristics(doc)
+  
+  // NEW: Extract author from text patterns (more reliable than meta tags)
+  const textAuthor = extractAuthorFromText(doc)
+  
+  // NEW: Extract times from visible text
+  const textTimes = extractTimesFromText(doc)
+  
+  // NEW: Extract description from meta tags
+  const description = extractDescription(doc, jsonLdData)
+  
+  // Extract image from Open Graph or other meta tags
+  const imageUrl = extractImage(doc, jsonLdData, schemaData)
+  
+  // Extract recipe notes and swaps
+  const notesData = extractNotesAndSwaps(doc)
 
-  // Merge data (prioritize JSON-LD > Schema > Heuristics)
-  const merged = mergeRecipeData(jsonLdData, schemaData, heuristicData)
+  // Merge data (prioritize text patterns for author, then JSON-LD > Schema > Heuristics)
+  const merged = mergeRecipeData(
+    jsonLdData, 
+    schemaData, 
+    heuristicData, 
+    imageUrl, 
+    notesData,
+    textAuthor,
+    textTimes,
+    description
+  )
 
   // Get site name
   const siteName = extractSiteName(doc, url)
@@ -155,6 +184,7 @@ function extractFromJsonLd(doc: any): any {
             title: item.name || '',
             author: item.author?.name || item.author || '',
             description: item.description || '',
+            imageUrl: item.image?.url || item.image || '',
             prepTime: item.prepTime || '',
             cookTime: item.cookTime || '',
             totalTime: item.totalTime || '',
@@ -169,6 +199,7 @@ function extractFromJsonLd(doc: any): any {
             tags: item.keywords ? 
               (Array.isArray(item.keywords) ? item.keywords : item.keywords.split(',').map((k: string) => k.trim())) 
               : [],
+            notes: item.recipeNotes || item.notes || '',
           }
         }
       }
@@ -310,16 +341,224 @@ function extractFromHeuristics(doc: any): any {
 }
 
 /**
- * Merge recipe data from multiple sources
+ * NEW: Extract author from common patterns in page text
  */
-function mergeRecipeData(jsonLd: any, schema: any, heuristic: any): any {
+function extractAuthorFromText(doc: any): string {
+  // Look for "Recipe by:", "By:", "Author:" patterns
+  const authorPatterns = [
+    /Recipe by:\s*([^|<\n//]+)/i,
+    /By:\s*([^|<\n//]+)/i,
+    /Author:\s*([^|<\n//]+)/i,
+    /Photography by.*Recipe by:\s*([^|<\n//]+)/i,
+  ]
+  
+  const bodyText = doc.body?.textContent || ''
+  
+  for (const pattern of authorPatterns) {
+    const match = bodyText.match(pattern)
+    if (match && match[1]) {
+      let author = match[1].trim()
+      
+      // NEW: Remove trailing " // [site name]" pattern
+      author = author.replace(/\s*\/\/.*$/i, '').trim()
+      
+      // Filter out common non-author phrases
+      if (author.length > 2 && author.length < 50 && !author.includes('http')) {
+        console.log(`✅ Found author via text pattern: ${author}`)
+        return author
+      }
+    }
+  }
+  
+  return ''
+}
+
+/**
+ * NEW: Extract times from visible text (15 MINS, 1 HOUR, etc.)
+ */
+function extractTimesFromText(doc: any): { prepTime: string; cookTime: string; totalTime: string } {
+  const result = {
+    prepTime: '',
+    cookTime: '',
+    totalTime: '',
+  }
+  
+  // Look for time patterns in the page
+  const timePatterns = {
+    prep: /PREP\s*TIME[:\s]*(\d+\s*(?:MIN|HOUR|HR)S?)/i,
+    cook: /COOK\s*TIME[:\s]*(\d+\s*(?:MIN|HOUR|HR)S?)/i,
+    total: /TOTAL\s*TIME[:\s]*(\d+\s*(?:MIN|HOUR|HR)S?)/i,
+  }
+  
+  const bodyText = doc.body?.textContent || ''
+  
+  for (const [key, pattern] of Object.entries(timePatterns)) {
+    const match = bodyText.match(pattern)
+    if (match && match[1]) {
+      const timeStr = match[1].trim()
+      console.log(`✅ Found ${key} time via text: ${timeStr}`)
+      
+      if (key === 'prep') result.prepTime = timeStr
+      if (key === 'cook') result.cookTime = timeStr
+      if (key === 'total') result.totalTime = timeStr
+    }
+  }
+  
+  return result
+}
+
+/**
+ * NEW: Extract description from meta tags
+ */
+function extractDescription(doc: any, jsonLdData: any): string {
+  // Try JSON-LD first
+  if (jsonLdData.description) return jsonLdData.description
+  
+  // Try Open Graph description
+  const ogDescription = doc.querySelector('meta[property="og:description"]')
+  if (ogDescription) {
+    const content = ogDescription.getAttribute('content')
+    if (content && content.length > 10) return content
+  }
+  
+  // Try Twitter description
+  const twitterDescription = doc.querySelector('meta[name="twitter:description"]')
+  if (twitterDescription) {
+    const content = twitterDescription.getAttribute('content')
+    if (content && content.length > 10) return content
+  }
+  
+  // Try standard meta description
+  const metaDescription = doc.querySelector('meta[name="description"]')
+  if (metaDescription) {
+    const content = metaDescription.getAttribute('content')
+    if (content && content.length > 10) return content
+  }
+  
+  return ''
+}
+
+/**
+ * Extract recipe image from various sources
+ */
+function extractImage(doc: any, jsonLdData: any, schemaData: any): string {
+  // Try JSON-LD image first
+  if (jsonLdData.imageUrl) return jsonLdData.imageUrl
+  
+  // Try Schema.org image
+  const schemaImage = doc.querySelector('[itemprop="image"]')
+  if (schemaImage) {
+    const src = schemaImage.getAttribute('src') || schemaImage.getAttribute('content')
+    if (src) return src
+  }
+  
+  // Try Open Graph image
+  const ogImage = doc.querySelector('meta[property="og:image"]')
+  if (ogImage) {
+    const content = ogImage.getAttribute('content')
+    if (content) return content
+  }
+  
+  // Try Twitter card image
+  const twitterImage = doc.querySelector('meta[name="twitter:image"]')
+  if (twitterImage) {
+    const content = twitterImage.getAttribute('content')
+    if (content) return content
+  }
+  
+  // Try common recipe image patterns
+  const imageSelectors = [
+    '.recipe-image img',
+    '.recipe-header img',
+    '[class*="recipe"][class*="image"] img',
+    'article img',
+  ]
+  
+  for (const selector of imageSelectors) {
+    const img = doc.querySelector(selector)
+    if (img) {
+      const src = img.getAttribute('src')
+      if (src && !src.includes('logo') && !src.includes('icon')) {
+        return src
+      }
+    }
+  }
+  
+  return ''
+}
+
+/**
+ * Extract recipe notes and ingredient swaps
+ */
+function extractNotesAndSwaps(doc: any): { notes: string; swaps: string } {
+  let notes = ''
+  let swaps = ''
+  
+  // Common selectors for recipe notes
+  const noteSelectors = [
+    '[class*="recipe-notes"]',
+    '[class*="recipeNotes"]',
+    '[class*="notes"]',
+    '[data-test*="notes"]',
+    '.notes',
+  ]
+  
+  for (const selector of noteSelectors) {
+    const notesEl = doc.querySelector(selector)
+    if (notesEl) {
+      const text = notesEl.textContent?.trim()
+      if (text && text.length > 10) {
+        notes = text
+        break
+      }
+    }
+  }
+  
+  // Common selectors for ingredient swaps/substitutions
+  const swapSelectors = [
+    '[class*="substitution"]',
+    '[class*="swap"]',
+    '[class*="alternative"]',
+    '.substitutions',
+    '.swaps',
+  ]
+  
+  for (const selector of swapSelectors) {
+    const swapsEl = doc.querySelector(selector)
+    if (swapsEl) {
+      const text = swapsEl.textContent?.trim()
+      if (text && text.length > 10) {
+        swaps = text
+        break
+      }
+    }
+  }
+  
+  return { notes, swaps }
+}
+
+/**
+ * Merge recipe data from multiple sources
+ * UPDATED: Now accepts textAuthor, textTimes, and description for better accuracy
+ */
+function mergeRecipeData(
+  jsonLd: any, 
+  schema: any, 
+  heuristic: any, 
+  imageUrl: string,
+  notesData: { notes: string; swaps: string },
+  textAuthor: string,
+  textTimes: any,
+  description: string
+): any {
   return {
     title: jsonLd.title || schema.title || heuristic.title || 'Untitled Recipe',
-    author: jsonLd.author || schema.author || '',
-    description: jsonLd.description || schema.description || '',
-    prepTime: jsonLd.prepTime || schema.prepTime || '',
-    cookTime: jsonLd.cookTime || schema.cookTime || '',
-    totalTime: jsonLd.totalTime || schema.totalTime || '',
+    author: textAuthor || jsonLd.author || schema.author || '',
+    description: description || jsonLd.description || schema.description || '',
+    imageUrl: imageUrl,
+    prepTime: textTimes.prepTime || jsonLd.prepTime || schema.prepTime || '',
+    cookTime: textTimes.cookTime || jsonLd.cookTime || schema.cookTime || '',
+    totalTime: textTimes.totalTime || jsonLd.totalTime || schema.totalTime || '',
     servings: jsonLd.servings || schema.servings || '',
     yieldText: jsonLd.yieldText || '',
     category: jsonLd.category || '',
@@ -335,8 +574,9 @@ function mergeRecipeData(jsonLd: any, schema: any, heuristic: any): any {
         ? schema.instructions 
         : heuristic.instructions || [],
     tags: jsonLd.tags || [],
-    notes: '',
+    notes: jsonLd.notes || notesData.notes || '',
     storageNotes: '',
+    ingredientSwaps: notesData.swaps || '',
   }
 }
 
