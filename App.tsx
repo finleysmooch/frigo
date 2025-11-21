@@ -1,9 +1,9 @@
 // App.tsx
-// Updated with Web Recipe Extraction and Missing Ingredients features
-// Updated: November 18, 2025
+// Updated with Social Features: Feed, Following, and Cooking Partners
+// Updated: November 19, 2025
 
 import { useState, useEffect } from 'react';
-import { Text, ActivityIndicator, View } from 'react-native';
+import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,9 +31,16 @@ import SignupScreen from './screens/SignupScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
+
+// NEW: Social Feature Screens
+import FeedScreen from './screens/FeedScreen';
+import UserSearchScreen from './screens/UserSearchScreen';
+import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
+
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { ProcessedIngredient } from './lib/types/recipeExtraction';
+import { getPendingApprovalsCount } from './lib/services/postParticipantsService';
 
 // Interface for post photos
 export interface PostPhoto {
@@ -69,6 +76,15 @@ export type RecipesStackParamList = {
   };
 };
 
+// NEW: Feed Stack with social features
+export type FeedStackParamList = {
+  FeedMain: undefined;
+  PendingApprovals: undefined;
+  PostDetail: { postId: string };
+  YasChefsList: { postId: string; postTitle: string };
+  CommentsList: { postId: string };
+};
+
 export type MyPostsStackParamList = {
   MyPostsList: undefined;
   YasChefsList: { postId: string; postTitle: string };
@@ -89,6 +105,8 @@ export type GroceryStackParamList = {
 };
 
 export type RootTabParamList = {
+  FeedStack: undefined; // NEW
+  SearchStack: undefined; // NEW
   RecipesStack: undefined;
   MyPostsStack: undefined;
   PantryStack: undefined;
@@ -99,6 +117,7 @@ export type RootTabParamList = {
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const FeedStack = createNativeStackNavigator<FeedStackParamList>(); // NEW
 const RecipesStack = createNativeStackNavigator<RecipesStackParamList>();
 const MyPostsStack = createNativeStackNavigator<MyPostsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
@@ -132,6 +151,92 @@ function AuthStackNavigator() {
         </AuthStack.Screen>
       )}
     </AuthStack.Navigator>
+  );
+}
+
+// NEW: Feed Stack Navigator with notification badge
+function FeedStackNavigator() {
+  const [pendingCount, setPendingCount] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState('');
+
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadPendingCount();
+      
+      // Poll for updates every 30 seconds
+      const interval = setInterval(loadPendingCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUserId]);
+
+  const loadCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUserId(user.id);
+  };
+
+  const loadPendingCount = async () => {
+    if (currentUserId) {
+      const count = await getPendingApprovalsCount(currentUserId);
+      setPendingCount(count);
+    }
+  };
+
+  return (
+    <FeedStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <FeedStack.Screen 
+        name="FeedMain" 
+        component={FeedScreen}
+        options={({ navigation }: any) => ({
+          headerShown: true,
+          title: 'Home',
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('PendingApprovals')}
+              style={{ marginRight: 15, position: 'relative' }}
+            >
+              <Text style={{ fontSize: 24 }}>🔔</Text>
+              {pendingCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ),
+        })}
+      />
+      <FeedStack.Screen 
+        name="PendingApprovals" 
+        component={PendingApprovalsScreen}
+        options={{
+          headerShown: true,
+          title: 'Cooking Invitations',
+        }}
+      />
+      <FeedStack.Screen 
+        name="YasChefsList" 
+        component={YasChefScreen}
+        options={{
+          headerShown: true,
+          title: 'Yas Chefs',
+        }}
+      />
+      <FeedStack.Screen 
+        name="CommentsList" 
+        component={CommentsScreen}
+        options={{
+          headerShown: true,
+          title: 'Comments',
+        }}
+      />
+    </FeedStack.Navigator>
   );
 }
 
@@ -332,6 +437,32 @@ function MainTabNavigator() {
         },
       }}
     >
+      {/* NEW: Feed Tab - Home feed with posts from people you follow */}
+      <Tab.Screen
+        name="FeedStack"
+        component={FeedStackNavigator}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '🏠' : '🏡'}</Text>
+          ),
+        }}
+      />
+      
+      {/* NEW: Search Tab - Find and follow people */}
+      <Tab.Screen
+        name="SearchStack"
+        component={UserSearchScreen}
+        options={{
+          headerShown: true,
+          title: 'Find People',
+          tabBarLabel: 'Search',
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '🔍' : '🔎'}</Text>
+          ),
+        }}
+      />
+
       <Tab.Screen
         name="RecipesStack"
         component={RecipesStackNavigator}
@@ -342,6 +473,7 @@ function MainTabNavigator() {
           ),
         }}
       />
+      
       <Tab.Screen
         name="MyPostsStack"
         component={MyPostsStackNavigator}
@@ -352,6 +484,7 @@ function MainTabNavigator() {
           ),
         }}
       />
+      
       <Tab.Screen
         name="PantryStack"
         component={PantryStackNavigator}
@@ -362,6 +495,7 @@ function MainTabNavigator() {
           ),
         }}
       />
+      
       <Tab.Screen
         name="GroceryStack"
         component={GroceryStackNavigator}
@@ -372,6 +506,7 @@ function MainTabNavigator() {
           ),
         }}
       />
+      
       <Tab.Screen
         name="ProfileStack"
         component={ProfileStackNavigator}
@@ -424,3 +559,24 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
+// Styles for notification badge
+const styles = StyleSheet.create({
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+});

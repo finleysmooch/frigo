@@ -1,3 +1,6 @@
+// screens/CommentsScreen.tsx
+// Updated: November 20, 2025 - Fixed user profiles and removed double header
+
 import { useEffect, useState, useRef } from 'react';
 import { 
   StyleSheet, 
@@ -13,9 +16,11 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { MyPostsStackParamList } from '../App';
+import { MyPostsStackParamList, FeedStackParamList } from '../App';
 
-type Props = NativeStackScreenProps<MyPostsStackParamList, 'CommentsList'>;
+// Support navigation from both stacks
+type Props = NativeStackScreenProps<MyPostsStackParamList, 'CommentsList'> | 
+             NativeStackScreenProps<FeedStackParamList, 'CommentsList'>;
 
 interface Comment {
   id: string;
@@ -23,6 +28,7 @@ interface Comment {
   created_at: string;
   user_id: string;
   user_name?: string;
+  avatar_url?: string;
   likes: number;
   currentUserLiked: boolean;
 }
@@ -34,6 +40,7 @@ interface Post {
   created_at: string;
   user_id: string;
   user_name?: string;
+  avatar_url?: string;
 }
 
 interface Like {
@@ -92,7 +99,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
       
       setCurrentUserId(user.id);
 
-      // Load post info
+      // Load post info (without user profile join to avoid foreign key issues)
       const { data: postData, error: postError } = await supabase
         .from('posts')
         .select('id, title, cooking_method, created_at, user_id')
@@ -100,10 +107,22 @@ export default function CommentsScreen({ route, navigation }: Props) {
         .single();
 
       if (postError) throw postError;
-      
+
+      // Fetch user profile separately
+      const { data: userProfileData } = await supabase
+        .from('user_profiles')
+        .select('id, username, display_name, avatar_url')
+        .eq('id', postData.user_id)
+        .single();
+
       setPost({
-        ...postData,
-        user_name: 'Tom Morley' // TODO: Get from user_profiles when available
+        id: postData.id,
+        title: postData.title,
+        cooking_method: postData.cooking_method,
+        created_at: postData.created_at,
+        user_id: postData.user_id,
+        user_name: userProfileData?.display_name || userProfileData?.username || 'Someone',
+        avatar_url: userProfileData?.avatar_url || undefined,
       });
 
       // Load yas chefs (post likes)
@@ -131,6 +150,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
   const loadComments = async (userId: string) => {
     try {
+      // Fetch comments without join to avoid foreign key issues
       const { data: commentsData, error: commentsError } = await supabase
         .from('post_comments')
         .select('id, comment_text, created_at, user_id')
@@ -139,24 +159,42 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
       if (commentsError) throw commentsError;
 
-      if (!commentsData) {
+      if (!commentsData || commentsData.length === 0) {
         setComments([]);
         return;
       }
 
+      // Get unique user IDs from comments
+      const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
+      
+      // Fetch user profiles separately
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', userIds);
+
+      // Create a map for quick lookup
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
       // Load likes for all comments
-      const commentIds = commentsData.map(c => c.id);
+      const commentIds = commentsData.map((c: any) => c.id);
       const { data: likesData } = await supabase
         .from('comment_likes')
         .select('comment_id, user_id')
         .in('comment_id', commentIds);
 
-      // Format comments with like info
-      const formattedComments: Comment[] = commentsData.map(comment => {
+      // Format comments with like info and user profiles
+      const formattedComments: Comment[] = commentsData.map((comment: any) => {
         const commentLikes = likesData?.filter(l => l.comment_id === comment.id) || [];
+        const userProfile = profilesMap.get(comment.user_id);
+        
         return {
-          ...comment,
-          user_name: 'Tom Morley', // TODO: Get from user_profiles
+          id: comment.id,
+          comment_text: comment.comment_text,
+          created_at: comment.created_at,
+          user_id: comment.user_id,
+          user_name: userProfile?.display_name || userProfile?.username || 'Someone',
+          avatar_url: userProfile?.avatar_url || undefined,
           likes: commentLikes.length,
           currentUserLiked: commentLikes.some(l => l.user_id === userId)
         };
@@ -316,47 +354,56 @@ export default function CommentsScreen({ route, navigation }: Props) {
     }
   };
 
-  const renderComment = ({ item }: { item: Comment }) => (
-    <View style={styles.commentContainer}>
-      <View style={styles.commentAvatar}>
-        <Text style={styles.commentAvatarText}>{getAvatarForUser(item.user_id)}</Text>
-      </View>
-      
-      <View style={styles.commentContent}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.commentUserName}>{item.user_name}</Text>
-          <Text style={styles.commentTime}>{formatTimeAgo(item.created_at)}</Text>
+  const renderComment = ({ item }: { item: Comment }) => {
+    // Check if avatar_url is an emoji (not URL) using regex
+    // Regex matches emojis including complex ones with ZWJ (Zero Width Joiner)
+    const isEmoji = item.avatar_url && /^[\p{Emoji}\u200D]+$/u.test(item.avatar_url);
+    const avatarToShow = isEmoji ? item.avatar_url : getAvatarForUser(item.user_id);
+    
+    return (
+      <View style={styles.commentContainer}>
+        <View style={styles.commentAvatar}>
+          <Text style={styles.commentAvatarText}>
+            {avatarToShow}
+          </Text>
         </View>
         
-        <Text style={styles.commentText}>{item.comment_text}</Text>
-        
-        {item.likes > 0 && (
-          <View style={styles.commentLikesRow}>
-            <Image 
-              source={require('../assets/icons/heart-filled.png')}
-              style={styles.commentLikeIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.commentLikesCount}>{item.likes}</Text>
+        <View style={styles.commentContent}>
+          <View style={styles.commentHeader}>
+            <Text style={styles.commentUserName}>{item.user_name}</Text>
+            <Text style={styles.commentTime}>{formatTimeAgo(item.created_at)}</Text>
           </View>
-        )}
-      </View>
+          
+          <Text style={styles.commentText}>{item.comment_text}</Text>
+          
+          {item.likes > 0 && (
+            <View style={styles.commentLikesRow}>
+              <Image 
+                source={require('../assets/icons/heart-filled.png')}
+                style={styles.commentLikeIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.commentLikesCount}>{item.likes}</Text>
+            </View>
+          )}
+        </View>
 
-      <TouchableOpacity 
-        style={styles.commentLikeButton}
-        onPress={() => toggleCommentLike(item.id, item.currentUserLiked)}
-      >
-        <Image 
-          source={item.currentUserLiked 
-            ? require('../assets/icons/heart-filled.png')
-            : require('../assets/icons/heart-outline.png')
-          }
-          style={styles.commentLikeButtonIcon}
-          resizeMode="contain"
-        />
-      </TouchableOpacity>
-    </View>
-  );
+        <TouchableOpacity 
+          style={styles.commentLikeButton}
+          onPress={() => toggleCommentLike(item.id, item.currentUserLiked)}
+        >
+          <Image 
+            source={item.currentUserLiked 
+              ? require('../assets/icons/heart-filled.png')
+              : require('../assets/icons/heart-outline.png')
+            }
+            style={styles.commentLikeButtonIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -380,18 +427,6 @@ export default function CommentsScreen({ route, navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Discussion</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       {/* Post Info */}
       <View style={styles.postInfo}>
         <View style={styles.postInfoText}>
@@ -513,36 +548,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingBottom: 15,
-    paddingHorizontal: 15,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 34,
-    color: '#000',
-    fontWeight: '300',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
   postInfo: {
     flexDirection: 'row',
     padding: 15,
+    paddingTop: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   postInfoText: {
     flex: 1,
@@ -625,22 +636,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   yasChefButtonSimpleText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  yasChefButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  yasChefButtonIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  yasChefButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#333',

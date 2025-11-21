@@ -3,7 +3,7 @@
 // FIXED: Dynamic aspect ratio handling to prevent letterboxing
 // Updated: November 16, 2025
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -18,7 +18,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { colors } from '../lib/theme';
 import { MyPostsStackParamList } from '../App';
@@ -51,6 +50,7 @@ interface Post {
 interface Like {
   user_id: string;
   created_at: string;
+  avatar_url?: string | null;
   user_profiles?: {
     id: string;
     display_name?: string;
@@ -91,13 +91,6 @@ const COOKING_METHOD_ICON_IMAGES: { [key: string]: any } = {
   preserve: require('../assets/icons/preserve.png'),
 };
 
-const AVATAR_EMOJIS = ['🧑‍🍳', '👨‍🍳', '👩‍🍳', '🍕', '🌮', '🍔', '🍜', '🥘', '🍱', '🥗', '🍝', '🥙'];
-
-const getAvatarForUser = (userId: string): string => {
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length];
-};
-
 export default function MyPostsScreen({ navigation }: Props) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,13 +116,6 @@ export default function MyPostsScreen({ navigation }: Props) {
     loadPosts();
   }, []);
 
-  // Reload user info when screen comes into focus (after editing profile)
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserInfo();
-    }, [])
-  );
-
   // NEW: Load image dimensions when posts change
   useEffect(() => {
     loadAllImageDimensions();
@@ -140,23 +126,19 @@ export default function MyPostsScreen({ navigation }: Props) {
     if (user) {
       setCurrentUserId(user.id);
       
-      // Load user profile to get custom avatar and display name
+      // Load actual user profile with avatar
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('display_name, avatar_url')
+        .select('display_name, username, avatar_url')
         .eq('id', user.id)
         .single();
       
       if (profile) {
-        setUserName(profile.display_name || 'User');
-        // Use custom avatar if exists, otherwise fall back to hash-based
-        const avatar = profile.avatar_url || getAvatarForUser(user.id);
-        setUserInitials(avatar);
-      } else {
-        // Fallback if profile not found
-        const consistentAvatar = getAvatarForUser(user.id);
-        setUserName('User');
-        setUserInitials(consistentAvatar);
+        setUserName(profile.display_name || profile.username || 'User');
+        
+        // Use actual avatar_url from profile, or default if null
+        const userAvatar = profile.avatar_url || '👤';
+        setUserInitials(userAvatar);
       }
     }
   };
@@ -271,6 +253,7 @@ export default function MyPostsScreen({ navigation }: Props) {
 
   const loadLikesForPosts = async (postIds: string[], currentUserId: string) => {
     try {
+      // Step 1: Get likes with created_at for ordering
       const { data: likesData, error } = await supabase
         .from('post_likes')
         .select('post_id, user_id, created_at')
@@ -279,6 +262,21 @@ export default function MyPostsScreen({ navigation }: Props) {
 
       if (error) throw error;
 
+      // Step 2: Get unique user IDs from all likes
+      const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
+      
+      // Step 3: Fetch user profiles for all likers (to get their avatars)
+      let likerProfiles: Map<string, { avatar_url?: string | null }> = new Map();
+      if (likerUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id, avatar_url')
+          .in('id', likerUserIds);
+        
+        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url }]) || []);
+      }
+
+      // Step 4: Build likes map with avatar data
       const likesMap: PostLikes = {};
       
       postIds.forEach(postId => {
@@ -289,6 +287,7 @@ export default function MyPostsScreen({ navigation }: Props) {
         const transformedLikes: Like[] = postLikesData.map((like: any) => ({
           user_id: like.user_id,
           created_at: like.created_at,
+          avatar_url: likerProfiles.get(like.user_id)?.avatar_url || null,  // ← Include actual avatar
           user_profiles: null
         }));
         
@@ -551,7 +550,7 @@ export default function MyPostsScreen({ navigation }: Props) {
                   ]}
                 >
                   <Text style={styles.miniAvatarText}>
-                    {getAvatarForUser(like.user_id)}
+                    {like.avatar_url || '👤'}
                   </Text>
                 </View>
               ))}
@@ -654,7 +653,11 @@ export default function MyPostsScreen({ navigation }: Props) {
     const chef = recipe?.chefs ? (Array.isArray(recipe.chefs) ? recipe.chefs[0] : recipe.chefs) : null;
     
     return (
-      <View style={styles.postCard}>
+      <TouchableOpacity 
+        style={styles.postCard}
+        onPress={() => navigation.navigate('MyPostDetails', { postId: item.id })}
+        activeOpacity={0.7}
+      >
         <View style={styles.postHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{userInitials}</Text>
@@ -740,7 +743,7 @@ export default function MyPostsScreen({ navigation }: Props) {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

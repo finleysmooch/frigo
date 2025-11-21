@@ -21,7 +21,9 @@ import { colors } from '../lib/theme';
 import { MyPostsStackParamList, PostPhoto } from '../App';
 import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
+import AddCookingPartnersModal from '../components/AddCookingPartnersModal';  // ← NEW
 import { uploadPostImages } from '../lib/services/imageStorageService';
+import { addParticipantsToPost, getPostParticipants, ParticipantRole } from '../lib/services/postParticipantsService';  // ← NEW
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'MyPostDetails'>;
 
@@ -91,10 +93,16 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   
   const [menuVisible, setMenuVisible] = useState(false);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
+  const [partnersModalVisible, setPartnersModalVisible] = useState(false);  // ← NEW
+  const [participants, setParticipants] = useState<{
+    sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
+    ate_with: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
+  }>({ sous_chefs: [], ate_with: [] });  // ← NEW
 
   useEffect(() => {
     loadUserInfo();
     loadPost();
+    loadParticipants();  // ← NEW
   }, [postId]);
 
   useEffect(() => {
@@ -223,6 +231,58 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       setCommentCount(commentsData?.length || 0);
     } catch (error) {
       console.error('Error loading comments:', error);
+    }
+  };
+
+  const loadParticipants = async () => {
+    try {
+      const participantsList = await getPostParticipants(postId);
+      const approved = participantsList.filter(p => p.status === 'approved');
+      
+      setParticipants({
+        sous_chefs: approved
+          .filter(p => p.role === 'sous_chef')
+          .map(p => ({
+            user_id: p.participant_user_id,
+            username: p.participant_profile?.username || 'Unknown',
+            avatar_url: p.participant_profile?.avatar_url || null,
+            display_name: p.participant_profile?.display_name,
+          })),
+        ate_with: approved
+          .filter(p => p.role === 'ate_with')
+          .map(p => ({
+            user_id: p.participant_user_id,
+            username: p.participant_profile?.username || 'Unknown',
+            avatar_url: p.participant_profile?.avatar_url || null,
+            display_name: p.participant_profile?.display_name,
+          })),
+      });
+    } catch (error) {
+      console.error('Error loading participants:', error);
+    }
+  };
+
+  const handleAddPartners = async (selectedUserIds: string[], role: ParticipantRole) => {
+    if (!currentUserId) return;
+    
+    try {
+      const result = await addParticipantsToPost(postId, selectedUserIds, role, currentUserId);
+      
+      if (result.success) {
+        Alert.alert(
+          'Invitations Sent!',
+          'Your cooking partners have been notified.',
+          [{ text: 'OK', onPress: () => {
+            setPartnersModalVisible(false);
+            loadParticipants();  // Reload to show pending invitations
+          }}]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send invitations');
+      }
+    } catch (error) {
+      console.error('Error adding partners:', error);
+      Alert.alert('Error', 'Failed to send invitations');
     }
   };
 
@@ -520,6 +580,41 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
             </View>
           )}
 
+          {/* Cooking Partners Section */}
+          {(participants.sous_chefs.length > 0 || participants.ate_with.length > 0) && (
+            <View style={styles.participantsSection}>
+              <Text style={styles.sectionTitle}>Cooking Partners</Text>
+              {participants.sous_chefs.length > 0 && (
+                <View style={styles.participantRow}>
+                  <Text style={styles.participantEmoji}>👨‍🍳</Text>
+                  <Text style={styles.participantText}>
+                    Cooked with {participants.sous_chefs.map(p => p.display_name || p.username).join(', ')}
+                  </Text>
+                </View>
+              )}
+              {participants.ate_with.length > 0 && (
+                <View style={styles.participantRow}>
+                  <Text style={styles.participantEmoji}>🍽️</Text>
+                  <Text style={styles.participantText}>
+                    Ate with {participants.ate_with.map(p => p.display_name || p.username).join(', ')}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Add Cooking Partners Button */}
+          <TouchableOpacity
+            style={styles.addPartnersButton}
+            onPress={() => setPartnersModalVisible(true)}
+          >
+            <Text style={styles.addPartnersButtonText}>
+              {participants.sous_chefs.length > 0 || participants.ate_with.length > 0
+                ? '➕ Add More Partners'
+                : '➕ Add Cooking Partners'}
+            </Text>
+          </TouchableOpacity>
+
           {/* Likes and Comments */}
           {(likes.length > 0 || commentCount > 0) && (
             <View style={styles.socialSection}>
@@ -613,6 +708,13 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
           caption: p.caption, 
           order: p.order 
         }))}
+      />
+
+      <AddCookingPartnersModal
+        visible={partnersModalVisible}
+        onClose={() => setPartnersModalVisible(false)}
+        onConfirm={handleAddPartners}
+        currentUserId={currentUserId || ''}
       />
     </SafeAreaView>
   );
@@ -792,6 +894,47 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#444',
     lineHeight: 22,
+  },
+  participantsSection: {
+    backgroundColor: '#FEF3C7',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  participantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  participantEmoji: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  participantText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  addPartnersButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  addPartnersButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
   },
   socialSection: {
     flexDirection: 'row',
