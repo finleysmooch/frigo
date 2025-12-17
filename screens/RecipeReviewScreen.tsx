@@ -1,12 +1,14 @@
 // screens/RecipeReviewScreen.tsx
 // Review and edit recipe before saving
+// UPDATED: Now also saves instruction sections
 // UPDATED: Fixed navigation flow to prevent modal stacking
-// Date: November 19, 2025
+// Date: December 2, 2025
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { ProcessedRecipe } from '../lib/types/recipeExtraction';
 import { saveRecipeToDatabase } from '../lib/services/recipeExtraction/recipeService';
+import { saveInstructionSections } from '../lib/services/instructionSectionsService';
 import { colors } from '../lib/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RecipesStackParamList } from '../App';
@@ -27,7 +29,7 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
     console.log('Recipe title:', title);
     
     try {
-      // Save to database
+      // Save recipe to database
       console.log('💾 Calling saveRecipeToDatabase...');
       const recipeId = await saveRecipeToDatabase(
         userId,
@@ -36,6 +38,22 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
       );
 
       console.log('✅ Recipe saved successfully! Recipe ID:', recipeId);
+
+      // Save instruction sections if present
+      if (processedRecipe.instruction_sections && processedRecipe.instruction_sections.length > 0) {
+        console.log(`📝 Saving ${processedRecipe.instruction_sections.length} instruction sections...`);
+        
+        try {
+          await saveInstructionSections(recipeId, processedRecipe.instruction_sections);
+          console.log('✅ Instruction sections saved successfully');
+        } catch (sectionError) {
+          console.error('⚠️ Error saving instruction sections:', sectionError);
+          // Don't fail the entire save if sections fail
+          // Recipe is still saved, just without sections
+        }
+      } else {
+        console.log('ℹ️ No instruction sections to save');
+      }
       
       // Show success alert
       Alert.alert(
@@ -45,7 +63,7 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
           {
             text: 'OK',
             onPress: () => {
-              // FIXED: Use replace to prevent stacking, navigate to recipe detail
+              // Use replace to prevent stacking, navigate to recipe detail
               navigation.replace('RecipeDetail', { recipe: { id: recipeId } });
             }
           }
@@ -81,7 +99,7 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Book Info</Text>
             <Text style={styles.infoText}>
-              {processedRecipe.book_metadata.title}
+              {processedRecipe.book_metadata.book_title || processedRecipe.book_metadata.title}
               {processedRecipe.book_metadata.author && ` by ${processedRecipe.book_metadata.author}`}
             </Text>
           </View>
@@ -115,13 +133,18 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
           {processedRecipe.recipe.inactive_time_min && (
             <Text style={styles.infoText}>Inactive: {processedRecipe.recipe.inactive_time_min} min</Text>
           )}
+          {!processedRecipe.recipe.prep_time_min && 
+           !processedRecipe.recipe.cook_time_min && 
+           !processedRecipe.recipe.inactive_time_min && (
+            <Text style={styles.infoText}>No timing information available</Text>
+          )}
         </View>
 
         {/* Ingredients */}
         <Text style={styles.sectionTitle}>
-          Ingredients ({processedRecipe.ingredients_with_matches.length})
+          Ingredients ({processedRecipe.ingredients_with_matches?.length || 0})
         </Text>
-        {processedRecipe.ingredients_with_matches.map((ingredient: any, index: number) => (
+        {processedRecipe.ingredients_with_matches?.map((ingredient: any, index: number) => (
           <View key={`ingredient-${index}`} style={styles.ingredientRow}>
             <Text style={styles.ingredientText}>{ingredient.original_text}</Text>
             {ingredient.needs_review && (
@@ -136,7 +159,7 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
           processedRecipe.instruction_sections.map((section: any, sectionIndex: number) => (
             <View key={`section-${sectionIndex}`} style={styles.instructionSection}>
               <Text style={styles.instructionSectionTitle}>{section.section_title}</Text>
-              {section.steps.map((step: any, stepIndex: number) => (
+              {section.steps?.map((step: any, stepIndex: number) => (
                 <View key={`section-${sectionIndex}-step-${stepIndex}`} style={styles.instructionStep}>
                   <Text style={styles.stepNumber}>{step.step_number}.</Text>
                   <Text style={styles.stepText}>{step.instruction}</Text>
@@ -145,18 +168,21 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
             </View>
           ))
         ) : (
-          <Text style={styles.infoText}>Instructions will be organized into sections</Text>
+          <Text style={styles.infoText}>No instruction sections found</Text>
         )}
 
         {/* Raw data info */}
         {processedRecipe.raw_extraction_data && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📦 Additional Data Saved</Text>
+            <Text style={styles.sectionTitle}>📦 Additional Data</Text>
             <Text style={styles.infoTextSmall}>
-              Recipe notes, ingredient swaps, and other details have been saved for future use.
+              Recipe notes, ingredient swaps, and other details will be saved for future use.
             </Text>
           </View>
         )}
+
+        {/* Spacer for footer */}
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       {/* Action Buttons */}
@@ -198,6 +224,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     marginBottom: 20,
+    marginTop: 40, // Account for status bar
   },
   label: {
     fontSize: 16,
@@ -279,6 +306,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     padding: 20,
+    paddingBottom: 40, // Account for home indicator
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     gap: 10,

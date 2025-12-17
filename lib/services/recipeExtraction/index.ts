@@ -1,7 +1,7 @@
 // lib/services/recipeExtraction/index.ts
 // Main orchestration service for recipe extraction
-// UPDATED: Now saves instruction sections to database
-// FIXED: Corrected to match ingredientMatcher.ts signature
+// UPDATED: Now pauses at 'reviewing' status for user review before saving
+// Date: December 2, 2025
 
 import { extractRecipeFromImage } from './claudeVisionAPI';
 import { findBook, createBook, checkUserOwnership, createUserBookOwnership } from './bookService';
@@ -11,16 +11,19 @@ import { saveInstructionSections } from '../instructionSectionsService';
 import { ProcessedRecipe, ExtractedInstructionSection, ProcessedIngredient } from '../../types/recipeExtraction';
 
 export interface ExtractionProgress {
-  status: 'processing_image' | 'extracting' | 'matching_ingredients' | 'checking_book' | 'saving' | 'complete' | 'error';
+  status: 'processing_image' | 'extracting' | 'matching_ingredients' | 'checking_book' | 'reviewing' | 'saving' | 'complete' | 'error';
   message: string;
   progress: number; // 0-100
   needsOwnershipVerification?: boolean;
+  shouldPromptForBook?: boolean;
   book?: any;
+  processedData?: ProcessedRecipe; // Pass processed data for review
   error?: string;
 }
 
 /**
  * Extract recipe from photo - main entry point
+ * NOW STOPS AT 'reviewing' STATUS FOR USER REVIEW
  * 
  * @param userId - User performing the extraction
  * @param imageSource - Image URI or base64
@@ -30,7 +33,7 @@ export async function extractRecipeFromPhoto(
   userId: string,
   imageSource: { uri?: string; base64?: string },
   onProgress: (progress: ExtractionProgress) => void
-): Promise<{ recipeId: string; needsOwnershipVerification: boolean }> {
+): Promise<void> {
   
   try {
     // ============================================================================
@@ -47,8 +50,6 @@ export async function extractRecipeFromPhoto(
     if (imageSource.base64) {
       imageBase64 = imageSource.base64;
     } else if (imageSource.uri) {
-      // Convert URI to base64 (implementation depends on your setup)
-      // For now, assume it's already handled
       throw new Error('URI to base64 conversion not implemented');
     } else {
       throw new Error('No valid image source provided');
@@ -77,11 +78,8 @@ export async function extractRecipeFromPhoto(
       progress: 50,
     });
 
-    // FIXED: Pass the FULL extractedData object (not just ingredients array)
-    // The function returns a ProcessedRecipe object with ingredients_with_matches
     const processedRecipe = await matchIngredientsToDatabase(extractedData);
 
-    // FIXED: Access the ingredients_with_matches array from the processed recipe
     const matchedCount = processedRecipe.ingredients_with_matches.filter(
       (i: ProcessedIngredient) => i.ingredient_id
     ).length;
@@ -99,8 +97,9 @@ export async function extractRecipeFromPhoto(
 
     let book = null;
     let needsOwnershipVerification = false;
+    let shouldPromptForBook = false;
 
-    if (extractedData.book_metadata) {
+    if (extractedData.book_metadata?.book_title) {
       console.log('📚 Book metadata found:', extractedData.book_metadata.book_title);
 
       // Try to find existing book
@@ -118,72 +117,37 @@ export async function extractRecipeFromPhoto(
       if (!userOwnsBook) {
         console.log('📚 User does not own this book yet');
         needsOwnershipVerification = true;
-
-        // Notify caller that ownership verification is needed
-        onProgress({
-          status: 'checking_book',
-          message: 'Book ownership verification needed',
-          progress: 75,
-          needsOwnershipVerification: true,
-          book: book,
-        });
-
-        // For now, create ownership without proof (can update later)
-        await createUserBookOwnership(userId, book.id, false);
       }
+    } else {
+      // No book detected - prompt user to select one
+      console.log('📚 No book metadata found, will prompt user');
+      shouldPromptForBook = true;
     }
 
     // ============================================================================
-    // STEP 5: Save to Database
+    // STEP 5: STOP FOR REVIEW - DO NOT AUTO-SAVE
     // ============================================================================
-    onProgress({
-      status: 'saving',
-      message: 'Saving recipe...',
-      progress: 85,
-    });
-
-    // Add book and ownership info to the processed recipe
     const finalProcessedRecipe: ProcessedRecipe = {
       ...processedRecipe,
       book: book,
       needsOwnershipVerification,
     };
 
-    const recipeId = await saveRecipeToDatabase(userId, finalProcessedRecipe, book?.id);
+    console.log('📋 Ready for review - passing to UI');
+    console.log('📋 processedData has instruction_sections:', !!finalProcessedRecipe.instruction_sections);
 
-    console.log(`✅ Recipe saved with ID: ${recipeId}`);
-
-    // ============================================================================
-    // STEP 6: Save Instruction Sections (NEW!)
-    // ============================================================================
-    if (extractedData.instruction_sections && extractedData.instruction_sections.length > 0) {
-      console.log(`📝 Saving ${extractedData.instruction_sections.length} instruction sections...`);
-      
-      try {
-        await saveInstructionSections(recipeId, extractedData.instruction_sections);
-        console.log('✅ Instruction sections saved successfully');
-      } catch (sectionError) {
-        console.error('⚠️ Error saving instruction sections:', sectionError);
-        // Don't fail the entire extraction if sections fail
-        // Recipe is still saved, just without sections
-      }
-    } else {
-      console.log('ℹ️ No instruction sections to save');
-    }
-
-    // ============================================================================
-    // STEP 7: Complete
-    // ============================================================================
+    // Pass processed data to UI for review - DO NOT SAVE YET
     onProgress({
-      status: 'complete',
-      message: 'Recipe added successfully!',
-      progress: 100,
+      status: 'reviewing',
+      message: 'Ready for review',
+      progress: 80,
+      needsOwnershipVerification,
+      shouldPromptForBook,
+      book,
+      processedData: finalProcessedRecipe,
     });
 
-    return {
-      recipeId,
-      needsOwnershipVerification,
-    };
+    // Function ends here - UI will call saveExtractedRecipe when user confirms
 
   } catch (error: any) {
     console.error('❌ Recipe extraction failed:', error);
@@ -195,6 +159,48 @@ export async function extractRecipeFromPhoto(
       error: error.message,
     });
 
+    throw error;
+  }
+}
+
+/**
+ * Save extracted recipe after user review
+ * Called from UI when user confirms the recipe
+ */
+export async function saveExtractedRecipe(
+  userId: string,
+  processedRecipe: ProcessedRecipe,
+  bookId?: string
+): Promise<string> {
+  try {
+    console.log('💾 Saving reviewed recipe...');
+
+    // Handle book ownership if needed
+    if (bookId && processedRecipe.needsOwnershipVerification) {
+      await createUserBookOwnership(userId, bookId, false);
+    }
+
+    // Save recipe to database
+    const recipeId = await saveRecipeToDatabase(userId, processedRecipe, bookId);
+    console.log(`✅ Recipe saved with ID: ${recipeId}`);
+
+    // Save instruction sections
+    if (processedRecipe.instruction_sections && processedRecipe.instruction_sections.length > 0) {
+      console.log(`📝 Saving ${processedRecipe.instruction_sections.length} instruction sections...`);
+      
+      try {
+        await saveInstructionSections(recipeId, processedRecipe.instruction_sections);
+        console.log('✅ Instruction sections saved successfully');
+      } catch (sectionError) {
+        console.error('⚠️ Error saving instruction sections:', sectionError);
+        // Don't fail the entire save if sections fail
+      }
+    }
+
+    return recipeId;
+
+  } catch (error: any) {
+    console.error('❌ Error saving recipe:', error);
     throw error;
   }
 }
@@ -213,7 +219,6 @@ export async function updateBookOwnership(
     // Implementation would update the user_books table
     // with ownership_claimed = true and ownership_proof_image_url
     
-    // This is a placeholder - implement based on your needs
     console.log('✅ Book ownership updated');
   } catch (error) {
     console.error('❌ Error updating book ownership:', error);
@@ -232,7 +237,6 @@ export async function migrateRecipeToSections(
   try {
     console.log(`🔄 Migrating recipe ${recipeId} to sections format`);
 
-    // Create a single default section with all instructions
     const sections: ExtractedInstructionSection[] = [{
       section_title: 'Instructions',
       section_order: 1,

@@ -3,6 +3,7 @@
 // FIXED: Dynamic aspect ratio handling to prevent letterboxing
 // Updated: November 16, 2025
 
+import { useNavigation } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
 import { 
   StyleSheet, 
@@ -24,6 +25,7 @@ import { MyPostsStackParamList } from '../App';
 import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
 import { uploadPostImages } from '../lib/services/imageStorageService';
+import CreateMealModal from '../components/CreateMealModal';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'MyPostsList'>;
 
@@ -104,6 +106,7 @@ export default function MyPostsScreen({ navigation }: Props) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
+  const [createMealModalVisible, setCreateMealModalVisible] = useState(false);
   
   // FIXED: Moved carousel state to component level
   const [carouselIndices, setCarouselIndices] = useState<{ [postId: string]: number }>({});
@@ -574,6 +577,13 @@ export default function MyPostsScreen({ navigation }: Props) {
     );
   };
 
+  const handleMealCreated = (mealId: string) => {
+    setCreateMealModalVisible(false);
+    if (currentUserId) {
+      navigation.navigate('MealDetail', { mealId, currentUserId });
+    }
+  };
+
   // FIXED: Render function with dynamic heights based on aspect ratios
   const renderPhotoCarousel = (photos: PostPhoto[], postId: string) => {
     if (!photos || photos.length === 0) return null;
@@ -769,7 +779,26 @@ export default function MyPostsScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Cooking</Text>
+      {/* Header Row */}
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>My Cooking</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.viewMealsButton}
+            onPress={() => {
+              navigation.getParent()?.navigate('MealsStack');
+            }}
+          >
+            <Text style={styles.viewMealsButtonText}>🍽️ Meals</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.createMealButton}
+            onPress={() => setCreateMealModalVisible(true)}
+          >
+            <Text style={styles.createMealButtonText}>+ New</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       <FlatList
         data={posts}
         renderItem={renderPost}
@@ -798,6 +827,15 @@ export default function MyPostsScreen({ navigation }: Props) {
           order: p.order 
         }))}
       />
+
+      {currentUserId && (
+        <CreateMealModal
+          visible={createMealModalVisible}
+          onClose={() => setCreateMealModalVisible(false)}
+          onSuccess={handleMealCreated}
+          currentUserId={currentUserId}
+        />
+      )}
     </View>
   );
 }
@@ -816,9 +854,6 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: 'bold',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#fff',
   },
   listContainer: {
     padding: 15,
@@ -1055,5 +1090,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 10,
+    backgroundColor: '#fff',
+  },
+  createMealButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  createMealButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+    headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  viewMealsButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  viewMealsButtonText: {
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

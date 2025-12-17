@@ -1,6 +1,6 @@
 // screens/FeedScreen.tsx
 // Feed showing posts from people you follow
-// Updated: November 20, 2025 - Added mini avatars support
+// Updated: December 4, 2025 - Added meal integration
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -17,9 +17,11 @@ import { supabase } from '../lib/supabase';
 import { colors } from '../lib/theme';
 import PostCard, { PostCardData } from '../components/PostCard';
 import LinkedPostsGroup from '../components/LinkedPostsGroup';
+import MealPostCard from '../components/MealPostCard';
 import { FeedStackParamList } from '../App';
 import { getPostParticipants } from '../lib/services/postParticipantsService';
 import { groupPostsForFeed, FeedItem } from '../lib/services/feedGroupingService';
+import { getMealsForFeed, MealWithDetails } from '../lib/services/mealService';
 
 type Props = NativeStackScreenProps<FeedStackParamList, 'FeedMain'>;
 
@@ -44,7 +46,7 @@ interface Post {
 interface Like {
   user_id: string;
   created_at: string;
-  avatar_url?: string | null;  // ← Added avatar support
+  avatar_url?: string | null;
 }
 
 interface PostLikes {
@@ -63,20 +65,26 @@ interface PostParticipants {
   [postId: string]: {
     sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
     ate_with: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
-    hiddenSousChefs?: number;  // ← NEW
-    hiddenAteWith?: number;    // ← NEW
+    hiddenSousChefs?: number;
+    hiddenAteWith?: number;
   };
 }
 
+// Combined feed item type that includes meals
+type CombinedFeedItem = 
+  | FeedItem 
+  | { type: 'meal'; meal: MealWithDetails };
+
 export default function FeedScreen({ navigation }: Props) {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [feedItems, setFeedItems] = useState<CombinedFeedItem[]>([]);
   const [postLikes, setPostLikes] = useState<PostLikes>({});
   const [postComments, setPostComments] = useState<PostComments>({});
-  const [postParticipants, setPostParticipants] = useState<PostParticipants>({});  // ← NEW
+  const [postParticipants, setPostParticipants] = useState<PostParticipants>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -106,101 +114,51 @@ export default function FeedScreen({ navigation }: Props) {
 
       const followedIds = followedUserIds?.map(f => f.following_id) || [];
       const allUserIds = [...followedIds, currentUserId]; // Include own posts
-
-      // Get posts from followed users
-      const { data: postsData, error } = await supabase
-        .from('posts')
-        .select('id, user_id, title, rating, cooking_method, created_at, photos, recipe_id, modifications')
-        .in('user_id', allUserIds)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      if (!postsData || postsData.length === 0) {
-        setPosts([]);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // Fetch user profiles separately (INCLUDING avatar_url for custom avatars)
-      const userIds = [...new Set(postsData.map(p => p.user_id))];
-      const { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', userIds);
-
-      // Fetch recipes separately
-      const recipeIds = postsData
-        .map(p => p.recipe_id)
-        .filter((id): id is string => id !== null);
       
-      let recipesData: any[] = [];
-      if (recipeIds.length > 0) {
-        const { data } = await supabase
-          .from('recipes')
-          .select('id, title, image_url, chefs(name)')
-          .in('id', recipeIds);
-        recipesData = data || [];
-      }
+      // Store following IDs for meal card privacy filtering
+      setFollowingIds(followedIds);
 
-      // Create lookup maps
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const recipesMap = new Map(recipesData.map(r => [r.id, r]));
+      // Fetch posts and meals in parallel
+      const [postsResult, mealsResult] = await Promise.all([
+        loadDishPosts(allUserIds),
+        getMealsForFeed(currentUserId, 20),
+      ]);
 
-      // Transform data
-      const transformedPosts: Post[] = postsData.map((post: any) => {
-        try {
-          const transformed = {
-            id: post.id,
-            user_id: post.user_id,
-            title: post.title || 'Untitled Post', // ← Ensure title is never null
-            rating: post.rating,
-            cooking_method: post.cooking_method,
-            created_at: post.created_at,
-            photos: post.photos || [],
-            modifications: post.modifications || null,
-            recipes: post.recipe_id ? recipesMap.get(post.recipe_id) : undefined,
-            user_profiles: profilesMap.get(post.user_id) || {
-              id: post.user_id,
-              username: 'Unknown',
-              display_name: 'Unknown User',
-              avatar_url: null
-            }
-          };
-          
-          // Validate the transformed post
-          if (typeof transformed.title !== 'string') {
-            console.error('⚠️ POST TITLE NOT STRING:', {
-              postId: post.id,
-              title: transformed.title,
-              titleType: typeof transformed.title
-            });
-            transformed.title = 'Untitled Post';
-          }
-          
-          return transformed;
-        } catch (err) {
-          console.error('❌ Error transforming post:', post.id, err);
-          setError(`Error transforming post: ${err}`);
-          throw err;
-        }
-      });
-
+      const transformedPosts = postsResult;
       setPosts(transformedPosts);
 
-      // Group posts with relationships (for linked cooking partners)
-      const groupedItems = await groupPostsForFeed(transformedPosts);
-      setFeedItems(groupedItems);
+      // Group dish posts with relationships (for linked cooking partners)
+      const groupedDishItems = await groupPostsForFeed(transformedPosts);
 
-      // Load likes, comments, and participants
+      // Combine dishes and meals, then sort chronologically
+      const combinedItems: CombinedFeedItem[] = [
+        ...groupedDishItems,
+        ...mealsResult.map(meal => ({ type: 'meal' as const, meal })),
+      ];
+
+      // Sort all items by date (newest first)
+      combinedItems.sort((a, b) => {
+        const getDate = (item: CombinedFeedItem): Date => {
+          if (item.type === 'meal') {
+            return new Date(item.meal.created_at);
+          } else if (item.type === 'grouped') {
+            return new Date(item.mainPost.created_at);
+          } else {
+            return new Date(item.post.created_at);
+          }
+        };
+        return getDate(b).getTime() - getDate(a).getTime();
+      });
+
+      setFeedItems(combinedItems);
+
+      // Load likes, comments, and participants for dish posts
       if (transformedPosts.length > 0) {
         const postIds = transformedPosts.map(p => p.id);
         await Promise.all([
           loadLikesForPosts(postIds),
           loadCommentsForPosts(postIds),
-          loadParticipantsForPosts(postIds),  // ← NEW
+          loadParticipantsForPosts(postIds),
         ]);
       }
     } catch (error) {
@@ -211,9 +169,69 @@ export default function FeedScreen({ navigation }: Props) {
     }
   };
 
+  const loadDishPosts = async (userIds: string[]): Promise<Post[]> => {
+    // Get posts from followed users (dishes only, not meal posts)
+    const { data: postsData, error } = await supabase
+      .from('posts')
+      .select('id, user_id, title, rating, cooking_method, created_at, photos, recipe_id, modifications, post_type')
+      .in('user_id', userIds)
+      .or('post_type.eq.dish,post_type.is.null') // Only dish posts (or old posts without type)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    if (!postsData || postsData.length === 0) {
+      return [];
+    }
+
+    // Fetch user profiles separately
+    const userProfileIds = [...new Set(postsData.map(p => p.user_id))];
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', userProfileIds);
+
+    // Fetch recipes separately
+    const recipeIds = postsData
+      .map(p => p.recipe_id)
+      .filter((id): id is string => id !== null);
+    
+    let recipesData: any[] = [];
+    if (recipeIds.length > 0) {
+      const { data } = await supabase
+        .from('recipes')
+        .select('id, title, image_url, chefs(name)')
+        .in('id', recipeIds);
+      recipesData = data || [];
+    }
+
+    // Create lookup maps
+    const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const recipesMap = new Map(recipesData.map(r => [r.id, r]));
+
+    // Transform data
+    return postsData.map((post: any) => ({
+      id: post.id,
+      user_id: post.user_id,
+      title: post.title || 'Untitled Post',
+      rating: post.rating,
+      cooking_method: post.cooking_method,
+      created_at: post.created_at,
+      photos: post.photos || [],
+      modifications: post.modifications || null,
+      recipes: post.recipe_id ? recipesMap.get(post.recipe_id) : undefined,
+      user_profiles: profilesMap.get(post.user_id) || {
+        id: post.user_id,
+        username: 'Unknown',
+        display_name: 'Unknown User',
+        avatar_url: null
+      }
+    }));
+  };
+
   const loadLikesForPosts = async (postIds: string[]) => {
     try {
-      // Get likes with created_at for ordering
       const { data: likesData, error } = await supabase
         .from('post_likes')
         .select('post_id, user_id, created_at')
@@ -225,7 +243,7 @@ export default function FeedScreen({ navigation }: Props) {
       // Get unique user IDs from all likes
       const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
       
-      // Fetch user profiles for all likers (to get their avatars)
+      // Fetch user profiles for all likers
       let likerProfiles: Map<string, { avatar_url?: string | null }> = new Map();
       if (likerUserIds.length > 0) {
         const { data: profiles } = await supabase
@@ -245,7 +263,7 @@ export default function FeedScreen({ navigation }: Props) {
           likes: postLikesList.map(l => ({ 
             user_id: l.user_id, 
             created_at: l.created_at,
-            avatar_url: likerProfiles.get(l.user_id)?.avatar_url || null  // ← Include actual avatar
+            avatar_url: likerProfiles.get(l.user_id)?.avatar_url || null
           })),
         };
       });
@@ -287,7 +305,7 @@ export default function FeedScreen({ navigation }: Props) {
         .select('following_id')
         .eq('follower_id', currentUserId);
       
-      const followingIds = new Set(followingData?.map(f => f.following_id) || []);
+      const followingIdsSet = new Set(followingData?.map(f => f.following_id) || []);
       
       // Load participants for each post
       await Promise.all(
@@ -314,8 +332,8 @@ export default function FeedScreen({ navigation }: Props) {
             }
             
             // You can see participant if you follow both post creator and participant
-            const followsCreator = followingIds.has(postCreatorId || '');
-            const followsParticipant = followingIds.has(participantId);
+            const followsCreator = followingIdsSet.has(postCreatorId || '');
+            const followsParticipant = followingIdsSet.has(participantId);
             
             return followsCreator && followsParticipant;
           });
@@ -349,13 +367,12 @@ export default function FeedScreen({ navigation }: Props) {
                 avatar_url: p.participant_profile?.avatar_url || null,
                 display_name: p.participant_profile?.display_name,
               })),
-            // Add hidden counts for UI
             hiddenSousChefs: hiddenCount.sous_chef,
             hiddenAteWith: hiddenCount.ate_with,
           };
         })
       );
-      
+
       setPostParticipants(participantsMap);
     } catch (error) {
       console.error('Error loading participants:', error);
@@ -364,39 +381,31 @@ export default function FeedScreen({ navigation }: Props) {
 
   const toggleLike = async (postId: string) => {
     try {
-      const currentLikeData = postLikes[postId];
-      const isLiked = currentLikeData?.hasLike || false;
+      const isCurrentlyLiked = postLikes[postId]?.hasLike;
 
-      if (isLiked) {
+      if (isCurrentlyLiked) {
         // Unlike
-        const { error } = await supabase
+        await supabase
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', currentUserId);
-
-        if (error) throw error;
 
         setPostLikes(prev => ({
           ...prev,
           [postId]: {
             hasLike: false,
             totalCount: Math.max(0, (prev[postId]?.totalCount || 1) - 1),
-            likes: (prev[postId]?.likes || []).filter(l => l.user_id !== currentUserId),
+            likes: prev[postId]?.likes.filter(l => l.user_id !== currentUserId) || [],
           }
         }));
       } else {
         // Like
-        const { error } = await supabase
+        await supabase
           .from('post_likes')
-          .insert({
-            post_id: postId,
-            user_id: currentUserId,
-          });
+          .insert({ post_id: postId, user_id: currentUserId });
 
-        if (error) throw error;
-
-        // Get current user's avatar for the mini avatar display
+        // Get current user's avatar for the like
         const { data: currentUserProfile } = await supabase
           .from('user_profiles')
           .select('avatar_url')
@@ -411,7 +420,7 @@ export default function FeedScreen({ navigation }: Props) {
             likes: [...(prev[postId]?.likes || []), { 
               user_id: currentUserId, 
               created_at: new Date().toISOString(),
-              avatar_url: currentUserProfile?.avatar_url || null  // ← Include actual avatar
+              avatar_url: currentUserProfile?.avatar_url || null
             }],
           }
         }));
@@ -433,35 +442,49 @@ export default function FeedScreen({ navigation }: Props) {
 
     const { hasLike, totalCount } = likeData;
     
-    let text: string;
     if (hasLike) {
       if (totalCount === 1) {
-        text = 'You gave yas chef';
+        return 'You gave yas chef';
       } else {
-        text = `You and ${totalCount - 1} other${totalCount - 1 !== 1 ? 's' : ''} gave yas chef`;
+        return `You and ${totalCount - 1} other${totalCount - 1 !== 1 ? 's' : ''} gave yas chef`;
       }
     } else {
-      text = `${totalCount} gave yas chef${totalCount !== 1 ? 's' : ''}`;
+      return `${totalCount} gave yas chef${totalCount !== 1 ? 's' : ''}`;
     }
-    
-    // Validate text is actually a string
-    if (typeof text !== 'string') {
-      console.error('❌ LIKES TEXT NOT STRING:', {
-        postId,
-        text,
-        type: typeof text,
-        likeData
-      });
-      return 'Gave yas chef';
-    }
-    
-    return text;
   };
 
-  const renderFeedItem = ({ item }: { item: FeedItem }) => {
+  const handleMealPress = (mealId: string) => {
+    // Navigate to meal detail - need to handle cross-stack navigation
+    // For now, we'll use the navigation prop to go to PostDetail (or could add MealDetail to FeedStack)
+    // TODO: Consider adding MealDetail to FeedStack for better UX
+    console.log('Meal pressed:', mealId);
+    // navigation.navigate('MealDetail', { mealId, currentUserId });
+  };
+
+  const renderFeedItem = ({ item }: { item: CombinedFeedItem }) => {
     try {
+      // Handle meal posts
+      if (item.type === 'meal') {
+        return (
+          <MealPostCard
+            meal={item.meal}
+            currentUserId={currentUserId}
+            followingIds={followingIds}
+            onPress={() => handleMealPress(item.meal.id)}
+            onLike={() => {
+              // TODO: Implement meal liking
+              console.log('Like meal:', item.meal.id);
+            }}
+            onComment={() => {
+              // TODO: Navigate to meal comments
+              console.log('Comment on meal:', item.meal.id);
+            }}
+          />
+        );
+      }
+
+      // Handle grouped dish posts (cooking partners)
       if (item.type === 'grouped') {
-        // Render grouped posts (cooking partners)
         const allPosts = [item.mainPost, ...item.linkedPosts];
         
         return (
@@ -484,67 +507,41 @@ export default function FeedScreen({ navigation }: Props) {
             }}
           />
         );
-      } else {
-        // Render single post
-        const post = item.post;
-        const likeData = postLikes[post.id];
-        const commentCount = postComments[post.id] || 0;
-        const likesText = formatLikesText(post.id);
-        const participants = postParticipants[post.id];
-        
-        // Validate all data before rendering
-        if (!post.title || typeof post.title !== 'string') {
-          console.error('❌ INVALID POST TITLE:', {
-            postId: post.id,
-            title: post.title,
-            titleType: typeof post.title
-          });
-          post.title = 'Untitled Post';
-        }
-        
-        if (!post.user_profiles || !post.user_profiles.username) {
-          console.error('❌ INVALID USER PROFILE:', {
-            postId: post.id,
-            user_profiles: post.user_profiles
-          });
-        }
-        
-        const avatarUrl = post.user_profiles?.avatar_url;
-        const userAvatar = avatarUrl || '👤';
-
-        // Validate likes data
-        if (likeData?.likes) {
-          likeData.likes.forEach((like, idx) => {
-            if (!like.user_id) {
-              console.error('❌ INVALID LIKE DATA:', { postId: post.id, likeIndex: idx, like });
-            }
-          });
-        }
-
-        return (
-          <PostCard
-            post={post as PostCardData}
-            currentUserId={currentUserId}
-            isOwnPost={post.user_id === currentUserId}
-            userInitials={userAvatar}
-            likeData={{
-              hasLike: likeData?.hasLike || false,
-              likesText,
-              commentCount,
-              likes: likeData?.likes || [],
-            }}
-            participants={participants}
-            onLike={() => toggleLike(post.id)}
-            onComment={() => navigation.navigate('CommentsList', { postId: post.id })}
-            onViewLikes={likesText ? () => {
-              navigation.navigate('YasChefsList', { 
-                postId: post.id, 
-                postTitle: post.title || 'Post' 
-              });
-            } : undefined}
-          />
-        );
       }
+
+      // Handle single dish post
+      const post = item.post;
+      const likeData = postLikes[post.id];
+      const commentCount = postComments[post.id] || 0;
+      const likesText = formatLikesText(post.id);
+      const participants = postParticipants[post.id];
+      
+      const avatarUrl = post.user_profiles?.avatar_url;
+      const userAvatar = avatarUrl || '👤';
+
+      return (
+        <PostCard
+          post={post as PostCardData}
+          currentUserId={currentUserId}
+          isOwnPost={post.user_id === currentUserId}
+          userInitials={userAvatar}
+          likeData={{
+            hasLike: likeData?.hasLike || false,
+            likesText,
+            commentCount,
+            likes: likeData?.likes || [],
+          }}
+          participants={participants}
+          onLike={() => toggleLike(post.id)}
+          onComment={() => navigation.navigate('CommentsList', { postId: post.id })}
+          onViewLikes={likesText ? () => {
+            navigation.navigate('YasChefsList', { 
+              postId: post.id, 
+              postTitle: post.title || 'Post' 
+            });
+          } : undefined}
+        />
+      );
     } catch (err) {
       console.error('❌ ERROR RENDERING FEED ITEM:', err);
       setError(`Error rendering feed item: ${err}`);
@@ -573,9 +570,11 @@ export default function FeedScreen({ navigation }: Props) {
       ) : (
         <FlatList
           data={feedItems}
-          keyExtractor={(item) => 
-            item.type === 'grouped' ? item.id : item.post.id
-          }
+          keyExtractor={(item) => {
+            if (item.type === 'meal') return `meal-${item.meal.id}`;
+            if (item.type === 'grouped') return item.id;
+            return item.post.id;
+          }}
           renderItem={renderFeedItem}
           refreshControl={
             <RefreshControl

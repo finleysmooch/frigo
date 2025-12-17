@@ -1,7 +1,6 @@
 // screens/CookingScreen.tsx
-// UPDATED VERSION: November 17, 2025
-// Fixed to handle both old (string array) and new (object array) recipe formats
-// Added proper error handling and loading states
+// Updated: December 3, 2025
+// Added: Meal plan integration - links completed dishes to plan items
 
 import { useState, useEffect } from 'react';
 import { 
@@ -19,149 +18,21 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { supabase } from '../lib/supabase';
 import PostCreationModal, { PostData } from '../components/PostCreationModal';
 import { RecipesStackParamList } from '../App';
+import { completePlanItem } from '../lib/services/mealPlanService';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'Cooking'>;
 
-interface Recipe {
-  id: string;
-  title: string;
-  prep_time_min: number;
-  cook_time_min: number;
-  ingredients: any[]; // Can be string[] or object[]
-  instructions: any[]; // Can be string[] or object[]
-}
-
-/**
- * Helper to get instruction text from either format:
- * - String: "Do this..."
- * - Object: { step: 1, instruction: "Do this..." } or { instruction: "Do this..." }
- * 
- * This handles both old recipes (string array) and new recipes from extraction (object array)
- */
-function getInstructionText(instruction: any): string {
-  if (!instruction) return '';
-  
-  // If it's already a string, return it
-  if (typeof instruction === 'string') {
-    return instruction;
-  }
-  
-  // If it's an object with an instruction property, return that
-  if (instruction && typeof instruction === 'object' && instruction.instruction) {
-    return instruction.instruction;
-  }
-  
-  // Fallback: convert whatever it is to a string
-  return String(instruction);
-}
-
-/**
- * Helper to get ingredient text from either format:
- * - String: "2 cups flour"
- * - Object: { displayText: "2 cups flour" } or { name: "flour", quantity_amount: 2, quantity_unit: "cups" }
- */
-function getIngredientText(ingredient: any): string {
-  if (!ingredient) return '';
-  
-  // If it's already a string, return it
-  if (typeof ingredient === 'string') {
-    return ingredient;
-  }
-  
-  // If it's an object with displayText, use that
-  if (ingredient && typeof ingredient === 'object') {
-    if (ingredient.displayText) {
-      return ingredient.displayText;
-    }
-    
-    // Or construct from parts
-    if (ingredient.name) {
-      const parts = [];
-      if (ingredient.quantity_amount) {
-        parts.push(ingredient.quantity_amount);
-      }
-      if (ingredient.quantity_unit) {
-        parts.push(ingredient.quantity_unit);
-      }
-      parts.push(ingredient.name);
-      if (ingredient.preparation) {
-        parts.push(`(${ingredient.preparation})`);
-      }
-      return parts.join(' ');
-    }
-  }
-  
-  // Fallback: convert whatever it is to a string
-  return String(ingredient);
-}
-
-/**
- * Generate unique key for list items
- * Handles undefined/null items gracefully
- */
-function generateKey(item: any, index: number, prefix: string): string {
-  if (!item) return `${prefix}-${index}-empty`;
-  
-  const text = typeof item === 'string' ? item : JSON.stringify(item);
-  const snippet = text.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '');
-  return `${prefix}-${index}-${snippet}`;
-}
-
 export default function CookingScreen({ route, navigation }: Props) {
-  const { recipeId } = route.params;
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { recipe, planItemId, mealId, mealTitle } = route.params;
   const [showPostModal, setShowPostModal] = useState(false);
   
   useKeepAwake();
-
-  // Fetch recipe data
-  useEffect(() => {
-    fetchRecipe();
-  }, [recipeId]);
-
-  const fetchRecipe = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select('id, title, prep_time_min, cook_time_min, ingredients, instructions')
-        .eq('id', recipeId)
-        .single();
-
-      if (error) throw error;
-      
-      if (!data) {
-        throw new Error('Recipe not found');
-      }
-      
-      // Ensure ingredients and instructions are arrays
-      const processedRecipe: Recipe = {
-        ...data,
-        ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
-        instructions: Array.isArray(data.instructions) ? data.instructions : []
-      };
-      
-      setRecipe(processedRecipe);
-    } catch (error) {
-      console.error('Error fetching recipe:', error);
-      Alert.alert('Error', 'Failed to load recipe. Please try again.', [
-        {
-          text: 'Go Back',
-          onPress: () => navigation.goBack()
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFinishCooking = () => {
     setShowPostModal(true);
   };
 
   const handlePostSubmit = async (postData: PostData) => {
-    if (!recipe) return;
-    
     try {
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
@@ -197,6 +68,7 @@ export default function CookingScreen({ route, navigation }: Props) {
 
       console.log('Creating post for user:', user.email);
 
+      // Create the dish post
       const { error, data } = await supabase
         .from('posts')
         .insert({
@@ -207,9 +79,13 @@ export default function CookingScreen({ route, navigation }: Props) {
           rating: postData.rating,
           modifications: postData.modifications,
           cooking_method: postData.cooking_method,
-          notes: postData.modifications
+          notes: postData.modifications,
+          post_type: 'dish',
+          // If cooking for a meal, link to it
+          parent_meal_id: mealId || null,
         })
-        .select();
+        .select()
+        .single();
       
       if (error) {
         console.error('Insert error:', error);
@@ -217,20 +93,67 @@ export default function CookingScreen({ route, navigation }: Props) {
       }
       
       console.log('Post created successfully:', data);
+      const dishId = data.id;
+
+      // If this was from a meal plan, link the dish to the plan item
+      if (planItemId && dishId) {
+        console.log('Linking dish to meal plan item:', planItemId);
+        const linkResult = await completePlanItem(planItemId, user.id, dishId);
+        
+        if (!linkResult.success) {
+          console.warn('Failed to link dish to plan item:', linkResult.error);
+          // Still show success - the dish was created, just the linking failed
+        }
+      }
       
       setShowPostModal(false);
-      Alert.alert(
-        'Success! 🎉', 
-        'Your cooking session has been logged!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate('RecipeList');
+
+      // Show different alert based on whether this was for a meal plan
+      if (planItemId && mealId && mealTitle) {
+        // Meal plan flow - offer to view the meal
+        Alert.alert(
+          'Added to Meal! 🎉',
+          `Your dish has been added to "${mealTitle}"`,
+          [
+            {
+              text: 'View Meal',
+              onPress: () => {
+                // Navigate to the meal detail screen
+                // We need to go back first, then navigate to the meal
+                // Using reset to avoid deep navigation stack
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'RecipeList' }],
+                });
+                // Note: Ideally we'd navigate to MealDetail, but that's in a different stack
+                // For now, just go back to recipe list. 
+                // The user can access the meal from MyMeals or the feed.
+                // TODO: Consider cross-stack navigation
+              }
+            },
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('RecipeList');
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      } else {
+        // Regular flow
+        Alert.alert(
+          'Success! 🎉', 
+          'Your cooking session has been logged!',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('RecipeList');
+              }
+            }
+          ]
+        );
+      }
       
     } catch (error) {
       console.error('Error creating post:', error);
@@ -241,33 +164,6 @@ export default function CookingScreen({ route, navigation }: Props) {
   const handlePostCancel = () => {
     setShowPostModal(false);
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading recipe...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!recipe) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Recipe not found</Text>
-          <TouchableOpacity 
-            style={styles.errorButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.errorButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -280,46 +176,41 @@ export default function CookingScreen({ route, navigation }: Props) {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
 
+        {/* Meal Plan Banner */}
+        {mealTitle && (
+          <View style={styles.mealBanner}>
+            <Text style={styles.mealBannerText}>
+              🍽️ Cooking for: {mealTitle}
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.cookingTitle}>{recipe.title}</Text>
         
         <View style={styles.timeInfo}>
           <Text style={styles.timeText}>
-            Prep: {recipe.prep_time_min || 0} min | Cook: {recipe.cook_time_min || 0} min
+            Prep: {recipe.prep_time_min} min | Cook: {recipe.cook_time_min} min
           </Text>
         </View>
 
-        {/* Ingredients Section */}
-        {recipe.ingredients && recipe.ingredients.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ingredients</Text>
-            {recipe.ingredients.map((ingredient, index) => (
-              <Text 
-                key={generateKey(ingredient, index, 'ingredient')} 
-                style={styles.ingredient}
-              >
-                • {getIngredientText(ingredient)}
-              </Text>
-            ))}
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ingredients</Text>
+          {recipe.ingredients?.map((ingredient: string, index: number) => (
+            <Text key={index} style={styles.ingredient}>
+              • {ingredient}
+            </Text>
+          ))}
+        </View>
 
-        {/* Instructions Section */}
-        {recipe.instructions && recipe.instructions.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Instructions</Text>
-            {recipe.instructions.map((instruction, index) => (
-              <View 
-                key={generateKey(instruction, index, 'instruction')} 
-                style={styles.instructionContainer}
-              >
-                <Text style={styles.stepNumber}>{index + 1}</Text>
-                <Text style={styles.instruction}>
-                  {getInstructionText(instruction)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Instructions</Text>
+          {recipe.instructions?.map((instruction: string, index: number) => (
+            <View key={index} style={styles.instructionContainer}>
+              <Text style={styles.stepNumber}>{index + 1}</Text>
+              <Text style={styles.instruction}>{instruction}</Text>
+            </View>
+          ))}
+        </View>
 
         <TouchableOpacity 
           style={styles.finishButton} 
@@ -345,32 +236,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#FF3B30',
-    marginBottom: 20,
-  },
-  errorButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  errorButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   cookingContainer: {
     flex: 1,
     padding: 20,
@@ -382,6 +247,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#007AFF',
     fontWeight: '600',
+  },
+  mealBanner: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  mealBannerText: {
+    fontSize: 15,
+    color: '#1E40AF',
+    fontWeight: '500',
   },
   cookingTitle: {
     fontSize: 28,

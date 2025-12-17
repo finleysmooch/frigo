@@ -36,6 +36,7 @@ import AddRecipeToListModal from '../components/AddRecipeToListModal';
 import IngredientPopup from '../components/IngredientPopup';
 import InlineEditableIngredient from '../components/InlineEditableIngredient';
 import InlineEditableInstruction from '../components/InlineEditableInstruction';
+import QuickMealPlanModal from '../components/QuickMealPlanModal';
 import MarkupText from '../components/MarkupText';
 import { 
   splitInstructionIntoParts,
@@ -177,7 +178,12 @@ function parseAndScaleQuantity(text: string, scale: number): string {
 }
 
 export default function RecipeDetailScreen({ navigation, route }: Props) {
-  const { recipe: recipePreview } = route.params;
+  const { recipe: recipePreview, planItemId, mealId, mealTitle } = route.params as {
+    recipe: any;
+    planItemId?: string;
+    mealId?: string;
+    mealTitle?: string;
+  };
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [instructionSections, setInstructionSections] = useState<InstructionSection[]>([]);
@@ -221,6 +227,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [annotations, setAnnotations] = useState<RecipeAnnotation[]>([]);
   const [showViewModeMenu, setShowViewModeMenu] = useState(false);
+  const [showMealModal, setShowMealModal] = useState(false);
   
   // Inline editing state
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null);
@@ -709,9 +716,22 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             </Text>
           </TouchableOpacity>
           
+          {/* NEW: Add to Meal button */}
+          <TouchableOpacity
+            style={styles.topAddToMealButton}
+            onPress={() => setShowMealModal(true)}
+          >
+            <Text style={styles.topAddToMealButtonText}>🍽️</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity
             style={styles.topStartCookingButton}
-            onPress={() => navigation.navigate('Cooking', { recipeId: recipe.id })}
+            onPress={() => navigation.navigate('Cooking', { 
+              recipe: recipe,
+              planItemId,
+              mealId,
+              mealTitle,
+            })}
           >
             <Text style={styles.topStartCookingButtonText}>Cook</Text>
           </TouchableOpacity>
@@ -1260,7 +1280,12 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         {/* Start Cooking Button */}
         <TouchableOpacity
           style={styles.startCookingButton}
-          onPress={() => navigation.navigate('Cooking', { recipeId: recipe.id })}
+          onPress={() => navigation.navigate('Cooking', { 
+            recipe: recipe,
+            planItemId,
+            mealId,
+            mealTitle,
+          })}
         >
           <Text style={styles.startCookingButtonText}>Start Cooking</Text>
         </TouchableOpacity>
@@ -1377,6 +1402,23 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         scale={currentScale}
         userId={currentUserId || ''}
       />
+
+      {/* Add to Meal Modal */}
+      {currentUserId && recipe && (
+        <QuickMealPlanModal
+          visible={showMealModal}
+          onClose={() => setShowMealModal(false)}
+          recipeId={recipe.id}
+          recipeTitle={recipe.title}
+          recipeImageUrl={recipe.image_url}
+          currentUserId={currentUserId}
+          onSuccess={(mealId, mealTitle, action) => {
+            console.log(`Recipe ${action} to meal: ${mealTitle}`);
+            // Optional: Navigate to meal detail
+            // navigation.navigate('MealDetail', { mealId, currentUserId });
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1445,6 +1487,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  topAddToMealButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  topAddToMealButtonText: {
+    fontSize: 16,
   },
   menuOverlay: {
     flex: 1,

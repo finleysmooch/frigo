@@ -1,6 +1,7 @@
 // App.tsx
 // Updated with Social Features: Feed, Following, and Cooking Partners
 // Updated: November 19, 2025
+// Updated: December 10, 2025 - Added selection mode params for recipe selection flow
 
 import { useState, useEffect } from 'react';
 import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
@@ -9,6 +10,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import RecipeListScreen from './screens/RecipeListScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
+import MealDetailScreen from './screens/MealDetailScreen';
+import MyMealsScreen from './screens/MyMealsScreen';
 import { AddRecipeFromPhotoScreen } from './screens/AddRecipeFromPhotoScreen';
 import { AddRecipeFromUrlScreen } from './screens/AddRecipeFromUrlScreen';
 import { MissingIngredientsScreen } from './screens/MissingIngredientsScreen';
@@ -56,10 +59,32 @@ export type AuthStackParamList = {
   Signup: undefined;
 };
 
+// UPDATED: RecipesStackParamList with selection mode support
 export type RecipesStackParamList = {
-  RecipeList: undefined;
-  RecipeDetail: { recipe: any };
-  Cooking: { recipeId: string };
+  RecipeList: {
+    // Selection mode params (optional)
+    selectionMode?: boolean;
+    returnToMeals?: boolean;  // Flag to indicate return to MyMealsScreen
+    mealFormData?: {          // Form data to restore when returning
+      title: string;
+      mealType: string;
+      mealTime: string;
+      location?: string;
+      description?: string;
+    };
+  } | undefined;
+  RecipeDetail: { 
+    recipe: any;
+    planItemId?: string;   // NEW: Pass-through for meal plan
+    mealId?: string;       // NEW: Pass-through for meal plan
+    mealTitle?: string;    // NEW: Pass-through for meal plan
+  };
+  Cooking: { 
+    recipe: any;  // Changed from recipeId to full recipe object
+    planItemId?: string;   // NEW: For meal plan integration
+    mealId?: string;       // NEW: For meal plan integration
+    mealTitle?: string;    // NEW: For success message
+  };
   BookView: { bookId: string };
   AuthorView: { chefName: string };
   AddRecipeFromPhoto: { userId: string; source: 'camera' | 'gallery' };
@@ -85,12 +110,33 @@ export type FeedStackParamList = {
   CommentsList: { postId: string };
 };
 
+// UPDATED: MealsStackParamList with recipe selection return params
+export type MealsStackParamList = {
+  MyMealsList: {
+    // Return from recipe selection
+    selectedRecipe?: {
+      id: string;
+      title: string;
+      image_url?: string;
+    };
+    returnedFormData?: {
+      title: string;
+      mealType: string;
+      mealTime: string;
+      location?: string;
+      description?: string;
+    };
+  } | undefined;
+  MealDetail: { mealId: string; currentUserId: string };
+};
+
 export type MyPostsStackParamList = {
   MyPostsList: undefined;
   YasChefsList: { postId: string; postTitle: string };
   CommentsList: { postId: string };
   EditMedia: { postId: string; existingPhotos: PostPhoto[] };
   MyPostDetails: { postId: string };
+  MealDetail: { mealId: string; currentUserId: string };
 };
 
 export type ProfileStackParamList = {
@@ -108,6 +154,7 @@ export type RootTabParamList = {
   FeedStack: undefined; // NEW
   SearchStack: undefined; // NEW
   RecipesStack: undefined;
+  MealsStack: undefined;
   MyPostsStack: undefined;
   PantryStack: undefined;
   GroceryStack: undefined;
@@ -122,6 +169,7 @@ const RecipesStack = createNativeStackNavigator<RecipesStackParamList>();
 const MyPostsStack = createNativeStackNavigator<MyPostsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const MealsStack = createNativeStackNavigator<MealsStackParamList>();
 
 // Auth Stack Navigator (Login/Signup)
 function AuthStackNavigator() {
@@ -350,7 +398,39 @@ function MyPostsStackNavigator() {
           headerShown: false,
         }}
       />
+      <MyPostsStack.Screen 
+        name="MealDetail" 
+        component={MealDetailScreen}
+        options={{
+          headerShown: true,
+          title: 'Meal',
+        }}
+      />
     </MyPostsStack.Navigator>
+  );
+}
+
+// Meals Stack Navigator
+function MealsStackNavigator() {
+  return (
+    <MealsStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <MealsStack.Screen 
+        name="MyMealsList" 
+        component={MyMealsScreen}
+      />
+      <MealsStack.Screen 
+        name="MealDetail" 
+        component={MealDetailScreen}
+        options={{
+          headerShown: true,
+          title: 'Meal',
+        }}
+      />
+    </MealsStack.Navigator>
   );
 }
 
@@ -415,7 +495,6 @@ function GroceryStackNavigator() {
   );
 }
 
-// Main Tab Navigator
 function MainTabNavigator() {
   return (
     <Tab.Navigator
@@ -437,7 +516,7 @@ function MainTabNavigator() {
         },
       }}
     >
-      {/* NEW: Feed Tab - Home feed with posts from people you follow */}
+      {/* Feed Tab - Home feed with posts from people you follow */}
       <Tab.Screen
         name="FeedStack"
         component={FeedStackNavigator}
@@ -449,7 +528,7 @@ function MainTabNavigator() {
         }}
       />
       
-      {/* NEW: Search Tab - Find and follow people */}
+      {/* Search Tab - Find and follow people */}
       <Tab.Screen
         name="SearchStack"
         component={UserSearchScreen}
@@ -470,6 +549,18 @@ function MainTabNavigator() {
           tabBarLabel: 'Recipes',
           tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
             <Text style={{ fontSize: 24 }}>{focused ? '📖' : '📕'}</Text>
+          ),
+        }}
+      />
+      
+      {/* NEW: Meals Tab */}
+      <Tab.Screen
+        name="MealsStack"
+        component={MealsStackNavigator}
+        options={{
+          tabBarLabel: 'Meals',
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '🍽️' : '🥗'}</Text>
           ),
         }}
       />

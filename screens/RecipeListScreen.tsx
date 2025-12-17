@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react';
+// screens/RecipeListScreen.tsx
+// Updated: December 12, 2025 
+// - Fixed selection mode getting stuck when navigating away
+// - Changed from "Tap to Select" badge to proper "Select" button
+// - Tapping card goes to recipe details, button selects for meal
+
+import { useEffect, useState, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -13,13 +19,13 @@ import {
   Keyboard
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
 import { colors } from '../lib/theme';
 import FilterDrawer from '../components/FilterDrawer';
 import { AddRecipeModal } from '../components/AddRecipeModal';
-import { searchRecipes, searchRecipesByMixedTerms } from '../lib/searchService';
-import { calculateBulkPantryMatch } from '../lib/pantryService';
+import { searchRecipesByMixedTerms } from '../lib/searchService';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeList'>;
 
@@ -46,6 +52,7 @@ interface Recipe {
   ingredient_count?: number;
   pantry_match?: number;
   is_pinned?: boolean;
+  image_url?: string;
 }
 
 interface QuickFilter {
@@ -55,7 +62,7 @@ interface QuickFilter {
   active: boolean;
 }
 
-export default function RecipeListScreen({ navigation }: Props) {
+export default function RecipeListScreen({ navigation, route }: Props) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +70,11 @@ export default function RecipeListScreen({ navigation }: Props) {
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Selection mode state - use local state that gets set from params
+  // This allows us to reset it when navigating normally
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectionFormData, setSelectionFormData] = useState<any>(null);
   
   // Quick filters state
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
@@ -83,6 +95,23 @@ export default function RecipeListScreen({ navigation }: Props) {
     loadRecipes();
     getCurrentUser();
   }, []);
+
+  // Handle selection mode params - check on every focus
+  useFocusEffect(
+    useCallback(() => {
+      // Check if we have valid selection mode params
+      const params = route.params;
+      if (params?.selectionMode && params?.returnToMeals) {
+        // Entering selection mode from CreateMealModal
+        setIsSelectionMode(true);
+        setSelectionFormData(params.mealFormData);
+      } else {
+        // Normal navigation (e.g., from tab bar) - reset selection mode
+        setIsSelectionMode(false);
+        setSelectionFormData(null);
+      }
+    }, [route.params?.selectionMode, route.params?.returnToMeals])
+  );
 
   useEffect(() => {
     // Apply filters whenever they change
@@ -236,44 +265,118 @@ export default function RecipeListScreen({ navigation }: Props) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const searchResults = await searchRecipesByMixedTerms([searchText]);
+      // Get matching recipe IDs
+      const recipeIds = await searchRecipesByMixedTerms([searchText]);
       
-      // Cast the results to Recipe[] type since searchRecipesByMixedTerms returns the correct data
-      // but TypeScript doesn't know the exact type
-      // Use double cast to safely convert type
-      setFilteredRecipes(searchResults as unknown as Recipe[]);
+      if (recipeIds.length === 0) {
+        setFilteredRecipes([]);
+        return;
+      }
+
+      // Fetch full recipe data for the matching IDs
+      const { data: searchResults, error } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          chefs:chef_id (name)
+        `)
+        .eq('user_id', user.id)
+        .in('id', recipeIds);
+
+      if (error) throw error;
+
+      const recipesWithChefs = (searchResults || []).map((recipe: any) => ({
+        ...recipe,
+        chef_name: recipe.chefs?.name || 'Unknown Chef',
+        pantry_match: 0,
+      }));
+
+      setFilteredRecipes(recipesWithChefs);
     } catch (error) {
       console.error('Search error:', error);
     }
   };
 
+  // Handle recipe card press - always go to details
+  const handleRecipePress = (recipe: Recipe) => {
+    navigation.navigate('RecipeDetail', { recipe });
+  };
+
+  // Handle Select button press - select for meal and return
+  const handleSelectForMeal = (recipe: Recipe) => {
+    // Navigate back to MealsStack with the selected recipe
+    navigation.getParent()?.navigate('MealsStack', {
+      screen: 'MyMealsList',
+      params: {
+        selectedRecipe: {
+          id: recipe.id,
+          title: recipe.title,
+          image_url: recipe.image_url,
+        },
+        returnedFormData: selectionFormData,
+      },
+    });
+  };
+
+  // Handle cancel in selection mode
+  const handleCancelSelection = () => {
+    // Clear local selection state
+    setIsSelectionMode(false);
+    setSelectionFormData(null);
+    
+    // Clear the route params to prevent re-triggering
+    navigation.setParams({ selectionMode: undefined, returnToMeals: undefined, mealFormData: undefined } as any);
+    
+    // Navigate back to meals with just the form data (no recipe)
+    navigation.getParent()?.navigate('MealsStack', {
+      screen: 'MyMealsList',
+      params: {
+        returnedFormData: selectionFormData,
+      },
+    });
+  };
+
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <Text style={styles.header}>Recipes</Text>
-      
-      <View style={styles.headerButtons}>
-        {/* Add Recipe Button */}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddRecipeModal(true)}
-        >
-          <Text style={styles.addButtonIcon}>+</Text>
-        </TouchableOpacity>
+      {isSelectionMode ? (
+        // Selection mode header
+        <>
+          <TouchableOpacity onPress={handleCancelSelection}>
+            <Text style={styles.cancelText}>← Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.selectionTitle}>Select a Recipe</Text>
+          <View style={{ width: 70 }} />
+        </>
+      ) : (
+        // Normal header
+        <>
+          <Text style={styles.header}>Recipes</Text>
+          
+          <View style={styles.headerButtons}>
+            {/* Add Recipe Button */}
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowAddRecipeModal(true)}
+            >
+              <Text style={styles.addButtonIcon}>+</Text>
+            </TouchableOpacity>
 
-        {/* Existing More Button */}
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => setShowFilterDrawer(true)}
-        >
-          <Text style={styles.moreButtonIcon}>🎚️</Text>
-          <Text style={styles.moreButtonText}>More</Text>
-          {getActiveFilterCount() > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+            {/* Existing More Button */}
+            <TouchableOpacity
+              style={styles.moreButton}
+              onPress={() => setShowFilterDrawer(true)}
+            >
+              <Text style={styles.moreButtonIcon}>🎚️</Text>
+              <Text style={styles.moreButtonText}>More</Text>
+              {getActiveFilterCount() > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 
@@ -358,7 +461,8 @@ export default function RecipeListScreen({ navigation }: Props) {
   const renderRecipeCard = ({ item }: { item: Recipe }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
+      onPress={() => handleRecipePress(item)}
+      activeOpacity={0.7}
     >
       {item.is_pinned && (
         <View style={styles.pinnedBadge}>
@@ -367,7 +471,7 @@ export default function RecipeListScreen({ navigation }: Props) {
       )}
 
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
         <View style={[
           styles.difficultyBadge,
           item.difficulty_level === 'easy' && styles.difficultyEasy,
@@ -394,36 +498,49 @@ export default function RecipeListScreen({ navigation }: Props) {
       )}
 
       <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statIcon}>⏱️</Text>
-          <Text style={styles.statText}>
-            {item.prep_time_min && item.cook_time_min 
-              ? `${item.prep_time_min + item.cook_time_min}m`
-              : item.total_time_min 
-              ? `${item.total_time_min}m`
-              : item.active_time_min
-              ? `${item.active_time_min}m`
-              : 'N/A'}
-          </Text>
+        <View style={styles.statsLeft}>
+          <View style={styles.stat}>
+            <Text style={styles.statIcon}>⏱️</Text>
+            <Text style={styles.statText}>
+              {item.prep_time_min && item.cook_time_min 
+                ? `${item.prep_time_min + item.cook_time_min}m`
+                : item.total_time_min 
+                ? `${item.total_time_min}m`
+                : item.active_time_min
+                ? `${item.active_time_min}m`
+                : 'N/A'}
+            </Text>
+          </View>
+
+          {item.is_one_pot && (
+            <View style={styles.stat}>
+              <Text style={styles.statIcon}>🥘</Text>
+              <Text style={styles.statText}>One-Pot</Text>
+            </View>
+          )}
+
+          <View style={styles.stat}>
+            <Text style={styles.statIcon}>✅</Text>
+            <Text style={styles.statText}>{item.pantry_match}%</Text>
+          </View>
+
+          {item.cost_per_serving != null && (
+            <View style={styles.stat}>
+              <Text style={styles.statIcon}>💰</Text>
+              <Text style={styles.statText}>${item.cost_per_serving.toFixed(2)}</Text>
+            </View>
+          )}
         </View>
 
-        {item.is_one_pot && (
-          <View style={styles.stat}>
-            <Text style={styles.statIcon}>🥘</Text>
-            <Text style={styles.statText}>One-Pot</Text>
-          </View>
-        )}
-
-        <View style={styles.stat}>
-          <Text style={styles.statIcon}>✅</Text>
-          <Text style={styles.statText}>{item.pantry_match}%</Text>
-        </View>
-
-        {item.cost_per_serving != null && (
-          <View style={styles.stat}>
-            <Text style={styles.statIcon}>💰</Text>
-            <Text style={styles.statText}>${item.cost_per_serving.toFixed(2)}</Text>
-          </View>
+        {/* Selection mode: Show Select button on bottom right */}
+        {isSelectionMode && (
+          <TouchableOpacity
+            style={styles.selectButton}
+            onPress={() => handleSelectForMeal(item)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.selectButtonText}>Select</Text>
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -454,9 +571,7 @@ export default function RecipeListScreen({ navigation }: Props) {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {searchText || getActiveFilterCount() > 0
-                ? 'No recipes match your filters'
-                : 'No recipes found'}
+              {searchText ? 'No recipes found' : 'No recipes yet'}
             </Text>
             {(searchText || getActiveFilterCount() > 0) && (
               <TouchableOpacity
@@ -468,47 +583,56 @@ export default function RecipeListScreen({ navigation }: Props) {
             )}
           </View>
         }
+        showsVerticalScrollIndicator={false}
       />
 
-      {renderBottomSearchBar()}
+      {/* Bottom search bar - hide in selection mode for cleaner look */}
+      {!isSelectionMode && renderBottomSearchBar()}
 
+      {/* Filter Drawer */}
       <FilterDrawer
         visible={showFilterDrawer}
         onClose={() => setShowFilterDrawer(false)}
         filters={advancedFilters}
-        onApplyFilters={(filters) => {
+        onApplyFilters={(filters: any) => {
           setAdvancedFilters(filters);
           setShowFilterDrawer(false);
         }}
       />
 
-      <AddRecipeModal
-        visible={showAddRecipeModal}
-        onClose={() => setShowAddRecipeModal(false)}
-        onSelectCamera={() => {
-          if (userId) {
-            navigation.navigate('AddRecipeFromPhoto', {
-              userId: userId,
-              source: 'camera',
-            });
-          }
-        }}
-        onSelectGallery={() => {
-          if (userId) {
-            navigation.navigate('AddRecipeFromPhoto', {
-              userId: userId,
-              source: 'gallery',
-            });
-          }
-        }}
-        onSelectWeb={() => {
-          if (userId) {
-            navigation.navigate('AddRecipeFromUrl', {
-              userId: userId,
-            });
-          }
-        }}
-      />
+      {/* Add Recipe Modal - only in normal mode */}
+      {!isSelectionMode && (
+        <AddRecipeModal
+          visible={showAddRecipeModal}
+          onClose={() => setShowAddRecipeModal(false)}
+          onSelectCamera={() => {
+            setShowAddRecipeModal(false);
+            if (userId) {
+              navigation.navigate('AddRecipeFromPhoto', {
+                userId: userId,
+                source: 'camera',
+              });
+            }
+          }}
+          onSelectGallery={() => {
+            setShowAddRecipeModal(false);
+            if (userId) {
+              navigation.navigate('AddRecipeFromPhoto', {
+                userId: userId,
+                source: 'gallery',
+              });
+            }
+          }}
+          onSelectWeb={() => {
+            setShowAddRecipeModal(false);
+            if (userId) {
+              navigation.navigate('AddRecipeFromUrl', {
+                userId: userId,
+              });
+            }
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -535,6 +659,17 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  // Selection mode header styles
+  cancelText: {
+    fontSize: 16,
+    color: colors.primary,
+    width: 70,
+  },
+  selectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -756,11 +891,17 @@ const styles = StyleSheet.create({
 
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+  },
+  statsLeft: {
+    flexDirection: 'row',
+    gap: 12,
+    flex: 1,
   },
   stat: {
     flexDirection: 'row',
@@ -773,6 +914,20 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 13,
     color: '#666',
+  },
+
+  // Selection mode button - bottom right inline
+  selectButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 12,
+  },
+  selectButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   bottomSearchContainer: {

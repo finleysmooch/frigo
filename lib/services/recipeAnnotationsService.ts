@@ -8,6 +8,7 @@
 // - Step reordering
 // - Markup view display
 // ============================================
+// Updated: December 10, 2025 - Added saveAnnotation generic function
 
 import { supabase } from '../supabase';
 
@@ -15,7 +16,7 @@ import { supabase } from '../supabase';
 // TYPES
 // ============================================
 
-export type AnnotationType = 'ingredient_edit' | 'instruction_edit' | 'instruction_delete' | 'step_reorder';
+export type AnnotationType = 'ingredient_edit' | 'instruction_edit' | 'instruction_delete' | 'step_reorder' | 'note';
 export type ViewMode = 'original' | 'clean' | 'markup';
 
 export interface RecipeAnnotation {
@@ -108,6 +109,158 @@ export async function getFieldAnnotation(
 // ============================================
 
 /**
+ * Generic save annotation function
+ * Routes to specific functions based on annotation type
+ * Used by AnnotationModal for unified save interface
+ */
+export async function saveAnnotation(
+  userId: string,
+  recipeId: string,
+  annotationType: AnnotationType,
+  targetField: string, // e.g., 'ingredients[0]', 'instructions[2]', 'note'
+  originalValue: string,
+  newValue: string,
+  notes?: string
+): Promise<SaveAnnotationResult> {
+  try {
+    // Parse the target field to extract type and index
+    const ingredientMatch = targetField.match(/^ingredients?\[(\d+)\]$/);
+    const instructionMatch = targetField.match(/^instructions?\[(\d+)\]$/);
+    
+    if (ingredientMatch && annotationType === 'ingredient_edit') {
+      const fieldIndex = parseInt(ingredientMatch[1], 10);
+      return await saveIngredientEdit(
+        userId,
+        recipeId,
+        '', // ingredientId - not always available from modal
+        fieldIndex,
+        originalValue,
+        newValue,
+        notes
+      );
+    }
+    
+    if (instructionMatch && (annotationType === 'instruction_edit' || annotationType === 'instruction_delete')) {
+      const fieldIndex = parseInt(instructionMatch[1], 10);
+      
+      if (annotationType === 'instruction_delete') {
+        return await deleteInstruction(userId, recipeId, fieldIndex, originalValue);
+      }
+      
+      return await saveInstructionEdit(
+        userId,
+        recipeId,
+        fieldIndex,
+        originalValue,
+        newValue,
+        notes
+      );
+    }
+    
+    // Handle generic note or other annotation types
+    if (annotationType === 'note' || !ingredientMatch && !instructionMatch) {
+      return await saveGenericAnnotation(
+        userId,
+        recipeId,
+        targetField,
+        originalValue,
+        newValue,
+        annotationType,
+        notes
+      );
+    }
+    
+    return {
+      success: false,
+      error: `Unknown annotation type or target field: ${annotationType}, ${targetField}`
+    };
+  } catch (error) {
+    console.error('Error in saveAnnotation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Save generic annotation (for notes and other types)
+ */
+async function saveGenericAnnotation(
+  userId: string,
+  recipeId: string,
+  targetField: string,
+  originalValue: string,
+  newValue: string,
+  annotationType: AnnotationType,
+  notes?: string
+): Promise<SaveAnnotationResult> {
+  try {
+    // Check if annotation exists
+    const { data: existing } = await supabase
+      .from('recipe_annotations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('recipe_id', recipeId)
+      .eq('field_type', targetField)
+      .maybeSingle();
+
+    let data;
+    let error;
+
+    if (existing) {
+      const result = await supabase
+        .from('recipe_annotations')
+        .update({
+          original_value: originalValue,
+          annotated_value: newValue,
+          annotation_type: annotationType,
+          notes: notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    } else {
+      const result = await supabase
+        .from('recipe_annotations')
+        .insert({
+          user_id: userId,
+          recipe_id: recipeId,
+          field_type: targetField,
+          field_id: null,
+          field_index: null,
+          original_value: originalValue,
+          annotated_value: newValue,
+          annotation_type: annotationType,
+          notes: notes || null
+        })
+        .select()
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    }
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      annotation: data
+    };
+  } catch (error) {
+    console.error('Error saving generic annotation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Save ingredient edit
  */
 export async function saveIngredientEdit(
@@ -138,7 +291,7 @@ export async function saveIngredientEdit(
       const result = await supabase
         .from('recipe_annotations')
         .update({
-          field_id: ingredientId,
+          field_id: ingredientId || null,
           original_value: originalValue,
           annotated_value: newValue,
           annotation_type: 'ingredient_edit',
@@ -159,7 +312,7 @@ export async function saveIngredientEdit(
           user_id: userId,
           recipe_id: recipeId,
           field_type: 'ingredient',
-          field_id: ingredientId,
+          field_id: ingredientId || null,
           field_index: fieldIndex,
           original_value: originalValue,
           annotated_value: newValue,
