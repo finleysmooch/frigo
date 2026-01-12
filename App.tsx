@@ -2,6 +2,7 @@
 // Updated with Social Features: Feed, Following, and Cooking Partners
 // Updated: November 19, 2025
 // Updated: December 10, 2025 - Added selection mode params for recipe selection flow
+// Updated: December 18, 2025 - Added SpaceProvider for shared pantries
 
 import { useState, useEffect } from 'react';
 import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
@@ -39,6 +40,12 @@ import EditProfileScreen from './screens/EditProfileScreen';
 import FeedScreen from './screens/FeedScreen';
 import UserSearchScreen from './screens/UserSearchScreen';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
+
+// NEW: Space Settings Screen for shared pantries
+import SpaceSettingsScreen from './screens/SpaceSettingsScreen';
+
+// NEW: Space Provider for shared pantries
+import { SpaceProvider } from './contexts/SpaceContext';
 
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -148,6 +155,12 @@ export type ProfileStackParamList = {
 export type GroceryStackParamList = {
   GroceryLists: undefined;
   GroceryListDetail: { listId: string; listName: string };
+};
+
+// NEW: Pantry Stack with Space Settings
+export type PantryStackParamList = {
+  Pantry: undefined;
+  SpaceSettings: { spaceId: string };
 };
 
 export type RootTabParamList = {
@@ -296,19 +309,21 @@ function RecipesStackNavigator() {
         headerShown: false,
       }}
     >
-      <RecipesStack.Screen 
-        name="RecipeList" 
-        component={RecipeListScreen}
-      />
+      <RecipesStack.Screen name="RecipeList" component={RecipeListScreen} />
       <RecipesStack.Screen 
         name="RecipeDetail" 
         component={RecipeDetailScreen}
+        options={{
+          headerShown: true,
+          title: 'Recipe',
+        }}
       />
       <RecipesStack.Screen 
         name="Cooking" 
         component={CookingScreen}
         options={{
-          gestureEnabled: false,
+          headerShown: true,
+          title: 'Cooking Mode',
         }}
       />
       <RecipesStack.Screen 
@@ -316,7 +331,7 @@ function RecipesStackNavigator() {
         component={BookViewScreen}
         options={{
           headerShown: true,
-          title: 'Book',
+          title: 'Cookbook',
         }}
       />
       <RecipesStack.Screen 
@@ -330,40 +345,40 @@ function RecipesStackNavigator() {
       <RecipesStack.Screen 
         name="AddRecipeFromPhoto" 
         component={AddRecipeFromPhotoScreen}
-        options={{ 
-          headerShown: false, 
-          presentation: 'modal'
+        options={{
+          headerShown: true,
+          title: 'Add Recipe',
         }}
       />
       <RecipesStack.Screen 
         name="AddRecipeFromUrl" 
         component={AddRecipeFromUrlScreen}
-        options={{ 
-          headerShown: false, 
-          presentation: 'modal'
+        options={{
+          headerShown: true,
+          title: 'Add from URL',
         }}
       />
       <RecipesStack.Screen 
         name="MissingIngredients" 
         component={MissingIngredientsScreen}
-        options={{ 
-          headerShown: false, 
-          presentation: 'modal'
+        options={{
+          headerShown: true,
+          title: 'Missing Ingredients',
         }}
       />
       <RecipesStack.Screen 
         name="RecipeReview" 
         component={RecipeReviewScreen}
-        options={{ 
-          headerShown: false, 
-          presentation: 'modal'
+        options={{
+          headerShown: true,
+          title: 'Review Recipe',
         }}
       />
     </RecipesStack.Navigator>
   );
 }
 
-// MyPosts Stack Navigator
+// My Posts Stack Navigator
 function MyPostsStackNavigator() {
   return (
     <MyPostsStack.Navigator
@@ -371,31 +386,37 @@ function MyPostsStackNavigator() {
         headerShown: false,
       }}
     >
-      <MyPostsStack.Screen 
-        name="MyPostsList" 
-        component={MyPostsScreen}
-      />
+      <MyPostsStack.Screen name="MyPostsList" component={MyPostsScreen} />
       <MyPostsStack.Screen 
         name="YasChefsList" 
         component={YasChefScreen}
+        options={{
+          headerShown: true,
+          title: 'Yas Chefs',
+        }}
       />
       <MyPostsStack.Screen 
         name="CommentsList" 
         component={CommentsScreen}
+        options={{
+          headerShown: true,
+          title: 'Comments',
+        }}
       />
       <MyPostsStack.Screen 
         name="EditMedia" 
         component={EditMediaScreen}
         options={{
-          presentation: 'modal',
-          headerShown: false,
+          headerShown: true,
+          title: 'Edit Photos',
         }}
       />
       <MyPostsStack.Screen 
         name="MyPostDetails" 
         component={MyPostDetailsScreen}
         options={{
-          headerShown: false,
+          headerShown: true,
+          title: 'Post Details',
         }}
       />
       <MyPostsStack.Screen 
@@ -458,18 +479,25 @@ function ProfileStackNavigator() {
   );
 }
 
-// Pantry Stack Navigator
-const PantryStack = createNativeStackNavigator();
+// UPDATED: Pantry Stack Navigator with SpaceSettings
+const PantryStackNav = createNativeStackNavigator<PantryStackParamList>();
 
 function PantryStackNavigator() {
   return (
-    <PantryStack.Navigator
+    <PantryStackNav.Navigator
       screenOptions={{
         headerShown: false,
       }}
     >
-      <PantryStack.Screen name="Pantry" component={PantryScreen} />
-    </PantryStack.Navigator>
+      <PantryStackNav.Screen name="Pantry" component={PantryScreen} />
+      <PantryStackNav.Screen 
+        name="SpaceSettings" 
+        component={SpaceSettingsScreen}
+        options={{
+          headerShown: false, // SpaceSettingsScreen has its own header
+        }}
+      />
+    </PantryStackNav.Navigator>
   );
 }
 
@@ -644,9 +672,16 @@ export default function App() {
     );
   }
 
+  // UPDATED: Wrap authenticated app with SpaceProvider
   return (
     <NavigationContainer>
-      {session ? <MainTabNavigator /> : <AuthStackNavigator />}
+      {session ? (
+        <SpaceProvider>
+          <MainTabNavigator />
+        </SpaceProvider>
+      ) : (
+        <AuthStackNavigator />
+      )}
     </NavigationContainer>
   );
 }

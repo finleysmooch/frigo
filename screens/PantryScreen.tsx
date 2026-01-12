@@ -1,8 +1,9 @@
 // ============================================
-// FRIGO - PANTRY SCREEN (REDESIGNED)
+// FRIGO - PANTRY SCREEN (SPACE-AWARE)
 // ============================================
-// Main pantry inventory screen with new smart interaction patterns
+// Main pantry inventory screen with shared pantry support
 // Location: screens/PantryScreen.tsx
+// Updated: December 17, 2025 - Added space context integration
 
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -19,10 +20,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
 import {
-  getPantryItems,
+  getPantryItemsBySpace,
   updatePantryItem,
   deletePantryItem,
-  addPantryItem
+  addPantryItemToSpace
 } from '../lib/pantryService';
 import { PantryItemWithIngredient, StorageLocation } from '../lib/types/pantry';
 import {
@@ -37,16 +38,8 @@ import {
 import { getTypeIcon } from '../constants/pantry';
 import { getFamilyIcon } from '../constants/pantry';
 
-// Helper function to get storage location icon
-const getStorageIcon = (storage: string): string => {
-  const icons: { [key: string]: string } = {
-    'fridge': '🧊',
-    'freezer': '❄️',
-    'pantry': '🥫',
-    'counter': '🏠',
-  };
-  return icons[storage.toLowerCase()] || '📦';
-};
+// Space Context
+import { useSpace, useActiveSpaceId, useSpacePermissions } from '../contexts/SpaceContext';
 
 // Components
 import PantryItemRow from '../components/PantryItemRow';
@@ -59,19 +52,38 @@ import RemainderPrompt, { RemainderAction } from '../components/RemainderPrompt'
 import AddPantryItemModal from '../components/AddPantryItemModal';
 import QuickAddModal from '../components/QuickAddModal';
 
-// TODO: Implement sticky headers for expanded family sections
-// When a family (e.g., Proteins) is expanded and user scrolls past the CategoryHeader,
-// the header should stick at the top under "My Pantry" title and remain collapsible.
-// Implementation approach:
-// 1. Use Animated.ScrollView with onScroll event tracking
-// 2. Measure CategoryHeader positions with onLayout
-// 3. Create floating duplicate header that appears when scrolled past original
-// 4. Manage z-index and positioning for smooth sticky behavior
-// See: https://github.com/finleysmooch/frigo/issues/[create-issue-for-sticky-headers]
+// Space Components
+import SpaceSwitcher from '../components/SpaceSwitcher';
+import CreateSpaceModal from '../components/CreateSpaceModal';
+import PendingSpaceInvitations from '../components/PendingSpaceInvitations';
+
+// Helper function to get storage location icon
+const getStorageIcon = (storage: string): string => {
+  const icons: { [key: string]: string } = {
+    'fridge': '🧊',
+    'freezer': '❄️',
+    'pantry': '🥫',
+    'counter': '🏠',
+  };
+  return icons[storage.toLowerCase()] || '📦';
+};
 
 type Props = NativeStackScreenProps<any, 'Pantry'>;
 
 export default function PantryScreen({ navigation }: Props) {
+  // ============================================
+  // SPACE CONTEXT
+  // ============================================
+  
+  const { 
+    activeSpace, 
+    isLoading: spaceLoading, 
+    isSwitching,
+    refreshSpaces 
+  } = useSpace();
+  const activeSpaceId = useActiveSpaceId();
+  const { canDeleteItems } = useSpacePermissions();
+
   // ============================================
   // STATE
   // ============================================
@@ -99,6 +111,7 @@ export default function PantryScreen({ navigation }: Props) {
   const [showRemainderPrompt, setShowRemainderPrompt] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [showCreateSpaceModal, setShowCreateSpaceModal] = useState(false);
   
   // Current item being edited
   const [selectedItem, setSelectedItem] = useState<PantryItemWithIngredient | null>(null);
@@ -119,11 +132,12 @@ export default function PantryScreen({ navigation }: Props) {
     getCurrentUser();
   }, []);
 
+  // Reload pantry when space changes
   useEffect(() => {
-    if (currentUserId) {
+    if (currentUserId && activeSpaceId) {
       loadPantryData();
     }
-  }, [currentUserId]);
+  }, [currentUserId, activeSpaceId]);
 
   // ============================================
   // DATA LOADING
@@ -139,16 +153,17 @@ export default function PantryScreen({ navigation }: Props) {
   };
 
   const loadPantryData = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId || !activeSpaceId) return;
 
     try {
       setLoading(true);
-      console.log('🔍 Loading pantry data...');
+      console.log('🔍 Loading pantry data for space:', activeSpaceId);
       
-      const allItems = await getPantryItems(currentUserId);
+      // Use space-aware pantry query
+      const allItems = await getPantryItemsBySpace(activeSpaceId);
       setItems(allItems);
       
-      console.log('✅ Loaded', allItems.length, 'pantry items');
+      console.log('✅ Loaded', allItems.length, 'pantry items from space');
 
     } catch (error) {
       console.error('❌ Error loading pantry:', error);
@@ -162,7 +177,7 @@ export default function PantryScreen({ navigation }: Props) {
     setRefreshing(true);
     await loadPantryData();
     setRefreshing(false);
-  }, [currentUserId]);
+  }, [currentUserId, activeSpaceId]);
 
   // ============================================
   // DATA ORGANIZATION
@@ -222,6 +237,11 @@ export default function PantryScreen({ navigation }: Props) {
       console.log('💾 Updating quantity:', selectedItem.ingredient.name, newQuantity);
       
       if (newQuantity === 0) {
+        // Check if user can delete (guests cannot)
+        if (!canDeleteItems) {
+          Alert.alert('Permission Denied', 'Guests cannot delete items from shared pantries');
+          return;
+        }
         // Delete item if quantity is 0
         await deletePantryItem(selectedItem.id, currentUserId);
       } else {
@@ -306,7 +326,7 @@ export default function PantryScreen({ navigation }: Props) {
     expirationDays: number,
     remainderAction: RemainderAction
   ) => {
-    if (!selectedItem || !currentUserId) return;
+    if (!selectedItem || !currentUserId || !activeSpaceId) return;
 
     try {
       console.log('🚚 Executing storage move:', {
@@ -334,8 +354,8 @@ export default function PantryScreen({ navigation }: Props) {
         const remainingQuantity = selectedItem.quantity_display - quantity;
 
         if (remainderAction === 'keep') {
-          // Create new item in new location, update old item with remaining quantity
-          await addPantryItem(
+          // Create new item in new location (using space-aware function)
+          await addPantryItemToSpace(
             {
               ingredient_id: selectedItem.ingredient_id,
               quantity_display: quantity,
@@ -345,17 +365,19 @@ export default function PantryScreen({ navigation }: Props) {
               expiration_date: newExpirationDate,
               is_opened: selectedItem.is_opened,
             },
+            activeSpaceId,
             currentUserId
           );
 
+          // Update old item with remaining quantity
           await updatePantryItem(
             selectedItem.id,
             { quantity_display: remainingQuantity },
             currentUserId
           );
         } else if (remainderAction === 'used' || remainderAction === 'discarded') {
-          // Create new item in new location, delete old item
-          await addPantryItem(
+          // Create new item in new location
+          await addPantryItemToSpace(
             {
               ingredient_id: selectedItem.ingredient_id,
               quantity_display: quantity,
@@ -365,9 +387,11 @@ export default function PantryScreen({ navigation }: Props) {
               expiration_date: newExpirationDate,
               is_opened: selectedItem.is_opened,
             },
+            activeSpaceId,
             currentUserId
           );
 
+          // Delete old item
           await deletePantryItem(selectedItem.id, currentUserId);
           
           // TODO: Track used/discarded in analytics
@@ -432,52 +456,136 @@ export default function PantryScreen({ navigation }: Props) {
   };
 
   // ============================================
+  // HANDLERS - SPACE ACTIONS
+  // ============================================
+
+  const handleManageSpaces = () => {
+    if (activeSpaceId) {
+      navigation.navigate('SpaceSettings', { spaceId: activeSpaceId });
+    }
+  };
+
+  // ============================================
   // RENDER
   // ============================================
 
-  if (loading) {
+  // Show loading while space context initializes
+  if (spaceLoading || loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
+        {spaceLoading && (
+          <Text style={styles.loadingText}>Loading your spaces...</Text>
+        )}
+      </View>
+    );
+  }
+
+  // Show switching indicator
+  if (isSwitching) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Switching to {activeSpace?.name}...</Text>
       </View>
     );
   }
 
   if (items.length === 0) {
     return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyStateEmoji}>🥬</Text>
-        <Text style={styles.emptyStateTitle}>Pantry is Empty</Text>
-        <Text style={styles.emptyStateText}>
-          Start tracking your ingredients to get personalized recipe recommendations
-        </Text>
-        <TouchableOpacity
-          style={styles.emptyStateButton}
-          onPress={() => setShowQuickAddModal(true)}
-        >
-          <Text style={styles.emptyStateButtonText}>Add First Item</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {/* Header with Space Switcher */}
+        <View style={styles.headerContainer}>
+          <SpaceSwitcher
+            onCreateSpace={() => setShowCreateSpaceModal(true)}
+            onManageSpaces={handleManageSpaces}
+          />
+          <Text style={styles.header}>My Pantry</Text>
+        </View>
+
+        {/* Pending Invitations */}
+        <View style={styles.invitationsContainer}>
+          <PendingSpaceInvitations compact onInvitationResponded={refreshSpaces} />
+        </View>
+
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateEmoji}>🥬</Text>
+          <Text style={styles.emptyStateTitle}>
+            {activeSpace?.is_default ? 'Pantry is Empty' : `${activeSpace?.name} Pantry is Empty`}
+          </Text>
+          <Text style={styles.emptyStateText}>
+            {activeSpace?.is_default 
+              ? 'Start tracking your ingredients to get personalized recipe recommendations'
+              : `Add ingredients to your shared ${activeSpace?.name} pantry`
+            }
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyStateButton}
+            onPress={() => setShowQuickAddModal(true)}
+          >
+            <Text style={styles.emptyStateButtonText}>Add First Item</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Create Space Modal */}
+        <CreateSpaceModal
+          visible={showCreateSpaceModal}
+          onClose={() => setShowCreateSpaceModal(false)}
+        />
+
+        {/* Quick Add Modal */}
+        <QuickAddModal
+          visible={showQuickAddModal}
+          onClose={() => {
+            setShowQuickAddModal(false);
+            setSelectedCategory(null);
+          }}
+          onSelectIngredient={handleQuickAddSelect}
+          categoryFilter={selectedCategory}
+        />
+
+        {/* Add Pantry Item Modal */}
+        <AddPantryItemModal
+          visible={showAddModal}
+          onClose={handleCloseAddModal}
+          onSave={() => {
+            handleCloseAddModal();
+            loadPantryData();
+          }}
+          preSelectedCategory={selectedCategory}
+          preSelectedIngredientId={selectedIngredientId}
+          preSelectedIngredientName={selectedIngredientName}
+          spaceId={activeSpaceId}
+        />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header with view toggle */}
+      {/* Header with Space Switcher and View Toggle */}
       <View style={styles.headerContainer}>
-        <Text style={styles.header}>My Pantry</Text>
-        
-        {/* View mode dropdown */}
-        <TouchableOpacity
-          style={styles.viewToggle}
-          onPress={() => setShowViewDropdown(!showViewDropdown)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.viewToggleText}>
-            View: {viewMode === 'family' ? 'Ingredient Family' : 'Storage Location'}
-          </Text>
-          <Text style={styles.viewToggleIcon}>{showViewDropdown ? '▲' : '▼'}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <SpaceSwitcher
+            onCreateSpace={() => setShowCreateSpaceModal(true)}
+            onManageSpaces={handleManageSpaces}
+          />
+        </View>
+        <View style={styles.headerBottom}>
+          <Text style={styles.header}>My Pantry</Text>
+          
+          {/* View mode dropdown */}
+          <TouchableOpacity
+            style={styles.viewToggle}
+            onPress={() => setShowViewDropdown(!showViewDropdown)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewToggleText}>
+              View: {viewMode === 'family' ? 'Family' : 'Storage'}
+            </Text>
+            <Text style={styles.viewToggleIcon}>{showViewDropdown ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+        </View>
         
         {/* Dropdown menu */}
         {showViewDropdown && (
@@ -519,6 +627,11 @@ export default function PantryScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
         )}
+      </View>
+
+      {/* Pending Space Invitations */}
+      <View style={styles.invitationsContainer}>
+        <PendingSpaceInvitations compact onInvitationResponded={refreshSpaces} />
       </View>
       
       <ScrollView
@@ -781,6 +894,7 @@ export default function PantryScreen({ navigation }: Props) {
         preSelectedCategory={selectedCategory}
         preSelectedIngredientId={selectedIngredientId}
         preSelectedIngredientName={selectedIngredientName}
+        spaceId={activeSpaceId}
       />
 
       <QuickAddModal
@@ -791,6 +905,12 @@ export default function PantryScreen({ navigation }: Props) {
         }}
         onSelectIngredient={handleQuickAddSelect}
         categoryFilter={selectedCategory}
+      />
+
+      {/* Create Space Modal */}
+      <CreateSpaceModal
+        visible={showCreateSpaceModal}
+        onClose={() => setShowCreateSpaceModal(false)}
       />
     </View>
   );
@@ -806,6 +926,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 15,
+  },
+  headerTop: {
+    marginBottom: spacing.sm,
+  },
+  headerBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -813,6 +938,10 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  invitationsContainer: {
+    paddingHorizontal: 15,
+    paddingTop: spacing.sm,
   },
   viewToggle: {
     flexDirection: 'row',
@@ -834,7 +963,7 @@ const styles = StyleSheet.create({
   },
   viewDropdownMenu: {
     position: 'absolute',
-    top: 105,
+    top: 135,
     right: 20,
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -868,6 +997,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: typography.sizes.md,
+    color: colors.text.secondary,
+  },
   scrollView: {
     flex: 1,
   },
@@ -890,14 +1024,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionCompact: {
-    paddingTop: spacing.xs, // Very tight for expiring section
+    paddingTop: spacing.xs,
     paddingBottom: 0,
   },
   expiringHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs, // Reduced for tighter layout
+    marginBottom: spacing.xs,
   },
   expiringTitle: {
     fontSize: typography.sizes.lg,
@@ -970,31 +1104,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   typeSection: {
-    marginBottom: spacing.md, // Reduced from lg for tighter spacing
+    marginBottom: spacing.md,
   },
   typeSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5', // Same grey as container
+    backgroundColor: '#F5F5F5',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.sm,
     marginBottom: spacing.xs,
   },
   typeSectionHeaderExpanded: {
-    borderBottomLeftRadius: 0,  // Remove bottom corners when expanded
+    borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    marginBottom: 0,  // Remove gap between header and items
+    marginBottom: 0,
   },
   typeItemsContainer: {
-    backgroundColor: '#F5F5F5', // Same grey as header
-    borderTopLeftRadius: 0,  // Remove top corners to merge with header
+    backgroundColor: '#F5F5F5',
+    borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    borderBottomLeftRadius: borderRadius.sm,  // Keep bottom corners rounded
+    borderBottomLeftRadius: borderRadius.sm,
     borderBottomRightRadius: borderRadius.sm,
     padding: spacing.sm,
-    paddingTop: spacing.xs, // Small gap between header and first item
+    paddingTop: spacing.xs,
   },
   typeSectionTitle: {
     fontSize: typography.sizes.sm,
@@ -1039,6 +1173,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   emptyStateText: {
     fontSize: typography.sizes.md,

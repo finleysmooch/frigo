@@ -1,8 +1,10 @@
 // ============================================
-// FRIGO - PANTRY SERVICE
+// FRIGO - PANTRY SERVICE (SPACE-AWARE)
 // ============================================
 // Supabase functions for pantry management
 // Location: lib/pantryService.ts
+// Updated: December 18, 2025 - Added shared pantry support
+// ============================================
 
 import { supabase } from './supabase';
 import {
@@ -19,9 +21,178 @@ import {
   getOpenedStorageLocation
 } from '../utils/pantryConversions';
 
+// ============================================
+// SPACE-AWARE PANTRY FUNCTIONS (NEW)
+// ============================================
+
+/**
+ * Get all pantry items for a SPACE (shared pantry)
+ * This is the primary function for loading pantry data in shared spaces
+ */
+export async function getPantryItemsBySpace(
+  spaceId: string
+): Promise<PantryItemWithIngredient[]> {
+  try {
+    console.log('🔍 Fetching pantry items for space:', spaceId);
+
+    const { data, error } = await supabase
+      .from('pantry_items')
+      .select(`
+        *,
+        ingredient:ingredients(
+          id,
+          name,
+          plural_name,
+          family,
+          ingredient_type
+        )
+      `)
+      .eq('space_id', spaceId)
+      .order('expiration_date', { ascending: true, nullsFirst: false });
+
+    if (error) {
+      console.error('❌ Error fetching pantry items:', error);
+      throw error;
+    }
+
+    console.log('✅ Found', data?.length || 0, 'pantry items in space');
+    return data || [];
+
+  } catch (error) {
+    console.error('❌ Error in getPantryItemsBySpace:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add item to a SPACE's pantry
+ * Use this for shared pantries - tracks who added the item
+ */
+export async function addPantryItemToSpace(
+  itemData: Omit<PantryItemInsert, 'user_id' | 'space_id' | 'added_by'>,
+  spaceId: string,
+  userId: string
+): Promise<PantryItem> {
+  try {
+    console.log('➕ Adding pantry item to space:', spaceId);
+
+    // Get ingredient data for conversions
+    const ingredient = await getIngredientWithPantryData(itemData.ingredient_id);
+    if (!ingredient) {
+      throw new Error('Ingredient not found');
+    }
+
+    // Convert to metric if needed
+    const { quantity_metric, unit_metric } = convertToMetric(
+      itemData.quantity_display,
+      itemData.unit_display,
+      ingredient
+    );
+
+    // Calculate expiration if not provided
+    let expiration_date = itemData.expiration_date;
+    if (!expiration_date) {
+      expiration_date = calculateExpirationDate(
+        itemData.purchase_date,
+        itemData.storage_location,
+        ingredient,
+        itemData.is_opened || false,
+        itemData.opened_date || null
+      );
+    }
+
+    // Build insert object with space fields
+    const insertData = {
+      user_id: userId,           // For backward compatibility
+      space_id: spaceId,         // The space this belongs to
+      added_by: userId,          // Who added this item
+      ingredient_id: itemData.ingredient_id,
+      quantity_display: itemData.quantity_display,
+      unit_display: itemData.unit_display,
+      quantity_metric,
+      unit_metric,
+      storage_location: itemData.storage_location,
+      purchase_date: itemData.purchase_date,
+      expiration_date,
+      is_opened: itemData.is_opened || false,
+      opened_date: itemData.opened_date || null,
+      notes: itemData.notes || null
+    };
+
+    const { data, error } = await supabase
+      .from('pantry_items')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error adding pantry item:', error);
+      throw error;
+    }
+
+    console.log('✅ Added pantry item to space:', data.id);
+    return data;
+
+  } catch (error) {
+    console.error('❌ Error in addPantryItemToSpace:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get expiring items for a SPACE
+ */
+export async function getExpiringItemsBySpace(
+  spaceId: string,
+  daysThreshold: number = 3
+): Promise<PantryItemWithIngredient[]> {
+  try {
+    console.log('🔍 Fetching items expiring within', daysThreshold, 'days for space');
+
+    const today = new Date();
+    const thresholdDate = new Date();
+    thresholdDate.setDate(today.getDate() + daysThreshold);
+
+    const { data, error } = await supabase
+      .from('pantry_items')
+      .select(`
+        *,
+        ingredient:ingredients(
+          name,
+          plural_name,
+          family,
+          ingredient_type
+        )
+      `)
+      .eq('space_id', spaceId)
+      .not('expiration_date', 'is', null)
+      .lte('expiration_date', thresholdDate.toISOString().split('T')[0])
+      .order('expiration_date', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching expiring items:', error);
+      throw error;
+    }
+
+    console.log('✅ Found', data?.length || 0, 'expiring items');
+    return data || [];
+
+  } catch (error) {
+    console.error('❌ Error in getExpiringItemsBySpace:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// LEGACY USER-BASED FUNCTIONS
+// These still work for backward compatibility
+// RLS policies now allow both user_id and space_id access
+// ============================================
+
 /**
  * Get all pantry items for a user with ingredient details
  * Returns items sorted by expiration date (expiring soonest first)
+ * @deprecated Use getPantryItemsBySpace for shared pantries
  */
 export async function getPantryItems(
   userId: string
@@ -60,6 +231,7 @@ export async function getPantryItems(
 /**
  * Get pantry items expiring within specified days
  * Default: 3 days
+ * @deprecated Use getExpiringItemsBySpace for shared pantries
  */
 export async function getExpiringItems(
   userId: string,
@@ -165,6 +337,10 @@ export async function getPantryItemsByStorage(
   }
 }
 
+// ============================================
+// INGREDIENT DATA FUNCTIONS
+// ============================================
+
 /**
  * Get full ingredient data needed for pantry operations
  */
@@ -213,9 +389,16 @@ export async function getIngredientWithPantryData(
   }
 }
 
+// ============================================
+// CRUD OPERATIONS
+// These work for both user-based and space-based items
+// RLS policies handle the access control
+// ============================================
+
 /**
- * Add a new pantry item
+ * Add a new pantry item (legacy - user's personal pantry)
  * Automatically calculates metric conversion and expiration date
+ * @deprecated Use addPantryItemToSpace for shared pantries
  */
 export async function addPantryItem(
   itemData: Omit<PantryItemInsert, 'user_id'>,
@@ -287,6 +470,7 @@ export async function addPantryItem(
 
 /**
  * Update an existing pantry item
+ * Works for both user-owned and space-member items (RLS handles access)
  */
 export async function updatePantryItem(
   itemId: string,
@@ -303,7 +487,6 @@ export async function updatePantryItem(
         .from('pantry_items')
         .select('ingredient_id, quantity_display, unit_display')
         .eq('id', itemId)
-        .eq('user_id', userId)
         .single();
 
       if (currentItem) {
@@ -320,11 +503,11 @@ export async function updatePantryItem(
       }
     }
 
+    // Note: RLS policies allow update if user owns the item OR is owner/member of the space
     const { data, error } = await supabase
       .from('pantry_items')
       .update(updates)
       .eq('id', itemId)
-      .eq('user_id', userId)
       .select()
       .single();
 
@@ -359,7 +542,6 @@ export async function markAsOpened(
       .from('pantry_items')
       .select('*')
       .eq('id', itemId)
-      .eq('user_id', userId)
       .single();
 
     if (fetchError || !currentItem) {
@@ -405,7 +587,6 @@ export async function markAsOpened(
       .from('pantry_items')
       .update(updates)
       .eq('id', itemId)
-      .eq('user_id', userId)
       .select()
       .single();
 
@@ -428,6 +609,8 @@ export async function markAsOpened(
 
 /**
  * Delete a pantry item
+ * Works for both user-owned and space-member items (RLS handles access)
+ * Note: Guests in shared spaces cannot delete - RLS will block
  */
 export async function deletePantryItem(
   itemId: string,
@@ -436,11 +619,12 @@ export async function deletePantryItem(
   try {
     console.log('🗑️ Deleting pantry item:', itemId);
 
+    // Note: RLS policies allow delete if user owns the item OR is owner/member of the space
+    // Guests cannot delete (RLS will return error)
     const { error } = await supabase
       .from('pantry_items')
       .delete()
-      .eq('id', itemId)
-      .eq('user_id', userId);
+      .eq('id', itemId);
 
     if (error) {
       console.error('❌ Error deleting pantry item:', error);
@@ -471,7 +655,6 @@ export async function markAsUsed(
       .from('pantry_items')
       .select('*')
       .eq('id', itemId)
-      .eq('user_id', userId)
       .single();
 
     if (fetchError || !currentItem) {
@@ -511,6 +694,10 @@ export async function markAsUsed(
     throw error;
   }
 }
+
+// ============================================
+// SEARCH FUNCTIONS
+// ============================================
 
 /**
  * Search ingredients for adding to pantry
@@ -759,6 +946,56 @@ export async function calculatePantryMatchPercentage(
 }
 
 /**
+ * Calculate pantry match for a SPACE (shared pantry)
+ */
+export async function calculateSpacePantryMatchPercentage(
+  recipeId: string,
+  spaceId: string
+): Promise<number> {
+  try {
+    // Get recipe ingredients (only matched ones with ingredient_id)
+    const { data: recipeIngredients, error: recipeError } = await supabase
+      .from('recipe_ingredients')
+      .select('ingredient_id')
+      .eq('recipe_id', recipeId)
+      .not('ingredient_id', 'is', null);
+    
+    if (recipeError) throw recipeError;
+    
+    if (!recipeIngredients || recipeIngredients.length === 0) {
+      return 0;
+    }
+
+    // Get space's pantry ingredients
+    const { data: pantryItems, error: pantryError } = await supabase
+      .from('pantry_items')
+      .select('ingredient_id')
+      .eq('space_id', spaceId);
+    
+    if (pantryError) throw pantryError;
+    
+    if (!pantryItems || pantryItems.length === 0) {
+      return 0;
+    }
+
+    const spaceIngredientIds = new Set(
+      pantryItems.map(item => item.ingredient_id)
+    );
+
+    const matchedCount = recipeIngredients.filter(ri => 
+      spaceIngredientIds.has(ri.ingredient_id)
+    ).length;
+
+    const percentage = Math.round((matchedCount / recipeIngredients.length) * 100);
+    
+    return percentage;
+  } catch (error) {
+    console.error('Error calculating space pantry match:', error);
+    return 0;
+  }
+}
+
+/**
  * Calculate pantry match for multiple recipes at once (more efficient)
  * Returns a map of recipeId => percentage
  */
@@ -825,6 +1062,67 @@ export async function calculateBulkPantryMatch(
 }
 
 /**
+ * Calculate bulk pantry match for a SPACE
+ */
+export async function calculateBulkSpacePantryMatch(
+  recipeIds: string[],
+  spaceId: string
+): Promise<Map<string, number>> {
+  try {
+    const results = new Map<string, number>();
+
+    const { data: allRecipeIngredients, error: recipeError } = await supabase
+      .from('recipe_ingredients')
+      .select('recipe_id, ingredient_id')
+      .in('recipe_id', recipeIds)
+      .not('ingredient_id', 'is', null);
+    
+    if (recipeError) throw recipeError;
+
+    const { data: pantryItems, error: pantryError } = await supabase
+      .from('pantry_items')
+      .select('ingredient_id')
+      .eq('space_id', spaceId);
+    
+    if (pantryError) throw pantryError;
+    
+    const spaceIngredientIds = new Set(
+      (pantryItems || []).map(item => item.ingredient_id)
+    );
+
+    const recipeIngredientsMap = new Map<string, string[]>();
+    
+    (allRecipeIngredients || []).forEach(ri => {
+      if (!recipeIngredientsMap.has(ri.recipe_id)) {
+        recipeIngredientsMap.set(ri.recipe_id, []);
+      }
+      recipeIngredientsMap.get(ri.recipe_id)!.push(ri.ingredient_id);
+    });
+
+    recipeIds.forEach(recipeId => {
+      const ingredients = recipeIngredientsMap.get(recipeId) || [];
+      
+      if (ingredients.length === 0) {
+        results.set(recipeId, 0);
+        return;
+      }
+
+      const matchedCount = ingredients.filter(ingId => 
+        spaceIngredientIds.has(ingId)
+      ).length;
+
+      const percentage = Math.round((matchedCount / ingredients.length) * 100);
+      results.set(recipeId, percentage);
+    });
+
+    return results;
+  } catch (error) {
+    console.error('Error calculating bulk space pantry match:', error);
+    return new Map();
+  }
+}
+
+/**
  * Get list of missing ingredients for a recipe
  */
 export async function getMissingIngredients(
@@ -884,6 +1182,66 @@ export async function getMissingIngredients(
     return missing;
   } catch (error) {
     console.error('Error getting missing ingredients:', error);
+    return [];
+  }
+}
+
+/**
+ * Get missing ingredients for a SPACE's pantry
+ */
+export async function getMissingIngredientsForSpace(
+  recipeId: string,
+  spaceId: string
+): Promise<any[]> {
+  try {
+    const { data: recipeIngredients, error: recipeError } = await supabase
+      .from('recipe_ingredients')
+      .select(`
+        ingredient_id,
+        quantity_amount,
+        quantity_unit,
+        original_text,
+        ingredients (
+          id,
+          name,
+          family
+        )
+      `)
+      .eq('recipe_id', recipeId)
+      .not('ingredient_id', 'is', null);
+    
+    if (recipeError) throw recipeError;
+
+    const { data: pantryItems, error: pantryError } = await supabase
+      .from('pantry_items')
+      .select('ingredient_id')
+      .eq('space_id', spaceId);
+    
+    if (pantryError) throw pantryError;
+    
+    const spaceIngredientIds = new Set(
+      (pantryItems || []).map(item => item.ingredient_id)
+    );
+
+    const missing = (recipeIngredients || [])
+      .filter(ri => !spaceIngredientIds.has(ri.ingredient_id))
+      .map(ri => {
+        const ingredient = Array.isArray(ri.ingredients) 
+          ? ri.ingredients[0] 
+          : ri.ingredients;
+        
+        return {
+          id: ri.ingredient_id,
+          name: ingredient?.name || ri.original_text,
+          family: ingredient?.family || 'Other',
+          quantity: ri.quantity_amount,
+          unit: ri.quantity_unit,
+        };
+      });
+
+    return missing;
+  } catch (error) {
+    console.error('Error getting missing ingredients for space:', error);
     return [];
   }
 }

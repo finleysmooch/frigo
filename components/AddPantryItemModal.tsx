@@ -1,8 +1,9 @@
 // ============================================
-// FRIGO - ADD PANTRY ITEM MODAL
+// FRIGO - ADD PANTRY ITEM MODAL (SPACE-AWARE)
 // ============================================
 // Modal for adding new items to pantry with ingredient search and auto-calculations
 // Location: components/AddPantryItemModal.tsx
+// Updated: December 18, 2025 - Added space support for shared pantries
 
 import { useState, useEffect } from 'react';
 import {
@@ -21,6 +22,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../lib/supabase';
 import { 
   addPantryItem, 
+  addPantryItemToSpace,  // NEW: Space-aware function
   searchIngredientsForPantry,
 } from '../lib/pantryService';
 import { calculateExpirationDate } from '../utils/pantryConversions';
@@ -35,6 +37,7 @@ interface Props {
   preSelectedCategory?: string | null;
   preSelectedIngredientId?: string | null;
   preSelectedIngredientName?: string | null;
+  spaceId?: string | null;  // NEW: Optional space ID for shared pantries
 }
 
 export default function AddPantryItemModal({ 
@@ -43,7 +46,8 @@ export default function AddPantryItemModal({
   onSave, 
   preSelectedCategory,
   preSelectedIngredientId,
-  preSelectedIngredientName 
+  preSelectedIngredientName,
+  spaceId  // NEW: Accept spaceId prop
 }: Props) {
   // Search & Ingredient Selection
   const [searchTerm, setSearchTerm] = useState('');
@@ -188,7 +192,7 @@ export default function AddPantryItemModal({
     }
   }, [storage, isOpened, purchaseDate, selectedIngredient]);
 
-  // Handle save
+  // Handle save - UPDATED to support spaceId
   const handleSave = async () => {
     if (!selectedIngredient || !quantity || !currentUserId) {
       Alert.alert('Missing Information', 'Please select an ingredient and enter a quantity');
@@ -198,7 +202,7 @@ export default function AddPantryItemModal({
     try {
       setSaving(true);
       
-      await addPantryItem({
+      const itemData = {
         ingredient_id: selectedIngredient.id,
         quantity_display: parseFloat(quantity),
         unit_display: unit,
@@ -208,7 +212,17 @@ export default function AddPantryItemModal({
         is_opened: isOpened,
         opened_date: isOpened ? purchaseDate.toISOString().split('T')[0] : null,
         notes: notes || null
-      }, currentUserId);
+      };
+
+      // NEW: Use space-aware function if spaceId is provided
+      if (spaceId) {
+        await addPantryItemToSpace(itemData, spaceId, currentUserId);
+        console.log('✅ Added item to space:', spaceId);
+      } else {
+        // Fallback to legacy user-based function
+        await addPantryItem(itemData, currentUserId);
+        console.log('✅ Added item to personal pantry');
+      }
 
       // Reset form
       resetForm();
@@ -289,14 +303,13 @@ export default function AddPantryItemModal({
                   onChangeText={setSearchTerm}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  returnKeyType="search"
-                  enablesReturnKeyAutomatically={true}
                 />
                 {searchTerm.length > 0 && (
                   <TouchableOpacity
                     style={styles.clearSearchButton}
                     onPress={() => {
                       setSearchTerm('');
+                      setSelectedIngredient(null);
                       setShowResults(false);
                     }}
                   >
@@ -304,11 +317,11 @@ export default function AddPantryItemModal({
                   </TouchableOpacity>
                 )}
               </View>
-              
-              {/* Search Results Dropdown */}
-              {showResults && ingredients.length > 0 && (
+
+              {/* Search Results */}
+              {showResults && (
                 <View style={styles.searchResults}>
-                  {ingredients.slice(0, 4).map((ingredient) => (
+                  {ingredients.map((ingredient) => (
                     <TouchableOpacity
                       key={ingredient.id}
                       style={styles.searchResultItem}
@@ -322,43 +335,46 @@ export default function AddPantryItemModal({
                   ))}
                 </View>
               )}
-              
-              {/* No results message */}
-              {searchTerm.length >= 2 && !showResults && ingredients.length === 0 && (
+
+              {/* No Results */}
+              {searchTerm.length >= 2 && !showResults && ingredients.length === 0 && !selectedIngredient && (
                 <View style={styles.noResultsContainer}>
                   <Text style={styles.noResultsText}>No ingredients found</Text>
                 </View>
               )}
             </View>
 
-            {/* Quantity & Unit */}
+            {/* Only show form fields after ingredient is selected */}
             {selectedIngredient && (
               <>
+                {/* Quantity and Unit */}
                 <View style={styles.section}>
-                  <Text style={styles.label}>QUANTITY *</Text>
+                  <Text style={styles.label}>QUANTITY & UNIT</Text>
                   <View style={styles.row}>
                     <TextInput
                       style={[styles.input, styles.quantityInput]}
-                      placeholder="5"
+                      placeholder="1"
                       placeholderTextColor={colors.text.placeholder}
                       value={quantity}
                       onChangeText={setQuantity}
                       keyboardType="decimal-pad"
                     />
-                    <UnitPicker
-                      ingredientId={selectedIngredient.id}
-                      selectedUnit={unit}
-                      onSelectUnit={(id, displayName) => {
-                        setUnit(displayName);
-                        setUnitId(id);
-                      }}
-                    />
+                    <View style={styles.unitInput}>
+                      <UnitPicker
+                        ingredientId={selectedIngredient.id}
+                        selectedUnit={unit}
+                        onSelectUnit={(unitId: string, displayName: string) => {
+                          setUnit(displayName);
+                          setUnitId(unitId);
+                        }}
+                      />
+                    </View>
                   </View>
                 </View>
 
                 {/* Storage Location */}
                 <View style={styles.section}>
-                  <Text style={styles.label}>STORAGE *</Text>
+                  <Text style={styles.label}>STORAGE LOCATION</Text>
                   <View style={styles.buttonRow}>
                     {(['fridge', 'freezer', 'pantry', 'counter'] as StorageLocation[]).map((loc) => (
                       <TouchableOpacity
@@ -373,6 +389,11 @@ export default function AddPantryItemModal({
                           styles.storageButtonText,
                           storage === loc && styles.storageButtonTextActive
                         ]}>
+                          {loc === 'fridge' && '🧊'}
+                          {loc === 'freezer' && '❄️'}
+                          {loc === 'pantry' && '🥫'}
+                          {loc === 'counter' && '🏠'}
+                          {'\n'}
                           {loc.charAt(0).toUpperCase() + loc.slice(1)}
                         </Text>
                       </TouchableOpacity>
@@ -380,7 +401,7 @@ export default function AddPantryItemModal({
                   </View>
                 </View>
 
-                {/* Opened/Unopened Status */}
+                {/* Opened Status */}
                 <View style={styles.section}>
                   <Text style={styles.label}>STATUS</Text>
                   <View style={styles.buttonRow}>
@@ -395,7 +416,7 @@ export default function AddPantryItemModal({
                         styles.statusButtonText,
                         !isOpened && styles.statusButtonTextActive
                       ]}>
-                        Unopened
+                        Sealed
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -425,17 +446,14 @@ export default function AddPantryItemModal({
                     <Text style={styles.dateButtonText}>{formatDate(purchaseDate)}</Text>
                     <Text style={styles.dateButtonIcon}>📅</Text>
                   </TouchableOpacity>
-                  
                   {showPurchasePicker && (
                     <DateTimePicker
                       value={purchaseDate}
                       mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      onChange={(event, selectedDate) => {
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, date) => {
                         setShowPurchasePicker(Platform.OS === 'ios');
-                        if (selectedDate) {
-                          setPurchaseDate(selectedDate);
-                        }
+                        if (date) setPurchaseDate(date);
                       }}
                     />
                   )}
@@ -443,7 +461,7 @@ export default function AddPantryItemModal({
 
                 {/* Expiration Date */}
                 <View style={styles.section}>
-                  <Text style={styles.label}>EXPIRATION (auto-calculated)</Text>
+                  <Text style={styles.label}>EXPIRATION DATE</Text>
                   <TouchableOpacity
                     style={styles.dateButton}
                     onPress={() => setShowExpirationPicker(true)}
@@ -453,18 +471,19 @@ export default function AddPantryItemModal({
                     </Text>
                     <Text style={styles.dateButtonIcon}>📅</Text>
                   </TouchableOpacity>
-                  <Text style={styles.helperText}>Tap to edit calculated date</Text>
-                  
-                  {showExpirationPicker && expirationDate && (
+                  {expirationDate && (
+                    <Text style={styles.helperText}>
+                      Auto-calculated based on storage location
+                    </Text>
+                  )}
+                  {showExpirationPicker && (
                     <DateTimePicker
-                      value={expirationDate}
+                      value={expirationDate || new Date()}
                       mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      onChange={(event, selectedDate) => {
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, date) => {
                         setShowExpirationPicker(Platform.OS === 'ios');
-                        if (selectedDate) {
-                          setExpirationDate(selectedDate);
-                        }
+                        if (date) setExpirationDate(date);
                       }}
                     />
                   )}
@@ -472,7 +491,7 @@ export default function AddPantryItemModal({
 
                 {/* Notes */}
                 <View style={styles.section}>
-                  <Text style={styles.label}>NOTES (optional)</Text>
+                  <Text style={styles.label}>NOTES (OPTIONAL)</Text>
                   <TextInput
                     style={[styles.input, styles.notesInput]}
                     placeholder="Add any notes..."
