@@ -5,7 +5,7 @@
 // Location: screens/PantryScreen.tsx
 // Updated: December 17, 2025 - Added space context integration
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,7 +18,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+// Theme system
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 import {
   getPantryItemsBySpace,
   updatePantryItem,
@@ -72,14 +74,301 @@ type Props = NativeStackScreenProps<any, 'Pantry'>;
 
 export default function PantryScreen({ navigation }: Props) {
   // ============================================
+  // THEME
+  // ============================================
+
+  const { colors, functionalColors } = useTheme();
+
+  // Dynamic styles based on theme
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    headerContainer: {
+      backgroundColor: colors.background.card,
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 15,
+    },
+    headerTop: {
+      marginBottom: spacing.sm,
+    },
+    headerBottom: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    header: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    invitationsContainer: {
+      paddingHorizontal: 15,
+      paddingTop: spacing.sm,
+    },
+    viewToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      gap: 6,
+    },
+    viewToggleText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+    viewToggleIcon: {
+      fontSize: 10,
+      color: colors.text.tertiary,
+    },
+    viewDropdownMenu: {
+      position: 'absolute',
+      top: 135,
+      right: 20,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 5,
+      minWidth: 180,
+      zIndex: 1000,
+    },
+    viewDropdownOption: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    viewDropdownOptionActive: {
+      backgroundColor: colors.background.secondary,
+    },
+    viewDropdownOptionText: {
+      fontSize: 14,
+      color: colors.text.primary,
+    },
+    viewDropdownOptionTextActive: {
+      fontWeight: typography.weights.semibold,
+      color: colors.primary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.primary,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 15,
+      paddingBottom: 20,
+    },
+    section: {
+      paddingTop: spacing.md,
+      paddingBottom: 0,
+    },
+    sectionCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    sectionCompact: {
+      paddingTop: spacing.xs,
+      paddingBottom: 0,
+    },
+    expiringHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    expiringTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.bold,
+      color: functionalColors.warning,
+    },
+    expiringCount: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    storageHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    storageHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      flex: 1,
+    },
+    storageEmoji: {
+      fontSize: typography.sizes.xl,
+    },
+    storageTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    storageCount: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    storageHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    addButton: {
+      width: 28,
+      height: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.sm,
+    },
+    addButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.background.card,
+      fontWeight: typography.weights.bold,
+    },
+    collapseIcon: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+      width: 20,
+      textAlign: 'center',
+    },
+    expiringBadge: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: functionalColors.warning,
+      backgroundColor: functionalColors.warningLight,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: borderRadius.sm,
+    },
+    itemsContainer: {
+      marginTop: spacing.md,
+    },
+    typeSection: {
+      marginBottom: spacing.md,
+    },
+    typeSectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.sm,
+      marginBottom: spacing.xs,
+    },
+    typeSectionHeaderExpanded: {
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      marginBottom: 0,
+    },
+    typeItemsContainer: {
+      backgroundColor: colors.background.secondary,
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: 0,
+      borderBottomLeftRadius: borderRadius.sm,
+      borderBottomRightRadius: borderRadius.sm,
+      padding: spacing.sm,
+      paddingTop: spacing.xs,
+    },
+    typeSectionTitle: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    typeCollapseIcon: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+    },
+    fab: {
+      position: 'absolute',
+      right: spacing.lg,
+      bottom: spacing.lg,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.large,
+    },
+    fabText: {
+      fontSize: typography.sizes.xxxl,
+      color: colors.background.card,
+      fontWeight: typography.weights.bold,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xxl,
+    },
+    emptyStateEmoji: {
+      fontSize: 64,
+      marginBottom: spacing.lg,
+    },
+    emptyStateTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    emptyStateText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+      marginBottom: spacing.xl,
+    },
+    emptyStateButton: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xxl,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+    },
+    emptyStateButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.card,
+    },
+  }), [colors, functionalColors]);
+
+  // ============================================
   // SPACE CONTEXT
   // ============================================
-  
-  const { 
-    activeSpace, 
-    isLoading: spaceLoading, 
+
+  const {
+    activeSpace,
+    isLoading: spaceLoading,
     isSwitching,
-    refreshSpaces 
+    refreshSpaces
   } = useSpace();
   const activeSpaceId = useActiveSpaceId();
   const { canDeleteItems } = useSpacePermissions();
@@ -916,280 +1205,3 @@ export default function PantryScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  headerContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 15,
-  },
-  headerTop: {
-    marginBottom: spacing.sm,
-  },
-  headerBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  invitationsContainer: {
-    paddingHorizontal: 15,
-    paddingTop: spacing.sm,
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 6,
-  },
-  viewToggleText: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-  viewToggleIcon: {
-    fontSize: 10,
-    color: colors.text.tertiary,
-  },
-  viewDropdownMenu: {
-    position: 'absolute',
-    top: 135,
-    right: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    minWidth: 180,
-    zIndex: 1000,
-  },
-  viewDropdownOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  viewDropdownOptionActive: {
-    backgroundColor: '#f5f5f5',
-  },
-  viewDropdownOptionText: {
-    fontSize: 14,
-    color: colors.text.primary,
-  },
-  viewDropdownOptionTextActive: {
-    fontWeight: typography.weights.semibold,
-    color: colors.primary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-  },
-  section: {
-    paddingTop: spacing.md,
-    paddingBottom: 0,
-  },
-  sectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionCompact: {
-    paddingTop: spacing.xs,
-    paddingBottom: 0,
-  },
-  expiringHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  expiringTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.warning,
-  },
-  expiringCount: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  storageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  storageHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  storageEmoji: {
-    fontSize: typography.sizes.xl,
-  },
-  storageTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  storageCount: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  storageHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  addButton: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
-  },
-  addButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.background.primary,
-    fontWeight: typography.weights.bold,
-  },
-  collapseIcon: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-    width: 20,
-    textAlign: 'center',
-  },
-  expiringBadge: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.warning,
-    backgroundColor: '#FFF9E6',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  itemsContainer: {
-    marginTop: spacing.md,
-  },
-  typeSection: {
-    marginBottom: spacing.md,
-  },
-  typeSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
-    marginBottom: spacing.xs,
-  },
-  typeSectionHeaderExpanded: {
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    marginBottom: 0,
-  },
-  typeItemsContainer: {
-    backgroundColor: '#F5F5F5',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    borderBottomLeftRadius: borderRadius.sm,
-    borderBottomRightRadius: borderRadius.sm,
-    padding: spacing.sm,
-    paddingTop: spacing.xs,
-  },
-  typeSectionTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  typeCollapseIcon: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.large,
-  },
-  fabText: {
-    fontSize: typography.sizes.xxxl,
-    color: colors.background.primary,
-    fontWeight: typography.weights.bold,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xxl,
-  },
-  emptyStateEmoji: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  emptyStateTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  emptyStateText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  emptyStateButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-  },
-  emptyStateButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.background.primary,
-  },
-});

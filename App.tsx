@@ -47,6 +47,9 @@ import SpaceSettingsScreen from './screens/SpaceSettingsScreen';
 // NEW: Space Provider for shared pantries
 import { SpaceProvider } from './contexts/SpaceContext';
 
+// Theme Provider for color schemes
+import { ThemeProvider } from './lib/theme/ThemeContext';
+
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { ProcessedIngredient } from './lib/types/recipeExtraction';
@@ -674,15 +677,17 @@ export default function App() {
 
   // UPDATED: Wrap authenticated app with SpaceProvider
   return (
-    <NavigationContainer>
-      {session ? (
-        <SpaceProvider>
-          <MainTabNavigator />
-        </SpaceProvider>
-      ) : (
-        <AuthStackNavigator />
-      )}
-    </NavigationContainer>
+    <ThemeProvider initialScheme="tealMintSlate">
+      <NavigationContainer>
+        {session ? (
+          <SpaceProvider>
+            <MainTabNavigator />
+          </SpaceProvider>
+        ) : (
+          <AuthStackNavigator />
+        )}
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }
 
