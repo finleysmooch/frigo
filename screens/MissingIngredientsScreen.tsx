@@ -1,7 +1,7 @@
 // screens/MissingIngredientsScreen.tsx
 // Review and add missing ingredients to database before saving recipe
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import {
   validateIngredientSuggestion,
 } from '../lib/services/ingredientSuggestionService';
 import { createIngredientsFromSuggestions } from '../lib/services/ingredientService';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'MissingIngredients'>;
 
@@ -31,6 +31,7 @@ interface EditableIngredient extends IngredientSuggestion {
 }
 
 export function MissingIngredientsScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { missingIngredients, allIngredients, onComplete } = route.params;
 
   const [loading, setLoading] = useState(true);
@@ -143,6 +144,43 @@ export function MissingIngredientsScreen({ route, navigation }: Props) {
       ]
     );
   }
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background.card },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.card, padding: 20 },
+    loadingText: { fontSize: 18, fontWeight: '600', color: colors.text.primary, marginTop: 20 },
+    loadingSubtext: { fontSize: 14, color: colors.text.secondary, marginTop: 8, textAlign: 'center' },
+    header: { padding: 20, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: colors.border.light },
+    headerTitle: { fontSize: 24, fontWeight: '700', color: colors.text.primary, marginBottom: 5 },
+    headerSubtitle: { fontSize: 14, color: colors.text.secondary },
+    scrollView: { flex: 1 },
+    scrollContent: { padding: 15 },
+    ingredientCard: { backgroundColor: colors.background.card, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border.medium, overflow: 'hidden' },
+    ingredientHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15 },
+    ingredientHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    ingredientEmoji: { fontSize: 32, marginRight: 12 },
+    ingredientName: { fontSize: 16, fontWeight: '600', color: colors.text.primary },
+    ingredientSubtitle: { fontSize: 13, color: colors.text.secondary, marginTop: 2 },
+    expandIcon: { fontSize: 16, color: colors.text.tertiary },
+    ingredientDetails: { padding: 15, paddingTop: 0, borderTopWidth: 1, borderTopColor: colors.border.light },
+    field: { marginBottom: 15 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.text.secondary, marginBottom: 6 },
+    input: { borderWidth: 1, borderColor: colors.border.medium, borderRadius: 8, padding: 12, fontSize: 15, color: colors.text.primary, backgroundColor: colors.background.secondary },
+    storageOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    storageOption: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.background.secondary, borderWidth: 1, borderColor: colors.border.medium },
+    storageOptionActive: { backgroundColor: colors.primary + '20', borderColor: colors.primary },
+    storageOptionText: { fontSize: 13, color: colors.text.secondary, textTransform: 'capitalize' },
+    storageOptionTextActive: { color: colors.primary, fontWeight: '600' },
+    confidenceBadge: { backgroundColor: colors.background.secondary, padding: 8, borderRadius: 6, marginBottom: 8 },
+    confidenceText: { fontSize: 12, color: colors.text.secondary, textAlign: 'center' },
+    reasoning: { fontSize: 12, color: colors.text.tertiary, fontStyle: 'italic', lineHeight: 18 },
+    bottomActions: { flexDirection: 'row', padding: 15, borderTopWidth: 1, borderTopColor: colors.border.light, gap: 10 },
+    skipButton: { flex: 1, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.border.medium, alignItems: 'center' },
+    skipButtonText: { fontSize: 16, fontWeight: '600', color: colors.text.secondary },
+    addButton: { flex: 2, padding: 16, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
+    addButtonDisabled: { opacity: 0.5 },
+    addButtonText: { fontSize: 16, fontWeight: '600', color: colors.background.card },
+  }), [colors]);
 
   if (loading) {
     return (
@@ -287,7 +325,7 @@ export function MissingIngredientsScreen({ route, navigation }: Props) {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.background.card} />
           ) : (
             <Text style={styles.addButtonText}>
               Add All to Database
@@ -313,40 +351,3 @@ function getIngredientEmoji(family: string): string {
   };
   return emojiMap[family.toLowerCase()] || '🍽️';
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: 20 },
-  loadingText: { fontSize: 18, fontWeight: '600', color: '#333', marginTop: 20 },
-  loadingSubtext: { fontSize: 14, color: '#666', marginTop: 8, textAlign: 'center' },
-  header: { padding: 20, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#333', marginBottom: 5 },
-  headerSubtitle: { fontSize: 14, color: '#666' },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: 15 },
-  ingredientCard: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e0e0e0', overflow: 'hidden' },
-  ingredientHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15 },
-  ingredientHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  ingredientEmoji: { fontSize: 32, marginRight: 12 },
-  ingredientName: { fontSize: 16, fontWeight: '600', color: '#333' },
-  ingredientSubtitle: { fontSize: 13, color: '#666', marginTop: 2 },
-  expandIcon: { fontSize: 16, color: '#999' },
-  ingredientDetails: { padding: 15, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  field: { marginBottom: 15 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 15, color: '#333', backgroundColor: '#f9f9f9' },
-  storageOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  storageOption: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#e0e0e0' },
-  storageOptionActive: { backgroundColor: colors.primary + '20', borderColor: colors.primary },
-  storageOptionText: { fontSize: 13, color: '#666', textTransform: 'capitalize' },
-  storageOptionTextActive: { color: colors.primary, fontWeight: '600' },
-  confidenceBadge: { backgroundColor: '#f5f5f5', padding: 8, borderRadius: 6, marginBottom: 8 },
-  confidenceText: { fontSize: 12, color: '#666', textAlign: 'center' },
-  reasoning: { fontSize: 12, color: '#888', fontStyle: 'italic', lineHeight: 18 },
-  bottomActions: { flexDirection: 'row', padding: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0', gap: 10 },
-  skipButton: { flex: 1, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
-  skipButtonText: { fontSize: 16, fontWeight: '600', color: '#666' },
-  addButton: { flex: 2, padding: 16, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
-  addButtonDisabled: { opacity: 0.5 },
-  addButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-});

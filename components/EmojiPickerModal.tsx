@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const EMOJI_SIZE = (width - 80) / 6; // 6 columns with padding
@@ -105,12 +106,70 @@ const EMOJIS = [
   '💪', '🦾', '🦿', '🦵', '🦶',
 ];
 
-export default function EmojiPickerModal({ 
-  visible, 
-  currentEmoji, 
-  onSelect, 
-  onClose 
+export default function EmojiPickerModal({
+  visible,
+  currentEmoji,
+  onSelect,
+  onClose
 }: EmojiPickerModalProps) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    closeButton: {
+      fontSize: 24,
+      color: colors.text.secondary,
+    },
+    scrollView: {
+      padding: 20,
+    },
+    emojiGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+    emojiButton: {
+      width: EMOJI_SIZE,
+      height: EMOJI_SIZE,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+      borderRadius: 12,
+      backgroundColor: colors.background.secondary,
+    },
+    emojiButtonSelected: {
+      backgroundColor: colors.primary + '20',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    emoji: {
+      fontSize: 32,
+    },
+  }), [colors, functionalColors]);
+
   return (
     <Modal
       visible={visible}
@@ -151,58 +210,3 @@ export default function EmojiPickerModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#666',
-  },
-  scrollView: {
-    padding: 20,
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  emojiButton: {
-    width: EMOJI_SIZE,
-    height: EMOJI_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderRadius: 12,
-    backgroundColor: '#f8f8f8',
-  },
-  emojiButtonSelected: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 2,
-    borderColor: '#FC4C02',
-  },
-  emoji: {
-    fontSize: 32,
-  },
-});

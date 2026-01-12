@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useState, useEffect, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   Modal,
   TouchableOpacity,
   ScrollView,
   Switch
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface FilterDrawerProps {
   visible: boolean;
@@ -69,6 +69,7 @@ const COURSE_TYPES = ['Main', 'Side', 'Appetizer', 'Dessert', 'Breakfast', 'Snac
 const DIETARY_TAGS = ['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Low-Carb', 'Keto'];
 
 export default function FilterDrawer({ visible, onClose, filters, onApplyFilters }: FilterDrawerProps) {
+  const { colors, functionalColors } = useTheme();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [localFilters, setLocalFilters] = useState<FilterState>({
     difficultyLevels: [],
@@ -120,6 +121,154 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
       return { ...prev, [key]: newArray };
     });
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    drawer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    closeButton: {
+      padding: 5,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.secondary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    resetText: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    content: {
+      padding: 20,
+    },
+    filterSection: {
+      marginBottom: 24,
+    },
+    filterSectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 12,
+      color: colors.text.primary,
+    },
+    sliderContainer: {
+      paddingHorizontal: 10,
+    },
+    slider: {
+      width: '100%',
+      height: 40,
+    },
+    sliderLabel: {
+      textAlign: 'center',
+      fontSize: 14,
+      color: colors.primary,
+      fontWeight: '600',
+      marginTop: -5,
+    },
+    checkboxContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    checkbox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    checkboxSelected: {
+      backgroundColor: colors.primary + '20',
+      borderColor: colors.primary,
+    },
+    checkboxIcon: {
+      fontSize: 14,
+      marginRight: 4,
+    },
+    checkboxLabel: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    checkboxLabelSelected: {
+      color: colors.text.primary,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    switchLabel: {
+      fontSize: 15,
+      color: colors.text.primary,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border.medium,
+      marginVertical: 20,
+    },
+    advancedToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      marginBottom: 15,
+    },
+    advancedToggleText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    advancedToggleIcon: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    footer: {
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+    },
+    applyButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 15,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    applyButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   const renderCheckboxGroup = (
     title: string, 
@@ -195,7 +344,7 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                     maxActiveTime: value === 120 ? undefined : value 
                   }))}
                   minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor="#ddd"
+                  maximumTrackTintColor={colors.border.medium}
                 />
                 <Text style={styles.sliderLabel}>
                   {localFilters.maxActiveTime ? `${localFilters.maxActiveTime} min` : 'Any'}
@@ -217,7 +366,7 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                     maxTotalTime: value === 240 ? undefined : value 
                   }))}
                   minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor="#ddd"
+                  maximumTrackTintColor={colors.border.medium}
                 />
                 <Text style={styles.sliderLabel}>
                   {localFilters.maxTotalTime ? `${localFilters.maxTotalTime} min` : 'Any'}
@@ -257,8 +406,8 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                     ...prev, 
                     easierThanLooks: value 
                   }))}
-                  trackColor={{ false: '#ddd', true: colors.primaryLight }}
-                  thumbColor={localFilters.easierThanLooks ? colors.primary : '#f4f3f4'}
+                  trackColor={{ false: colors.border.medium, true: colors.primary + '40' }}
+                  thumbColor={localFilters.easierThanLooks ? colors.primary : colors.background.secondary}
                 />
               </View>
             </View>
@@ -278,7 +427,7 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                     maxCost: value === 20 ? undefined : value 
                   }))}
                   minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor="#ddd"
+                  maximumTrackTintColor={colors.border.medium}
                 />
                 <Text style={styles.sliderLabel}>
                   {localFilters.maxCost ? `$${localFilters.maxCost}` : 'Any'}
@@ -301,7 +450,7 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                     minPantryMatch: value === 0 ? undefined : value 
                   }))}
                   minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor="#ddd"
+                  maximumTrackTintColor={colors.border.medium}
                 />
                 <Text style={styles.sliderLabel}>
                   {localFilters.minPantryMatch ? `${localFilters.minPantryMatch}%+` : 'Any'}
@@ -321,8 +470,8 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                   ...prev, 
                   onePostOnly: value 
                 }))}
-                trackColor={{ false: '#ddd', true: colors.primaryLight }}
-                thumbColor={localFilters.onePostOnly ? colors.primary : '#f4f3f4'}
+                trackColor={{ false: colors.border.medium, true: colors.primary + '40' }}
+                thumbColor={localFilters.onePostOnly ? colors.primary : colors.background.secondary}
               />
             </View>
 
@@ -357,8 +506,8 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                       ...prev, 
                       makeAheadFriendly: value 
                     }))}
-                    trackColor={{ false: '#ddd', true: colors.primaryLight }}
-                    thumbColor={localFilters.makeAheadFriendly ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: colors.border.medium, true: colors.primary + '40' }}
+                    thumbColor={localFilters.makeAheadFriendly ? colors.primary : colors.background.secondary}
                   />
                 </View>
 
@@ -374,8 +523,8 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                         ...prev, 
                         recentlySaved: value 
                       }))}
-                      trackColor={{ false: '#ddd', true: colors.primaryLight }}
-                      thumbColor={localFilters.recentlySaved ? colors.primary : '#f4f3f4'}
+                      trackColor={{ false: colors.border.medium, true: colors.primary + '40' }}
+                      thumbColor={localFilters.recentlySaved ? colors.primary : colors.background.secondary}
                     />
                   </View>
 
@@ -387,8 +536,8 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
                         ...prev, 
                         recentlyCookedByFriends: value 
                       }))}
-                      trackColor={{ false: '#ddd', true: colors.primaryLight }}
-                      thumbColor={localFilters.recentlyCookedByFriends ? colors.primary : '#f4f3f4'}
+                      trackColor={{ false: colors.border.medium, true: colors.primary + '40' }}
+                      thumbColor={localFilters.recentlyCookedByFriends ? colors.primary : colors.background.secondary}
                     />
                   </View>
                 </View>
@@ -413,150 +562,3 @@ export default function FilterDrawer({ visible, onClose, filters, onApplyFilters
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  drawer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#666',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  resetText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  content: {
-    padding: 20,
-  },
-  filterSection: {
-    marginBottom: 24,
-  },
-  filterSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  sliderContainer: {
-    paddingHorizontal: 10,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderLabel: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-    marginTop: -5,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-  },
-  checkboxIcon: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  checkboxLabelSelected: {
-    color: '#333',
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  switchLabel: {
-    fontSize: 15,
-    color: '#333',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 20,
-  },
-  advancedToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    marginBottom: 15,
-  },
-  advancedToggleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  advancedToggleIcon: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  applyButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

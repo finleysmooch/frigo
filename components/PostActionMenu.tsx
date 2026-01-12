@@ -1,7 +1,7 @@
 // components/PostActionMenu.tsx
 // Strava-style action menu for posts (triggered by ••• button)
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface PostActionMenuProps {
   visible: boolean;
@@ -26,6 +27,58 @@ export default function PostActionMenu({
   onEditPost,
   onDeletePost,
 }: PostActionMenuProps) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      justifyContent: 'flex-end',
+    },
+    safeArea: {
+      backgroundColor: 'transparent',
+    },
+    menuContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 14,
+      borderTopRightRadius: 14,
+      paddingBottom: 20,
+    },
+    menuItem: {
+      paddingVertical: 18,
+      paddingHorizontal: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    menuItemLast: {
+      borderBottomWidth: 0,
+    },
+    menuItemText: {
+      fontSize: 17,
+      color: colors.primary,
+      textAlign: 'center',
+      fontWeight: '400',
+    },
+    deleteText: {
+      color: functionalColors.error,
+    },
+    cancelButton: {
+      marginTop: 8,
+      marginHorizontal: 10,
+      backgroundColor: colors.background.card,
+      paddingVertical: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    cancelText: {
+      fontSize: 17,
+      color: colors.primary,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
+
   const handleAction = (action: () => void) => {
     onClose();
     // Small delay to let modal close before action
@@ -81,53 +134,3 @@ export default function PostActionMenu({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  safeArea: {
-    backgroundColor: 'transparent',
-  },
-  menuContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    paddingBottom: 20,
-  },
-  menuItem: {
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  menuItemLast: {
-    borderBottomWidth: 0,
-  },
-  menuItemText: {
-    fontSize: 17,
-    color: '#007AFF',
-    textAlign: 'center',
-    fontWeight: '400',
-  },
-  deleteText: {
-    color: '#FF3B30',
-  },
-  cancelButton: {
-    marginTop: 8,
-    marginHorizontal: 10,
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  cancelText: {
-    fontSize: 17,
-    color: '#007AFF',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-});

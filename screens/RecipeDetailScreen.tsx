@@ -9,7 +9,7 @@
 //   * Markup view display
 //   * Ingredient change detection
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -59,6 +59,7 @@ import {
   RecipeAnnotation,
   ViewMode
 } from '../lib/services/recipeAnnotationsService';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeDetail'>;
 
@@ -178,6 +179,7 @@ function parseAndScaleQuantity(text: string, scale: number): string {
 }
 
 export default function RecipeDetailScreen({ navigation, route }: Props) {
+  const { colors, functionalColors } = useTheme();
   const { recipe: recipePreview, planItemId, mealId, mealTitle } = route.params as {
     recipe: any;
     planItemId?: string;
@@ -233,6 +235,585 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null);
   const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
   const [editingInstructionSection, setEditingInstructionSection] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    scrollContent: {
+      paddingBottom: 100,
+    },
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      paddingVertical: 8,
+    },
+    backButtonText: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    topRightButtons: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    topSmallButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.background.secondary,
+      minWidth: 36,
+      alignItems: 'center',
+    },
+    topSmallButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    topSmallButtonText: {
+      fontSize: 16,
+    },
+    topStartCookingButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.accent,
+    },
+    topStartCookingButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    topAddToMealButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.background.secondary,
+      minWidth: 36,
+      alignItems: 'center',
+    },
+    topAddToMealButtonText: {
+      fontSize: 16,
+    },
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    menuContainer: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      width: 200,
+    },
+    menuTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 12,
+      color: colors.text.primary,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 4,
+    },
+    menuItemActive: {
+      backgroundColor: colors.background.secondary,
+    },
+    menuItemText: {
+      fontSize: 15,
+      color: colors.text.primary,
+    },
+    menuItemCheck: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    headerImage: {
+      width: '100%',
+      height: 250,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      padding: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      color: colors.text.primary,
+    },
+    description: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      marginBottom: 12,
+      lineHeight: 22,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 8,
+    },
+    metaItem: {
+      paddingVertical: 4,
+    },
+    metaLabel: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    sourceRow: {
+      marginTop: 8,
+      gap: 6,
+    },
+    sourceText: {
+      fontSize: 14,
+      color: colors.primary,
+      marginBottom: 4,
+    },
+    controlsContainer: {
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    controlsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    scaleSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    scaleLabel: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    scaleButtons: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    scaleButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    scaleButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    scaleButtonText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: '500',
+    },
+    scaleButtonTextActive: {
+      color: colors.background.card,
+    },
+    convertSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    unitDropdown: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      gap: 6,
+    },
+    unitDropdownText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: '500',
+    },
+    unitDropdownArrow: {
+      fontSize: 10,
+      color: colors.text.secondary,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.background.secondary,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    sectionHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    collapseIcon: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    sectionHeaderButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    inlineButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.primary,
+      borderRadius: 6,
+    },
+    inlineButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    sectionContent: {
+      padding: 16,
+    },
+    familyGroup: {
+      marginBottom: 20,
+    },
+    familyHeader: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    ingredientRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 8,
+    },
+    ingredient: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      flex: 1,
+    },
+    ingredientTextContainer: {
+      flex: 1,
+    },
+    ingredientHave: {
+      fontSize: 16,
+      color: functionalColors.success,
+      marginRight: 8,
+      width: 20,
+    },
+    ingredientNeed: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      marginRight: 8,
+      width: 20,
+    },
+    ingredientText: {
+      fontSize: 16,
+      lineHeight: 22,
+      flex: 1,
+      color: colors.text.primary,
+    },
+    ingredientEditButtons: {
+      flexDirection: 'row',
+      gap: 8,
+      marginLeft: 8,
+    },
+    editIconButton: {
+      padding: 4,
+    },
+    editIconText: {
+      fontSize: 18,
+    },
+    instructionSectionGroup: {
+      marginBottom: 16,
+    },
+    subsectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    subsectionHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    subsectionHeaderIcon: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    subsectionHeaderTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    subsectionHeaderTime: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    subsectionHeaderSteps: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    subsectionSteps: {
+      paddingLeft: 12,
+    },
+    flatInstructionsList: {
+      gap: 16,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      marginBottom: 16,
+    },
+    stepControls: {
+      flexDirection: 'column',
+      gap: 4,
+      marginRight: 8,
+    },
+    stepControlButton: {
+      padding: 2,
+    },
+    stepControlText: {
+      fontSize: 16,
+    },
+    step: {
+      flexDirection: 'row',
+      flex: 1,
+    },
+    stepNumber: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginRight: 8,
+      minWidth: 24,
+      color: colors.text.primary,
+    },
+    stepText: {
+      fontSize: 16,
+      lineHeight: 24,
+      flex: 1,
+      color: colors.text.primary,
+    },
+    stepTextContainer: {
+      flex: 1,
+    },
+    clickableIngredient: {
+      color: colors.primary,
+      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    },
+    stepEditButtons: {
+      flexDirection: 'column',
+      gap: 4,
+      marginLeft: 8,
+    },
+    noInstructionsText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      paddingVertical: 20,
+    },
+    startCookingButton: {
+      backgroundColor: colors.accent,
+      paddingVertical: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: 24,
+    },
+    startCookingButtonText: {
+      color: colors.background.card,
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    stickyHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    stickyHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+    },
+    stickySectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    stickySectionIcon: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    stickyHeaderButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    stickyInlineButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: colors.primary,
+      borderRadius: 6,
+    },
+    stickyInlineButtonText: {
+      color: colors.background.card,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    pickerContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 20,
+      maxHeight: '50%',
+    },
+    pickerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginBottom: 16,
+      color: colors.text.primary,
+    },
+    pickerScroll: {
+      maxHeight: 300,
+    },
+    pickerOption: {
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    pickerOptionSelected: {
+      backgroundColor: colors.background.secondary,
+    },
+    pickerOptionText: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: colors.text.primary,
+    },
+    pickerOptionTextSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    pickerButtons: {
+      flexDirection: 'row',
+      padding: 16,
+      gap: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    pickerCancelButton: {
+      flex: 1,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    pickerCancelText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    pickerConfirmButton: {
+      flex: 1,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    pickerConfirmText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.background.card,
+    },
+    unitPickerContainer: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginHorizontal: 40,
+      marginTop: 100,
+    },
+    unitPickerOption: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginBottom: 4,
+    },
+    unitPickerOptionSelected: {
+      backgroundColor: colors.background.secondary,
+    },
+    unitPickerOptionText: {
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    unitPickerOptionTextSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    unitPickerCheck: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadRecipeDetails();
@@ -1422,571 +2003,3 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     </SafeAreaView>
   );
 }
-
-// Styles (continuing from existing styles)
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    paddingVertical: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  topRightButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  topSmallButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  topSmallButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  topSmallButtonText: {
-    fontSize: 16,
-  },
-  topStartCookingButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#34C759',
-  },
-  topStartCookingButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  topAddToMealButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  topAddToMealButtonText: {
-    fontSize: 16,
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    width: 200,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  menuItemActive: {
-    backgroundColor: '#f0f7ff',
-  },
-  menuItemText: {
-    fontSize: 15,
-  },
-  menuItemCheck: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  headerImage: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#f0f0f0',
-  },
-  header: {
-    padding: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
-  },
-  metaItem: {
-    paddingVertical: 4,
-  },
-  metaLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  sourceRow: {
-    marginTop: 8,
-    gap: 6,
-  },
-  sourceText: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  controlsContainer: {
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  scaleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  scaleLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  scaleButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  scaleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  scaleButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  scaleButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  scaleButtonTextActive: {
-    color: '#fff',
-  },
-  convertSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  unitDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    gap: 6,
-  },
-  unitDropdownText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  unitDropdownArrow: {
-    fontSize: 10,
-    color: '#666',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f8f8f8',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  collapseIcon: {
-    fontSize: 12,
-    color: '#666',
-  },
-  sectionHeaderButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  inlineButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
-  },
-  inlineButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sectionContent: {
-    padding: 16,
-  },
-  familyGroup: {
-    marginBottom: 20,
-  },
-  familyHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  ingredientRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  ingredient: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  ingredientTextContainer: {
-    flex: 1,
-  },
-  ingredientHave: {
-    fontSize: 16,
-    color: '#34C759',
-    marginRight: 8,
-    width: 20,
-  },
-  ingredientNeed: {
-    fontSize: 16,
-    color: '#ccc',
-    marginRight: 8,
-    width: 20,
-  },
-  ingredientText: {
-    fontSize: 16,
-    lineHeight: 22,
-    flex: 1,
-  },
-  ingredientEditButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginLeft: 8,
-  },
-  editIconButton: {
-    padding: 4,
-  },
-  editIconText: {
-    fontSize: 18,
-  },
-  instructionSectionGroup: {
-    marginBottom: 16,
-  },
-  subsectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  subsectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  subsectionHeaderIcon: {
-    fontSize: 14,
-    color: '#666',
-  },
-  subsectionHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  subsectionHeaderTime: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  subsectionHeaderSteps: {
-    fontSize: 13,
-    color: '#666',
-  },
-  subsectionSteps: {
-    paddingLeft: 12,
-  },
-  flatInstructionsList: {
-    gap: 16,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  stepControls: {
-    flexDirection: 'column',
-    gap: 4,
-    marginRight: 8,
-  },
-  stepControlButton: {
-    padding: 2,
-  },
-  stepControlText: {
-    fontSize: 16,
-  },
-  step: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-    minWidth: 24,
-  },
-  stepText: {
-    fontSize: 16,
-    lineHeight: 24,
-    flex: 1,
-  },
-  stepTextContainer: {
-    flex: 1,
-  },
-  clickableIngredient: {
-    color: '#007AFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-  },
-  stepEditButtons: {
-    flexDirection: 'column',
-    gap: 4,
-    marginLeft: 8,
-  },
-  noInstructionsText: {
-    fontSize: 16,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  startCookingButton: {
-    backgroundColor: '#34C759',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 24,
-  },
-  startCookingButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  stickyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stickyHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  stickySectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  stickySectionIcon: {
-    fontSize: 12,
-    color: '#666',
-  },
-  stickyHeaderButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  stickyInlineButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
-  },
-  stickyInlineButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  pickerContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: '50%',
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  pickerScroll: {
-    maxHeight: 300,
-  },
-  pickerOption: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  pickerOptionSelected: {
-    backgroundColor: '#f0f7ff',
-  },
-  pickerOptionText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  pickerOptionTextSelected: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  pickerButtons: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  pickerCancelButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  pickerCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  pickerConfirmButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-  },
-  pickerConfirmText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  unitPickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 40,
-    marginTop: 100,
-  },
-  unitPickerOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  unitPickerOptionSelected: {
-    backgroundColor: '#f0f7ff',
-  },
-  unitPickerOptionText: {
-    fontSize: 16,
-  },
-  unitPickerOptionTextSelected: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  unitPickerCheck: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-});

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const PHOTO_SIZE = width / 4;
@@ -47,11 +48,240 @@ const getAvatarForUser = (userId: string): string => {
 };
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const { colors, functionalColors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [thisWeekCount, setThisWeekCount] = useState(0);
   const [avatar, setAvatar] = useState('👨‍🍳'); // Default avatar
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    backButton: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    settingsIcon: {
+      fontSize: 24,
+    },
+    photoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      padding: 1,
+    },
+    photoPlaceholder: {
+      width: PHOTO_SIZE,
+      height: PHOTO_SIZE,
+      backgroundColor: colors.background.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.background.card,
+    },
+    photoEmoji: {
+      fontSize: 40,
+    },
+    noPhotosContainer: {
+      width: '100%',
+      padding: 40,
+      alignItems: 'center',
+    },
+    noPhotosText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+    userInfoSection: {
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 16,
+    },
+    avatarContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.border.light,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    avatar: {
+      fontSize: 40,
+    },
+    displayName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    location: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 8,
+    },
+    bio: {
+      fontSize: 14,
+      color: colors.text.primary,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    socialStats: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 40,
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: colors.border.light,
+    },
+    statItem: {
+      alignItems: 'center',
+    },
+    statNumber: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 4,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      gap: 8,
+    },
+    editButton: {
+      flex: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    editButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    statsSection: {
+      padding: 16,
+    },
+    sectionHeader: {
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    weekStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 16,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+    },
+    weekStatItem: {
+      alignItems: 'center',
+    },
+    weekStatLabel: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+    weekStatValue: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    quickActions: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      gap: 8,
+    },
+    quickActionButton: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    quickActionEmoji: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    quickActionText: {
+      fontSize: 11,
+      color: colors.text.primary,
+    },
+    activitiesSection: {
+      padding: 16,
+    },
+    activityRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    activityLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    activityIcon: {
+      fontSize: 24,
+    },
+    activityTitle: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    activitySubtitle: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    activityChevron: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    comingSoon: {
+      color: colors.text.tertiary,
+    },
+  }), [colors, functionalColors]);
 
   // Reload profile when screen comes into focus (after editing)
   useFocusEffect(
@@ -63,7 +293,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const loadProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         setLoading(false);
         return;
@@ -126,7 +356,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FC4C02" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -134,7 +364,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   if (!profile) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Profile not found</Text>
+        <Text style={{ color: colors.text.primary }}>Profile not found</Text>
       </View>
     );
   }
@@ -196,7 +426,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {/* Edit Profile Button */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate('EditProfile')}
           >
@@ -247,7 +477,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {/* Activities Section */}
         <View style={styles.activitiesSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.activityRow}
             onPress={() => navigation.navigate('MyPosts', { screen: 'MyPostsList' })}
           >
@@ -284,7 +514,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.activityChevron}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.activityRow}
             onPress={() => navigation.navigate('Pantry')}
           >
@@ -298,7 +528,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={styles.activityChevron}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.activityRow}
             onPress={() => navigation.navigate('Grocery', { screen: 'GroceryLists' })}
           >
@@ -316,224 +546,3 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#FC4C02',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  settingsIcon: {
-    fontSize: 24,
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 1,
-  },
-  photoPlaceholder: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fff',
-  },
-  photoEmoji: {
-    fontSize: 40,
-  },
-  noPhotosContainer: {
-    width: '100%',
-    padding: 40,
-    alignItems: 'center',
-  },
-  noPhotosText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  userInfoSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    fontSize: 40,
-  },
-  displayName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  location: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  bio: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  socialStats: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 40,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  editButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center',
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statsSection: {
-    padding: 16,
-  },
-  sectionHeader: {
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  weekStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-  },
-  weekStatItem: {
-    alignItems: 'center',
-  },
-  weekStatLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  weekStatValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  quickActionButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  quickActionEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  quickActionText: {
-    fontSize: 11,
-    color: '#333',
-  },
-  activitiesSection: {
-    padding: 16,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  activityLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  activityIcon: {
-    fontSize: 24,
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  activitySubtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  activityChevron: {
-    fontSize: 24,
-    color: '#ccc',
-  },
-  comingSoon: {
-    color: '#999',
-  },
-});

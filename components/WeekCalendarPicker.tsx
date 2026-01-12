@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface WeekCalendarPickerProps {
   selectedDate?: Date;
@@ -36,14 +36,130 @@ export default function WeekCalendarPicker({
   showTimeSlots = false,
   onSelectMealTime,
 }: WeekCalendarPickerProps) {
+  const { colors, functionalColors } = useTheme();
   const [selectedDay, setSelectedDay] = useState<Date | null>(selectedDate || null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 12,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    headerCell: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    weekendHeader: {
+      color: colors.text.tertiary,
+    },
+    weekLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+      marginBottom: 6,
+      marginTop: 8,
+      paddingLeft: 4,
+    },
+    weekRow: {
+      flexDirection: 'row',
+    },
+    dayCell: {
+      flex: 1,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 8,
+      marginHorizontal: 2,
+      marginVertical: 2,
+      backgroundColor: colors.background.card,
+    },
+    todayCell: {
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    selectedCell: {
+      backgroundColor: colors.primary,
+    },
+    dayNumber: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    todayText: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    selectedText: {
+      color: colors.background.card,
+      fontWeight: '700',
+    },
+    weekendText: {
+      color: colors.text.tertiary,
+    },
+    dayLabel: {
+      fontSize: 8,
+      color: colors.text.secondary,
+      marginTop: 1,
+    },
+    selectedLabelText: {
+      color: 'rgba(255, 255, 255, 0.8)',
+    },
+    mealTimesContainer: {
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    mealTimesLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.primary,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    mealTimesRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    mealTimeButton: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      minWidth: 90,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    mealTimeEmoji: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    mealTimeLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+  }), [colors, functionalColors]);
 
   // Generate days for the next N weeks starting from today
   const days = useMemo(() => {
     const result: Date[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Start from today
     for (let i = 0; i < weeksToShow * 7; i++) {
       const day = new Date(today);
@@ -90,10 +206,10 @@ export default function WeekCalendarPicker({
 
   const handleMealTimePress = (mealTime: typeof MEAL_TIMES[0]) => {
     if (!selectedDay) return;
-    
+
     const dateWithTime = new Date(selectedDay);
     dateWithTime.setHours(mealTime.hour, 0, 0, 0);
-    
+
     if (onSelectMealTime) {
       onSelectMealTime(dateWithTime, mealTime.type);
     } else {
@@ -104,7 +220,7 @@ export default function WeekCalendarPicker({
   const getWeekLabel = (weekDays: Date[]): string => {
     const firstDay = weekDays[0];
     const lastDay = weekDays[weekDays.length - 1];
-    
+
     if (firstDay.getMonth() === lastDay.getMonth()) {
       return `${MONTH_NAMES[firstDay.getMonth()]} ${firstDay.getDate()}-${lastDay.getDate()}`;
     } else {
@@ -135,13 +251,13 @@ export default function WeekCalendarPicker({
           <Text style={styles.weekLabel}>
             {weekIndex === 0 ? 'This Week' : weekIndex === 1 ? 'Next Week' : getWeekLabel(week)}
           </Text>
-          
+
           <View style={styles.weekRow}>
             {week.map((day, dayIndex) => {
               const today = isToday(day);
               const tomorrow = isTomorrow(day);
               const selected = isSelected(day);
-              
+
               return (
                 <TouchableOpacity
                   key={day.toISOString()}
@@ -202,118 +318,3 @@ export default function WeekCalendarPicker({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  headerCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  weekendHeader: {
-    color: '#9CA3AF',
-  },
-  weekLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    marginBottom: 6,
-    marginTop: 8,
-    paddingLeft: 4,
-  },
-  weekRow: {
-    flexDirection: 'row',
-  },
-  dayCell: {
-    flex: 1,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    marginHorizontal: 2,
-    marginVertical: 2,
-    backgroundColor: 'white',
-  },
-  todayCell: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  selectedCell: {
-    backgroundColor: colors.primary,
-  },
-  dayNumber: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  todayText: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  selectedText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  weekendText: {
-    color: '#9CA3AF',
-  },
-  dayLabel: {
-    fontSize: 8,
-    color: '#6B7280',
-    marginTop: 1,
-  },
-  selectedLabelText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  mealTimesContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  mealTimesLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  mealTimesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  mealTimeButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    minWidth: 90,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  mealTimeEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  mealTimeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-});

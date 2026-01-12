@@ -1,7 +1,7 @@
 // components/BookOwnershipModal.tsx
 // Modal for verifying book ownership when user adds recipe from a new book
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { Book } from '../lib/types/recipeExtraction';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { pickImageFromCamera } from '../lib/services/recipeExtraction/imageProcessor';
 import {
   uploadBookCover,
@@ -34,6 +35,9 @@ export function BookOwnershipModal({
   onComplete,
   onCancel,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -135,100 +139,106 @@ export function BookOwnershipModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modal: {
-    width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  bookTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  author: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#ddd',
-    marginBottom: 16,
-  },
-  question: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  coverImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  photoButton: {
-    backgroundColor: '#f0f0f0',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    width: '100%',
-  },
-  photoButtonText: {
-    textAlign: 'center',
-    fontSize: 16,
-  },
-  button: {
-    width: '100%',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  yesButton: {
-    backgroundColor: '#007AFF',
-  },
-  noButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  buttonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonTextDark: {
-    color: '#333',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disclaimer: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  cancelButton: {
-    marginTop: 8,
-  },
-  cancelText: {
-    color: '#007AFF',
-    fontSize: 14,
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modal: {
+      width: '85%',
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      padding: 24,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+    bookTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      textAlign: 'center',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    author: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 16,
+    },
+    divider: {
+      width: '100%',
+      height: 1,
+      backgroundColor: colors.border.medium,
+      marginBottom: 16,
+    },
+    question: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+    coverImage: {
+      width: 200,
+      height: 200,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    photoButton: {
+      backgroundColor: colors.background.secondary,
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 16,
+      width: '100%',
+    },
+    photoButtonText: {
+      textAlign: 'center',
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    button: {
+      width: '100%',
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    yesButton: {
+      backgroundColor: colors.primary,
+    },
+    noButton: {
+      backgroundColor: colors.background.secondary,
+    },
+    buttonText: {
+      color: colors.text.inverse,
+      textAlign: 'center',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonTextDark: {
+      color: colors.text.primary,
+      textAlign: 'center',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    disclaimer: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginTop: 8,
+      fontStyle: 'italic',
+    },
+    cancelButton: {
+      marginTop: 8,
+    },
+    cancelText: {
+      color: colors.primary,
+      fontSize: 14,
+    },
+  });
+}

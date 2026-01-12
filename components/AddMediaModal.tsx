@@ -1,7 +1,7 @@
 // components/AddMediaModal.tsx
 // Modal for adding photos to posts (like Strava's add media flow)
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -15,6 +15,7 @@ import {
   TextInput,
 } from 'react-native';
 import { chooseImageSource } from '../lib/services/imageStorageService';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface Photo {
   uri: string;
@@ -35,6 +36,9 @@ export default function AddMediaModal({
   onSave,
   existingPhotos = [],
 }: AddMediaModalProps) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [photos, setPhotos] = useState<Photo[]>(existingPhotos);
   const [saving, setSaving] = useState(false);
   const [editingCaption, setEditingCaption] = useState<number | null>(null);
@@ -203,7 +207,7 @@ export default function AddMediaModal({
         {saving && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingCard}>
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Uploading photos...</Text>
             </View>
           </View>
@@ -213,132 +217,135 @@ export default function AddMediaModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#666',
-  },
-  saveButton: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  content: {
-    flex: 1,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  photosGrid: {
-    padding: 12,
-  },
-  photoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  photoImage: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#f0f0f0',
-  },
-  removeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 59, 48, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '300',
-  },
-  captionInput: {
-    padding: 12,
-    fontSize: 15,
-    color: '#333',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    minHeight: 60,
-  },
-  addPhotoButton: {
-    backgroundColor: '#fff',
-    marginHorizontal: 12,
-    marginTop: 8,
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-  },
-  addPhotoIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  addPhotoText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  spacer: {
-    height: 40,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingCard: {
-    backgroundColor: '#fff',
-    padding: 30,
-    borderRadius: 16,
-    alignItems: 'center',
-    minWidth: 200,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#333',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    saveButtonDisabled: {
+      opacity: 0.5,
+    },
+    content: {
+      flex: 1,
+    },
+    emptyState: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    photosGrid: {
+      padding: 12,
+    },
+    photoCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      marginBottom: 16,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    photoImage: {
+      width: '100%',
+      height: 300,
+      backgroundColor: colors.background.secondary,
+    },
+    removeButton: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: functionalColors.error,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    removeButtonText: {
+      color: colors.text.inverse,
+      fontSize: 24,
+      fontWeight: '300',
+    },
+    captionInput: {
+      padding: 12,
+      fontSize: 15,
+      color: colors.text.primary,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      minHeight: 60,
+    },
+    addPhotoButton: {
+      backgroundColor: colors.background.card,
+      marginHorizontal: 12,
+      marginTop: 8,
+      padding: 20,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+    },
+    addPhotoIcon: {
+      fontSize: 32,
+      marginBottom: 8,
+    },
+    addPhotoText: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    spacer: {
+      height: 40,
+    },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingCard: {
+      backgroundColor: colors.background.card,
+      padding: 30,
+      borderRadius: 16,
+      alignItems: 'center',
+      minWidth: 200,
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+  });
+}

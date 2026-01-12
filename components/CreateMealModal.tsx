@@ -4,7 +4,7 @@
 // Updated: December 10, 2025 - Added initialDate prop, auto-generated default names, inline date picker
 // Updated: December 10, 2025 - Added Quick Add Recipe section for streamlined solo meal planning
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -19,7 +19,7 @@ import {
   Dimensions,
   FlatList,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { createMeal, CreateMealInput } from '../lib/services/mealService';
 import { createPlanItemWithRecipe, CourseType } from '../lib/services/mealPlanService';
 import { supabase } from '../lib/supabase';
@@ -118,6 +118,7 @@ export default function CreateMealModal({
   onSelectRecipe,
   initialFormData,
 }: CreateMealModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mealType, setMealType] = useState<string | undefined>('dinner');
@@ -145,6 +146,461 @@ export default function CreateMealModal({
   
   // Debounce timer for recipe search
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 20,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    createButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    disabled: {
+      opacity: 0.4,
+    },
+    form: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    // Quick Add Recipe Section Styles
+    quickAddSection: {
+      marginBottom: 8,
+    },
+    quickAddLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 10,
+    },
+    addRecipeButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: '#F0FDF4',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: functionalColors.success,
+      borderStyle: 'dashed',
+    },
+    addRecipeIcon: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: functionalColors.success,
+      marginRight: 10,
+    },
+    addRecipeText: {
+      fontSize: 15,
+      color: functionalColors.success,
+      fontWeight: '500',
+    },
+    selectedRecipeCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: '#EFF6FF',
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    selectedRecipeInfo: {
+      flex: 1,
+    },
+    selectedRecipeTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#1D4ED8',
+      marginBottom: 8,
+    },
+    courseScrollView: {
+      marginTop: 4,
+    },
+    courseContainer: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    courseChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    courseChipSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    courseChipEmoji: {
+      fontSize: 12,
+      marginRight: 4,
+    },
+    courseChipText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    courseChipTextSelected: {
+      color: colors.background.card,
+    },
+    removeRecipeButton: {
+      padding: 4,
+      marginLeft: 8,
+    },
+    removeRecipeText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    sectionDivider: {
+      height: 1,
+      backgroundColor: colors.border.medium,
+      marginVertical: 16,
+    },
+    // Recipe Search Styles
+    searchContainer: {
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    searchInput: {
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 10,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    searchLoading: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    noResults: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    noResultsText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+    },
+    searchResults: {
+      paddingHorizontal: 20,
+      paddingBottom: 34,
+    },
+    recipeItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    recipeIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: '#FEF3C7',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    recipeIconText: {
+      fontSize: 20,
+    },
+    recipeInfo: {
+      flex: 1,
+    },
+    recipeTitle: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    recipeMeta: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    selectArrow: {
+      fontSize: 24,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    // Original Form Styles
+    fieldGroup: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    input: {
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    textArea: {
+      height: 80,
+      textAlignVertical: 'top',
+    },
+    mealTypeContainer: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingVertical: 4,
+    },
+    mealTypeButton: {
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: colors.background.secondary,
+      minWidth: 70,
+    },
+    mealTypeButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    mealTypeEmoji: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    mealTypeLabel: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    mealTypeLabelActive: {
+      color: colors.background.card,
+    },
+    addDateButton: {
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderStyle: 'dashed',
+    },
+    addDateButtonText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+    },
+    selectedDateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: '#EFF6FF',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    dateDisplayButton: {
+      flex: 1,
+    },
+    selectedDateText: {
+      fontSize: 15,
+      color: '#1D4ED8',
+      fontWeight: '500',
+    },
+    clearDateButton: {
+      fontSize: 18,
+      color: colors.text.secondary,
+      padding: 4,
+    },
+    infoBox: {
+      flexDirection: 'row',
+      backgroundColor: '#FEF3C7',
+      borderRadius: 12,
+      padding: 14,
+      marginTop: 10,
+    },
+    infoEmoji: {
+      fontSize: 24,
+      marginRight: 12,
+    },
+    infoContent: {
+      flex: 1,
+    },
+    infoTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#92400E',
+      marginBottom: 4,
+    },
+    infoText: {
+      fontSize: 13,
+      color: '#92400E',
+      lineHeight: 18,
+    },
+    // Calendar styles
+    calendarContainer: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 20,
+    },
+    monthHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    monthArrow: {
+      padding: 8,
+    },
+    monthArrowText: {
+      fontSize: 24,
+      color: colors.primary,
+      fontWeight: '300',
+    },
+    monthTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    weekdayRow: {
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    weekdayText: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    calendarGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    dayCell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dayCellSelected: {
+      backgroundColor: colors.primary,
+      borderRadius: 20,
+    },
+    dayCellToday: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: 20,
+    },
+    dayText: {
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    dayTextSelected: {
+      color: colors.background.card,
+      fontWeight: '600',
+    },
+    dayTextToday: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    dayTextEmpty: {
+      color: 'transparent',
+    },
+    // Time picker styles
+    timePickerContainer: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 16,
+    },
+    timeLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 12,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    timeSelector: {
+      alignItems: 'center',
+    },
+    timeArrow: {
+      padding: 8,
+    },
+    timeArrowText: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    timeValue: {
+      fontSize: 32,
+      fontWeight: '600',
+      color: colors.text.primary,
+      width: 50,
+      textAlign: 'center',
+    },
+    timeColon: {
+      fontSize: 32,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginHorizontal: 4,
+    },
+    ampmSelector: {
+      flexDirection: 'column',
+      marginLeft: 16,
+    },
+    ampmButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      backgroundColor: colors.border.medium,
+      marginVertical: 2,
+    },
+    ampmButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    ampmText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    ampmTextActive: {
+      color: colors.background.card,
+    },
+  }), [colors, functionalColors]);
 
   // NEW: Restore form data when returning from recipe selection
   useEffect(() => {
@@ -866,458 +1322,3 @@ export default function CreateMealModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  createButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  form: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  // Quick Add Recipe Section Styles
-  quickAddSection: {
-    marginBottom: 8,
-  },
-  quickAddLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 10,
-  },
-  addRecipeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#86EFAC',
-    borderStyle: 'dashed',
-  },
-  addRecipeIcon: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#16A34A',
-    marginRight: 10,
-  },
-  addRecipeText: {
-    fontSize: 15,
-    color: '#16A34A',
-    fontWeight: '500',
-  },
-  selectedRecipeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  selectedRecipeInfo: {
-    flex: 1,
-  },
-  selectedRecipeTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1D4ED8',
-    marginBottom: 8,
-  },
-  courseScrollView: {
-    marginTop: 4,
-  },
-  courseContainer: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  courseChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  courseChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  courseChipEmoji: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  courseChipText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  courseChipTextSelected: {
-    color: 'white',
-  },
-  removeRecipeButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  removeRecipeText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 16,
-  },
-  // Recipe Search Styles
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  searchInput: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    fontSize: 16,
-    color: '#111',
-  },
-  searchLoading: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  noResults: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    fontSize: 15,
-    color: '#6B7280',
-  },
-  searchResults: {
-    paddingHorizontal: 20,
-    paddingBottom: 34,
-  },
-  recipeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  recipeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  recipeIconText: {
-    fontSize: 20,
-  },
-  recipeInfo: {
-    flex: 1,
-  },
-  recipeTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111',
-  },
-  recipeMeta: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  selectArrow: {
-    fontSize: 24,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  // Original Form Styles
-  fieldGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  mealTypeContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 4,
-  },
-  mealTypeButton: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    minWidth: 70,
-  },
-  mealTypeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  mealTypeEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  mealTypeLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  mealTypeLabelActive: {
-    color: 'white',
-  },
-  addDateButton: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  addDateButtonText: {
-    fontSize: 15,
-    color: '#6B7280',
-  },
-  selectedDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  dateDisplayButton: {
-    flex: 1,
-  },
-  selectedDateText: {
-    fontSize: 15,
-    color: '#1D4ED8',
-    fontWeight: '500',
-  },
-  clearDateButton: {
-    fontSize: 18,
-    color: '#6B7280',
-    padding: 4,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 10,
-  },
-  infoEmoji: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#92400E',
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 13,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  // Calendar styles
-  calendarContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  monthArrow: {
-    padding: 8,
-  },
-  monthArrowText: {
-    fontSize: 24,
-    color: colors.primary,
-    fontWeight: '300',
-  },
-  monthTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  weekdayText: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  dayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayCellSelected: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-  },
-  dayCellToday: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 20,
-  },
-  dayText: {
-    fontSize: 16,
-    color: '#374151',
-  },
-  dayTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  dayTextToday: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  dayTextEmpty: {
-    color: 'transparent',
-  },
-  // Time picker styles
-  timePickerContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-  },
-  timeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  timeSelector: {
-    alignItems: 'center',
-  },
-  timeArrow: {
-    padding: 8,
-  },
-  timeArrowText: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-  timeValue: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#111',
-    width: 50,
-    textAlign: 'center',
-  },
-  timeColon: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#111',
-    marginHorizontal: 4,
-  },
-  ampmSelector: {
-    flexDirection: 'column',
-    marginLeft: 16,
-  },
-  ampmButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 2,
-  },
-  ampmButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  ampmText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  ampmTextActive: {
-    color: 'white',
-  },
-});

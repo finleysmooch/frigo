@@ -5,7 +5,7 @@
 // Location: components/GroceryListItem.tsx
 // Updated: November 6, 2025 - No multi-tag system
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,7 +13,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { updateListItem, deleteListItem } from '../lib/groceryListsService';
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function GroceryListItem({ item, onUpdate, navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [updating, setUpdating] = useState(false);
 
   const ingredientName = item.ingredient.plural_name || item.ingredient.name;
@@ -83,6 +85,92 @@ export default function GroceryListItem({ item, onUpdate, navigation }: Props) {
       ]
     );
   }
+
+  // ============================================
+  // STYLES
+  // ============================================
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      padding: spacing.sm,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    containerChecked: {
+      backgroundColor: colors.background.secondary,
+      opacity: 0.7,
+    },
+    mainRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    checkbox: {
+      flexShrink: 0,
+    },
+    checkboxInner: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.text.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxChecked: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkmark: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: typography.weights.bold,
+    },
+    content: {
+      flex: 1,
+      minWidth: 0,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    name: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    nameChecked: {
+      color: colors.text.secondary,
+      textDecorationLine: 'line-through',
+    },
+    quantity: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      flexShrink: 0,
+    },
+    notes: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      fontStyle: 'italic',
+      marginTop: 2,
+    },
+    deleteButton: {
+      padding: 4,
+      flexShrink: 0,
+    },
+    deleteIcon: {
+      fontSize: 24,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.regular,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // RENDER
@@ -146,93 +234,3 @@ export default function GroceryListItem({ item, onUpdate, navigation }: Props) {
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  containerChecked: {
-    backgroundColor: '#f8f8f8',
-    opacity: 0.7,
-  },
-
-  mainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  
-  checkbox: {
-    flexShrink: 0,
-  },
-  checkboxInner: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.text.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: typography.weights.bold,
-  },
-
-  content: {
-    flex: 1,
-    minWidth: 0,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  name: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  nameChecked: {
-    color: colors.text.secondary,
-    textDecorationLine: 'line-through',
-  },
-  quantity: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    flexShrink: 0,
-  },
-  notes: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-
-  deleteButton: {
-    padding: 4,
-    flexShrink: 0,
-  },
-  deleteIcon: {
-    fontSize: 24,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.regular,
-  },
-});

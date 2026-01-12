@@ -5,11 +5,12 @@
 // Asks: How much? How long? What about remainder?
 // Location: components/StorageChangePrompt.tsx
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { StorageLocation } from '../lib/types/pantry';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 import { QUANTITY_VALUES, EXPIRATION_UNITS, getStorageInfo } from '../constants/pantry';
 
 type Step = 'quantity' | 'expiration';
@@ -33,10 +34,74 @@ export default function StorageChangePrompt({
   onClose,
   onConfirm,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [step, setStep] = useState<Step>('quantity');
   const [moveQuantity, setMoveQuantity] = useState(currentQuantity);
   const [expirationNumber, setExpirationNumber] = useState(7);
   const [expirationUnit, setExpirationUnit] = useState('days');
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    saveButton: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    descriptionContainer: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    description: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+    pickerContainer: {
+      paddingVertical: spacing.md,
+    },
+    picker: {
+      height: 200,
+    },
+    pickerItem: {
+      fontSize: typography.sizes.xl,
+      height: 200,
+    },
+    dualPickers: {
+      flexDirection: 'row',
+    },
+    pickerWrapper: {
+      flex: 1,
+    },
+  }), [colors, functionalColors]);
 
   const storageInfo = getStorageInfo(newStorage);
 
@@ -169,66 +234,3 @@ export default function StorageChangePrompt({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  cancelButton: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  saveButton: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  descriptionContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  description: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  pickerContainer: {
-    paddingVertical: spacing.md,
-  },
-  picker: {
-    height: 200,
-  },
-  pickerItem: {
-    fontSize: typography.sizes.xl,
-    height: 200,
-  },
-  dualPickers: {
-    flexDirection: 'row',
-  },
-  pickerWrapper: {
-    flex: 1,
-  },
-});

@@ -2,11 +2,11 @@
 // NEW: Detailed view of a single post (like Strava's activity detail screen)
 // Created: November 16, 2025
 
-import { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useEffect, useState, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   TouchableOpacity,
   ActivityIndicator,
   Image,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { MyPostsStackParamList, PostPhoto } from '../App';
 import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
@@ -79,7 +79,8 @@ const getAvatarForUser = (userId: string): string => {
 
 export default function MyPostDetailsScreen({ navigation, route }: Props) {
   const { postId } = route.params;
-  
+  const { colors, functionalColors } = useTheme();
+
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Tom Morley');
@@ -98,6 +99,295 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
     sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
     ate_with: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
   }>({ sous_chefs: [], ate_with: [] });  // ← NEW
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      fontSize: 32,
+      color: colors.primary,
+      fontWeight: '300',
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    menuButton: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+    },
+    content: {
+      flex: 1,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      padding: 16,
+      paddingBottom: 12,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarText: {
+      fontSize: 28,
+    },
+    headerInfo: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    userName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    methodIconSmall: {
+      width: 20,
+      height: 20,
+      marginRight: 6,
+    },
+    metaText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    photoCarouselContainer: {
+      position: 'relative',
+      marginBottom: 16,
+    },
+    photoSlide: {
+      width: SCREEN_WIDTH,
+      backgroundColor: colors.text.primary,
+    },
+    photoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    captionOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      padding: 12,
+    },
+    captionText: {
+      color: colors.background.card,
+      fontSize: 14,
+    },
+    photoIndicators: {
+      position: 'absolute',
+      bottom: 12,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+    },
+    indicator: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    },
+    indicatorActive: {
+      backgroundColor: colors.background.card,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    detailsContainer: {
+      paddingHorizontal: 16,
+    },
+    postTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    recipeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 16,
+    },
+    recipeTitle: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+    chefName: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    ratingContainer: {
+      marginBottom: 16,
+    },
+    starsContainer: {
+      flexDirection: 'row',
+      gap: 4,
+    },
+    star: {
+      fontSize: 20,
+    },
+    modificationsContainer: {
+      backgroundColor: colors.background.secondary,
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    modificationsLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 6,
+    },
+    modificationsText: {
+      fontSize: 15,
+      color: colors.text.primary,
+      lineHeight: 22,
+    },
+    participantsSection: {
+      backgroundColor: '#FEF3C7',
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#374151',
+      marginBottom: 8,
+    },
+    participantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    participantEmoji: {
+      fontSize: 16,
+      marginRight: 8,
+    },
+    participantText: {
+      fontSize: 14,
+      color: '#374151',
+      flex: 1,
+    },
+    addPartnersButton: {
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      marginBottom: 16,
+      alignItems: 'center',
+    },
+    addPartnersButtonText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    socialSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    likesSectionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      paddingRight: 8,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      marginRight: 8,
+    },
+    miniAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.background.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    miniAvatarText: {
+      fontSize: 14,
+    },
+    likesText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontWeight: '500',
+      flexShrink: 1,
+    },
+    commentsSectionRight: {
+      paddingVertical: 4,
+      paddingLeft: 8,
+    },
+    commentsText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingVertical: 12,
+      paddingHorizontal: '5%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    actionButton: {
+      padding: 8,
+    },
+    actionIcon: {
+      width: 30,
+      height: 30,
+    },
+    errorText: {
+      fontSize: 18,
+      color: colors.text.secondary,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadUserInfo();
@@ -492,7 +782,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -671,7 +961,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
                 }
                 style={[
                   styles.actionIcon,
-                  currentUserLiked && { tintColor: colors.like }
+                  currentUserLiked && { tintColor: functionalColors.like }
                 ]}
                 resizeMode="contain"
               />
@@ -719,292 +1009,3 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    fontSize: 32,
-    color: '#007AFF',
-    fontWeight: '300',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  menuButton: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#999',
-  },
-  content: {
-    flex: 1,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    fontSize: 28,
-  },
-  headerInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  methodIconSmall: {
-    width: 20,
-    height: 20,
-    marginRight: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  photoCarouselContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  photoSlide: {
-    width: SCREEN_WIDTH,
-    backgroundColor: '#000',
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  captionOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 12,
-  },
-  captionText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  photoIndicators: {
-    position: 'absolute',
-    bottom: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  indicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  detailsContainer: {
-    paddingHorizontal: 16,
-  },
-  postTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 8,
-  },
-  recipeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  recipeTitle: {
-    fontSize: 16,
-    color: '#888',
-  },
-  chefName: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  ratingContainer: {
-    marginBottom: 16,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  star: {
-    fontSize: 20,
-  },
-  modificationsContainer: {
-    backgroundColor: '#f9f9f9',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  modificationsLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 6,
-  },
-  modificationsText: {
-    fontSize: 15,
-    color: '#444',
-    lineHeight: 22,
-  },
-  participantsSection: {
-    backgroundColor: '#FEF3C7',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  participantEmoji: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  participantText: {
-    fontSize: 14,
-    color: '#374151',
-    flex: 1,
-  },
-  addPartnersButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  addPartnersButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  socialSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  likesSectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    paddingRight: 8,
-  },
-  avatarStack: {
-    flexDirection: 'row',
-    marginRight: 8,
-  },
-  miniAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  miniAvatarText: {
-    fontSize: 14,
-  },
-  likesText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  commentsSectionRight: {
-    paddingVertical: 4,
-    paddingLeft: 8,
-  },
-  commentsText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: '5%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  actionButton: {
-    padding: 8,
-  },
-  actionIcon: {
-    width: 30,
-    height: 30,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#666',
-  },
-});

@@ -4,7 +4,7 @@
 // View and edit pantry item details with quick actions
 // Location: components/ItemDetailModal.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -17,7 +17,7 @@ import {
   Platform
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { 
+import {
   updatePantryItem,
   markAsOpened,
   markAsUsed,
@@ -29,7 +29,8 @@ import {
   getExpirationStatus,
   formatExpirationDisplay
 } from '../utils/pantryConversions';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 interface Props {
   visible: boolean;
@@ -40,10 +41,220 @@ interface Props {
 }
 
 export default function ItemDetailModal({ visible, item, userId, onClose, onUpdate }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [quantity, setQuantity] = useState('');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.primary,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      maxHeight: '85%',
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+
+    // Status Card
+    statusCard: {
+      backgroundColor: colors.background.tertiary,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+      borderWidth: 2,
+      borderColor: colors.border.light,
+    },
+    statusCardExpiring: {
+      borderColor: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '20',
+    },
+    statusCardExpired: {
+      borderColor: functionalColors.error,
+      backgroundColor: functionalColors.error + '20',
+    },
+    statusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+    },
+    statusLabel: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      fontWeight: typography.weights.medium,
+    },
+    statusValue: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    statusOpened: {
+      color: functionalColors.warning,
+    },
+    expiryExpired: {
+      color: functionalColors.error,
+    },
+    expirySoon: {
+      color: functionalColors.warning,
+    },
+    expiryDays: {
+      fontSize: typography.sizes.sm,
+    },
+
+    // Sections
+    section: {
+      marginBottom: spacing.lg,
+    },
+    sectionTitle: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.tertiary,
+      marginBottom: spacing.sm,
+      letterSpacing: 0.5,
+    },
+
+    // Action Buttons
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      ...shadows.small,
+    },
+    actionButtonDanger: {
+      borderColor: functionalColors.error,
+      backgroundColor: functionalColors.error + '20',
+    },
+    actionButtonEmoji: {
+      fontSize: typography.sizes.xl,
+      marginRight: spacing.md,
+    },
+    actionButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+      flex: 1,
+    },
+    actionButtonTextDanger: {
+      color: functionalColors.error,
+    },
+
+    // Quantity Controls
+    quantityControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    quantityButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+    },
+    quantityButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.background.primary,
+      fontWeight: typography.weights.bold,
+    },
+    quantityDisplay: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.tertiary,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    quantityDisplayText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.semibold,
+    },
+
+    // Expiration Controls
+    expirationControls: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    expirationButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    expirationButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+
+    // Delete Button
+    deleteButton: {
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: functionalColors.error,
+    },
+    deleteButtonText: {
+      fontSize: typography.sizes.md,
+      color: functionalColors.error,
+      fontWeight: typography.weights.semibold,
+    },
+
+    // Notes
+    notesText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      lineHeight: typography.sizes.md * typography.lineHeights.relaxed,
+      fontStyle: 'italic',
+    },
+  }), [colors, functionalColors]);
 
   // Update local state when item changes
   useEffect(() => {
@@ -382,212 +593,3 @@ export default function ItemDetailModal({ visible, item, userId, onClose, onUpda
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '85%',
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  headerTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  
-  // Status Card
-  statusCard: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: colors.border.light,
-  },
-  statusCardExpiring: {
-    borderColor: colors.warning,
-    backgroundColor: '#FFF3E0',
-  },
-  statusCardExpired: {
-    borderColor: colors.error,
-    backgroundColor: '#FFEBEE',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  statusLabel: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    fontWeight: typography.weights.medium,
-  },
-  statusValue: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  statusOpened: {
-    color: colors.warning,
-  },
-  expiryExpired: {
-    color: colors.error,
-  },
-  expirySoon: {
-    color: colors.warning,
-  },
-  expiryDays: {
-    fontSize: typography.sizes.sm,
-  },
-
-  // Sections
-  section: {
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.tertiary,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
-
-  // Action Buttons
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    ...shadows.small,
-  },
-  actionButtonDanger: {
-    borderColor: colors.error,
-    backgroundColor: '#FFEBEE',
-  },
-  actionButtonEmoji: {
-    fontSize: typography.sizes.xl,
-    marginRight: spacing.md,
-  },
-  actionButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.medium,
-    flex: 1,
-  },
-  actionButtonTextDanger: {
-    color: colors.error,
-  },
-
-  // Quantity Controls
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  quantityButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  quantityButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.background.primary,
-    fontWeight: typography.weights.bold,
-  },
-  quantityDisplay: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  quantityDisplayText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.semibold,
-  },
-
-  // Expiration Controls
-  expirationControls: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  expirationButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  expirationButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-
-  // Delete Button
-  deleteButton: {
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  deleteButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.error,
-    fontWeight: typography.weights.semibold,
-  },
-
-  // Notes
-  notesText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    lineHeight: typography.sizes.md * typography.lineHeights.relaxed,
-    fontStyle: 'italic',
-  },
-});

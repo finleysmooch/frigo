@@ -2,7 +2,7 @@
 // Card component for displaying meal posts in the feed
 // Created: December 2, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   MealWithDetails,
   MealParticipant,
@@ -50,6 +50,7 @@ export default function MealPostCard({
   onMenu,
   likeData,
 }: MealPostCardProps) {
+  const { colors, functionalColors } = useTheme();
   const [participants, setParticipants] = useState<MealParticipant[]>([]);
   const [dishes, setDishes] = useState<DishInMeal[]>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -132,6 +133,242 @@ export default function MealPostCard({
     const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return emojis[hash % emojis.length];
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    card: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    participantAvatars: {
+      flexDirection: 'row',
+      marginRight: 12,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background.card,
+    },
+    avatarOverlap: {
+      marginLeft: -12,
+    },
+    avatarEmoji: {
+      fontSize: 20,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    headerText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    mealIcon: {
+      fontSize: 14,
+      marginRight: 4,
+    },
+    metaText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    menuButton: {
+      padding: 4,
+    },
+    menuButtonText: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+    },
+    photoCarouselContainer: {
+      marginHorizontal: -16,
+      marginBottom: 12,
+      position: 'relative',
+    },
+    photoSlide: {
+      width: SCREEN_WIDTH - 32,
+      height: (SCREEN_WIDTH - 32) * 0.75,
+      backgroundColor: '#000',
+    },
+    photoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    photoCaption: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    photoCaptionText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    photoIndicators: {
+      position: 'absolute',
+      bottom: 50,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    indicator: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+      marginHorizontal: 3,
+    },
+    indicatorActive: {
+      backgroundColor: colors.background.card,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    morePhotosText: {
+      color: colors.background.card,
+      fontSize: 12,
+      marginLeft: 6,
+    },
+    noPhotosPlaceholder: {
+      height: 150,
+      backgroundColor: colors.background.secondary,
+      marginHorizontal: -16,
+      marginBottom: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    noPhotosEmoji: {
+      fontSize: 48,
+      marginBottom: 8,
+    },
+    noPhotosText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    mealTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 12,
+    },
+    dishPreviewContainer: {
+      marginBottom: 12,
+    },
+    courseSection: {
+      marginBottom: 8,
+    },
+    courseLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      marginBottom: 4,
+    },
+    dishList: {
+      paddingLeft: 8,
+    },
+    dishName: {
+      fontSize: 14,
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    moreText: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+    },
+    moreCourses: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      marginTop: 4,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+      marginTop: 4,
+    },
+    stat: {
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    statDivider: {
+      width: 1,
+      height: 30,
+      backgroundColor: colors.border.medium,
+    },
+    likesSection: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 8,
+      paddingBottom: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+    },
+    likesText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    commentsText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingTop: 8,
+      paddingHorizontal: '5%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    actionButton: {
+      padding: 8,
+    },
+    actionIcon: {
+      width: 30,
+      height: 30,
+    },
+  }), [colors, functionalColors]);
 
   const renderPhotoCarousel = () => {
     if (allPhotos.length === 0) {
@@ -328,7 +565,7 @@ export default function MealPostCard({
                 }
                 style={[
                   styles.actionIcon,
-                  likeData?.hasLike && { tintColor: colors.like }
+                  likeData?.hasLike && { tintColor: functionalColors.like }
                 ]}
                 resizeMode="contain"
               />
@@ -349,239 +586,3 @@ export default function MealPostCard({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  participantAvatars: {
-    flexDirection: 'row',
-    marginRight: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  avatarOverlap: {
-    marginLeft: -12,
-  },
-  avatarEmoji: {
-    fontSize: 20,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  mealIcon: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  menuButton: {
-    padding: 4,
-  },
-  menuButtonText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#999',
-  },
-  photoCarouselContainer: {
-    marginHorizontal: -16,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  photoSlide: {
-    width: SCREEN_WIDTH - 32,
-    height: (SCREEN_WIDTH - 32) * 0.75,
-    backgroundColor: '#000',
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  photoCaption: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  photoCaptionText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  photoIndicators: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  indicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 3,
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  morePhotosText: {
-    color: '#fff',
-    fontSize: 12,
-    marginLeft: 6,
-  },
-  noPhotosPlaceholder: {
-    height: 150,
-    backgroundColor: '#F3F4F6',
-    marginHorizontal: -16,
-    marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noPhotosEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  noPhotosText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  mealTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 12,
-  },
-  dishPreviewContainer: {
-    marginBottom: 12,
-  },
-  courseSection: {
-    marginBottom: 8,
-  },
-  courseLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  dishList: {
-    paddingLeft: 8,
-  },
-  dishName: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 2,
-  },
-  moreText: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-  },
-  moreCourses: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    marginTop: 4,
-  },
-  stat: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#E5E7EB',
-  },
-  likesSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  likesText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  commentsText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingTop: 8,
-    paddingHorizontal: '5%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  actionButton: {
-    padding: 8,
-  },
-  actionIcon: {
-    width: 30,
-    height: 30,
-  },
-});

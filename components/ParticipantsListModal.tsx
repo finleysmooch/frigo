@@ -2,7 +2,7 @@
 // Modal to show all cooking participants (Strava-style)
 // Created: November 20, 2025
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface Participant {
   user_id: string;
@@ -46,7 +46,8 @@ export default function ParticipantsListModal({
   ateWith,
   currentUserId,
 }: ParticipantsListModalProps) {
-  
+  const { colors, functionalColors } = useTheme();
+
   const renderParticipant = (participant: Participant, role: 'sous_chef' | 'ate_with') => {
     const isYou = participant.user_id === currentUserId;
     const displayName = isYou ? 'You' : (participant.display_name || participant.username);
@@ -87,6 +88,156 @@ export default function ParticipantsListModal({
   };
 
   const totalParticipants = sousChefs.length + ateWith.length;
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    doneButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    doneButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    postInfoBar: {
+      backgroundColor: colors.background.card,
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    postTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    participantCount: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    section: {
+      backgroundColor: colors.background.card,
+      marginTop: 12,
+      paddingVertical: 12,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    sectionCount: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+    },
+    participantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    participantLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarText: {
+      fontSize: 24,
+    },
+    participantInfo: {
+      flex: 1,
+    },
+    participantName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    participantUsername: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    participantRight: {
+      marginLeft: 12,
+    },
+    roleBadge: {
+      backgroundColor: functionalColors.warning + '20',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    roleBadgeAte: {
+      backgroundColor: colors.primary + '20',
+    },
+    roleBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 60,
+    },
+    emptyEmoji: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+  }), [colors, functionalColors]);
 
   return (
     <Modal
@@ -144,153 +295,3 @@ export default function ParticipantsListModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  doneButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  doneButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  postInfoBar: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  postTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 4,
-  },
-  participantCount: {
-    fontSize: 13,
-    color: '#666',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginTop: 12,
-    paddingVertical: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111',
-  },
-  sectionCount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  participantLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    fontSize: 24,
-  },
-  participantInfo: {
-    flex: 1,
-  },
-  participantName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  participantUsername: {
-    fontSize: 13,
-    color: '#666',
-  },
-  participantRight: {
-    marginLeft: 12,
-  },
-  roleBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleBadgeAte: {
-    backgroundColor: '#DBEAFE',
-  },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-  },
-});

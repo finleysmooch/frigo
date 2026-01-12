@@ -2,7 +2,7 @@
 // NEW SCREEN: Browse all recipes by a specific chef/author
 // Created: November 11, 2025
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { Book, RecipeWithBook } from '../lib/types/recipeExtraction';
 
 type Props = NativeStackScreenProps<any, 'AuthorView'>;
@@ -35,11 +36,160 @@ interface RecipeForAuthorView extends RecipeWithBook {
 }
 
 export default function AuthorViewScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { chefName } = route.params;
   const [chef, setChef] = useState<Chef | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [recipes, setRecipes] = useState<RecipeForAuthorView[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    authorImage: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      marginBottom: 16,
+      backgroundColor: colors.border.light,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    authorName: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      color: colors.text.primary,
+    },
+    authorBio: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      marginBottom: 8,
+      lineHeight: 24,
+    },
+    authorWebsite: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    section: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 16,
+      color: colors.text.primary,
+    },
+    booksScroll: {
+      marginHorizontal: -20,
+      paddingHorizontal: 20,
+    },
+    bookCard: {
+      width: 140,
+      marginRight: 16,
+    },
+    bookCover: {
+      width: 140,
+      height: 200,
+      borderRadius: 8,
+      marginBottom: 8,
+      backgroundColor: colors.border.light,
+    },
+    bookCoverPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    bookCoverPlaceholderText: {
+      fontSize: 48,
+    },
+    bookCardTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      marginBottom: 4,
+      color: colors.text.primary,
+    },
+    bookCardYear: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+    },
+    recipesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: -8,
+    },
+    recipeCard: {
+      width: '50%',
+      paddingHorizontal: 8,
+      marginBottom: 16,
+    },
+    recipeImage: {
+      width: '100%',
+      height: 140,
+      borderRadius: 8,
+      marginBottom: 8,
+      backgroundColor: colors.border.light,
+    },
+    recipeImagePlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    recipeImagePlaceholderText: {
+      fontSize: 36,
+    },
+    recipeCardInfo: {
+      flex: 1,
+    },
+    recipeCardTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      marginBottom: 4,
+      color: colors.text.primary,
+    },
+    recipeCardBook: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+    recipeCardStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    recipeCardStat: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginRight: 8,
+    },
+    emptyState: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyStateText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadAuthorData();
@@ -127,7 +277,7 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading author...</Text>
       </View>
     );
@@ -260,147 +410,3 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  authorImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 16,
-    backgroundColor: '#f0f0f0',
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  authorBio: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-    lineHeight: 24,
-  },
-  authorWebsite: {
-    fontSize: 14,
-    color: '#007AFF',
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  booksScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  bookCard: {
-    width: 140,
-    marginRight: 16,
-  },
-  bookCover: {
-    width: 140,
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  bookCoverPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookCoverPlaceholderText: {
-    fontSize: 48,
-  },
-  bookCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  bookCardYear: {
-    fontSize: 12,
-    color: '#999',
-  },
-  recipesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
-  },
-  recipeCard: {
-    width: '50%',
-    paddingHorizontal: 8,
-    marginBottom: 16,
-  },
-  recipeImage: {
-    width: '100%',
-    height: 140,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  recipeImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recipeImagePlaceholderText: {
-    fontSize: 36,
-  },
-  recipeCardInfo: {
-    flex: 1,
-  },
-  recipeCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  recipeCardBook: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  recipeCardStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recipeCardStat: {
-    fontSize: 11,
-    color: '#999',
-    marginRight: 8,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
-});

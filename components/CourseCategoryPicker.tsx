@@ -2,7 +2,7 @@
 // Reusable component for selecting course category
 // Created: December 2, 2025
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { CourseType } from '../lib/services/mealService';
 
 interface CourseOption {
@@ -78,7 +78,8 @@ export default function CourseCategoryPicker({
   layout = 'horizontal',
   size = 'medium',
 }: CourseCategoryPickerProps) {
-  
+  const { colors, functionalColors } = useTheme();
+
   const getButtonSize = () => {
     switch (size) {
       case 'small': return { paddingH: 10, paddingV: 8, emoji: 20, label: 11 };
@@ -88,6 +89,84 @@ export default function CourseCategoryPicker({
   };
 
   const sizeConfig = getButtonSize();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {},
+    horizontalContainer: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingVertical: 4,
+    },
+    gridContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    optionButton: {
+      alignItems: 'center',
+      borderRadius: 12,
+      backgroundColor: colors.background.secondary,
+      minWidth: 70,
+    },
+    optionButtonGrid: {
+      width: '30%',
+      minWidth: 90,
+    },
+    optionButtonSelected: {
+      backgroundColor: colors.primary,
+    },
+    optionEmoji: {
+      marginBottom: 4,
+    },
+    optionLabel: {
+      fontWeight: '500',
+      color: colors.text.secondary,
+    },
+    optionLabelSelected: {
+      color: colors.background.card,
+    },
+    mainDishToggle: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 10,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+      marginTop: 2,
+    },
+    checkboxChecked: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkmark: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    mainDishText: {
+      flex: 1,
+    },
+    mainDishLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    mainDishHint: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+  }), [colors, functionalColors]);
 
   const renderOption = (option: CourseOption) => {
     const isSelected = selectedCourse === option.value;
@@ -164,81 +243,3 @@ export default function CourseCategoryPicker({
 // Export course options for use elsewhere
 export { COURSE_OPTIONS };
 export type { CourseOption };
-
-const styles = StyleSheet.create({
-  container: {},
-  horizontalContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 4,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  optionButton: {
-    alignItems: 'center',
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    minWidth: 70,
-  },
-  optionButtonGrid: {
-    width: '30%',
-    minWidth: 90,
-  },
-  optionButtonSelected: {
-    backgroundColor: colors.primary,
-  },
-  optionEmoji: {
-    marginBottom: 4,
-  },
-  optionLabel: {
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  optionLabelSelected: {
-    color: 'white',
-  },
-  mainDishToggle: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  mainDishText: {
-    flex: 1,
-  },
-  mainDishLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  mainDishHint: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-});

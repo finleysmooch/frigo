@@ -5,7 +5,7 @@
 // Location: screens/StoresScreen.tsx
 // Created: November 6, 2025
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing } from '../lib/theme';
 import {
   getUserStores,
   createStore,
@@ -42,6 +43,8 @@ const FREQUENCY_OPTIONS: { value: PurchaseFrequency | null; label: string }[] = 
 ];
 
 export default function StoresScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
+
   // ============================================
   // STATE
   // ============================================
@@ -63,6 +66,240 @@ export default function StoresScreen({ navigation }: Props) {
 
   // Active tab
   const [activeTab, setActiveTab] = useState<'stores' | 'preferences'>('stores');
+
+  // ============================================
+  // STYLES
+  // ============================================
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    header: {
+      backgroundColor: colors.background.card,
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: {
+      borderBottomColor: colors.primary,
+    },
+    tabText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+    tabTextActive: {
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: spacing.lg,
+    },
+    section: {
+      gap: spacing.md,
+    },
+    addStoreContainer: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    editInput: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    addButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      justifyContent: 'center',
+    },
+    addButtonText: {
+      color: colors.background.card,
+      fontWeight: typography.weights.semibold,
+      fontSize: typography.sizes.md,
+    },
+    storeItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      padding: spacing.md,
+      borderRadius: 8,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    storeName: {
+      flex: 1,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    iconButton: {
+      padding: spacing.xs,
+      marginLeft: spacing.sm,
+    },
+    iconButtonText: {
+      fontSize: 18,
+    },
+    editIcon: {
+      fontSize: 16,
+    },
+    deleteIcon: {
+      fontSize: 20,
+      color: functionalColors.error,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    searchButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minWidth: 50,
+    },
+    searchButtonText: {
+      fontSize: 20,
+    },
+    infoBox: {
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+    },
+    infoText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    ingredientItem: {
+      backgroundColor: colors.background.card,
+      padding: spacing.md,
+      borderRadius: 8,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+      gap: spacing.sm,
+    },
+    ingredientName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    ingredientFamily: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    pickerRow: {
+      gap: spacing.xs,
+    },
+    pickerLabel: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.medium,
+      color: colors.text.secondary,
+    },
+    pickerScroll: {
+      flexDirection: 'row',
+    },
+    pickerOption: {
+      backgroundColor: colors.background.secondary,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: 6,
+      marginRight: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    pickerOptionActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    pickerOptionText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    pickerOptionTextActive: {
+      color: colors.background.card,
+      fontWeight: typography.weights.semibold,
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: spacing.xxl,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: spacing.md,
+    },
+    emptyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // LIFECYCLE
@@ -272,7 +509,7 @@ export default function StoresScreen({ navigation }: Props) {
               activeTab === 'stores' && styles.tabTextActive,
             ]}
           >
-            🏪 Stores
+            Stores
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -285,7 +522,7 @@ export default function StoresScreen({ navigation }: Props) {
               activeTab === 'preferences' && styles.tabTextActive,
             ]}
           >
-            📦 Preferences
+            Preferences
           </Text>
         </TouchableOpacity>
       </View>
@@ -305,6 +542,7 @@ export default function StoresScreen({ navigation }: Props) {
               <TextInput
                 style={styles.input}
                 placeholder="Store name (e.g., Whole Foods)"
+                placeholderTextColor={colors.text.tertiary}
                 value={newStoreName}
                 onChangeText={setNewStoreName}
                 onSubmitEditing={handleAddStore}
@@ -381,6 +619,7 @@ export default function StoresScreen({ navigation }: Props) {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search ingredients..."
+                placeholderTextColor={colors.text.tertiary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 onSubmitEditing={handleSearchIngredients}
@@ -391,7 +630,7 @@ export default function StoresScreen({ navigation }: Props) {
                 onPress={handleSearchIngredients}
               >
                 {searchLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.background.card} />
                 ) : (
                   <Text style={styles.searchButtonText}>🔍</Text>
                 )}
@@ -519,234 +758,3 @@ export default function StoresScreen({ navigation }: Props) {
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: colors.primary,
-  },
-  tabText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-  tabTextActive: {
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  addStoreContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    fontSize: typography.sizes.md,
-  },
-  editInput: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: typography.weights.semibold,
-    fontSize: typography.sizes.md,
-  },
-  storeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  storeName: {
-    flex: 1,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  iconButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  iconButtonText: {
-    fontSize: 18,
-  },
-  editIcon: {
-    fontSize: 16,
-  },
-  deleteIcon: {
-    fontSize: 20,
-    color: '#FF3B30',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    fontSize: typography.sizes.md,
-  },
-  searchButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 50,
-  },
-  searchButtonText: {
-    fontSize: 20,
-  },
-  infoBox: {
-    backgroundColor: '#E3F2FD',
-    padding: spacing.md,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  infoText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  ingredientItem: {
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    gap: spacing.sm,
-  },
-  ingredientName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  ingredientFamily: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  pickerRow: {
-    gap: spacing.xs,
-  },
-  pickerLabel: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium,
-    color: colors.text.secondary,
-  },
-  pickerScroll: {
-    flexDirection: 'row',
-  },
-  pickerOption: {
-    backgroundColor: '#f5f5f5',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 6,
-    marginRight: spacing.xs,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  pickerOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  pickerOptionText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  pickerOptionTextActive: {
-    color: '#fff',
-    fontWeight: typography.weights.semibold,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-});

@@ -2,7 +2,7 @@
 // Shows pending meal invitations for the current user
 // Created: December 2, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getPendingMealInvitations,
   respondToInvitation,
@@ -38,6 +38,7 @@ export default function MealInvitationsCard({
   onViewMeal,
   onRefresh,
 }: MealInvitationsCardProps) {
+  const { colors, functionalColors } = useTheme();
   const [invitations, setInvitations] = useState<MealInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null);
@@ -101,6 +102,106 @@ export default function MealInvitationsCard({
   if (loading) {
     return null; // Don't show loading state for this card
   }
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.accentLight,
+      borderRadius: 12,
+      padding: 16,
+      marginHorizontal: 16,
+      marginVertical: 10,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    headerEmoji: {
+      fontSize: 20,
+      marginRight: 8,
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+      flex: 1,
+    },
+    badge: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: 'center',
+    },
+    badgeText: {
+      color: colors.background.card,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    invitationCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 8,
+    },
+    invitationContent: {
+      flex: 1,
+    },
+    mealTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    hostText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    timeText: {
+      fontSize: 12,
+      color: colors.primary,
+      marginTop: 4,
+    },
+    responseButtons: {
+      flexDirection: 'row',
+      gap: 8,
+      marginLeft: 12,
+    },
+    responseButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    declineButton: {
+      backgroundColor: functionalColors.error + '20',
+    },
+    maybeButton: {
+      backgroundColor: functionalColors.warning + '30',
+    },
+    acceptButton: {
+      backgroundColor: functionalColors.success + '30',
+    },
+    declineText: {
+      fontSize: 18,
+      color: functionalColors.error,
+      fontWeight: '600',
+    },
+    maybeText: {
+      fontSize: 18,
+      color: functionalColors.warning,
+      fontWeight: '600',
+    },
+    acceptText: {
+      fontSize: 18,
+      color: functionalColors.success,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   if (invitations.length === 0) {
     return null; // Don't render if no invitations
@@ -166,103 +267,3 @@ export default function MealInvitationsCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerEmoji: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#92400E',
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  invitationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-  },
-  invitationContent: {
-    flex: 1,
-  },
-  mealTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  hostText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#92400E',
-    marginTop: 4,
-  },
-  responseButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginLeft: 12,
-  },
-  responseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  declineButton: {
-    backgroundColor: '#FEE2E2',
-  },
-  maybeButton: {
-    backgroundColor: '#FEF3C7',
-  },
-  acceptButton: {
-    backgroundColor: '#D1FAE5',
-  },
-  declineText: {
-    fontSize: 18,
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  maybeText: {
-    fontSize: 18,
-    color: '#D97706',
-    fontWeight: '600',
-  },
-  acceptText: {
-    fontSize: 18,
-    color: '#059669',
-    fontWeight: '600',
-  },
-});

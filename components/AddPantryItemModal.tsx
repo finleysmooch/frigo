@@ -5,7 +5,7 @@
 // Location: components/AddPantryItemModal.tsx
 // Updated: December 18, 2025 - Added space support for shared pantries
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -20,14 +20,15 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../lib/supabase';
-import { 
-  addPantryItem, 
+import {
+  addPantryItem,
   addPantryItemToSpace,  // NEW: Space-aware function
   searchIngredientsForPantry,
 } from '../lib/pantryService';
 import { calculateExpirationDate } from '../utils/pantryConversions';
 import { IngredientWithPantryData, StorageLocation } from '../lib/types/pantry';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import UnitPicker from './UnitPicker';
 
 interface Props {
@@ -40,15 +41,17 @@ interface Props {
   spaceId?: string | null;  // NEW: Optional space ID for shared pantries
 }
 
-export default function AddPantryItemModal({ 
-  visible, 
-  onClose, 
-  onSave, 
+export default function AddPantryItemModal({
+  visible,
+  onClose,
+  onSave,
   preSelectedCategory,
   preSelectedIngredientId,
   preSelectedIngredientName,
   spaceId  // NEW: Accept spaceId prop
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+
   // Search & Ingredient Selection
   const [searchTerm, setSearchTerm] = useState('');
   const [ingredients, setIngredients] = useState<IngredientWithPantryData[]>([]);
@@ -72,6 +75,255 @@ export default function AddPantryItemModal({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      height: '90%',
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    section: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.tertiary,
+      marginBottom: spacing.sm,
+      letterSpacing: 0.5,
+    },
+    searchInputContainer: {
+      position: 'relative',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    searchInput: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      paddingRight: spacing.xxxl, // Make room for clear button
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    clearSearchButton: {
+      position: 'absolute',
+      right: spacing.md,
+      width: 24,
+      height: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.border.medium,
+      borderRadius: borderRadius.round,
+    },
+    clearSearchText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      fontWeight: typography.weights.bold,
+    },
+    noResultsContainer: {
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+    },
+    noResultsText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+    },
+    searchResults: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      ...shadows.small,
+    },
+    searchResultItem: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    searchResultText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    searchResultCategory: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    input: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    quantityInput: {
+      flex: 1,
+    },
+    unitInput: {
+      flex: 2,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    storageButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    storageButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    storageButtonText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.medium,
+      color: colors.text.secondary,
+    },
+    storageButtonTextActive: {
+      color: colors.background.card,
+    },
+    statusButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    statusButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    statusButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.secondary,
+    },
+    statusButtonTextActive: {
+      color: colors.background.card,
+    },
+    dateButton: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    dateButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    dateButtonIcon: {
+      fontSize: typography.sizes.lg,
+    },
+    helperText: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+      marginTop: spacing.xs,
+    },
+    notesInput: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    footer: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      paddingBottom: spacing.xl,
+      gap: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      backgroundColor: colors.border.medium,
+    },
+    saveButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.card,
+    },
+  }), [colors, functionalColors]);
 
   // Get current user
   useEffect(() => {
@@ -533,252 +785,3 @@ export default function AddPantryItemModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    height: '90%',
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  headerTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.tertiary,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
-  searchInputContainer: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    paddingRight: spacing.xxxl, // Make room for clear button
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  clearSearchButton: {
-    position: 'absolute',
-    right: spacing.md,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.border.medium,
-    borderRadius: borderRadius.round,
-  },
-  clearSearchText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    fontWeight: typography.weights.bold,
-  },
-  noResultsContainer: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    fontStyle: 'italic',
-  },
-  searchResults: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    ...shadows.small,
-  },
-  searchResultItem: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  searchResultText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  searchResultCategory: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  input: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  quantityInput: {
-    flex: 1,
-  },
-  unitInput: {
-    flex: 2,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  storageButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  storageButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  storageButtonText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium,
-    color: colors.text.secondary,
-  },
-  storageButtonTextActive: {
-    color: colors.background.primary,
-  },
-  statusButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  statusButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  statusButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.secondary,
-  },
-  statusButtonTextActive: {
-    color: colors.background.primary,
-  },
-  dateButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  dateButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  dateButtonIcon: {
-    fontSize: typography.sizes.lg,
-  },
-  helperText: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  notesInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingBottom: spacing.xl,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.border.medium,
-  },
-  saveButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.background.primary,
-  },
-});

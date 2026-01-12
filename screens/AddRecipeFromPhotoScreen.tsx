@@ -5,7 +5,7 @@
 // FIXED: Added delay to prevent camera hang on navigation
 // Date: December 2, 2025
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,12 +14,23 @@ import { RecipeExtractionLoadingScreen } from './RecipeExtractionLoadingScreen';
 import { BookOwnershipModal } from '../components/BookOwnershipModal';
 import { BookSelectionModal } from '../components/BookSelectionModal';
 import { RecipesStackParamList } from '../App';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'AddRecipeFromPhoto'>;
 
 export function AddRecipeFromPhotoScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { userId, source } = route.params;
-  
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+  }), [colors]);
+
   const [state, setState] = useState<any>({
     status: 'idle',
     needsOwnershipVerification: false,
@@ -300,12 +311,3 @@ export function AddRecipeFromPhotoScreen({ route, navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-});

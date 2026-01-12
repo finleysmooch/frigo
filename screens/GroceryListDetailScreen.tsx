@@ -5,7 +5,7 @@
 // Location: screens/GroceryListDetailScreen.tsx
 // Updated: November 7, 2025 - Added cart icon
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,7 +18,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getItemsForList,
   deleteItemFromList,
@@ -42,6 +43,260 @@ export type GroceryStackParamList = {
 type Props = NativeStackScreenProps<GroceryStackParamList, 'GroceryListDetail'>;
 
 export default function GroceryListDetailScreen({ route, navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+
+    header: {
+      backgroundColor: colors.background.card,
+      paddingTop: 60,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    backButton: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+    },
+    backButtonText: {
+      fontSize: typography.sizes.lg,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.primary,
+      fontWeight: typography.weights.bold,
+      flex: 1,
+      textAlign: 'center',
+      marginHorizontal: spacing.sm,
+    },
+    headerSpacer: {
+      width: 70,
+    },
+
+    progressContainer: {
+      paddingLeft: spacing.lg,
+      paddingRight: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    cartIcon: {
+      fontSize: 20,
+    },
+    progressBar: {
+      flex: 1,
+      height: 8,
+      backgroundColor: colors.border.medium,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: functionalColors.success,
+      borderRadius: 4,
+    },
+    progressText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+      minWidth: 50,
+    },
+
+    actionButtonsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.lg,
+      gap: spacing.md,
+      justifyContent: 'center',
+    },
+    addItemButton: {
+      flex: 1,
+      maxWidth: 160,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      borderRadius: 6,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addItemButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    toPantryButton: {
+      flex: 1,
+      maxWidth: 160,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    toPantryButtonDisabled: {
+      backgroundColor: colors.border.medium,
+    },
+    toPantryButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.background.card,
+      fontWeight: typography.weights.semibold,
+      textAlign: 'center',
+    },
+    toPantryButtonTextDisabled: {
+      color: colors.text.tertiary,
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+    familySection: {
+      marginBottom: spacing.sm,
+    },
+    familyHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.border.light,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    familyHeaderText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    familyCount: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 4,
+      borderRadius: 12,
+      minWidth: 48,
+      textAlign: 'center',
+      fontWeight: typography.weights.medium,
+    },
+    familyItems: {
+      backgroundColor: colors.background.card,
+    },
+
+    itemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    itemRowChecked: {
+      opacity: 0.5,
+    },
+    checkbox: {
+      marginRight: spacing.sm,
+      width: 28,
+      height: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxEmpty: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    checkboxFilled: {
+      fontSize: 24,
+      color: functionalColors.success,
+    },
+    itemInfo: {
+      flex: 1,
+      marginRight: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    itemText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.primary,
+    },
+    itemTextChecked: {
+      textDecorationLine: 'line-through',
+      color: colors.text.tertiary,
+    },
+    itemQuantity: {
+      color: colors.text.secondary,
+    },
+
+    quantityControls: {
+      flexDirection: 'row',
+      marginRight: spacing.sm,
+    },
+    quantityButton: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.border.light,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: spacing.xs,
+    },
+    quantityButtonText: {
+      fontSize: 18,
+      color: colors.text.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    deleteButton: {
+      fontSize: 20,
+      color: functionalColors.error,
+      paddingHorizontal: spacing.sm,
+    },
+
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 100,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: spacing.lg,
+    },
+    emptyTitle: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+      fontWeight: typography.weights.bold,
+    },
+    emptyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+  }), [colors, functionalColors]);
+
   // Extract params with proper typing
   const { listId, listName } = route.params;
 
@@ -469,261 +724,3 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  
-  header: {
-    backgroundColor: '#fff',
-    paddingTop: 60,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  backButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: typography.sizes.lg,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.primary,
-    fontWeight: typography.weights.bold,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: spacing.sm,  // Add margin to help centering
-  },
-  headerSpacer: {
-    width: 70,  // Increased to better match back button width
-  },
-
-  // Progress bar with cart icon
-  progressContainer: {
-    paddingLeft: spacing.lg,
-    paddingRight: 0,  // No right padding (push all the way)
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  cartIcon: {
-    fontSize: 20,
-  },
-  progressBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-    minWidth: 50,
-  },
-
-  // Action Buttons
-  actionButtonsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    justifyContent: 'center',
-  },
-  addItemButton: {
-    flex: 1,
-    maxWidth: 160,  // Equal max width for both buttons
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addItemButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  toPantryButton: {
-    flex: 1,
-    maxWidth: 160,  // Equal max width for both buttons
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toPantryButtonDisabled: {
-    backgroundColor: '#e0e0e0',
-  },
-  toPantryButtonText: {
-    fontSize: typography.sizes.sm,
-    color: '#fff',
-    fontWeight: typography.weights.semibold,
-    textAlign: 'center',
-  },
-  toPantryButtonTextDisabled: {
-    color: '#999',
-  },
-
-  scrollView: {
-    flex: 1,
-  },
-  familySection: {
-    marginBottom: spacing.sm,
-  },
-  familyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  familyHeaderText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  familyCount: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 48,
-    textAlign: 'center',
-    fontWeight: typography.weights.medium,
-  },
-  familyItems: {
-    backgroundColor: '#fff',
-  },
-
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,  // Reduced from md
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  itemRowChecked: {
-    opacity: 0.5,
-  },
-  checkbox: {
-    marginRight: spacing.sm,  // Reduced from md
-    width: 28,  // Reduced from 32
-    height: 28,  // Reduced from 32
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxEmpty: {
-    fontSize: 24,  // Reduced from 28
-    color: colors.text.tertiary,
-  },
-  checkboxFilled: {
-    fontSize: 24,  // Reduced from 28
-    color: colors.success,
-  },
-  itemInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-    paddingVertical: spacing.xs,  // Reduced from sm
-  },
-  itemText: {
-    fontSize: typography.sizes.sm,  // Reduced from md
-    color: colors.text.primary,
-  },
-  itemTextChecked: {
-    textDecorationLine: 'line-through',
-    color: colors.text.tertiary,
-  },
-  itemQuantity: {
-    color: '#666',  // Dark grey for quantities
-  },
-
-  quantityControls: {
-    flexDirection: 'row',
-    marginRight: spacing.sm,
-  },
-  quantityButton: {
-    width: 30,  // Reduced from 36
-    height: 30,  // Reduced from 36
-    borderRadius: 15,  // Reduced from 18
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.xs,
-  },
-  quantityButtonText: {
-    fontSize: 18,  // Reduced from 20
-    color: colors.text.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  deleteButton: {
-    fontSize: 20,  // Reduced from 24
-    color: colors.error,
-    paddingHorizontal: spacing.sm,
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 100,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    fontWeight: typography.weights.bold,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-});

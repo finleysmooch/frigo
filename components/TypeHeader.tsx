@@ -4,8 +4,10 @@
 // Collapsible header for ingredient types (Fruit, Alliums, etc.)
 // Location: components/TypeHeader.tsx
 
+import { useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius } from '../lib/theme';
 import { TypeSection } from '../utils/pantryHelpers';
 import { getTypeIcon } from '../constants/pantry';
 
@@ -20,7 +22,53 @@ export default function TypeHeader({
   isExpanded,
   onToggle,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const icon = getTypeIcon(typeSection.type);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    icon: {
+      fontSize: typography.sizes.md,
+    },
+    typeText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    count: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    expiringBadge: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '20',
+      paddingVertical: 2,
+      paddingHorizontal: spacing.xs,
+      borderRadius: borderRadius.sm,
+    },
+    spacer: {
+      flex: 1,
+    },
+    collapseIcon: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+    },
+  }), [colors, functionalColors]);
 
   return (
     <TouchableOpacity
@@ -45,48 +93,3 @@ export default function TypeHeader({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  icon: {
-    fontSize: typography.sizes.md,
-  },
-  typeText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  count: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  expiringBadge: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.warning,
-    backgroundColor: '#FFF9E6',
-    paddingVertical: 2,
-    paddingHorizontal: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  spacer: {
-    flex: 1,
-  },
-  collapseIcon: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-  },
-});

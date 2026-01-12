@@ -1,7 +1,7 @@
 // components/EditIngredientModal.tsx
 // Modal for editing ingredient text
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface EditIngredientModalProps {
   visible: boolean;
@@ -26,8 +27,78 @@ export default function EditIngredientModal({
   onClose,
   onSave
 }: EditIngredientModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [editedText, setEditedText] = useState(ingredientText);
   const [notes, setNotes] = useState('');
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      padding: 24,
+      width: '85%',
+      maxWidth: 400,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      marginBottom: 20,
+      color: colors.text.primary,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text.secondary,
+      marginBottom: 8,
+      marginTop: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      minHeight: 44,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    notesInput: {
+      minHeight: 80,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      marginTop: 24,
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+      padding: 14,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.background.secondary,
+    },
+    cancelButtonText: {
+      color: colors.text.secondary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     if (editedText.trim()) {
@@ -96,69 +167,3 @@ export default function EditIngredientModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '85%',
-    maxWidth: 400,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 44,
-  },
-  notesInput: {
-    minHeight: 80,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 24,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

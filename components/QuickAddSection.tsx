@@ -9,7 +9,7 @@
 
 // ... rest of file
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,7 +18,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { colors, typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing } from '../lib/theme';
 import {
   getQuickAddSuggestions,
   addGroceryItem,
@@ -34,10 +35,12 @@ interface Props {
 }
 
 export default function QuickAddSection({ userId, onAdd }: Props) {
+  const { colors, functionalColors } = useTheme();
+
   // ============================================
   // STATE
   // ============================================
-  
+
   const [suggestions, setSuggestions] = useState<QuickAddSuggestions>({
     dueSoon: [],
     frequent: [],
@@ -46,6 +49,185 @@ export default function QuickAddSection({ userId, onAdd }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+
+    // Header
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    headerCount: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    collapseIcon: {
+      fontSize: 18,
+      color: colors.text.tertiary,
+      marginLeft: spacing.xs,
+    },
+    editButton: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+
+    // Collapsed Preview
+    collapsedPreview: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    previewEmoji: {
+      fontSize: 24,
+    },
+
+    // Section
+    section: {
+      marginTop: spacing.md,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    sectionLabel: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    selectAllButton: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+
+    // Cards
+    cardsContainer: {
+      paddingRight: spacing.md,
+    },
+    card: {
+      width: 100,
+      padding: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginRight: spacing.sm,
+      alignItems: 'center',
+      position: 'relative',
+    },
+    cardSelected: {
+      backgroundColor: colors.primary + '20',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    badge: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      backgroundColor: colors.background.card,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 4,
+      zIndex: 1,
+    },
+    badgeText: {
+      fontSize: 9,
+      fontWeight: typography.weights.bold,
+    },
+    cardEmoji: {
+      fontSize: 36,
+      marginBottom: spacing.xs,
+    },
+    cardName: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      textAlign: 'center',
+      marginBottom: 2,
+      height: 28, // Fixed height for 2 lines
+    },
+    cardQuantity: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.background.card,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkmark: {
+      color: colors.background.card,
+      fontSize: 12,
+      fontWeight: typography.weights.bold,
+    },
+
+    // Actions
+    actions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    clearButton: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.text.tertiary,
+      alignItems: 'center',
+    },
+    clearButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+    addButton: {
+      flex: 2,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    addButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.background.card,
+      fontWeight: typography.weights.bold,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // LIFECYCLE
@@ -363,186 +545,3 @@ export default function QuickAddSection({ userId, onAdd }: Props) {
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  headerTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  headerCount: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  collapseIcon: {
-    fontSize: 18,
-    color: colors.text.tertiary,
-    marginLeft: spacing.xs,
-  },
-  editButton: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-  },
-
-  // Collapsed Preview
-  collapsedPreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  previewEmoji: {
-    fontSize: 24,
-  },
-
-  // Section
-  section: {
-    marginTop: spacing.md,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  sectionLabel: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  selectAllButton: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-  },
-
-  // Cards
-  cardsContainer: {
-    paddingRight: spacing.md,
-  },
-  card: {
-    width: 100,
-    padding: spacing.md,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    marginRight: spacing.sm,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  cardSelected: {
-    backgroundColor: '#e3f2fd',
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  badge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#fff',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    zIndex: 1,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: typography.weights.bold,
-  },
-  cardEmoji: {
-    fontSize: 36,
-    marginBottom: spacing.xs,
-  },
-  cardName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: 2,
-    height: 28, // Fixed height for 2 lines
-  },
-  cardQuantity: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d0d0d0',
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: typography.weights.bold,
-  },
-
-  // Actions
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  clearButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.text.tertiary,
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-  addButton: {
-    flex: 2,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: typography.weights.bold,
-  },
-});

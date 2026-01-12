@@ -3,14 +3,14 @@
 // UPDATED: Fixed navigation issue (no more modal overlay), improved URL validation
 // Date: November 19, 2025
 
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator, 
-  StyleSheet, 
+  ActivityIndicator,
+  StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -22,7 +22,7 @@ import { parseStandardizedRecipe } from '../lib/services/recipeExtraction/unifie
 import { matchIngredientsToDatabase } from '../lib/services/recipeExtraction/ingredientMatcher';
 import { RecipesStackParamList } from '../App';
 import { ProcessedRecipe, ProcessedIngredient  } from '../lib/types/recipeExtraction';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'AddRecipeFromUrl'>;
 
@@ -35,13 +35,155 @@ type ExtractionStatus =
   | 'error';
 
 export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { userId } = route.params;
-  
+
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState<ExtractionStatus>('input');
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
   const [processedRecipe, setProcessedRecipe] = useState<ProcessedRecipe | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      padding: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 30,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    backButtonText: {
+      fontSize: 24,
+      color: colors.text.primary,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    inputSection: {
+      marginBottom: 30,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 5,
+    },
+    hint: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 15,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 15,
+      fontSize: 16,
+      marginBottom: 15,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    extractButton: {
+      backgroundColor: colors.primary,
+      padding: 15,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    extractButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    exampleSection: {
+      backgroundColor: colors.background.secondary,
+      padding: 15,
+      borderRadius: 8,
+    },
+    exampleTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 10,
+    },
+    exampleText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      lineHeight: 24,
+    },
+    loadingSection: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 50,
+    },
+    loadingText: {
+      marginTop: 20,
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+    progressSteps: {
+      flexDirection: 'row',
+      marginTop: 30,
+      gap: 10,
+    },
+    progressStep: {
+      backgroundColor: colors.background.secondary,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    progressStepActive: {
+      backgroundColor: colors.primary,
+    },
+    progressStepText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    errorSection: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 50,
+    },
+    errorIcon: {
+      fontSize: 48,
+      marginBottom: 20,
+    },
+    errorText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: 20,
+      paddingHorizontal: 20,
+    },
+    retryButton: {
+      backgroundColor: colors.primary,
+      padding: 15,
+      borderRadius: 8,
+      paddingHorizontal: 30,
+    },
+    retryButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors]);
 
   // Handle navigation callbacks
   const handleComplete = (recipeId: string) => {
@@ -238,7 +380,7 @@ export function AddRecipeFromUrlScreen({ route, navigation }: Props) {
               <TextInput
                 style={styles.input}
                 placeholder="https://example.com/recipe/..."
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.text.tertiary}
                 value={url}
                 onChangeText={setUrl}
                 autoCapitalize="none"
@@ -360,142 +502,3 @@ function validateRecipeUrl(url: string): { isValid: boolean; message?: string; w
 
   return { isValid: true };
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  inputSection: {
-    marginBottom: 30,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 5,
-  },
-  hint: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  extractButton: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  extractButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  exampleSection: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    borderRadius: 8,
-  },
-  exampleTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-  },
-  exampleText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 24,
-  },
-  loadingSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  progressSteps: {
-    flexDirection: 'row',
-    marginTop: 30,
-    gap: 10,
-  },
-  progressStep: {
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  progressStepActive: {
-    backgroundColor: colors.primary,
-  },
-  progressStepText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  errorSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 8,
-    paddingHorizontal: 30,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

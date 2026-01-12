@@ -5,7 +5,7 @@
 // Location: screens/GroceryListsScreen.tsx
 // Updated: November 7, 2025
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,7 +20,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing } from '../lib/theme';
 import { 
   getUserGroceryLists, 
   createGroceryList,
@@ -38,6 +39,7 @@ interface GroceryList {
 }
 
 export default function GroceryListsScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [lists, setLists] = useState<GroceryList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +47,212 @@ export default function GroceryListsScreen({ navigation }: Props) {
   const [newListName, setNewListName] = useState('');
   const [newStoreName, setNewStoreName] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    container: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+
+    // Header with cart icon
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    titleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    cartIcon: {
+      fontSize: 24,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.primary,
+      fontWeight: typography.weights.bold,
+    },
+    // REDUCED BY 35%: was paddingHorizontal: 20, paddingVertical: 10, fontSize: 16
+    addButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 13, // 65% of 20
+      paddingVertical: 6.5,   // 65% of 10
+      borderRadius: 8,
+    },
+    addButtonText: {
+      fontSize: 10.4,  // 65% of 16
+      color: colors.text.inverse,
+      fontWeight: typography.weights.semibold,
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+    listsContainer: {
+      padding: spacing.lg,
+    },
+    listCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    listHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    listName: {
+      fontSize: typography.sizes.lg,
+      color: colors.text.primary,
+      fontWeight: typography.weights.bold,
+      flex: 1,
+    },
+    storeBadge: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      backgroundColor: colors.border.light,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    listFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    itemCount: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    arrow: {
+      fontSize: typography.sizes.xxl,
+      color: colors.text.tertiary,
+    },
+
+    // Empty state
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 100,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: spacing.lg,
+    },
+    emptyTitle: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+      fontWeight: typography.weights.bold,
+    },
+    emptyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: spacing.lg,
+    },
+    createFirstButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md,
+      borderRadius: 10,
+    },
+    createFirstButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.inverse,
+      fontWeight: typography.weights.bold,
+    },
+
+    // Modal
+    modalOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: spacing.xl,
+      width: '85%',
+      maxWidth: 400,
+    },
+    modalTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.lg,
+      textAlign: 'center',
+    },
+    input: {
+      backgroundColor: colors.border.light,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      fontSize: typography.sizes.md,
+      marginBottom: spacing.md,
+      color: colors.text.primary,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: spacing.md,
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.border.light,
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.semibold,
+    },
+    createButton: {
+      backgroundColor: colors.primary,
+    },
+    createButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.inverse,
+      fontWeight: typography.weights.bold,
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     getCurrentUser();
@@ -274,212 +482,3 @@ export default function GroceryListsScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  
-  // Header with cart icon
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  cartIcon: {
-    fontSize: 24,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.primary,
-    fontWeight: typography.weights.bold,
-  },
-  // REDUCED BY 35%: was paddingHorizontal: 20, paddingVertical: 10, fontSize: 16
-  addButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 13, // 65% of 20
-    paddingVertical: 6.5,   // 65% of 10
-    borderRadius: 8,
-  },
-  addButtonText: {
-    fontSize: 10.4,  // 65% of 16
-    color: '#fff',
-    fontWeight: typography.weights.semibold,
-  },
-
-  scrollView: {
-    flex: 1,
-  },
-  listsContainer: {
-    padding: spacing.lg,
-  },
-  listCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  listName: {
-    fontSize: typography.sizes.lg,
-    color: colors.text.primary,
-    fontWeight: typography.weights.bold,
-    flex: 1,
-  },
-  storeBadge: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  listFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemCount: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  arrow: {
-    fontSize: typography.sizes.xxl,
-    color: colors.text.tertiary,
-  },
-
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 100,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    fontWeight: typography.weights.bold,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  createFirstButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 10,
-  },
-  createFirstButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: typography.weights.bold,
-  },
-
-  // Modal
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: spacing.xl,
-    width: '85%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    fontSize: typography.sizes.md,
-    marginBottom: spacing.md,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.semibold,
-  },
-  createButton: {
-    backgroundColor: colors.primary,
-  },
-  createButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: typography.weights.bold,
-  },
-});

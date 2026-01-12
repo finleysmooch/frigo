@@ -2,7 +2,7 @@
 // Modal for approving or declining cooking partner tags
 // Created: November 19, 2025
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,8 +13,8 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { colors } from '../lib/theme';
-import { 
+import { useTheme } from '../lib/theme/ThemeContext';
+import {
   PendingApproval,
   approveParticipantInvitation,
   declineParticipantInvitation,
@@ -35,6 +35,7 @@ export default function CookingPartnerApprovalModal({
   onApproved,
   currentUserId, // ← ADD THIS
 }: CookingPartnerApprovalModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showCreatePostOption, setShowCreatePostOption] = useState(false);
 
@@ -151,6 +152,155 @@ export default function CookingPartnerApprovalModal({
     };
     return method ? emojiMap[method] || '🍽️' : '🍽️';
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      width: '100%',
+      maxWidth: 400,
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+      flex: 1,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.secondary,
+      lineHeight: 24,
+    },
+    scrollContent: {
+      padding: 20,
+    },
+    inviterSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      padding: 16,
+      backgroundColor: functionalColors.warning + '20',
+      borderRadius: 12,
+    },
+    inviterEmoji: {
+      fontSize: 32,
+      marginRight: 12,
+    },
+    inviterText: {
+      fontSize: 16,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    inviterName: {
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    postCard: {
+      backgroundColor: colors.background.secondary,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 20,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    cookingMethodEmoji: {
+      fontSize: 24,
+      marginRight: 10,
+    },
+    postTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+      flex: 1,
+    },
+    postDate: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    infoSection: {
+      backgroundColor: colors.primary + '15',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 20,
+    },
+    infoTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.primary,
+      marginBottom: 8,
+    },
+    infoText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    infoSubtext: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginTop: 8,
+    },
+    buttonContainer: {
+      gap: 12,
+    },
+    button: {
+      paddingVertical: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 50,
+    },
+    buttonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    buttonSecondary: {
+      backgroundColor: colors.background.secondary,
+    },
+    buttonDanger: {
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: functionalColors.error,
+    },
+    buttonTextPrimary: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonTextSecondary: {
+      color: colors.text.secondary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonTextDanger: {
+      color: functionalColors.error,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   return (
     <Modal
@@ -291,152 +441,3 @@ export default function CookingPartnerApprovalModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111',
-    flex: 1,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#6B7280',
-    lineHeight: 24,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  inviterSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-  },
-  inviterEmoji: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  inviterText: {
-    fontSize: 16,
-    color: '#111',
-    flex: 1,
-  },
-  inviterName: {
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  postCard: {
-    backgroundColor: '#F9FAFB',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  cookingMethodEmoji: {
-    fontSize: 24,
-    marginRight: 10,
-  },
-  postTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-    flex: 1,
-  },
-  postDate: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  infoSection: {
-    backgroundColor: '#EFF6FF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1E40AF',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#1E3A8A',
-    lineHeight: 20,
-  },
-  infoSubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 8,
-  },
-  buttonContainer: {
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-  },
-  buttonPrimary: {
-    backgroundColor: colors.primary,
-  },
-  buttonSecondary: {
-    backgroundColor: '#F3F4F6',
-  },
-  buttonDanger: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  buttonTextPrimary: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonTextSecondary: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonTextDanger: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

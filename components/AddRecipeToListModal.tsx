@@ -5,7 +5,7 @@
 // Location: components/AddRecipeToListModal.tsx
 // Created: November 7, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,8 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getUserGroceryLists,
   createGroceryList,
@@ -55,6 +56,9 @@ export default function AddRecipeToListModal({
   scale,
   userId,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [lists, setLists] = useState<GroceryList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -292,7 +296,7 @@ export default function AddRecipeToListModal({
               disabled={adding || !selectedListId}
             >
               {adding ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.text.inverse} />
               ) : (
                 <Text style={styles.addButtonText}>
                   Add ({ingredientCount})
@@ -310,215 +314,217 @@ export default function AddRecipeToListModal({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  closeButton: {
-    padding: spacing.sm,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: colors.text.secondary,
-  },
-  recipeInfo: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#f9f9f9',
-  },
-  recipeName: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  scaleInfo: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-    marginBottom: spacing.xs,
-  },
-  ingredientCount: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  listsContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  listOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    marginBottom: spacing.sm,
-  },
-  listOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(0, 122, 255, 0.05)',
-  },
-  radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    marginRight: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-  },
-  listName: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.medium,
-    flex: 1,
-  },
-  storeBadge: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  createNewButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  createNewButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  newListInput: {
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-  },
-  textInput: {
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    fontSize: typography.sizes.md,
-    marginBottom: spacing.sm,
-  },
-  newListButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-  createButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  createButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: typography.weights.semibold,
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: spacing.md,
-  },
-  cancelFooterButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 10,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  cancelFooterButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.semibold,
-  },
-  addButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    opacity: 0.5,
-  },
-  addButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: typography.weights.bold,
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    closeButton: {
+      padding: spacing.sm,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.secondary,
+    },
+    recipeInfo: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.secondary,
+    },
+    recipeName: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    scaleInfo: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+      marginBottom: spacing.xs,
+    },
+    ingredientCount: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    loadingContainer: {
+      padding: spacing.xl,
+      alignItems: 'center',
+    },
+    listsContainer: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    sectionTitle: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    listOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      marginBottom: spacing.sm,
+    },
+    listOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '10',
+    },
+    radioButton: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      marginRight: spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    radioButtonInner: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
+    },
+    listName: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+      flex: 1,
+    },
+    storeBadge: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    createNewButton: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      marginTop: spacing.sm,
+    },
+    createNewButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    newListInput: {
+      marginTop: spacing.sm,
+      padding: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 10,
+    },
+    textInput: {
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      fontSize: typography.sizes.md,
+      marginBottom: spacing.sm,
+    },
+    newListButtons: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 8,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+    createButton: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    createButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.inverse,
+      fontWeight: typography.weights.semibold,
+    },
+    footer: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.md,
+    },
+    cancelFooterButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: 10,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    cancelFooterButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.semibold,
+    },
+    addButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    addButtonDisabled: {
+      opacity: 0.5,
+    },
+    addButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.inverse,
+      fontWeight: typography.weights.bold,
+    },
+  });
+}

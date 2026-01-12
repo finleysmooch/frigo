@@ -4,11 +4,12 @@
 // Storage location picker that renders inline (no modal)
 // Location: components/InlineStoragePicker.tsx
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { StorageLocation } from '../lib/types/pantry';
-import { colors, typography, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius } from '../lib/theme';
 import { STORAGE_LOCATIONS } from '../constants/pantry';
 
 interface Props {
@@ -22,7 +23,62 @@ export default function InlineStoragePicker({
   onSave,
   onCancel,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [selectedStorage, setSelectedStorage] = useState<StorageLocation>(currentStorage);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      width: '100%',
+    },
+    title: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    pickerContainer: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.md,
+      overflow: 'hidden',
+    },
+    picker: {
+      height: 150,
+      width: '100%',
+    },
+    pickerItem: {
+      fontSize: typography.sizes.lg,
+      height: 150,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.background.tertiary,
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.primary,
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     onSave(selectedStorage);
@@ -67,57 +123,3 @@ export default function InlineStoragePicker({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  title: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  pickerContainer: {
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-  },
-  picker: {
-    height: 150,
-    width: '100%',
-  },
-  pickerItem: {
-    fontSize: typography.sizes.lg,
-    height: 150,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    backgroundColor: colors.background.tertiary,
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-  },
-  saveButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.background.primary,
-  },
-});

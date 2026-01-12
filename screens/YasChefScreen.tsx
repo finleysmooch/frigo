@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useEffect, useState, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   FlatList,
   TouchableOpacity,
   ActivityIndicator
@@ -10,6 +10,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { MyPostsStackParamList } from '../App';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'YasChefsList'>;
 
@@ -37,9 +38,130 @@ const getChefName = (userId: string, friendName?: string): string => {
 
 export default function YasChefsScreen({ route, navigation }: Props) {
   const { postId, postTitle } = route.params;
+  const { colors, functionalColors } = useTheme();
   const [chefs, setChefs] = useState<Chef[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 60,
+      paddingBottom: 15,
+      paddingHorizontal: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      width: 60,
+    },
+    backButtonText: {
+      fontSize: 18,
+      color: colors.text.primary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      flex: 1,
+      textAlign: 'center',
+    },
+    headerSpacer: {
+      width: 60,
+    },
+    sectionHeader: {
+      backgroundColor: colors.background.secondary,
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
+    },
+    listContainer: {
+      paddingBottom: 20,
+    },
+    chefRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 15,
+      paddingHorizontal: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    avatarContainer: {
+      position: 'relative',
+      marginRight: 15,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarText: {
+      fontSize: 32,
+    },
+    arrowBadge: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: '#FC4C02', // Strava orange
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background.card,
+    },
+    arrowText: {
+      color: colors.background.card,
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginTop: -2,
+    },
+    chefInfo: {
+      flex: 1,
+    },
+    chefName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    chefLocation: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: 100,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadYasChefs();
@@ -119,7 +241,7 @@ export default function YasChefsScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -159,122 +281,3 @@ export default function YasChefsScreen({ route, navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingBottom: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    width: 60,
-  },
-  backButtonText: {
-    fontSize: 18,
-    color: '#000',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 60,
-  },
-  sectionHeader: {
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    letterSpacing: 0.5,
-  },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  chefRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 15,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    fontSize: 32,
-  },
-  arrowBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FC4C02', // Strava orange
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  arrowText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: -2,
-  },
-  chefInfo: {
-    flex: 1,
-  },
-  chefName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 2,
-  },
-  chefLocation: {
-    fontSize: 14,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-  },
-});

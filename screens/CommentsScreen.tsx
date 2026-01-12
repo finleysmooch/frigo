@@ -1,11 +1,11 @@
 // screens/CommentsScreen.tsx
 // Updated: November 20, 2025 - Fixed user profiles and removed double header
 
-import { useEffect, useState, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useEffect, useState, useRef, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -17,9 +17,10 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { MyPostsStackParamList, FeedStackParamList } from '../App';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 // Support navigation from both stacks
-type Props = NativeStackScreenProps<MyPostsStackParamList, 'CommentsList'> | 
+type Props = NativeStackScreenProps<MyPostsStackParamList, 'CommentsList'> |
              NativeStackScreenProps<FeedStackParamList, 'CommentsList'>;
 
 interface Comment {
@@ -71,6 +72,7 @@ const getAvatarForUser = (userId: string): string => {
 };
 
 export default function CommentsScreen({ route, navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const { postId } = route.params;
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -81,8 +83,223 @@ export default function CommentsScreen({ route, navigation }: Props) {
   const [commentText, setCommentText] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const textInputRef = useRef<TextInput>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    postInfo: {
+      flexDirection: 'row',
+      padding: 15,
+      paddingTop: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    postInfoText: {
+      flex: 1,
+    },
+    postInfoTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      color: colors.text.primary,
+    },
+    postInfoMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    postInfoName: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    postInfoDot: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    postInfoIcon: {
+      width: 16,
+      height: 16,
+      marginRight: 6,
+    },
+    postInfoDate: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    yasChefsSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+    },
+    yasChefsSectionIcon: {
+      width: 24,
+      height: 24,
+      marginRight: 8,
+      tintColor: colors.primary,
+    },
+    yasChefsCount: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginRight: 12,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+    },
+    miniAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.background.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    miniAvatarText: {
+      fontSize: 14,
+    },
+    yasChefButtonSimple: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+    },
+    yasChefButtonSimpleIcon: {
+      width: 24,
+      height: 24,
+      marginRight: 8,
+    },
+    yasChefButtonSimpleText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    commentsList: {
+      paddingVertical: 10,
+    },
+    emptyComments: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyCommentsText: {
+      fontSize: 15,
+      color: colors.text.tertiary,
+    },
+    commentContainer: {
+      flexDirection: 'row',
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+    },
+    commentAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.border.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    commentAvatarText: {
+      fontSize: 24,
+    },
+    commentContent: {
+      flex: 1,
+    },
+    commentHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    commentUserName: {
+      fontSize: 15,
+      fontWeight: '600',
+      marginRight: 8,
+    },
+    commentTime: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+    },
+    commentText: {
+      fontSize: 15,
+      lineHeight: 20,
+      color: colors.text.primary,
+    },
+    commentLikesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    commentLikeIcon: {
+      width: 12,
+      height: 12,
+      marginRight: 4,
+      tintColor: colors.primary,
+    },
+    commentLikesCount: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+    },
+    commentLikeButton: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    commentLikeButtonIcon: {
+      width: 20,
+      height: 20,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      backgroundColor: colors.background.card,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 20,
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+      fontSize: 15,
+      maxHeight: 100,
+      marginRight: 10,
+      color: colors.text.primary,
+    },
+    sendButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+    },
+    sendButtonDisabled: {
+      backgroundColor: colors.border.medium,
+    },
+    sendButtonText: {
+      color: colors.background.card,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadData();
@@ -96,7 +313,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
+
       setCurrentUserId(user.id);
 
       // Load post info (without user profile join to avoid foreign key issues)
@@ -166,7 +383,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
       // Get unique user IDs from comments
       const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
-      
+
       // Fetch user profiles separately
       const { data: profilesData } = await supabase
         .from('user_profiles')
@@ -187,7 +404,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
       const formattedComments: Comment[] = commentsData.map((comment: any) => {
         const commentLikes = likesData?.filter(l => l.comment_id === comment.id) || [];
         const userProfile = profilesMap.get(comment.user_id);
-        
+
         return {
           id: comment.id,
           comment_text: comment.comment_text,
@@ -217,7 +434,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           .delete()
           .eq('post_id', postId)
           .eq('user_id', currentUserId);
-        
+
         setYasChefCount(prev => prev - 1);
         setCurrentUserYasChef(false);
       } else {
@@ -225,7 +442,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
         await supabase
           .from('post_likes')
           .insert({ post_id: postId, user_id: currentUserId });
-        
+
         setYasChefCount(prev => prev + 1);
         setCurrentUserYasChef(true);
       }
@@ -289,10 +506,10 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
       // Clear input
       setCommentText('');
-      
+
       // Reload comments
       await loadComments(currentUserId);
-      
+
       // Keep focus on input
       textInputRef.current?.focus();
     } catch (error) {
@@ -306,16 +523,16 @@ export default function CommentsScreen({ route, navigation }: Props) {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    
+
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d`;
-    
+
     const diffInWeeks = Math.floor(diffInDays / 7);
     return `${diffInWeeks}w`;
   };
@@ -323,33 +540,33 @@ export default function CommentsScreen({ route, navigation }: Props) {
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    
+
     if (date.toDateString() === now.toDateString()) {
-      return 'Today at ' + date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+      return 'Today at ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
       });
     } else if (date.toDateString() === new Date(now.setDate(now.getDate() - 1)).toDateString()) {
-      return 'Yesterday at ' + date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+      return 'Yesterday at ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
       });
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
         day: 'numeric'
-      }) + ' at ' + date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+      }) + ' at ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
       });
     }
   };
 
   const navigateToYasChefs = () => {
     if (yasChefCount > 0) {
-      navigation.navigate('YasChefsList', { 
-        postId: postId, 
-        postTitle: post?.title || 'Cooking Session' 
+      navigation.navigate('YasChefsList', {
+        postId: postId,
+        postTitle: post?.title || 'Cooking Session'
       });
     }
   };
@@ -359,7 +576,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
     // Regex matches emojis including complex ones with ZWJ (Zero Width Joiner)
     const isEmoji = item.avatar_url && /^[\p{Emoji}\u200D]+$/u.test(item.avatar_url);
     const avatarToShow = isEmoji ? item.avatar_url : getAvatarForUser(item.user_id);
-    
+
     return (
       <View style={styles.commentContainer}>
         <View style={styles.commentAvatar}>
@@ -367,18 +584,18 @@ export default function CommentsScreen({ route, navigation }: Props) {
             {avatarToShow}
           </Text>
         </View>
-        
+
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
             <Text style={styles.commentUserName}>{item.user_name}</Text>
             <Text style={styles.commentTime}>{formatTimeAgo(item.created_at)}</Text>
           </View>
-          
+
           <Text style={styles.commentText}>{item.comment_text}</Text>
-          
+
           {item.likes > 0 && (
             <View style={styles.commentLikesRow}>
-              <Image 
+              <Image
                 source={require('../assets/icons/heart-filled.png')}
                 style={styles.commentLikeIcon}
                 resizeMode="contain"
@@ -388,12 +605,12 @@ export default function CommentsScreen({ route, navigation }: Props) {
           )}
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.commentLikeButton}
           onPress={() => toggleCommentLike(item.id, item.currentUserLiked)}
         >
-          <Image 
-            source={item.currentUserLiked 
+          <Image
+            source={item.currentUserLiked
               ? require('../assets/icons/heart-filled.png')
               : require('../assets/icons/heart-outline.png')
             }
@@ -408,7 +625,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -422,7 +639,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
@@ -434,7 +651,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           <View style={styles.postInfoMeta}>
             <Text style={styles.postInfoName}>{post.user_name}</Text>
             <Text style={styles.postInfoDot}> • </Text>
-            <Image 
+            <Image
               source={COOKING_METHOD_ICON_IMAGES[post.cooking_method || 'cook']}
               style={styles.postInfoIcon}
               resizeMode="contain"
@@ -446,27 +663,27 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
       {/* Yas Chefs Section */}
       {yasChefCount > 0 && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.yasChefsSection}
           onPress={toggleYasChef}
           activeOpacity={0.7}
         >
-          <Image 
-            source={currentUserYasChef 
+          <Image
+            source={currentUserYasChef
               ? require('../assets/icons/like-outline-2-filled.png')
               : require('../assets/icons/like-outline-2-thick.png')
             }
             style={[
               styles.yasChefsSectionIcon,
-              currentUserYasChef && { tintColor: '#4A9B4F' }
+              currentUserYasChef && { tintColor: colors.primary }
             ]}
             resizeMode="contain"
           />
           <Text style={styles.yasChefsCount}>{yasChefCount}</Text>
           <View style={styles.avatarStack}>
             {yasChefs.slice(0, 10).map((like, index) => (
-              <View 
-                key={like.user_id} 
+              <View
+                key={like.user_id}
                 style={[
                   styles.miniAvatar,
                   { marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }
@@ -483,11 +700,11 @@ export default function CommentsScreen({ route, navigation }: Props) {
 
       {/* Yas Chef Button (when no likes yet) */}
       {yasChefCount === 0 && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.yasChefButtonSimple}
           onPress={toggleYasChef}
         >
-          <Image 
+          <Image
             source={require('../assets/icons/like-outline-2-thick.png')}
             style={styles.yasChefButtonSimpleIcon}
             resizeMode="contain"
@@ -515,6 +732,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           ref={textInputRef}
           style={styles.input}
           placeholder="Add a comment"
+          placeholderTextColor={colors.text.tertiary}
           value={commentText}
           onChangeText={setCommentText}
           multiline
@@ -523,7 +741,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           onSubmitEditing={submitComment}
           blurOnSubmit={false}
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.sendButton,
             (!commentText.trim() || submitting) && styles.sendButtonDisabled
@@ -537,217 +755,3 @@ export default function CommentsScreen({ route, navigation }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  postInfo: {
-    flexDirection: 'row',
-    padding: 15,
-    paddingTop: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  postInfoText: {
-    flex: 1,
-  },
-  postInfoTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#000',
-  },
-  postInfoMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  postInfoName: {
-    fontSize: 14,
-    color: '#666',
-  },
-  postInfoDot: {
-    fontSize: 14,
-    color: '#666',
-  },
-  postInfoIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 6,
-  },
-  postInfoDate: {
-    fontSize: 14,
-    color: '#666',
-  },
-  yasChefsSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  yasChefsSectionIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-    tintColor: '#4A9B4F',
-  },
-  yasChefsCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginRight: 12,
-  },
-  avatarStack: {
-    flexDirection: 'row',
-  },
-  miniAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  miniAvatarText: {
-    fontSize: 14,
-  },
-  yasChefButtonSimple: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  yasChefButtonSimpleIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  yasChefButtonSimpleText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  commentsList: {
-    paddingVertical: 10,
-  },
-  emptyComments: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyCommentsText: {
-    fontSize: 15,
-    color: '#999',
-  },
-  commentContainer: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  commentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  commentAvatarText: {
-    fontSize: 24,
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  commentUserName: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  commentTime: {
-    fontSize: 13,
-    color: '#999',
-  },
-  commentText: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: '#333',
-  },
-  commentLikesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  commentLikeIcon: {
-    width: 12,
-    height: 12,
-    marginRight: 4,
-    tintColor: '#4A9B4F',
-  },
-  commentLikesCount: {
-    fontSize: 12,
-    color: '#999',
-  },
-  commentLikeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentLikeButtonIcon: {
-    width: 20,
-    height: 20,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    backgroundColor: '#fff',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 100,
-    marginRight: 10,
-  },
-  sendButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});

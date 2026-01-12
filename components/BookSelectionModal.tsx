@@ -1,7 +1,7 @@
 // components/BookSelectionModal.tsx
 // Modal for selecting or adding a book when auto-detection fails
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { getUserBooks, createBook, createUserBookOwnership } from '../lib/services/recipeExtraction/bookService';
 import { Book } from '../lib/types/recipeExtraction';
 
@@ -32,6 +33,9 @@ export function BookSelectionModal({
   onSkip,
   onCancel,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [loading, setLoading] = useState(true);
   const [userBooks, setUserBooks] = useState<Array<{ book: Book }>>([]);
   const [showAddNew, setShowAddNew] = useState(false);
@@ -274,164 +278,172 @@ export function BookSelectionModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#f8f8f8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  bookItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  bookTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  bookAuthor: {
-    fontSize: 14,
-    color: '#666',
-  },
-  selectArrow: {
-    fontSize: 24,
-    color: '#007AFF',
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  duplicateWarning: {
-    flexDirection: 'row',
-    backgroundColor: '#fff3cd',
-    borderWidth: 1,
-    borderColor: '#ffc107',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-  },
-  duplicateWarningIcon: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-  duplicateWarningTextContainer: {
-    flex: 1,
-  },
-  duplicateWarningTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 4,
-  },
-  duplicateWarningBook: {
-    fontSize: 13,
-    color: '#856404',
-    marginLeft: 8,
-    marginVertical: 2,
-  },
-  duplicateWarningHint: {
-    fontSize: 12,
-    color: '#856404',
-    fontStyle: 'italic',
-    marginTop: 6,
-  },
-  button: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  secondaryButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  tertiaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  tertiaryButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addNewButton: {
-    marginTop: 24,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    header: {
+      padding: 20,
+      backgroundColor: colors.background.secondary,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+    bookItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    bookTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    bookAuthor: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    selectArrow: {
+      fontSize: 24,
+      color: colors.primary,
+    },
+    emptyState: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyStateText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+      marginTop: 16,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    duplicateWarning: {
+      flexDirection: 'row',
+      backgroundColor: functionalColors.warning + '20',
+      borderWidth: 1,
+      borderColor: functionalColors.warning,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 12,
+    },
+    duplicateWarningIcon: {
+      fontSize: 20,
+      marginRight: 10,
+    },
+    duplicateWarningTextContainer: {
+      flex: 1,
+    },
+    duplicateWarningTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    duplicateWarningBook: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginLeft: 8,
+      marginVertical: 2,
+    },
+    duplicateWarningHint: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontStyle: 'italic',
+      marginTop: 6,
+    },
+    button: {
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+    },
+    primaryButtonText: {
+      color: colors.text.inverse,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: colors.background.secondary,
+    },
+    secondaryButtonText: {
+      color: colors.text.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    tertiaryButton: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    tertiaryButtonText: {
+      color: colors.text.secondary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    addNewButton: {
+      marginTop: 24,
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: 12,
+    },
+  });
+}

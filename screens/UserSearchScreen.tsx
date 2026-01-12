@@ -2,7 +2,7 @@
 // Search for users and follow/unfollow them
 // Created: November 19, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<any, 'UserSearch'>;
 
@@ -42,10 +42,187 @@ const getAvatarForUser = (userId: string): string => {
 };
 
 export default function UserSearchScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<UserWithFollowStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      fontSize: 28,
+      color: colors.primary,
+      width: 30,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    searchIcon: {
+      fontSize: 20,
+      marginRight: 10,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    clearButton: {
+      fontSize: 20,
+      color: colors.text.tertiary,
+      paddingHorizontal: 8,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContent: {
+      padding: 16,
+    },
+    userCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    userInfo: {
+      flexDirection: 'row',
+      marginBottom: 12,
+    },
+    avatar: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: '#FFE5D9',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    avatarEmoji: {
+      fontSize: 26,
+    },
+    userDetails: {
+      flex: 1,
+    },
+    userNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    displayName: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginRight: 8,
+    },
+    followsYouBadge: {
+      backgroundColor: '#E0F2FE',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    followsYouText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#0284C7',
+    },
+    username: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 6,
+    },
+    bio: {
+      fontSize: 14,
+      color: colors.text.primary,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
+    stats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    statText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    statDivider: {
+      fontSize: 13,
+      color: colors.border.medium,
+      marginHorizontal: 8,
+    },
+    followButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 8,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      alignSelf: 'flex-start',
+    },
+    followingButton: {
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    followButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.background.card,
+    },
+    followingButtonText: {
+      color: colors.text.secondary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -157,9 +334,9 @@ export default function UserSearchScreen({ navigation }: Props) {
         if (error) throw error;
 
         // Update local state
-        setUsers(users.map(u => 
-          u.id === userId ? { 
-            ...u, 
+        setUsers(users.map(u =>
+          u.id === userId ? {
+            ...u,
             isFollowing: false,
             followers_count: Math.max(0, u.followers_count - 1)
           } : u
@@ -190,9 +367,9 @@ export default function UserSearchScreen({ navigation }: Props) {
         }
 
         // Update local state
-        setUsers(users.map(u => 
-          u.id === userId ? { 
-            ...u, 
+        setUsers(users.map(u =>
+          u.id === userId ? {
+            ...u,
             isFollowing: true,
             followers_count: u.followers_count + 1
           } : u
@@ -298,7 +475,7 @@ export default function UserSearchScreen({ navigation }: Props) {
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.text.tertiary}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -318,7 +495,7 @@ export default function UserSearchScreen({ navigation }: Props) {
             {searchQuery ? 'No users found' : 'No suggestions yet'}
           </Text>
           <Text style={styles.emptyText}>
-            {searchQuery 
+            {searchQuery
               ? 'Try a different search term'
               : 'Start searching to find people to follow'
             }
@@ -335,179 +512,3 @@ export default function UserSearchScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    fontSize: 28,
-    color: colors.primary,
-    width: 30,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  searchIcon: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111',
-  },
-  clearButton: {
-    fontSize: 20,
-    color: '#9CA3AF',
-    paddingHorizontal: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 16,
-  },
-  userCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFE5D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarEmoji: {
-    fontSize: 26,
-  },
-  userDetails: {
-    flex: 1,
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  displayName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111',
-    marginRight: 8,
-  },
-  followsYouBadge: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  followsYouText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0284C7',
-  },
-  username: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 6,
-  },
-  bio: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  stats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  statDivider: {
-    fontSize: 13,
-    color: '#D1D5DB',
-    marginHorizontal: 8,
-  },
-  followButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  followingButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-  },
-  followButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
-  },
-  followingButtonText: {
-    color: '#6B7280',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-});

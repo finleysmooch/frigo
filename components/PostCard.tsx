@@ -2,7 +2,7 @@
 // Shared post card component - MATCHES MyPosts layout exactly
 // Updated: November 20, 2025
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import ParticipantsListModal from './ParticipantsListModal';  // ← NEW
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -103,6 +103,7 @@ export default function PostCard({
   onViewLikes,
   onViewParticipants,  // ← NEW
 }: PostCardProps) {
+  const { colors, functionalColors } = useTheme();
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [participantsModalVisible, setParticipantsModalVisible] = useState(false);  // ← NEW
 
@@ -270,6 +271,232 @@ export default function PostCard({
     });
   }
 
+  const styles = useMemo(() => StyleSheet.create({
+    postCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      marginBottom: 12,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarText: {
+      fontSize: 28,
+    },
+    avatarEmoji: {
+      fontSize: 24,
+    },
+    headerInfo: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    userName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    methodIconSmall: {
+      width: 20,
+      height: 20,
+      marginRight: 6,
+    },
+    metaText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    menuButton: {
+      padding: 4,
+    },
+    menuButtonText: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+      lineHeight: 20,
+    },
+    photoCarouselContainer: {
+      marginHorizontal: -16,
+      marginBottom: 12,
+      position: 'relative',
+    },
+    photoSlide: {
+      width: SCREEN_WIDTH - 32,
+      height: SCREEN_WIDTH - 32,
+      backgroundColor: '#000',
+    },
+    photoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    captionOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      padding: 12,
+    },
+    captionText: {
+      color: colors.background.card,
+      fontSize: 14,
+    },
+    photoIndicators: {
+      position: 'absolute',
+      bottom: 12,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    indicator: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+      marginHorizontal: 3,
+    },
+    indicatorActive: {
+      backgroundColor: colors.background.card,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    postTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    recipeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 8,
+    },
+    recipeTitle: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    chefName: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    ratingContainer: {
+      marginBottom: 8,
+    },
+    starsContainer: {
+      flexDirection: 'row',
+    },
+    star: {
+      fontSize: 16,
+      marginRight: 2,
+    },
+    participantsContainer: {
+      marginBottom: 8,
+    },
+    participantText: {
+      fontSize: 13,
+      color: colors.text.primary,
+      marginBottom: 2,
+      fontWeight: '500',
+    },
+    modificationsContainer: {
+      marginBottom: 12,
+    },
+    modificationsLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    modificationsText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    likesSection: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 12,
+      paddingBottom: 8,
+      borderTopWidth: 0,
+      borderTopColor: colors.background.secondary,
+      marginTop: 12,
+    },
+    likesSectionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      marginRight: 8,
+    },
+    miniAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.background.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    miniAvatarText: {
+      fontSize: 12,
+    },
+    likesText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    commentsText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingTop: 0,
+      paddingHorizontal: '5%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    actionButton: {
+      padding: 8,
+    },
+    actionIcon: {
+      width: 30,
+      height: 30,
+    },
+  }), [colors, functionalColors]);
+
   return (
     <View style={styles.postCard}>
       <View style={styles.postHeader}>
@@ -404,7 +631,7 @@ export default function PostCard({
                 }
                 style={[
                   styles.actionIcon,
-                  likeData?.hasLike && { tintColor: colors.like }
+                  likeData?.hasLike && { tintColor: functionalColors.like }
                 ]}
                 resizeMode="contain"
               />
@@ -437,229 +664,3 @@ export default function PostCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    fontSize: 28,
-  },
-  avatarEmoji: {
-    fontSize: 24,
-  },
-  headerInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  methodIconSmall: {
-    width: 20,
-    height: 20,
-    marginRight: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  menuButton: {
-    padding: 4,
-  },
-  menuButtonText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#999',
-    lineHeight: 20,
-  },
-  photoCarouselContainer: {
-    marginHorizontal: -16,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  photoSlide: {
-    width: SCREEN_WIDTH - 32,
-    height: SCREEN_WIDTH - 32,
-    backgroundColor: '#000',
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  captionOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 12,
-  },
-  captionText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  photoIndicators: {
-    position: 'absolute',
-    bottom: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  indicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 3,
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  postTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 8,
-  },
-  recipeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  recipeTitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  chefName: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-  ratingContainer: {
-    marginBottom: 8,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-  },
-  star: {
-    fontSize: 16,
-    marginRight: 2,
-  },
-  participantsContainer: {
-    marginBottom: 8,
-  },
-  participantText: {
-    fontSize: 13,
-    color: '#374151',
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  modificationsContainer: {
-    marginBottom: 12,
-  },
-  modificationsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  modificationsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-  likesSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 8,
-    borderTopWidth: 0,
-    borderTopColor: '#F3F4F6',
-    marginTop: 12,
-  },
-  likesSectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatarStack: {
-    flexDirection: 'row',
-    marginRight: 8,
-  },
-  miniAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  miniAvatarText: {
-    fontSize: 12,
-  },
-  likesText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  commentsText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingTop: 0,
-    paddingHorizontal: '5%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  actionButton: {
-    padding: 8,
-  },
-  actionIcon: {
-    width: 30,
-    height: 30,
-  },
-});

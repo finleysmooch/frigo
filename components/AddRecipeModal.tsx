@@ -1,7 +1,7 @@
 // components/AddRecipeModal.tsx
 // Modal for choosing how to add a recipe (camera, gallery, or web URL)
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
   Platform,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface Props {
   visible: boolean;
@@ -28,6 +28,9 @@ export function AddRecipeModal({
   onSelectGallery,
   onSelectWeb,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   return (
     <Modal
       visible={visible}
@@ -115,94 +118,96 @@ export function AddRecipeModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modal: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '85%',
-    maxWidth: 400,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-  },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#666',
-    lineHeight: 24,
-  },
-  options: {
-    padding: 10,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 5,
-  },
-  optionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 15,
-  },
-  optionIconText: {
-    fontSize: 24,
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 3,
-  },
-  optionDescription: {
-    fontSize: 13,
-    color: '#666',
-  },
-  optionArrow: {
-    fontSize: 24,
-    color: '#ccc',
-    marginLeft: 10,
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modal: {
+      backgroundColor: colors.background.card,
+      borderRadius: 20,
+      width: '85%',
+      maxWidth: 400,
+      overflow: 'hidden',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 10,
+        },
+        android: {
+          elevation: 5,
+        },
+      }),
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    closeButton: {
+      width: 30,
+      height: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.secondary,
+      lineHeight: 24,
+    },
+    options: {
+      padding: 10,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 5,
+    },
+    optionIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 15,
+    },
+    optionIconText: {
+      fontSize: 24,
+    },
+    optionContent: {
+      flex: 1,
+    },
+    optionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 3,
+    },
+    optionDescription: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    optionArrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+      marginLeft: 10,
+    },
+  });
+}

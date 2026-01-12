@@ -3,7 +3,7 @@
 // FIXED: Added missing AnnotationFieldType import and corrected function call
 // Created: November 11, 2025
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -16,6 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { saveAnnotation } from '../lib/services/recipeAnnotationsService';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { AnnotationFieldType } from '../lib/types/recipeExtraction'; // FIXED: Added import
 import { AnnotationType } from '../lib/types/recipeFeatures'; // FIXED: Added import
 
@@ -44,6 +45,9 @@ export default function AnnotationModal({
   currentValue,
   onSave,
 }: AnnotationModalProps) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [editedValue, setEditedValue] = useState(currentValue || originalValue);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -198,103 +202,107 @@ export default function AnnotationModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#666',
-  },
-  saveButton: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  saveButtonDisabled: {
-    color: '#ccc',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  originalBox: {
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  originalText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  input: {
-    fontSize: 16,
-    padding: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    minHeight: 44,
-  },
-  notesInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  previewBox: {
-    padding: 12,
-    backgroundColor: '#fffbf0',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ffd700',
-  },
-  strikethrough: {
-    textDecorationLine: 'line-through',
-    color: '#999',
-  },
-  annotated: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  previewNotes: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  resetButton: {
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    saveButtonDisabled: {
+      color: colors.text.tertiary,
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    originalBox: {
+      padding: 12,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    originalText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    input: {
+      fontSize: 16,
+      padding: 12,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      minHeight: 44,
+      color: colors.text.primary,
+    },
+    notesInput: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    previewBox: {
+      padding: 12,
+      backgroundColor: functionalColors.warning + '15',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: functionalColors.warning,
+    },
+    strikethrough: {
+      textDecorationLine: 'line-through',
+      color: colors.text.tertiary,
+    },
+    annotated: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    previewNotes: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 8,
+      fontStyle: 'italic',
+    },
+    resetButton: {
+      padding: 16,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    resetButtonText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
+  });
+}

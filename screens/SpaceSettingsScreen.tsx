@@ -6,7 +6,7 @@
 // Created: December 18, 2025
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,9 +18,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
-import { 
-  SpaceWithDetails, 
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import {
+  SpaceWithDetails,
   SpaceMemberWithProfile,
   SpaceRole,
   getRoleDisplayName,
@@ -51,7 +52,8 @@ type Props = NativeStackScreenProps<any, 'SpaceSettings'>;
 
 export default function SpaceSettingsScreen({ route, navigation }: Props) {
   const { spaceId } = route.params || {};
-  
+  const { colors, functionalColors } = useTheme();
+
   // State
   const [space, setSpace] = useState<SpaceWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,270 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
 
   // Context
   const { refreshSpaces, switchSpace, activeSpaceId } = useSpace();
+
+  // ============================================
+  // STYLES
+  // ============================================
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      padding: spacing.xl,
+    },
+    errorText: {
+      fontSize: typography.sizes.lg,
+      color: colors.text.secondary,
+      marginBottom: spacing.lg,
+    },
+    backButton: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+    },
+    backButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.primary,
+      paddingTop: 60,
+      paddingBottom: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    backArrow: {
+      marginRight: spacing.md,
+      padding: spacing.xs,
+    },
+    backArrowText: {
+      fontSize: 28,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+    headerEmoji: {
+      fontSize: 24,
+      marginRight: spacing.sm,
+    },
+    headerTitle: {
+      flex: 1,
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: spacing.lg,
+      paddingBottom: spacing.xxxl,
+    },
+    section: {
+      marginBottom: spacing.xl,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    sectionTitle: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.tertiary,
+      letterSpacing: 0.5,
+      marginBottom: spacing.sm,
+    },
+    inviteButton: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.sm,
+    },
+    inviteButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+    },
+    card: {
+      backgroundColor: colors.background.primary,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      ...shadows.small,
+    },
+    settingRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    settingRowLast: {
+      borderBottomWidth: 0,
+    },
+    settingLabel: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    settingValue: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    settingValueText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    settingEmoji: {
+      fontSize: 24,
+    },
+    settingArrow: {
+      fontSize: typography.sizes.lg,
+      color: colors.text.tertiary,
+    },
+    memberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    memberAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    memberAvatarText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.bold,
+    },
+    memberInfo: {
+      flex: 1,
+      marginLeft: spacing.md,
+    },
+    memberName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+    },
+    youBadge: {
+      color: colors.text.tertiary,
+      fontWeight: typography.weights.regular,
+    },
+    memberRoleRow: {
+      flexDirection: 'row',
+      marginTop: 2,
+    },
+    roleBadge: {
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 1,
+      borderRadius: borderRadius.sm,
+    },
+    roleBadgeText: {
+      fontSize: 10,
+      fontWeight: typography.weights.semibold,
+    },
+    roleBadgeLarge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.sm,
+    },
+    roleBadgeLargeText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+    },
+    memberActions: {
+      padding: spacing.sm,
+    },
+    memberActionsIcon: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+    },
+    permissionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    permissionLabel: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    permissionList: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    permissionItem: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      paddingVertical: spacing.xs,
+    },
+    dangerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+      gap: spacing.md,
+    },
+    dangerRowLast: {
+      borderBottomWidth: 0,
+    },
+    dangerIcon: {
+      fontSize: typography.sizes.lg,
+    },
+    dangerText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    dangerTextRed: {
+      color: functionalColors.error,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+    },
+    infoIcon: {
+      fontSize: typography.sizes.md,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // LOAD DATA
@@ -127,11 +393,11 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
           text: 'Save',
           onPress: async (newName: string | undefined) => {
             if (!newName?.trim() || !currentUserId) return;
-            
-            const result = await updateSpace(spaceId, currentUserId, { 
-              name: newName.trim() 
+
+            const result = await updateSpace(spaceId, currentUserId, {
+              name: newName.trim()
             });
-            
+
             if (result.success) {
               await loadSpace();
               await refreshSpaces();
@@ -151,7 +417,7 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
 
     // Simple emoji options
     const emojis = ['🏠', '🏡', '🏔️', '🏖️', '🏕️', '👨‍👩‍👧‍👦', '❤️', '⭐'];
-    
+
     Alert.alert(
       'Choose Icon',
       'Select an icon for this space',
@@ -176,7 +442,7 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
     if (!permissions.canEditSettings || member.user_id === currentUserId) return;
 
     const roleOptions: SpaceRole[] = ['guest', 'member', 'owner'];
-    
+
     Alert.alert(
       'Change Role',
       `Select a new role for ${member.user_profile.display_name || member.user_profile.username}`,
@@ -185,7 +451,7 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
           text: getRoleDisplayName(role) + (member.role === role ? ' ✓' : ''),
           onPress: async () => {
             if (role === member.role || !currentUserId) return;
-            
+
             const result = await changeRole(spaceId, currentUserId, member.user_id, role);
             if (result.success) {
               await loadSpace();
@@ -276,10 +542,10 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             if (!currentUserId) return;
-            
+
             // If this is the active space, we need to switch first
             const wasActiveSpace = activeSpaceId === spaceId;
-            
+
             const result = await deleteSpace(spaceId, currentUserId);
             if (result.success) {
               await refreshSpaces();
@@ -455,7 +721,7 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
               </TouchableOpacity>
             )}
           </View>
-          
+
           <View style={styles.card}>
             {space.members
               .sort((a, b) => {
@@ -549,267 +815,3 @@ export default function SpaceSettingsScreen({ route, navigation }: Props) {
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.secondary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    padding: spacing.xl,
-  },
-  errorText: {
-    fontSize: typography.sizes.lg,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
-  },
-  backButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.primary,
-    paddingTop: 60,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  backArrow: {
-    marginRight: spacing.md,
-    padding: spacing.xs,
-  },
-  backArrowText: {
-    fontSize: 28,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-  },
-  headerEmoji: {
-    fontSize: 24,
-    marginRight: spacing.sm,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.tertiary,
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-  },
-  inviteButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
-  },
-  inviteButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-  },
-  card: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    ...shadows.small,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  settingRowLast: {
-    borderBottomWidth: 0,
-  },
-  settingLabel: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  settingValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  settingValueText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  settingEmoji: {
-    fontSize: 24,
-  },
-  settingArrow: {
-    fontSize: typography.sizes.lg,
-    color: colors.text.tertiary,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  memberAvatarText: {
-    color: '#fff',
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-  },
-  memberInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  memberName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-  },
-  youBadge: {
-    color: colors.text.tertiary,
-    fontWeight: typography.weights.regular,
-  },
-  memberRoleRow: {
-    flexDirection: 'row',
-    marginTop: 2,
-  },
-  roleBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: typography.weights.semibold,
-  },
-  roleBadgeLarge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  roleBadgeLargeText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-  },
-  memberActions: {
-    padding: spacing.sm,
-  },
-  memberActionsIcon: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-  },
-  permissionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  permissionLabel: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  permissionList: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  permissionItem: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    paddingVertical: spacing.xs,
-  },
-  dangerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-    gap: spacing.md,
-  },
-  dangerRowLast: {
-    borderBottomWidth: 0,
-  },
-  dangerIcon: {
-    fontSize: typography.sizes.lg,
-  },
-  dangerText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  dangerTextRed: {
-    color: '#DC2626',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  infoIcon: {
-    fontSize: typography.sizes.md,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-});

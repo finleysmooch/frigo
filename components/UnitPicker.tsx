@@ -6,7 +6,7 @@
 // Dropdown appears below the button, not at bottom of screen
 // Location: components/UnitPicker.tsx
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,8 @@ import {
   TouchableWithoutFeedback,
   Dimensions
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 export interface MeasurementUnit {
   id: string;
@@ -43,12 +44,13 @@ interface Props {
   disabled?: boolean;
 }
 
-export default function UnitPicker({ 
-  ingredientId, 
-  selectedUnit, 
+export default function UnitPicker({
+  ingredientId,
+  selectedUnit,
   onSelectUnit,
-  disabled = false 
+  disabled = false
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [commonUnits, setCommonUnits] = useState<UnitOption[]>([]);
   const [allUnits, setAllUnits] = useState<UnitOption[]>([]);
@@ -127,6 +129,123 @@ export default function UnitPicker({
   const spaceBelow = screenHeight - (buttonLayout.y + buttonLayout.height);
   const shouldShowAbove = spaceBelow < dropdownMaxHeight && buttonLayout.y > dropdownMaxHeight;
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    pickerButton: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    pickerButtonDisabled: {
+      backgroundColor: colors.background.secondary,
+      opacity: 0.5,
+    },
+    pickerButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    pickerButtonPlaceholder: {
+      color: colors.text.placeholder,
+    },
+    pickerButtonIcon: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      marginLeft: spacing.sm,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    },
+    dropdownContainer: {
+      position: 'absolute',
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      maxHeight: 300,
+      ...shadows.large,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+      backgroundColor: colors.background.secondary,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    backButton: {
+      marginLeft: spacing.sm,
+    },
+    backButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    loadingContainer: {
+      paddingVertical: spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    unitsList: {
+      maxHeight: 200,
+    },
+    unitOption: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    unitOptionSelected: {
+      backgroundColor: colors.accentLight,
+    },
+    unitOptionText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    unitOptionTextSelected: {
+      fontWeight: typography.weights.semibold,
+      color: colors.primary,
+    },
+    checkmark: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.bold,
+    },
+    otherButton: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    otherButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+  }), [colors, functionalColors]);
+
   return (
     <View style={styles.container}>
       <View ref={buttonRef} collapsable={false}>
@@ -164,7 +283,7 @@ export default function UnitPicker({
         }}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-              <View 
+              <View
                 style={[
                   styles.dropdownContainer,
                   {
@@ -183,7 +302,7 @@ export default function UnitPicker({
                     {showingAll ? 'All Units' : 'Select Unit'}
                   </Text>
                   {showingAll && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       onPress={() => setShowingAll(false)}
                       style={styles.backButton}
                     >
@@ -244,120 +363,3 @@ export default function UnitPicker({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  pickerButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  pickerButtonDisabled: {
-    backgroundColor: colors.background.secondary,
-    opacity: 0.5,
-  },
-  pickerButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  pickerButtonPlaceholder: {
-    color: colors.text.placeholder,
-  },
-  pickerButtonIcon: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    marginLeft: spacing.sm,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  dropdownContainer: {
-    position: 'absolute',
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.md,
-    maxHeight: 300,
-    ...shadows.large,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-    backgroundColor: colors.background.secondary,
-  },
-  headerTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  backButton: {
-    marginLeft: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  loadingContainer: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unitsList: {
-    maxHeight: 200,
-  },
-  unitOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  unitOptionSelected: {
-    backgroundColor: colors.accentLight,
-  },
-  unitOptionText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  unitOptionTextSelected: {
-    fontWeight: typography.weights.semibold,
-    color: colors.primary,
-  },
-  checkmark: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.bold,
-  },
-  otherButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  otherButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-});

@@ -4,7 +4,7 @@
 // Modal for editing existing regular grocery items
 // Location: components/EditRegularItemModal.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -19,7 +19,8 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { updateRegularItem, deleteRegularItem } from '../lib/groceryService';
 import {
   RegularGroceryItemWithIngredient,
@@ -39,6 +40,7 @@ export default function EditRegularItemModal({
   onClose,
   onSuccess,
 }: EditRegularItemModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('');
   const [frequency, setFrequency] = useState<PurchaseFrequency>('weekly');
@@ -148,6 +150,239 @@ export default function EditRegularItemModal({
   const handleClose = () => {
     onClose();
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modal: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    closeButton: {
+      padding: spacing.sm,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    content: {
+      padding: spacing.md,
+    },
+    section: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sizes.md,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    readOnlyField: {
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: 8,
+    },
+    readOnlyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
+    row: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    quantityInput: {
+      flex: 1,
+    },
+    unitInput: {
+      flex: 1,
+    },
+    frequencyOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      marginBottom: spacing.sm,
+    },
+    frequencyOptionActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '10',
+    },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      marginRight: spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    frequencyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    frequencyTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    customFrequencyContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    customDaysInput: {
+      flex: 1,
+    },
+    customDaysLabel: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    helperText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      marginTop: spacing.xs,
+    },
+    pauseToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+    },
+    pauseToggleActive: {
+      borderColor: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '10',
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      borderRadius: 4,
+      marginRight: spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkmark: {
+      fontSize: 16,
+      color: functionalColors.warning,
+      fontWeight: 'bold',
+    },
+    pauseToggleText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: '600',
+      marginBottom: spacing.xs,
+    },
+    pauseToggleHelper: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    previewContainer: {
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: 8,
+      marginBottom: spacing.md,
+    },
+    previewLabel: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+    },
+    previewDate: {
+      fontSize: typography.sizes.lg,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    deleteButton: {
+      backgroundColor: functionalColors.error,
+      padding: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: spacing.md,
+    },
+    deleteButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.md,
+      fontWeight: 'bold',
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.sm,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
+    saveButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      backgroundColor: colors.text.tertiary,
+    },
+    saveButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.background.card,
+      fontWeight: 'bold',
+    },
+  }), [colors, functionalColors]);
 
   if (!item) return null;
 
@@ -335,236 +570,3 @@ export default function EditRegularItemModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modal: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.medium,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  closeButton: {
-    padding: spacing.sm,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: colors.text.tertiary,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    padding: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    backgroundColor: '#fff',
-  },
-  readOnlyField: {
-    backgroundColor: '#f9f9f9',
-    padding: spacing.md,
-    borderRadius: 8,
-  },
-  readOnlyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  quantityInput: {
-    flex: 1,
-  },
-  unitInput: {
-    flex: 1,
-  },
-  frequencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
-  },
-  frequencyOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border.medium,
-    marginRight: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-  },
-  frequencyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  frequencyTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  customFrequencyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  customDaysInput: {
-    flex: 1,
-  },
-  customDaysLabel: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  helperText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  pauseToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-  },
-  pauseToggleActive: {
-    borderColor: '#FF9500',
-    backgroundColor: '#FF9500' + '10',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: colors.border.medium,
-    borderRadius: 4,
-    marginRight: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    fontSize: 16,
-    color: '#FF9500',
-    fontWeight: 'bold',
-  },
-  pauseToggleText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  pauseToggleHelper: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  previewContainer: {
-    backgroundColor: '#f9f9f9',
-    padding: spacing.md,
-    borderRadius: 8,
-    marginBottom: spacing.md,
-  },
-  previewLabel: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  previewDate: {
-    fontSize: typography.sizes.lg,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    padding: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.md,
-    fontWeight: 'bold',
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.medium,
-    gap: spacing.sm,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-  },
-  saveButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-});

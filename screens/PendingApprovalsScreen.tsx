@@ -2,7 +2,7 @@
 // Screen to view and respond to pending cooking partner invitations
 // Created: November 19, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getPendingApprovals,
   PendingApproval,
@@ -25,12 +25,143 @@ import CookingPartnerApprovalModal from '../components/CookingPartnerApprovalMod
 type Props = NativeStackScreenProps<any, 'PendingApprovals'>;
 
 export default function PendingApprovalsScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      fontSize: 28,
+      color: colors.primary,
+      width: 30,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContent: {
+      padding: 16,
+    },
+    approvalCard: {
+      flexDirection: 'row',
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    roleIndicator: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.background.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    roleEmoji: {
+      fontSize: 24,
+    },
+    approvalContent: {
+      flex: 1,
+    },
+    approvalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    inviterName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginRight: 8,
+    },
+    roleText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    postInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    methodEmoji: {
+      fontSize: 16,
+      marginRight: 6,
+    },
+    postTitle: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      flex: 1,
+    },
+    timestamp: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+    },
+    chevron: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: 24,
+    },
+    chevronText: {
+      fontSize: 24,
+      color: colors.border.medium,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -225,133 +356,3 @@ export default function PendingApprovalsScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    fontSize: 28,
-    color: colors.primary,
-    width: 30,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 16,
-  },
-  approvalCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  roleIndicator: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  roleEmoji: {
-    fontSize: 24,
-  },
-  approvalContent: {
-    flex: 1,
-  },
-  approvalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  inviterName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginRight: 8,
-  },
-  roleText: {
-    fontSize: 13,
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  postInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  methodEmoji: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  postTitle: {
-    fontSize: 15,
-    color: '#374151',
-    flex: 1,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  chevron: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 24,
-  },
-  chevronText: {
-    fontSize: 24,
-    color: '#D1D5DB',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-});

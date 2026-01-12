@@ -5,7 +5,7 @@
 // Location: components/AddGroceryItemModal.tsx
 // Updated: November 6, 2025 - Works with multiple lists system
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { addItemToList } from '../lib/groceryListsService';
 
@@ -44,10 +45,13 @@ export default function AddGroceryItemModal({
   userId,
   listId,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   // ============================================
   // STATE
   // ============================================
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [filteredIngredients, setFilteredIngredients] = useState<Ingredient[]>([]);
@@ -223,7 +227,7 @@ export default function AddGroceryItemModal({
 
               {searching && (
                 <View style={styles.searchingIndicator}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} /* theme color already used */ />
                 </View>
               )}
             </View>
@@ -315,7 +319,7 @@ export default function AddGroceryItemModal({
               disabled={!selectedIngredient || loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.text.inverse} />
               ) : (
                 <Text style={styles.submitButtonText}>Add Item</Text>
               )}
@@ -331,132 +335,134 @@ export default function AddGroceryItemModal({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+    },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  closeButton: {
-    fontSize: 36,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.regular,
-  },
+    // Header
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    closeButton: {
+      fontSize: 36,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.regular,
+    },
 
-  // Content
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: typography.sizes.md,
-    backgroundColor: '#f9f9f9',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
+    // Content
+    scrollView: {
+      flex: 1,
+    },
+    section: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    row: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      fontSize: typography.sizes.md,
+      backgroundColor: colors.background.secondary,
+    },
+    textArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
 
-  // Search Results
-  searchResults: {
-    marginTop: spacing.xs,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    maxHeight: 200,
-  },
-  searchResultItem: {
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  searchResultName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    marginBottom: 2,
-  },
-  searchResultFamily: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  searchingIndicator: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
+    // Search Results
+    searchResults: {
+      marginTop: spacing.xs,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      maxHeight: 200,
+    },
+    searchResultItem: {
+      padding: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    searchResultName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    searchResultFamily: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    searchingIndicator: {
+      padding: spacing.md,
+      alignItems: 'center',
+    },
 
-  // Footer
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: spacing.md,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  submitButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: '#fff',
-  },
-});
+    // Footer
+    footer: {
+      flexDirection: 'row',
+      padding: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.md,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.background.secondary,
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    submitButton: {
+      backgroundColor: colors.primary,
+    },
+    submitButtonDisabled: {
+      backgroundColor: colors.text.tertiary,
+    },
+    submitButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.inverse,
+    },
+  });
+}

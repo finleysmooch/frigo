@@ -4,8 +4,10 @@
 // Collapsible section header showing family with type breakdown
 // Location: components/CategoryHeader.tsx
 
+import { useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../lib/theme';
+import { typography, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { FamilySection } from '../utils/pantryHelpers';
 import { getFamilyIcon, getTypeIcon } from '../constants/pantry';
 
@@ -22,6 +24,9 @@ export default function CategoryHeader({
   onToggle,
   onAdd,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const familyIcon = getFamilyIcon(section.family);
 
   // Create type breakdown summary
@@ -89,73 +94,75 @@ export default function CategoryHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    // No background - parent sectionCard provides white background
-    marginBottom: spacing.sm,
-  },
-  content: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leftSection: {
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  familyEmoji: {
-    fontSize: typography.sizes.xl,
-  },
-  familyTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  count: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  expiringBadge: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.warning,
-    backgroundColor: '#FFF9E6',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  typeBreakdown: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    lineHeight: typography.sizes.sm * typography.lineHeights.normal,
-  },
-  rightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  addButton: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
-  },
-  addButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.background.primary,
-    fontWeight: typography.weights.bold,
-  },
-  collapseIcon: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-    width: 20,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      // No background - parent sectionCard provides white background
+      marginBottom: spacing.sm,
+    },
+    content: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    leftSection: {
+      flex: 1,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    familyEmoji: {
+      fontSize: typography.sizes.xl,
+    },
+    familyTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    count: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    expiringBadge: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '15',
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: borderRadius.sm,
+    },
+    typeBreakdown: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      lineHeight: typography.sizes.sm * typography.lineHeights.normal,
+    },
+    rightSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    addButton: {
+      width: 28,
+      height: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.sm,
+    },
+    addButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.background.primary,
+      fontWeight: typography.weights.bold,
+    },
+    collapseIcon: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+      width: 20,
+      textAlign: 'center',
+    },
+  });
+}

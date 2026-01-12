@@ -3,9 +3,9 @@
 // FIXED VERSION - Simplified avatar rendering
 // Updated: November 21, 2025
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import PostCard, { PostCardData } from './PostCard';
 
 interface LinkedPostsGroupProps {
@@ -33,6 +33,7 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
   onViewLikes,
   onViewParticipants,
 }) => {
+  const { colors, functionalColors } = useTheme();
   // Sort posts by creation date (earliest first)
   const sortedPosts = [...posts].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -155,6 +156,112 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
   const timestamp = formatTimestamp(sortedPosts[0].created_at);
   const location = "Portland, Oregon";
 
+  const styles = useMemo(() => StyleSheet.create({
+    groupContainer: {
+      marginBottom: 20,
+    },
+    groupHeader: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 12,
+      borderTopRightRadius: 12,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    headerIcon: {
+      width: 64,
+      height: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    cookingIcon: {
+      width: 64,
+      height: 64,
+      tintColor: colors.text.secondary,
+    },
+    headerTextContainer: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 14,
+      fontWeight: '400',
+      color: colors.text.primary,
+      marginBottom: 2,
+      lineHeight: 18,
+    },
+    headerMeta: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      fontWeight: '400',
+      marginBottom: 6,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    stackedAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background.card,
+    },
+    stackedAvatarEmoji: {
+      fontSize: 12,
+    },
+    sharedPhotoContainer: {
+      position: 'relative',
+      backgroundColor: '#000',
+    },
+    sharedPhoto: {
+      width: '100%',
+      height: 280,
+    },
+    recipeOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      padding: 12,
+    },
+    recipeOverlayText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    postsStack: {
+      backgroundColor: colors.background.secondary,
+      borderBottomLeftRadius: 12,
+      borderBottomRightRadius: 12,
+      overflow: 'hidden',
+    },
+    connector: {
+      width: '100%',
+      alignItems: 'center',
+      paddingVertical: 8,
+      backgroundColor: colors.background.secondary,
+    },
+    connectorLine: {
+      width: 2,
+      height: 20,
+      backgroundColor: colors.primary,
+      opacity: 0.3,
+    },
+  }), [colors, functionalColors]);
+
   return (
     <View style={styles.groupContainer}>
       {/* Strava-style header */}
@@ -257,111 +364,5 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  groupContainer: {
-    marginBottom: 20,
-  },
-  groupHeader: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  cookingIcon: {
-    width: 64,
-    height: 64,
-    tintColor: '#666',
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#333',
-    marginBottom: 2,
-    lineHeight: 18,
-  },
-  headerMeta: {
-    fontSize: 12,
-    color: '#999',
-    fontWeight: '400',
-    marginBottom: 6,
-  },
-  avatarStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  stackedAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  stackedAvatarEmoji: {
-    fontSize: 12,
-  },
-  sharedPhotoContainer: {
-    position: 'relative',
-    backgroundColor: '#000',
-  },
-  sharedPhoto: {
-    width: '100%',
-    height: 280,
-  },
-  recipeOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 12,
-  },
-  recipeOverlayText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  postsStack: {
-    backgroundColor: '#f9f9f9',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    overflow: 'hidden',
-  },
-  connector: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 8,
-    backgroundColor: '#f9f9f9',
-  },
-  connectorLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: colors.primary,
-    opacity: 0.3,
-  },
-});
 
 export default LinkedPostsGroup;

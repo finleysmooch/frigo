@@ -6,7 +6,7 @@
 // Created: December 18, 2025
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,7 +19,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 
 // ============================================
@@ -51,6 +52,8 @@ export default function CreateSpaceModal({
   onClose,
   onCreated,
 }: CreateSpaceModalProps) {
+  const { colors, functionalColors } = useTheme();
+
   // State
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🏠');
@@ -60,6 +63,158 @@ export default function CreateSpaceModal({
 
   // Context
   const { createSpace } = useSpace();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modal: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      maxHeight: '85%',
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    closeButton: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+      padding: spacing.xs,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: spacing.lg,
+    },
+    errorContainer: {
+      backgroundColor: '#FEE2E2',
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.md,
+    },
+    errorText: {
+      color: functionalColors.error,
+      fontSize: typography.sizes.sm,
+    },
+    field: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    input: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    textArea: {
+      height: 80,
+      textAlignVertical: 'top',
+    },
+    emojiGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    emojiOption: {
+      width: 44,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    emojiOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
+    emojiText: {
+      fontSize: 24,
+    },
+    infoBox: {
+      flexDirection: 'row',
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      gap: spacing.sm,
+    },
+    infoIcon: {
+      fontSize: typography.sizes.lg,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: spacing.lg,
+      paddingBottom: spacing.xl,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.md,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    createButton: {
+      flex: 2,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    createButtonDisabled: {
+      backgroundColor: colors.text.tertiary,
+    },
+    createButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.card,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // HANDLERS
@@ -236,159 +391,3 @@ export default function CreateSpaceModal({
     </Modal>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modal: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '85%',
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  closeButton: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-    padding: spacing.xs,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-  },
-  errorContainer: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: typography.sizes.sm,
-  },
-  field: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  emojiOption: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  emojiOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  emojiText: {
-    fontSize: 24,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  infoIcon: {
-    fontSize: typography.sizes.lg,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    gap: spacing.md,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background.secondary,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  createButton: {
-    flex: 2,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-  },
-  createButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: '#fff',
-  },
-});

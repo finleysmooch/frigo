@@ -1,7 +1,7 @@
 // components/AddRecipeImageButton.tsx
 // Simple button for adding/updating recipe main image
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { chooseImageSource, uploadRecipeImage } from '../lib/services/imageStorageService';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface AddRecipeImageButtonProps {
   recipeId: string;
@@ -27,6 +28,9 @@ export default function AddRecipeImageButton({
   currentImageUrl,
   onImageUploaded,
 }: AddRecipeImageButtonProps) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState(currentImageUrl);
 
@@ -92,7 +96,7 @@ export default function AddRecipeImageButton({
     >
       {uploading ? (
         <>
-          <ActivityIndicator size="small" color="#007AFF" />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.addButtonText}>Uploading...</Text>
         </>
       ) : (
@@ -105,48 +109,50 @@ export default function AddRecipeImageButton({
   );
 }
 
-const styles = StyleSheet.create({
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#f0f7ff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-    gap: 8,
-  },
-  addIcon: {
-    fontSize: 24,
-  },
-  addButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  imageContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#f0f0f0',
-  },
-  changeButton: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  changeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      backgroundColor: colors.primary + '10',
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+      gap: 8,
+    },
+    addIcon: {
+      fontSize: 24,
+    },
+    addButtonText: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    imageContainer: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    image: {
+      width: '100%',
+      height: 200,
+      backgroundColor: colors.background.secondary,
+    },
+    changeButton: {
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    changeButtonText: {
+      color: colors.text.inverse,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

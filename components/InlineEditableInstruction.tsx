@@ -1,7 +1,7 @@
 // components/InlineEditableInstruction.tsx
 // Inline instruction editor - shows original text in editable field
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Alert
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface InlineEditableInstructionProps {
   originalText: string;
@@ -26,8 +27,77 @@ export default function InlineEditableInstruction({
   onCancel,
   onDelete
 }: InlineEditableInstructionProps) {
+  const { colors, functionalColors } = useTheme();
   const [text, setText] = useState(originalText);
   const inputRef = useRef<TextInput>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 16,
+    },
+    instructionRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    stepNumber: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginRight: 8,
+      minWidth: 24,
+      paddingTop: 8,
+      color: colors.text.primary,
+    },
+    input: {
+      flex: 1,
+      fontSize: 16,
+      lineHeight: 24,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 6,
+      padding: 12,
+      minHeight: 80,
+      color: colors.text.primary,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    button: {
+      flex: 1,
+      padding: 10,
+      borderRadius: 6,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.border.medium,
+    },
+    cancelButtonText: {
+      color: colors.text.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    deleteButton: {
+      backgroundColor: functionalColors.error,
+    },
+    deleteButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     // Auto-focus when component mounts
@@ -114,69 +184,3 @@ export default function InlineEditableInstruction({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  instructionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-    minWidth: 24,
-    paddingTop: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderRadius: 6,
-    padding: 12,
-    minHeight: 80,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#ff3b30',
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});

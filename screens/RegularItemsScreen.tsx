@@ -4,7 +4,7 @@
 // Screen for managing recurring grocery items
 // Location: screens/RegularItemsScreen.tsx
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getRegularGroceryItems,
   updateRegularItem,
@@ -43,12 +44,219 @@ interface GroupedItems {
 }
 
 export default function RegularItemsScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [items, setItems] = useState<RegularGroceryItemWithIngredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'paused'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<RegularGroceryItemWithIngredient | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      padding: spacing.sm,
+    },
+    backButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    headerTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    headerSpacer: {
+      width: 60,
+    },
+    filterContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.background.secondary,
+      gap: spacing.sm,
+    },
+    filterTab: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 8,
+      backgroundColor: colors.background.card,
+      alignItems: 'center',
+    },
+    filterTabActive: {
+      backgroundColor: colors.primary,
+    },
+    filterText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    filterTextActive: {
+      color: colors.background.card,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    section: {
+      padding: spacing.md,
+    },
+    sectionTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    itemCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    itemHeader: {
+      marginBottom: spacing.md,
+    },
+    itemTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    itemName: {
+      fontSize: typography.sizes.lg,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    overdueBadge: {
+      fontSize: typography.sizes.sm,
+      color: functionalColors.error,
+      fontWeight: '600',
+    },
+    dueSoonBadge: {
+      fontSize: typography.sizes.sm,
+      color: functionalColors.warning,
+      fontWeight: '600',
+    },
+    pausedBadge: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      fontWeight: '600',
+    },
+    itemDetails: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    itemQuantity: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    itemSeparator: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    itemFrequency: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    itemDueDate: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    itemActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    editButton: {
+      backgroundColor: colors.primary,
+    },
+    editButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.sm,
+      fontWeight: '600',
+    },
+    pauseButton: {
+      backgroundColor: functionalColors.warning,
+    },
+    pauseButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.sm,
+      fontWeight: '600',
+    },
+    deleteButton: {
+      backgroundColor: functionalColors.error,
+      flex: 0,
+      paddingHorizontal: spacing.md,
+    },
+    deleteButtonText: {
+      fontSize: typography.sizes.md,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.xl * 3,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: spacing.md,
+    },
+    emptyTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+    },
+    emptyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    addButton: {
+      backgroundColor: colors.primary,
+      margin: spacing.md,
+      paddingVertical: spacing.md,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    addButtonText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.lg,
+      fontWeight: 'bold',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadItems();
@@ -77,9 +285,9 @@ export default function RegularItemsScreen({ navigation }: Props) {
 
   const getUrgencyStatus = (item: RegularGroceryItemWithIngredient): UrgencyStatus => {
     if (!item.is_active) return 'paused';
-    
+
     if (!item.next_suggested_date) return 'good';
-    
+
     const now = new Date();
     const nextDate = new Date(item.next_suggested_date);
     const daysUntilDue = Math.ceil((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -181,11 +389,11 @@ export default function RegularItemsScreen({ navigation }: Props) {
 
   const getDaysUntilDue = (nextDate: string | null): string => {
     if (!nextDate) return 'Not scheduled';
-    
+
     const now = new Date();
     const next = new Date(nextDate);
     const days = Math.ceil((next.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (days < 0) {
       return `${Math.abs(days)} days overdue`;
     } else if (days === 0) {
@@ -391,209 +599,3 @@ export default function RegularItemsScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.medium,
-  },
-  backButton: {
-    padding: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  headerSpacer: {
-    width: 60,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: '#f9f9f9',
-    gap: spacing.sm,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  filterTabActive: {
-    backgroundColor: colors.primary,
-  },
-  filterText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    padding: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  itemHeader: {
-    marginBottom: spacing.md,
-  },
-  itemTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  itemName: {
-    fontSize: typography.sizes.lg,
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  overdueBadge: {
-    fontSize: typography.sizes.sm,
-    color: '#FF3B30',
-    fontWeight: '600',
-  },
-  dueSoonBadge: {
-    fontSize: typography.sizes.sm,
-    color: '#FF9500',
-    fontWeight: '600',
-  },
-  pausedBadge: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    fontWeight: '600',
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  itemQuantity: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  itemSeparator: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  itemFrequency: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  itemDueDate: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  editButton: {
-    backgroundColor: '#007AFF',
-  },
-  editButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.sm,
-    fontWeight: '600',
-  },
-  pauseButton: {
-    backgroundColor: '#FF9500',
-  },
-  pauseButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.sm,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    flex: 0,
-    paddingHorizontal: spacing.md,
-  },
-  deleteButtonText: {
-    fontSize: typography.sizes.md,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl * 3,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    margin: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: typography.sizes.lg,
-    fontWeight: 'bold',
-  },
-});

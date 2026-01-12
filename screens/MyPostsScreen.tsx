@@ -4,11 +4,11 @@
 // Updated: November 16, 2025
 
 import { useNavigation } from '@react-navigation/native';
-import { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useEffect, useState, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { MyPostsStackParamList } from '../App';
 import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
@@ -94,6 +94,7 @@ const COOKING_METHOD_ICON_IMAGES: { [key: string]: any } = {
 };
 
 export default function MyPostsScreen({ navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,17 +103,308 @@ export default function MyPostsScreen({ navigation }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [postLikes, setPostLikes] = useState<PostLikes>({});
   const [postComments, setPostComments] = useState<PostComments>({});
-  
+
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
   const [createMealModalVisible, setCreateMealModalVisible] = useState(false);
-  
+
   // FIXED: Moved carousel state to component level
   const [carouselIndices, setCarouselIndices] = useState<{ [postId: string]: number }>({});
-  
+
   // NEW: State to track image dimensions for aspect ratio calculation
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions>({});
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    header: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    listContainer: {
+      padding: 15,
+    },
+    postCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      marginBottom: 12,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarText: {
+      fontSize: 28,
+    },
+    headerInfo: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    userName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    methodIconSmall: {
+      width: 20,
+      height: 20,
+      marginRight: 6,
+    },
+    metaText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    menuButton: {
+      padding: 4,
+    },
+    menuButtonText: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+      lineHeight: 20,
+    },
+    photoCarouselContainer: {
+      marginHorizontal: -16,
+      marginBottom: 12,
+      position: 'relative',
+    },
+    photoSlide: {
+      width: SCREEN_WIDTH - 32,
+      // FIXED: No fixed heights - height is set dynamically per image
+      backgroundColor: '#000',
+    },
+    photoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    captionOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      padding: 12,
+    },
+    captionText: {
+      color: colors.background.card,
+      fontSize: 14,
+    },
+    photoIndicators: {
+      position: 'absolute',
+      bottom: 12,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+    },
+    indicator: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    },
+    indicatorActive: {
+      backgroundColor: colors.background.card,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    postTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      marginBottom: 6,
+    },
+    recipeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    recipeTitle: {
+      fontSize: 15,
+      color: colors.text.secondary,
+    },
+    chefName: {
+      fontSize: 15,
+      color: colors.primary,
+    },
+    ratingContainer: {
+      marginBottom: 12,
+    },
+    starsContainer: {
+      flexDirection: 'row',
+      gap: 2,
+    },
+    starSmall: {
+      fontSize: 16,
+    },
+    modificationsContainer: {
+      backgroundColor: colors.background.secondary,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    modificationsLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+    modificationsText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    likesSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+    },
+    likesSectionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      paddingRight: 8,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      marginRight: 8,
+    },
+    miniAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.background.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    miniAvatarText: {
+      fontSize: 14,
+    },
+    likesText: {
+      fontSize: 10,
+      color: colors.text.secondary,
+      fontWeight: '500',
+      flexShrink: 1,
+    },
+    commentsSectionRight: {
+      paddingVertical: 4,
+      paddingLeft: 8,
+    },
+    commentsText: {
+      fontSize: 10,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingTop: 0,
+      paddingHorizontal: '5%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    actionButton: {
+      padding: 8,
+    },
+    actionIcon: {
+      width: 30,
+      height: 30,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      color: colors.text.primary,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 10,
+      backgroundColor: colors.background.card,
+    },
+    createMealButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+    },
+    createMealButtonText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    viewMealsButton: {
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    viewMealsButtonText: {
+      color: colors.text.primary,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadUserInfo();
@@ -736,7 +1028,7 @@ export default function MyPostsScreen({ navigation }: Props) {
               }
               style={[
                 styles.actionIcon,
-                hasLike && { tintColor: colors.like }
+                hasLike && { tintColor: functionalColors.like }
               ]}
               resizeMode="contain"
             />
@@ -760,7 +1052,7 @@ export default function MyPostsScreen({ navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -839,293 +1131,3 @@ export default function MyPostsScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    padding: 15,
-  },
-  postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    fontSize: 28,
-  },
-  headerInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  methodIconSmall: {
-    width: 20,
-    height: 20,
-    marginRight: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  menuButton: {
-    padding: 4,
-  },
-  menuButtonText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#999',
-    lineHeight: 20,
-  },
-  photoCarouselContainer: {
-    marginHorizontal: -16,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  photoSlide: {
-    width: SCREEN_WIDTH - 32,
-    // FIXED: No fixed heights - height is set dynamically per image
-    backgroundColor: '#000',
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  captionOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 12,
-  },
-  captionText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  photoIndicators: {
-    position: 'absolute',
-    bottom: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  indicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  postTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 6,
-  },
-  recipeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  recipeTitle: {
-    fontSize: 15,
-    color: '#888',
-  },
-  chefName: {
-    fontSize: 15,
-    color: '#007AFF',
-  },
-  ratingContainer: {
-    marginBottom: 12,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  starSmall: {
-    fontSize: 16,
-  },
-  modificationsContainer: {
-    backgroundColor: '#f9f9f9',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  modificationsLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
-  },
-  modificationsText: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
-  },
-  likesSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  likesSectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    paddingRight: 8,
-  },
-  avatarStack: {
-    flexDirection: 'row',
-    marginRight: 8,
-  },
-  miniAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  miniAvatarText: {
-    fontSize: 14,
-  },
-  likesText: {
-    fontSize: 10,
-    color: '#666',
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  commentsSectionRight: {
-    paddingVertical: 4,
-    paddingLeft: 8,
-  },
-  commentsText: {
-    fontSize: 10,
-    color: '#666',
-    fontWeight: '500',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingTop: 0,
-    paddingHorizontal: '5%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  actionButton: {
-    padding: 8,
-  },
-  actionIcon: {
-    width: 30,
-    height: 30,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-  },
-  createMealButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  createMealButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-    headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  viewMealsButton: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  viewMealsButtonText: {
-    color: '#374151',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-});

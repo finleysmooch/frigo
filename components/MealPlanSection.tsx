@@ -3,7 +3,7 @@
 // Created: December 3, 2025
 // Updated: December 10, 2025 - Added assignment support, fixed claim bug display
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getMealPlanItems,
   claimPlanItem,
@@ -61,11 +61,305 @@ export default function MealPlanSection({
   onCookItem,
   onRefresh,
 }: MealPlanSectionProps) {
+  const { colors, functionalColors } = useTheme();
   const [planItems, setPlanItems] = useState<MealPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedItemForAssign, setSelectedItemForAssign] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      padding: 20,
+      borderTopWidth: 8,
+      borderTopColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    headerAddButton: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    progressContainer: {
+      marginBottom: 20,
+    },
+    progressBar: {
+      height: 8,
+      backgroundColor: colors.border.medium,
+      borderRadius: 4,
+      overflow: 'hidden',
+      marginBottom: 6,
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: functionalColors.success,
+      borderRadius: 4,
+    },
+    progressText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      textAlign: 'right',
+    },
+    courseGroup: {
+      marginBottom: 20,
+    },
+    courseHeader: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 10,
+      textTransform: 'uppercase',
+    },
+    planItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+    },
+    itemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    itemEmoji: {
+      fontSize: 28,
+      marginRight: 12,
+    },
+    itemInfo: {
+      flex: 1,
+    },
+    itemName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    itemMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    statusText: {
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    claimerText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    itemRight: {
+      marginLeft: 12,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    claimButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    claimButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    assignButton: {
+      backgroundColor: '#E0E7FF',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    assignButtonText: {
+      color: '#4F46E5',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    selectRecipeButton: {
+      backgroundColor: '#EFF6FF',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    selectRecipeText: {
+      color: '#3B82F6',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    cookButton: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    cookButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    releaseButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: '#FEE2E2',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    releaseButtonText: {
+      fontSize: 14,
+      color: functionalColors.error,
+      fontWeight: '600',
+    },
+    claimedBadge: {
+      backgroundColor: colors.border.medium,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    claimedText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    completedBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: '#D1FAE5',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    completedText: {
+      fontSize: 16,
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 40,
+      paddingHorizontal: 20,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 16,
+      margin: 20,
+    },
+    emptyEmoji: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginBottom: 20,
+    },
+    addButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    addButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    legend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: 16,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    legendEmoji: {
+      fontSize: 14,
+      marginRight: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+    },
+    // Modal styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      padding: 20,
+      width: '80%',
+      maxHeight: '60%',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    participantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    participantName: {
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    hostBadge: {
+      fontSize: 12,
+      color: functionalColors.warning,
+    },
+    noParticipantsText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      paddingVertical: 20,
+    },
+    cancelModalButton: {
+      marginTop: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    cancelModalText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadPlanItems();
@@ -462,296 +756,3 @@ export default function MealPlanSection({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    borderTopWidth: 8,
-    borderTopColor: '#F3F4F6',
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  headerAddButton: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  progressContainer: {
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'right',
-  },
-  courseGroup: {
-    marginBottom: 20,
-  },
-  courseHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
-  planItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  itemEmoji: {
-    fontSize: 28,
-    marginRight: 12,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  itemMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  claimerText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  itemRight: {
-    marginLeft: 12,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  claimButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  claimButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  assignButton: {
-    backgroundColor: '#E0E7FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  assignButtonText: {
-    color: '#4F46E5',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  selectRecipeButton: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  selectRecipeText: {
-    color: '#3B82F6',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  cookButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cookButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  releaseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  releaseButtonText: {
-    fontSize: 14,
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  claimedBadge: {
-    backgroundColor: '#E5E7EB',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  claimedText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  completedBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completedText: {
-    fontSize: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    margin: 20,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendEmoji: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    width: '80%',
-    maxHeight: '60%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  participantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  participantName: {
-    fontSize: 16,
-    color: '#374151',
-  },
-  hostBadge: {
-    fontSize: 12,
-    color: '#F59E0B',
-  },
-  noParticipantsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  cancelModalButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  cancelModalText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-});

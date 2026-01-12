@@ -2,7 +2,7 @@
 // NEW SCREEN: Browse all recipes from a specific book
 // Created: November 11, 2025
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,14 +16,166 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { Book, RecipeWithBook } from '../lib/types/recipeExtraction';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<any, 'BookView'>;
 
 export default function BookViewScreen({ route, navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const { bookId } = route.params;
   const [book, setBook] = useState<Book | null>(null);
   const [recipes, setRecipes] = useState<RecipeWithBook[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+    errorText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    coverImage: {
+      width: 150,
+      height: 220,
+      borderRadius: 8,
+      marginBottom: 16,
+      backgroundColor: colors.background.secondary,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    bookTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 8,
+    },
+    bookAuthor: {
+      fontSize: 18,
+      color: colors.text.secondary,
+      marginBottom: 8,
+    },
+    bookMeta: {
+      fontSize: 14,
+      color: colors.text.tertiary,
+      marginBottom: 4,
+    },
+    countContainer: {
+      padding: 20,
+      paddingBottom: 12,
+    },
+    countText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    addButton: {
+      marginHorizontal: 20,
+      marginBottom: 20,
+      padding: 16,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+    },
+    addButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    recipesContainer: {
+      padding: 20,
+      paddingTop: 0,
+    },
+    emptyState: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyStateText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+      marginBottom: 8,
+    },
+    emptyStateSubtext: {
+      fontSize: 14,
+      color: colors.text.placeholder,
+      textAlign: 'center',
+    },
+    recipeCard: {
+      flexDirection: 'row',
+      marginBottom: 16,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      overflow: 'hidden',
+    },
+    recipeImage: {
+      width: 100,
+      height: 100,
+      backgroundColor: colors.background.secondary,
+    },
+    recipeInfo: {
+      flex: 1,
+      padding: 12,
+    },
+    recipeHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 4,
+    },
+    recipeTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      flex: 1,
+    },
+    recipePage: {
+      fontSize: 12,
+      color: colors.primary,
+      marginLeft: 8,
+    },
+    recipeDescription: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 8,
+    },
+    recipeStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    recipeStat: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      marginRight: 12,
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadBookData();
@@ -80,7 +232,7 @@ export default function BookViewScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading book...</Text>
       </View>
     );
@@ -193,153 +345,3 @@ export default function BookViewScreen({ route, navigation }: Props) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  coverImage: {
-    width: 150,
-    height: 220,
-    borderRadius: 8,
-    marginBottom: 16,
-    backgroundColor: '#f0f0f0',
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  bookTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  bookAuthor: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 8,
-  },
-  bookMeta: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 4,
-  },
-  countContainer: {
-    padding: 20,
-    paddingBottom: 12,
-  },
-  countText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  addButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  recipesContainer: {
-    padding: 20,
-    paddingTop: 0,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#999',
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#bbb',
-    textAlign: 'center',
-  },
-  recipeCard: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    overflow: 'hidden',
-  },
-  recipeImage: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#f0f0f0',
-  },
-  recipeInfo: {
-    flex: 1,
-    padding: 12,
-  },
-  recipeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  recipeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  recipePage: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginLeft: 8,
-  },
-  recipeDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  recipeStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recipeStat: {
-    fontSize: 12,
-    color: '#999',
-    marginRight: 12,
-  },
-});

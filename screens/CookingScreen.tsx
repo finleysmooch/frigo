@@ -2,12 +2,12 @@
 // Updated: December 3, 2025
 // Added: Meal plan integration - links completed dishes to plan items
 
-import { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
+import { useState, useEffect, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert
@@ -19,14 +19,109 @@ import { supabase } from '../lib/supabase';
 import PostCreationModal, { PostData } from '../components/PostCreationModal';
 import { RecipesStackParamList } from '../App';
 import { completePlanItem } from '../lib/services/mealPlanService';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'Cooking'>;
 
 export default function CookingScreen({ route, navigation }: Props) {
+  const { colors, functionalColors } = useTheme();
   const { recipe, planItemId, mealId, mealTitle } = route.params;
   const [showPostModal, setShowPostModal] = useState(false);
-  
+
   useKeepAwake();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    cookingContainer: {
+      flex: 1,
+      padding: 20,
+    },
+    headerBackButton: {
+      marginBottom: 10,
+    },
+    backButtonText: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    mealBanner: {
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 10,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+    },
+    mealBannerText: {
+      fontSize: 15,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    cookingTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: colors.text.primary,
+    },
+    timeInfo: {
+      backgroundColor: colors.background.secondary,
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 20,
+    },
+    timeText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    section: {
+      marginBottom: 30,
+    },
+    sectionTitle: {
+      fontSize: 22,
+      fontWeight: '600',
+      marginBottom: 15,
+      color: colors.text.primary,
+    },
+    ingredient: {
+      fontSize: 18,
+      lineHeight: 28,
+      color: colors.text.primary,
+      marginBottom: 5,
+    },
+    instructionContainer: {
+      flexDirection: 'row',
+      marginBottom: 20,
+    },
+    stepNumber: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.primary,
+      marginRight: 15,
+      width: 25,
+    },
+    instruction: {
+      fontSize: 18,
+      lineHeight: 26,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    finishButton: {
+      backgroundColor: functionalColors.success,
+      padding: 20,
+      borderRadius: 10,
+      marginVertical: 30,
+    },
+    finishButtonText: {
+      color: 'white',
+      fontSize: 20,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+  }), [colors, functionalColors]);
 
   const handleFinishCooking = () => {
     setShowPostModal(true);
@@ -230,95 +325,3 @@ export default function CookingScreen({ route, navigation }: Props) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  cookingContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  headerBackButton: {
-    marginBottom: 10,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  mealBanner: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  mealBannerText: {
-    fontSize: 15,
-    color: '#1E40AF',
-    fontWeight: '500',
-  },
-  cookingTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  timeInfo: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  timeText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 15,
-    color: '#333',
-  },
-  ingredient: {
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#444',
-    marginBottom: 5,
-  },
-  instructionContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  stepNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginRight: 15,
-    width: 25,
-  },
-  instruction: {
-    fontSize: 18,
-    lineHeight: 26,
-    color: '#444',
-    flex: 1,
-  },
-  finishButton: {
-    backgroundColor: '#34C759',
-    padding: 20,
-    borderRadius: 10,
-    marginVertical: 30,
-  },
-  finishButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});

@@ -3,7 +3,7 @@
 // Created: December 10, 2025
 // Updated: December 12, 2025 - Fixed property names to match updated service
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getRecipesWithTag,
   removeFromCookSoon,
@@ -30,10 +30,173 @@ interface CookSoonScreenProps {
 }
 
 export default function CookSoonScreen({ navigation }: CookSoonScreenProps) {
+  const { colors } = useTheme();
   const [recipes, setRecipes] = useState<TaggedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    backButton: {
+      width: 60,
+    },
+    backButtonText: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    listContent: {
+      padding: 16,
+    },
+    listHeader: {
+      marginBottom: 12,
+    },
+    listHeaderText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    recipeCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    recipeImageContainer: {
+      width: 70,
+      height: 70,
+      borderRadius: 10,
+      overflow: 'hidden',
+      backgroundColor: colors.background.secondary,
+    },
+    recipeImage: {
+      width: '100%',
+      height: '100%',
+    },
+    recipeImagePlaceholder: {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#FEF3C7',
+    },
+    recipeImagePlaceholderText: {
+      fontSize: 28,
+    },
+    recipeInfo: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    recipeTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    recipeMeta: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    recipeType: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginTop: 1,
+    },
+    addedDate: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginTop: 4,
+    },
+    recipeActions: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    cookButton: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    cookButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    removeButton: {
+      padding: 4,
+    },
+    removeButtonText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+    separator: {
+      height: 10,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    browseButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    browseButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -244,165 +407,3 @@ export default function CookSoonScreen({ navigation }: CookSoonScreenProps) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    width: 60,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: colors.primary,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  listContent: {
-    padding: 16,
-  },
-  listHeader: {
-    marginBottom: 12,
-  },
-  listHeaderText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  recipeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  recipeImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-  },
-  recipeImage: {
-    width: '100%',
-    height: '100%',
-  },
-  recipeImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-  },
-  recipeImagePlaceholderText: {
-    fontSize: 28,
-  },
-  recipeInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  recipeTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111',
-    lineHeight: 20,
-  },
-  recipeMeta: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  recipeType: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 1,
-  },
-  addedDate: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-  recipeActions: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  cookButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cookButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  removeButton: {
-    padding: 4,
-  },
-  removeButtonText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-  },
-  separator: {
-    height: 10,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  browseButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  browseButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

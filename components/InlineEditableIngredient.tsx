@@ -1,7 +1,7 @@
 // components/InlineEditableIngredient.tsx
 // Inline ingredient editor - shows original text in editable field
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Keyboard
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface InlineEditableIngredientProps {
   originalText: string;
@@ -24,8 +25,73 @@ export default function InlineEditableIngredient({
   onCancel,
   hasSufficient = false
 }: InlineEditableIngredientProps) {
+  const { colors, functionalColors } = useTheme();
   const [text, setText] = useState(originalText);
   const inputRef = useRef<TextInput>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+    },
+    ingredientRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    checkmarkHave: {
+      fontSize: 16,
+      color: functionalColors.success,
+      marginRight: 8,
+      width: 20,
+    },
+    checkmarkNeed: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      marginRight: 8,
+      width: 20,
+    },
+    input: {
+      flex: 1,
+      fontSize: 16,
+      lineHeight: 22,
+      backgroundColor: colors.background.card,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 6,
+      padding: 8,
+      minHeight: 44,
+      color: colors.text.primary,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    button: {
+      flex: 1,
+      padding: 10,
+      borderRadius: 6,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.border.medium,
+    },
+    cancelButtonText: {
+      color: colors.text.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     // Auto-focus when component mounts
@@ -85,66 +151,3 @@ export default function InlineEditableIngredient({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  ingredientRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  checkmarkHave: {
-    fontSize: 16,
-    color: '#34C759',
-    marginRight: 8,
-    width: 20,
-  },
-  checkmarkNeed: {
-    fontSize: 16,
-    color: '#ccc',
-    marginRight: 8,
-    width: 20,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderRadius: 6,
-    padding: 8,
-    minHeight: 44,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});

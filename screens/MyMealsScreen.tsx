@@ -19,7 +19,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { MealWithDetails, getMealDishes, DishInMeal, CourseType } from '../lib/services/mealService';
 import { getMealPlanSummary, getMealPlanItems, MealPlanSummary, MealPlanItem } from '../lib/services/mealPlanService';
 import { getRecipesWithTag } from '../lib/services/userRecipeTagsService';
@@ -72,6 +72,7 @@ const getLocalDateKey = (date: Date): string => {
 };
 
 export default function MyMealsScreen({ navigation, route }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [meals, setMeals] = useState<MealWithPlanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -413,6 +414,481 @@ export default function MyMealsScreen({ navigation, route }: Props) {
   const completedMeals = useMemo(() => meals.filter(m => m.meal_status === 'completed'), [meals]);
   const displayMeals = activeTab === 'planning' ? planningMeals : completedMeals;
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 56,
+      paddingBottom: 12,
+      backgroundColor: colors.background.card,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    headerButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    headerButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    viewModeContainer: {
+      flexDirection: 'row',
+      backgroundColor: colors.background.tertiary,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      borderRadius: 8,
+      padding: 3,
+    },
+    viewModeButton: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: 6,
+      alignItems: 'center',
+    },
+    viewModeButtonActive: {
+      backgroundColor: colors.background.card,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    viewModeText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    viewModeTextActive: {
+      color: colors.text.primary,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingBottom: 8,
+      gap: 8,
+    },
+    tab: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: colors.background.tertiary,
+    },
+    tabActive: {
+      backgroundColor: colors.primaryLight,
+    },
+    tabText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.secondary,
+    },
+    tabTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    listContent: {
+      padding: 16,
+      paddingBottom: 100,
+    },
+    emptyListContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+    },
+    mealCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 10,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 8,
+    },
+    mealInfo: {
+      flex: 1,
+      marginRight: 8,
+    },
+    mealTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    metaText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+    },
+    statusPlanning: {
+      backgroundColor: functionalColors.warning.light,
+    },
+    statusCompleted: {
+      backgroundColor: functionalColors.success.light,
+    },
+    statusText: {
+      fontSize: 12,
+    },
+    planProgress: {
+      marginBottom: 8,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      padding: 8,
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: colors.border.light,
+      borderRadius: 2,
+      marginBottom: 4,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: functionalColors.success.main,
+      borderRadius: 2,
+    },
+    planStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    planStatText: {
+      fontSize: 10,
+      color: colors.text.secondary,
+    },
+    planStatValue: {
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+    },
+    stat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    statEmoji: {
+      fontSize: 14,
+      marginRight: 2,
+    },
+    statValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    statDivider: {
+      width: 1,
+      height: 16,
+      backgroundColor: colors.border.light,
+      marginHorizontal: 12,
+    },
+    emptyState: {
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyEmoji: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 6,
+    },
+    emptyText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 20,
+    },
+    createButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+    },
+    createButtonText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    // Calendar view styles
+    calendarScrollView: {
+      flex: 1,
+    },
+    // Selected Day Section Styles (compact)
+    selectedDaySection: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 12,
+      marginHorizontal: 16,
+      marginTop: 8,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    selectedDayHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+      gap: 8,
+    },
+    selectedDayDate: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    todayBadge: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+    },
+    todayBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.background.card,
+    },
+    selectedDayMeals: {
+      gap: 8,
+    },
+    selectedDayMealCard: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: 10,
+      padding: 10,
+    },
+    selectedDayMealHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    selectedMealEmoji: {
+      fontSize: 20,
+      marginRight: 8,
+    },
+    selectedMealInfo: {
+      flex: 1,
+    },
+    selectedMealTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    selectedMealMeta: {
+      fontSize: 11,
+      color: colors.text.secondary,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    statusDotPlanning: {
+      backgroundColor: functionalColors.warning.main,
+    },
+    statusDotCompleted: {
+      backgroundColor: functionalColors.success.main,
+    },
+    planItemsList: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+    },
+    planItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 3,
+    },
+    planItemEmoji: {
+      fontSize: 12,
+      marginRight: 6,
+    },
+    planItemName: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.text.primary,
+      fontWeight: '500',
+    },
+    planItemPerson: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      marginLeft: 4,
+      maxWidth: 80,
+    },
+    planItemStatus: {
+      fontSize: 11,
+      marginLeft: 4,
+      width: 16,
+      textAlign: 'center',
+    },
+    dishList: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+    },
+    dishListItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 2,
+    },
+    dishListBullet: {
+      fontSize: 10,
+      color: colors.text.tertiary,
+      marginRight: 4,
+    },
+    dishListName: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.text.primary,
+    },
+    dishListCourse: {
+      fontSize: 10,
+      marginLeft: 4,
+    },
+    moreItems: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      marginTop: 2,
+    },
+    noItemsText: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      marginTop: 6,
+    },
+    addAnotherMealButton: {
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    addAnotherMealText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.primary,
+    },
+    noMealsForDay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    noMealsText: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+    },
+    addMealButtonSmall: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 14,
+    },
+    addMealButtonSmallText: {
+      color: colors.background.card,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    // Upcoming section
+    upcomingSection: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 12,
+      marginHorizontal: 16,
+      marginTop: 8,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    upcomingSectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    upcomingItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    upcomingDate: {
+      backgroundColor: colors.primaryLight,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      marginRight: 10,
+    },
+    upcomingDateText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    upcomingInfo: {
+      flex: 1,
+    },
+    upcomingTitle: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    upcomingMeta: {
+      fontSize: 11,
+      color: colors.text.secondary,
+    },
+    upcomingArrow: {
+      fontSize: 18,
+      color: colors.text.tertiary,
+      marginLeft: 4,
+    },
+    noUpcoming: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+      paddingVertical: 8,
+    },
+  }), [colors, functionalColors]);
+
   // Prepare meals for calendar view (simplified format)
   const calendarMeals = useMemo(() => meals.map(m => ({
     id: m.id,
@@ -648,8 +1124,8 @@ export default function MyMealsScreen({ navigation, route }: Props) {
                                           item.status === 'claimed' ? '✓' :
                                           item.status === 'assigned' ? '→' : '⏳';
                         
-                        const statusColor = item.status === 'unclaimed' ? '#F59E0B' :
-                                           item.status === 'completed' ? '#10B981' : '#6B7280';
+                        const statusColor = item.status === 'unclaimed' ? functionalColors.warning.main :
+                                           item.status === 'completed' ? functionalColors.success.main : colors.text.secondary;
                         
                         return (
                           <View key={item.id} style={styles.planItemRow}>
@@ -662,7 +1138,7 @@ export default function MyMealsScreen({ navigation, route }: Props) {
                                 ({responsibleName})
                               </Text>
                             ) : (
-                              <Text style={[styles.planItemPerson, { color: '#F59E0B' }]}>
+                              <Text style={[styles.planItemPerson, { color: functionalColors.warning.main }]}>
                                 (needs someone)
                               </Text>
                             )}
@@ -930,478 +1406,3 @@ export default function MyMealsScreen({ navigation, route }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    backgroundColor: 'white',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111',
-  },
-  headerButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  headerButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  viewModeContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    padding: 3,
-  },
-  viewModeButton: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  viewModeButtonActive: {
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  viewModeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  viewModeTextActive: {
-    color: '#111',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  tab: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-  },
-  tabActive: {
-    backgroundColor: '#EFF6FF',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  tabTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  emptyListContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  mealCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  mealInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  mealTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  statusPlanning: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusCompleted: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusText: {
-    fontSize: 12,
-  },
-  planProgress: {
-    marginBottom: 8,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 8,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 2,
-  },
-  planStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  planStatText: {
-    fontSize: 10,
-    color: '#6B7280',
-  },
-  planStatValue: {
-    fontWeight: '600',
-    color: '#374151',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statEmoji: {
-    fontSize: 14,
-    marginRight: 2,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111',
-  },
-  statDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 12,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 6,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  createButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  createButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Calendar view styles
-  calendarScrollView: {
-    flex: 1,
-  },
-  // Selected Day Section Styles (compact)
-  selectedDaySection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  selectedDayHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  selectedDayDate: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111',
-  },
-  todayBadge: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  todayBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'white',
-  },
-  selectedDayMeals: {
-    gap: 8,
-  },
-  selectedDayMealCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    padding: 10,
-  },
-  selectedDayMealHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectedMealEmoji: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  selectedMealInfo: {
-    flex: 1,
-  },
-  selectedMealTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111',
-  },
-  selectedMealMeta: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusDotPlanning: {
-    backgroundColor: '#F59E0B',
-  },
-  statusDotCompleted: {
-    backgroundColor: '#10B981',
-  },
-  planItemsList: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  planItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  planItemEmoji: {
-    fontSize: 12,
-    marginRight: 6,
-  },
-  planItemName: {
-    flex: 1,
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  planItemPerson: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginLeft: 4,
-    maxWidth: 80,
-  },
-  planItemStatus: {
-    fontSize: 11,
-    marginLeft: 4,
-    width: 16,
-    textAlign: 'center',
-  },
-  dishList: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  dishListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  dishListBullet: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginRight: 4,
-  },
-  dishListName: {
-    flex: 1,
-    fontSize: 12,
-    color: '#374151',
-  },
-  dishListCourse: {
-    fontSize: 10,
-    marginLeft: 4,
-  },
-  moreItems: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  noItemsText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    marginTop: 6,
-  },
-  addAnotherMealButton: {
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  addAnotherMealText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.primary,
-  },
-  noMealsForDay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  noMealsText: {
-    fontSize: 13,
-    color: '#9CA3AF',
-  },
-  addMealButtonSmall: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  addMealButtonSmallText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // Upcoming section
-  upcomingSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  upcomingSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 8,
-  },
-  upcomingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  upcomingDate: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginRight: 10,
-  },
-  upcomingDateText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  upcomingInfo: {
-    flex: 1,
-  },
-  upcomingTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  upcomingMeta: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-  upcomingArrow: {
-    fontSize: 18,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  noUpcoming: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-});

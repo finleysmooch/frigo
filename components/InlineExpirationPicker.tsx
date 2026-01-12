@@ -4,10 +4,11 @@
 // Dual scroll picker for expiration that renders inline (no modal)
 // Location: components/InlineExpirationPicker.tsx
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { colors, typography, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius } from '../lib/theme';
 import { EXPIRATION_UNITS } from '../constants/pantry';
 import { getDaysUntilExpiration } from '../utils/pantryHelpers';
 
@@ -22,6 +23,8 @@ export default function InlineExpirationPicker({
   onSave,
   onCancel,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+
   // Convert current expiration to number and unit
   const initialDays = currentExpiration ? getDaysUntilExpiration(currentExpiration) : 7;
   
@@ -41,6 +44,63 @@ export default function InlineExpirationPicker({
 
   const [selectedNumber, setSelectedNumber] = useState(initialNumber);
   const [selectedUnit, setSelectedUnit] = useState(initialUnit);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      width: '100%',
+    },
+    title: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    pickersContainer: {
+      flexDirection: 'row',
+      marginBottom: spacing.md,
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      overflow: 'hidden',
+    },
+    pickerWrapper: {
+      flex: 1,
+    },
+    picker: {
+      height: 150,
+    },
+    pickerItem: {
+      fontSize: typography.sizes.lg,
+      height: 150,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.background.tertiary,
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.primary,
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     let totalDays = selectedNumber;
@@ -119,60 +179,3 @@ export default function InlineExpirationPicker({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  title: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  pickersContainer: {
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-  },
-  pickerWrapper: {
-    flex: 1,
-  },
-  picker: {
-    height: 150,
-  },
-  pickerItem: {
-    fontSize: typography.sizes.lg,
-    height: 150,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    backgroundColor: colors.background.tertiary,
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-  },
-  saveButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.background.primary,
-  },
-});

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -19,9 +20,77 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: LoginScreenProps) {
+  const { colors, functionalColors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    title: {
+      fontSize: 48,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 8,
+      color: colors.text.primary,
+    },
+    subtitle: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 48,
+      color: colors.text.secondary,
+    },
+    form: {
+      gap: 16,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 16,
+      fontSize: 16,
+      backgroundColor: colors.background.card,
+      color: colors.text.primary,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    signupLink: {
+      marginTop: 16,
+      alignItems: 'center',
+    },
+    signupText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    signupTextBold: {
+      fontWeight: '600',
+      color: colors.primary,
+    },
+  }), [colors, functionalColors]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -70,7 +139,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
@@ -82,7 +151,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -93,26 +162,26 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
             <TextInput
               style={styles.input}
               placeholder="Password"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
             />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.background.card} />
               ) : (
                 <Text style={styles.buttonText}>Log In</Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.signupLink}
               onPress={onNavigateToSignup}
             >
@@ -126,69 +195,3 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 48,
-    color: '#666',
-  },
-  form: {
-    gap: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#FC4C02',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  signupLink: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  signupText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  signupTextBold: {
-    fontWeight: '600',
-    color: '#FC4C02',
-  },
-});

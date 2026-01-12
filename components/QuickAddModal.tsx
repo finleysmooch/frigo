@@ -4,7 +4,7 @@
 // Fast ingredient selection with live search and emoji grid
 // Location: components/QuickAddModal.tsx
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -18,7 +18,8 @@ import {
   Platform
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 interface BaseIngredient {
   id: string;
@@ -49,12 +50,13 @@ interface Props {
   categoryFilter?: string | null;
 }
 
-export default function QuickAddModal({ 
-  visible, 
-  onClose, 
+export default function QuickAddModal({
+  visible,
+  onClose,
   onSelectIngredient,
-  categoryFilter 
+  categoryFilter
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [baseIngredients, setBaseIngredients] = useState<BaseIngredient[]>([]);
@@ -265,6 +267,244 @@ export default function QuickAddModal({
     setSearchResults([]);
     setSearching(false);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      height: '85%',
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      flex: 1,
+      textAlign: 'center',
+    },
+    backButton: {
+      paddingRight: spacing.sm,
+    },
+    backButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+    },
+
+    // Search Container
+    searchContainer: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+      backgroundColor: colors.background.card,
+    },
+    searchInputWrapper: {
+      position: 'relative',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    searchInput: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      paddingRight: spacing.xxxl,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    clearButton: {
+      position: 'absolute',
+      right: spacing.md,
+      width: 24,
+      height: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.border.medium,
+      borderRadius: borderRadius.round,
+    },
+    clearButtonText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      fontWeight: typography.weights.bold,
+    },
+    searchingIndicator: {
+      position: 'absolute',
+      right: spacing.xl + spacing.md,
+    },
+
+    // Content Area
+    contentArea: {
+      flex: 1,
+    },
+
+    // Search Results
+    searchResultsList: {
+      padding: spacing.md,
+    },
+    searchResultItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      ...shadows.small,
+    },
+    searchResultContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    searchResultEmoji: {
+      fontSize: typography.sizes.xxl,
+      marginRight: spacing.md,
+    },
+    searchResultInfo: {
+      flex: 1,
+    },
+    searchResultName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    searchResultCategory: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    searchResultArrow: {
+      fontSize: typography.sizes.lg,
+      color: colors.text.tertiary,
+      marginLeft: spacing.sm,
+    },
+
+    // Base Ingredient Grid
+    gridContainer: {
+      padding: spacing.md,
+    },
+    gridRow: {
+      justifyContent: 'space-between',
+      marginBottom: spacing.sm,
+    },
+    ingredientCard: {
+      width: '23%',
+      aspectRatio: 1,
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      padding: spacing.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.small,
+    },
+    ingredientEmoji: {
+      fontSize: 32,
+      marginBottom: spacing.xs,
+    },
+    ingredientName: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.primary,
+      textAlign: 'center',
+      fontWeight: typography.weights.medium,
+    },
+    variantIndicator: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
+      marginTop: spacing.xs,
+    },
+
+    // Variant List
+    variantList: {
+      padding: spacing.lg,
+    },
+    variantItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.sm,
+      ...shadows.small,
+    },
+    variantName: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+      flex: 1,
+    },
+    variantArrow: {
+      fontSize: typography.sizes.lg,
+      color: colors.text.tertiary,
+    },
+
+    // Loading & Empty States
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.xxxl,
+    },
+    searchingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.xxxl,
+    },
+    searchingText: {
+      marginTop: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.xxxl,
+      paddingHorizontal: spacing.lg,
+    },
+    emptyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+      marginBottom: spacing.xs,
+    },
+    emptySubtext: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+  }), [colors, functionalColors]);
 
   // Render search result item
   const renderSearchResult = ({ item }: { item: SearchResult }) => (
@@ -538,241 +778,3 @@ export default function QuickAddModal({
     return '📦';
   }
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    height: '85%',
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  headerTitle: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    flex: 1,
-    textAlign: 'center',
-  },
-  backButton: {
-    paddingRight: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-  },
-  
-  // Search Container
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-    backgroundColor: colors.background.primary,
-  },
-  searchInputWrapper: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    paddingRight: spacing.xxxl,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  clearButton: {
-    position: 'absolute',
-    right: spacing.md,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.border.medium,
-    borderRadius: borderRadius.round,
-  },
-  clearButtonText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    fontWeight: typography.weights.bold,
-  },
-  searchingIndicator: {
-    position: 'absolute',
-    right: spacing.xl + spacing.md,
-  },
-
-  // Content Area
-  contentArea: {
-    flex: 1,
-  },
-  
-  // Search Results
-  searchResultsList: {
-    padding: spacing.md,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.small,
-  },
-  searchResultContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  searchResultEmoji: {
-    fontSize: typography.sizes.xxl,
-    marginRight: spacing.md,
-  },
-  searchResultInfo: {
-    flex: 1,
-  },
-  searchResultName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  searchResultCategory: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  searchResultArrow: {
-    fontSize: typography.sizes.lg,
-    color: colors.text.tertiary,
-    marginLeft: spacing.sm,
-  },
-  
-  // Base Ingredient Grid
-  gridContainer: {
-    padding: spacing.md,
-  },
-  gridRow: {
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  ingredientCard: {
-    width: '23%',
-    aspectRatio: 1,
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.small,
-  },
-  ingredientEmoji: {
-    fontSize: 32,
-    marginBottom: spacing.xs,
-  },
-  ingredientName: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.primary,
-    textAlign: 'center',
-    fontWeight: typography.weights.medium,
-  },
-  variantIndicator: {
-    fontSize: typography.sizes.xs,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  
-  // Variant List
-  variantList: {
-    padding: spacing.lg,
-  },
-  variantItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    ...shadows.small,
-  },
-  variantName: {
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    fontWeight: typography.weights.medium,
-    flex: 1,
-  },
-  variantArrow: {
-    fontSize: typography.sizes.lg,
-    color: colors.text.tertiary,
-  },
-  
-  // Loading & Empty States
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  searchingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  searchingText: {
-    marginTop: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.lg,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  emptySubtext: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.quaternary,
-    textAlign: 'center',
-  },
-});

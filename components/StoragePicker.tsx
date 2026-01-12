@@ -5,11 +5,12 @@
 // Triggers smart prompts when moving items
 // Location: components/StoragePicker.tsx
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { StorageLocation } from '../lib/types/pantry';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 import { STORAGE_LOCATIONS } from '../constants/pantry';
 
 interface Props {
@@ -25,7 +26,56 @@ export default function StoragePicker({
   onClose,
   onSave,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   const [selectedStorage, setSelectedStorage] = useState<StorageLocation>(currentStorage);
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    saveButton: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    pickerContainer: {
+      paddingVertical: spacing.md,
+    },
+    picker: {
+      height: 200,
+    },
+    pickerItem: {
+      fontSize: typography.sizes.xl,
+      height: 200,
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     onSave(selectedStorage);
@@ -81,51 +131,3 @@ export default function StoragePicker({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  cancelButton: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  saveButton: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  pickerContainer: {
-    paddingVertical: spacing.md,
-  },
-  picker: {
-    height: 200,
-  },
-  pickerItem: {
-    fontSize: typography.sizes.xl,
-    height: 200,
-  },
-});

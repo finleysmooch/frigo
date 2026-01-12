@@ -5,8 +5,10 @@
 // Options: Keep in original location, Mark as used, Mark as discarded
 // Location: components/RemainderPrompt.tsx
 
+import { useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 export type RemainderAction = 'keep' | 'used' | 'discarded';
 
@@ -29,6 +31,84 @@ export default function RemainderPrompt({
   onClose,
   onSelect,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.xl,
+      width: '100%',
+      maxWidth: 400,
+      ...shadows.large,
+    },
+    header: {
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+    optionsContainer: {
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    optionButton: {
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    optionContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    optionEmoji: {
+      fontSize: typography.sizes.xxxl,
+    },
+    optionText: {
+      flex: 1,
+    },
+    optionTitle: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    optionDescription: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    cancelButton: {
+      padding: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+  }), [colors, functionalColors]);
+
   const handleSelect = (action: RemainderAction) => {
     onSelect(action);
     onClose();
@@ -118,79 +198,3 @@ export default function RemainderPrompt({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  container: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
-    width: '100%',
-    maxWidth: 400,
-    ...shadows.large,
-  },
-  header: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-  },
-  optionsContainer: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  optionButton: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  optionEmoji: {
-    fontSize: typography.sizes.xxxl,
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  optionDescription: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  cancelButton: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-  },
-});

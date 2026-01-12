@@ -2,7 +2,7 @@
 // Combined date/time picker with spinner and calendar views
 // Created: December 10, 2025
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -51,9 +51,259 @@ export default function DateTimePicker({
   maximumDate,
   mode = 'datetime',
 }: DateTimePickerProps) {
+  const { colors, functionalColors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'spinner'>('calendar');
   const [calendarMonth, setCalendarMonth] = useState(initialDate || new Date());
+
+  const DAY_SIZE = (SCREEN_WIDTH - 80) / 7;
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: 40,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    confirmText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    selectedDisplay: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      backgroundColor: colors.background.secondary,
+    },
+    selectedText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    viewModeToggle: {
+      flexDirection: 'row',
+      marginHorizontal: 20,
+      marginTop: 16,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 10,
+      padding: 4,
+    },
+    viewModeButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    viewModeButtonActive: {
+      backgroundColor: colors.background.card,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    viewModeText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text.secondary,
+    },
+    viewModeTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    calendarContainer: {
+      padding: 20,
+    },
+    monthNav: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    navButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    navButtonText: {
+      fontSize: 24,
+      fontWeight: '300',
+      color: colors.text.primary,
+    },
+    monthTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    weekdayRow: {
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    weekdayText: {
+      width: DAY_SIZE,
+      textAlign: 'center',
+      fontSize: 12,
+      fontWeight: '500',
+      color: colors.text.tertiary,
+    },
+    calendarGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    dayCell: {
+      width: DAY_SIZE,
+      height: DAY_SIZE,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayButton: {
+      width: DAY_SIZE - 8,
+      height: DAY_SIZE - 8,
+      borderRadius: (DAY_SIZE - 8) / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayText: {
+      fontSize: 15,
+      color: colors.text.primary,
+    },
+    selectedDay: {
+      backgroundColor: colors.primary,
+    },
+    selectedDayText: {
+      color: colors.background.card,
+      fontWeight: '600',
+    },
+    todayDay: {
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    todayDayText: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    disabledDay: {
+      opacity: 0.3,
+    },
+    disabledDayText: {
+      color: colors.text.tertiary,
+    },
+    spinnerViewContainer: {
+      padding: 20,
+    },
+    dateSpinners: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+    },
+    spinnerContainer: {
+      height: ITEM_HEIGHT * VISIBLE_ITEMS,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    selectionHighlight: {
+      position: 'absolute',
+      top: ITEM_HEIGHT,
+      left: 0,
+      right: 0,
+      height: ITEM_HEIGHT,
+      backgroundColor: '#EFF6FF',
+      borderRadius: 8,
+    },
+    spinnerItem: {
+      height: ITEM_HEIGHT,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    spinnerText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+    },
+    spinnerTextSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 18,
+    },
+    timeContainer: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+    },
+    timeLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    timeSpinners: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 4,
+    },
+    timeSeparator: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    quickOptions: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+    },
+    quickLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.secondary,
+      marginBottom: 8,
+    },
+    quickButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    quickButton: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+    },
+    quickButtonText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+  }), [colors, functionalColors, DAY_SIZE]);
 
   // Spinner values
   const [selectedHour, setSelectedHour] = useState(
@@ -464,252 +714,3 @@ export default function DateTimePicker({
     </Modal>
   );
 }
-
-const DAY_SIZE = (SCREEN_WIDTH - 80) / 7;
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cancelText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  confirmText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  selectedDisplay: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#F9FAFB',
-  },
-  selectedText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  viewModeToggle: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginTop: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 4,
-  },
-  viewModeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  viewModeButtonActive: {
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  viewModeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  viewModeTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  calendarContainer: {
-    padding: 20,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  navButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navButtonText: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: '#374151',
-  },
-  monthTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#111',
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  weekdayText: {
-    width: DAY_SIZE,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#9CA3AF',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  dayCell: {
-    width: DAY_SIZE,
-    height: DAY_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayButton: {
-    width: DAY_SIZE - 8,
-    height: DAY_SIZE - 8,
-    borderRadius: (DAY_SIZE - 8) / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayText: {
-    fontSize: 15,
-    color: '#374151',
-  },
-  selectedDay: {
-    backgroundColor: colors.primary,
-  },
-  selectedDayText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  todayDay: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  todayDayText: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  disabledDay: {
-    opacity: 0.3,
-  },
-  disabledDayText: {
-    color: '#9CA3AF',
-  },
-  spinnerViewContainer: {
-    padding: 20,
-  },
-  dateSpinners: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  spinnerContainer: {
-    height: ITEM_HEIGHT * VISIBLE_ITEMS,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  selectionHighlight: {
-    position: 'absolute',
-    top: ITEM_HEIGHT,
-    left: 0,
-    right: 0,
-    height: ITEM_HEIGHT,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-  },
-  spinnerItem: {
-    height: ITEM_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  spinnerText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-  },
-  spinnerTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 18,
-  },
-  timeContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  timeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  timeSpinners: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  timeSeparator: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  quickOptions: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  quickLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  quickButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-  },
-  quickButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-});

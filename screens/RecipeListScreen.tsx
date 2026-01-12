@@ -4,12 +4,12 @@
 // - Changed from "Tap to Select" badge to proper "Select" button
 // - Tapping card goes to recipe details, button selects for meal
 
-import { useEffect, useState, useCallback } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  FlatList, 
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
@@ -22,7 +22,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import FilterDrawer from '../components/FilterDrawer';
 import { AddRecipeModal } from '../components/AddRecipeModal';
 import { searchRecipesByMixedTerms } from '../lib/searchService';
@@ -63,6 +63,7 @@ interface QuickFilter {
 }
 
 export default function RecipeListScreen({ navigation, route }: Props) {
+  const { colors } = useTheme();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,12 +71,12 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   // Selection mode state - use local state that gets set from params
   // This allows us to reset it when navigating normally
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectionFormData, setSelectionFormData] = useState<any>(null);
-  
+
   // Quick filters state
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
     { id: 'quick30', label: 'Under 30m', icon: '⏱️', active: false },
@@ -90,6 +91,350 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   // Smart counts
   const [pinnedCount, setPinnedCount] = useState(0);
   const [canMakeCount, setCanMakeCount] = useState(0);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    headerContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 15,
+    },
+    header: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    // Selection mode header styles
+    cancelText: {
+      fontSize: 16,
+      color: colors.primary,
+      width: 70,
+    },
+    selectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    addButton: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        },
+        android: {
+          elevation: 5,
+        },
+      }),
+    },
+    addButtonIcon: {
+      fontSize: 32,
+      color: colors.background.card,
+      fontWeight: '300',
+      lineHeight: 32,
+    },
+    moreButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      position: 'relative',
+    },
+    moreButtonIcon: {
+      fontSize: 16,
+      marginRight: 4,
+    },
+    moreButtonText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    filterBadge: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+    },
+    filterBadgeText: {
+      color: colors.background.card,
+      fontSize: 11,
+      fontWeight: 'bold',
+    },
+
+    quickFiltersContainer: {
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    quickFiltersScroll: {
+      paddingHorizontal: 15,
+      gap: 8,
+    },
+    quickFilterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    quickFilterChipActive: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    quickFilterIcon: {
+      fontSize: 16,
+      marginRight: 4,
+    },
+    quickFilterLabel: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    quickFilterLabelActive: {
+      color: colors.text.primary,
+      fontWeight: '600',
+    },
+    clearFiltersChip: {
+      backgroundColor: '#FF3B30',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+    },
+    clearFiltersText: {
+      color: colors.background.card,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    statusBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      backgroundColor: colors.background.secondary,
+    },
+    statusText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: '600',
+    },
+    statusDot: {
+      fontSize: 14,
+      color: colors.text.tertiary,
+    },
+
+    listContainer: {
+      padding: 15,
+      paddingBottom: 10,
+    },
+    card: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      marginBottom: 15,
+      padding: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      position: 'relative',
+    },
+    pinnedBadge: {
+      position: 'absolute',
+      top: 10,
+      left: 10,
+      zIndex: 1,
+    },
+    pinnedText: {
+      fontSize: 20,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 8,
+    },
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      flex: 1,
+      marginRight: 10,
+      color: colors.text.primary,
+    },
+
+    difficultyBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    difficultyEasy: {
+      backgroundColor: '#E8F5E9',
+    },
+    difficultyMedium: {
+      backgroundColor: '#FFF3E0',
+    },
+    difficultyAdvanced: {
+      backgroundColor: '#FFEBEE',
+    },
+    difficultyText: {
+      fontSize: 11,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      color: colors.text.primary,
+    },
+
+    metaRow: {
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    chefName: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    cuisineType: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+
+    specialBadge: {
+      backgroundColor: '#FFF9C4',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      alignSelf: 'flex-start',
+      marginBottom: 8,
+    },
+    specialBadgeText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+
+    statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    statsLeft: {
+      flexDirection: 'row',
+      gap: 12,
+      flex: 1,
+    },
+    stat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    statIcon: {
+      fontSize: 14,
+    },
+    statText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+
+    // Selection mode button - bottom right inline
+    selectButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 6,
+      marginLeft: 12,
+    },
+    selectButtonText: {
+      color: colors.background.card,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+
+    bottomSearchContainer: {
+      backgroundColor: colors.background.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+      paddingBottom: 20,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 25,
+      paddingHorizontal: 15,
+      paddingVertical: 12,
+    },
+    searchIcon: {
+      fontSize: 18,
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text.primary,
+      padding: 0,
+    },
+
+    emptyContainer: {
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      marginBottom: 20,
+    },
+    clearButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    clearButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadRecipes();
@@ -636,345 +981,3 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 15,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  // Selection mode header styles
-  cancelText: {
-    fontSize: 16,
-    color: colors.primary,
-    width: 70,
-  },
-  selectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  addButtonIcon: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: '300',
-    lineHeight: 32,
-  },
-  moreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    position: 'relative',
-  },
-  moreButtonIcon: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  moreButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  filterBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  
-  quickFiltersContainer: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  quickFiltersScroll: {
-    paddingHorizontal: 15,
-    gap: 8,
-  },
-  quickFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  quickFilterChipActive: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-  },
-  quickFilterIcon: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  quickFilterLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  quickFilterLabelActive: {
-    color: '#333',
-    fontWeight: '600',
-  },
-  clearFiltersChip: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  clearFiltersText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#f9f9f9',
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
-  },
-  statusDot: {
-    fontSize: 14,
-    color: '#999',
-  },
-
-  listContainer: {
-    padding: 15,
-    paddingBottom: 10,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 15,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    position: 'relative',
-  },
-  pinnedBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 1,
-  },
-  pinnedText: {
-    fontSize: 20,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    flex: 1,
-    marginRight: 10,
-  },
-  
-  difficultyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  difficultyEasy: {
-    backgroundColor: '#E8F5E9',
-  },
-  difficultyMedium: {
-    backgroundColor: '#FFF3E0',
-  },
-  difficultyAdvanced: {
-    backgroundColor: '#FFEBEE',
-  },
-  difficultyText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    color: '#333',
-  },
-
-  metaRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  chefName: {
-    fontSize: 14,
-    color: '#666',
-  },
-  cuisineType: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-
-  specialBadge: {
-    backgroundColor: '#FFF9C4',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  specialBadgeText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  statsLeft: {
-    flexDirection: 'row',
-    gap: 12,
-    flex: 1,
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statIcon: {
-    fontSize: 14,
-  },
-  statText: {
-    fontSize: 13,
-    color: '#666',
-  },
-
-  // Selection mode button - bottom right inline
-  selectButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginLeft: 12,
-  },
-  selectButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  bottomSearchContainer: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    paddingBottom: 20,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#333',
-    padding: 0,
-  },
-
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginBottom: 20,
-  },
-  clearButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  clearButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

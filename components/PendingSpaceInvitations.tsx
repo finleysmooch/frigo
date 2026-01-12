@@ -6,7 +6,7 @@
 // Created: December 18, 2025
 // ============================================
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,7 +15,8 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { PendingSpaceInvitation, getRoleDisplayName } from '../lib/types/space';
 import { usePendingInvitations } from '../contexts/SpaceContext';
 
@@ -36,14 +37,146 @@ export default function PendingSpaceInvitations({
   onInvitationResponded,
   compact = false,
 }: PendingSpaceInvitationsProps) {
+  const { colors, functionalColors } = useTheme();
+
   // Use context hook
-  const { 
-    invitations, 
-    accept, 
-    decline 
+  const {
+    invitations,
+    accept,
+    decline
   } = usePendingInvitations();
 
   const [respondingTo, setRespondingTo] = React.useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      marginBottom: spacing.lg,
+    },
+    sectionTitle: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.tertiary,
+      letterSpacing: 0.5,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    invitationCard: {
+      backgroundColor: colors.background.card,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.sm,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      ...shadows.small,
+    },
+    invitationCardCompact: {
+      marginHorizontal: 0,
+      padding: spacing.sm,
+    },
+    invitationHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    spaceEmoji: {
+      fontSize: 32,
+      marginRight: spacing.md,
+    },
+    invitationInfo: {
+      flex: 1,
+    },
+    spaceName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    inviteDetails: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    invitationActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.sm,
+    },
+    declineButton: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+    },
+    declineButtonText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    acceptButton: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+    },
+    acceptButtonText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.card,
+    },
+
+    // Compact styles
+    compactContainer: {
+      backgroundColor: '#FEF3C7',
+      borderRadius: borderRadius.md,
+      padding: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    compactBadge: {
+      marginBottom: spacing.xs,
+    },
+    compactBadgeText: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: '#92400E',
+    },
+    compactInvitation: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+    },
+    compactText: {
+      fontSize: typography.sizes.sm,
+      color: '#92400E',
+      flex: 1,
+    },
+    compactActions: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    compactDecline: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#FCA5A5',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    compactDeclineText: {
+      color: '#7F1D1D',
+      fontWeight: typography.weights.bold,
+    },
+    compactAccept: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#86EFAC',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    compactAcceptText: {
+      color: '#14532D',
+      fontWeight: typography.weights.bold,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // HANDLERS
@@ -162,137 +295,3 @@ export default function PendingSpaceInvitations({
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.tertiary,
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  invitationCard: {
-    backgroundColor: colors.background.primary,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.small,
-  },
-  invitationCardCompact: {
-    marginHorizontal: 0,
-    padding: spacing.sm,
-  },
-  invitationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  spaceEmoji: {
-    fontSize: 32,
-    marginRight: spacing.md,
-  },
-  invitationInfo: {
-    flex: 1,
-  },
-  spaceName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  inviteDetails: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  invitationActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  declineButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-  },
-  declineButtonText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  acceptButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-  },
-  acceptButtonText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: '#fff',
-  },
-
-  // Compact styles
-  compactContainer: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  compactBadge: {
-    marginBottom: spacing.xs,
-  },
-  compactBadgeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: '#92400E',
-  },
-  compactInvitation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  compactText: {
-    fontSize: typography.sizes.sm,
-    color: '#92400E',
-    flex: 1,
-  },
-  compactActions: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  compactDecline: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FCA5A5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  compactDeclineText: {
-    color: '#7F1D1D',
-    fontWeight: typography.weights.bold,
-  },
-  compactAccept: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#86EFAC',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  compactAcceptText: {
-    color: '#14532D',
-    fontWeight: typography.weights.bold,
-  },
-});

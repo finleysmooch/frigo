@@ -1,7 +1,7 @@
 // components/EditInstructionModal.tsx
 // Modal for editing instruction text with ingredient change detection
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,6 +13,7 @@ import {
   Platform,
   Alert
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface EditInstructionModalProps {
   visible: boolean;
@@ -31,8 +32,91 @@ export default function EditInstructionModal({
   onSave,
   onDelete
 }: EditInstructionModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [editedText, setEditedText] = useState(instructionText);
   const [notes, setNotes] = useState('');
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      padding: 24,
+      width: '90%',
+      maxWidth: 500,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    deleteButton: {
+      padding: 4,
+    },
+    deleteButtonText: {
+      fontSize: 24,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text.secondary,
+      marginBottom: 8,
+      marginTop: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    instructionInput: {
+      minHeight: 120,
+    },
+    notesInput: {
+      minHeight: 60,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      marginTop: 24,
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+      padding: 14,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.background.secondary,
+    },
+    cancelButtonText: {
+      color: colors.text.secondary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     if (editedText.trim()) {
@@ -129,82 +213,3 @@ export default function EditInstructionModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '90%',
-    maxWidth: 500,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    padding: 4,
-  },
-  deleteButtonText: {
-    fontSize: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  instructionInput: {
-    minHeight: 120,
-  },
-  notesInput: {
-    minHeight: 60,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 24,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

@@ -3,7 +3,7 @@
 // Optimized for single-person meal planning with minimal clicks
 // Created: December 10, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -15,7 +15,7 @@ import {
   Alert,
   FlatList,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { createMeal, CreateMealInput } from '../lib/services/mealService';
 import { 
   createPlanItemWithRecipe, 
@@ -78,11 +78,300 @@ export default function QuickMealPlanModal({
   defaultCourse = 'main',
   onSuccess,
 }: QuickMealPlanModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [view, setView] = useState<ModalView>('main');
   const [loading, setLoading] = useState(false);
   const [existingMeals, setExistingMeals] = useState<PlanningMealInfo[]>([]);
   const [loadingMeals, setLoadingMeals] = useState(false);
   const [isInCookSoonList, setIsInCookSoonList] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '85%',
+      minHeight: 400,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
+      marginHorizontal: 10,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      width: 60,
+    },
+    backButton: {
+      fontSize: 16,
+      color: colors.primary,
+      width: 60,
+    },
+    addButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+      width: 60,
+      textAlign: 'right',
+    },
+    disabled: {
+      opacity: 0.4,
+    },
+    content: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+    },
+    sectionLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 10,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    quickActionPrimary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      backgroundColor: '#EFF6FF',
+      borderRadius: 12,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    quickAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginBottom: 10,
+    },
+    activeOption: {
+      backgroundColor: '#FEF3C7',
+    },
+    quickActionEmoji: {
+      fontSize: 28,
+      marginRight: 14,
+    },
+    quickActionContent: {
+      flex: 1,
+    },
+    quickActionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    quickActionDesc: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    quickActionArrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+      marginLeft: 8,
+    },
+    checkmark: {
+      fontSize: 20,
+      color: functionalColors.warning,
+      fontWeight: '700',
+      marginLeft: 8,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border.medium,
+      marginVertical: 16,
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: 200,
+    },
+    // Calendar view
+    calendarInstructions: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    // Existing meals view
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 34,
+    },
+    mealItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    mealEmoji: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: '#EFF6FF',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    mealEmojiText: {
+      fontSize: 24,
+    },
+    mealInfo: {
+      flex: 1,
+    },
+    mealTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    mealMeta: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    hostBadge: {
+      backgroundColor: '#FEF3C7',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      marginRight: 8,
+    },
+    hostBadgeText: {
+      fontSize: 11,
+      color: '#92400E',
+      fontWeight: '600',
+    },
+    arrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    emptyButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    emptyButtonText: {
+      fontSize: 16,
+      color: colors.background.card,
+      fontWeight: '600',
+    },
+    // Course selection
+    courseContainer: {
+      padding: 20,
+    },
+    courseLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+    courseGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: -6,
+    },
+    courseOption: {
+      width: '30%',
+      margin: '1.5%',
+      aspectRatio: 1,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    courseOptionSelected: {
+      backgroundColor: '#EFF6FF',
+      borderColor: colors.primary,
+    },
+    courseEmoji: {
+      fontSize: 28,
+      marginBottom: 4,
+    },
+    courseOptionText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    courseOptionTextSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+  }), [colors, functionalColors]);
   
   // For calendar selection flow
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -635,291 +924,3 @@ export default function QuickMealPlanModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '85%',
-    minHeight: 400,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B7280',
-    width: 60,
-  },
-  backButton: {
-    fontSize: 16,
-    color: colors.primary,
-    width: 60,
-  },
-  addButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-    width: 60,
-    textAlign: 'right',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 10,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  quickActionPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  quickAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  activeOption: {
-    backgroundColor: '#FEF3C7',
-  },
-  quickActionEmoji: {
-    fontSize: 28,
-    marginRight: 14,
-  },
-  quickActionContent: {
-    flex: 1,
-  },
-  quickActionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-  },
-  quickActionDesc: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  quickActionArrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-    marginLeft: 8,
-  },
-  checkmark: {
-    fontSize: 20,
-    color: '#F59E0B',
-    fontWeight: '700',
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 16,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 200,
-  },
-  // Calendar view
-  calendarInstructions: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  // Existing meals view
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 34,
-  },
-  mealItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  mealEmoji: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  mealEmojiText: {
-    fontSize: 24,
-  },
-  mealInfo: {
-    flex: 1,
-  },
-  mealTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  mealMeta: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  hostBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  hostBadgeText: {
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '600',
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  emptyButtonText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
-  },
-  // Course selection
-  courseContainer: {
-    padding: 20,
-  },
-  courseLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 16,
-  },
-  courseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-  },
-  courseOption: {
-    width: '30%',
-    margin: '1.5%',
-    aspectRatio: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  courseOptionSelected: {
-    backgroundColor: '#EFF6FF',
-    borderColor: colors.primary,
-  },
-  courseEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  courseOptionText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  courseOptionTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-});

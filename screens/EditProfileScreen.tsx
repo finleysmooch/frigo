@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import EmojiPickerModal from '../components/EmojiPickerModal';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface EditProfileScreenProps {
   navigation: any;
@@ -26,6 +27,7 @@ const getDefaultEmoji = (userId: string): string => {
 };
 
 export default function EditProfileScreen({ navigation }: EditProfileScreenProps) {
+  const { colors, functionalColors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState('');
@@ -37,6 +39,96 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [avatar, setAvatar] = useState('');
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    saveButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    saveButtonDisabled: {
+      opacity: 0.5,
+    },
+    content: {
+      flex: 1,
+    },
+    form: {
+      padding: 16,
+    },
+    avatarSection: {
+      alignItems: 'center',
+      marginBottom: 32,
+    },
+    avatarPicker: {
+      alignItems: 'center',
+    },
+    avatarDisplay: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: colors.background.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 8,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+    },
+    avatarEmoji: {
+      fontSize: 48,
+    },
+    changeAvatarText: {
+      fontSize: 14,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    inputGroup: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      backgroundColor: colors.background.card,
+    },
+    bioInput: {
+      height: 80,
+      textAlignVertical: 'top',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadProfile();
@@ -116,7 +208,7 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FC4C02" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -211,93 +303,3 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#666',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  saveButton: {
-    fontSize: 16,
-    color: '#FC4C02',
-    fontWeight: '600',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  content: {
-    flex: 1,
-  },
-  form: {
-    padding: 16,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  avatarPicker: {
-    alignItems: 'center',
-  },
-  avatarDisplay: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#ddd',
-  },
-  avatarEmoji: {
-    fontSize: 48,
-  },
-  changeAvatarText: {
-    fontSize: 14,
-    color: '#FC4C02',
-    fontWeight: '500',
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  bioInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-});

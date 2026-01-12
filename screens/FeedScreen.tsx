@@ -2,7 +2,7 @@
 // Feed showing posts from people you follow
 // Updated: December 4, 2025 - Added meal integration
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import PostCard, { PostCardData } from '../components/PostCard';
 import LinkedPostsGroup from '../components/LinkedPostsGroup';
 import MealPostCard from '../components/MealPostCard';
@@ -76,6 +76,7 @@ type CombinedFeedItem =
   | { type: 'meal'; meal: MealWithDetails };
 
 export default function FeedScreen({ navigation }: Props) {
+  const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [feedItems, setFeedItems] = useState<CombinedFeedItem[]>([]);
   const [postLikes, setPostLikes] = useState<PostLikes>({});
@@ -86,6 +87,44 @@ export default function FeedScreen({ navigation }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+    },
+    listContent: {
+      padding: 15,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -589,41 +628,3 @@ export default function FeedScreen({ navigation }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  listContent: {
-    padding: 15,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-});

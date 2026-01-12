@@ -2,7 +2,7 @@
 // Edit mode foundation for recipe annotations
 // TODO: Full implementation in future session
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,6 +12,7 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 export type ViewMode = 'original' | 'clean' | 'markup';
 
@@ -32,6 +33,9 @@ export default function AnnotationModeModal({
   recipeId,
   userId
 }: AnnotationModeModalProps) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [selectedMode, setSelectedMode] = useState<ViewMode>(currentViewMode);
 
   const handleApply = () => {
@@ -166,153 +170,158 @@ export default function AnnotationModeModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#666',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  modeOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  modeOptionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#F0F7FF',
-  },
-  modeOptionLeft: {
-    flex: 1,
-  },
-  modeOptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  modeOptionDesc: {
-    fontSize: 13,
-    color: '#666',
-  },
-  radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    marginLeft: 12,
-  },
-  radioSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 24,
-  },
-  editModeButton: {
-    backgroundColor: '#f5f5f5',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  editModeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
-  },
-  comingSoon: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  editModeDescription: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  applyButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    closeButton: {
+      padding: 4,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.secondary,
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 6,
+    },
+    sectionDescription: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 16,
+    },
+    modeOption: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      borderRadius: 12,
+      marginBottom: 12,
+    },
+    modeOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '10',
+    },
+    modeOptionLeft: {
+      flex: 1,
+    },
+    modeOptionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    modeOptionDesc: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    radio: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.text.tertiary,
+      marginLeft: 12,
+    },
+    radioSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border.medium,
+      marginVertical: 24,
+    },
+    editModeButton: {
+      backgroundColor: colors.background.secondary,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    editModeButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+    comingSoon: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+    },
+    editModeDescription: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    footer: {
+      flexDirection: 'row',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: 12,
+    },
+    cancelButton: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    applyButton: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    applyButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.inverse,
+    },
+  });
+}

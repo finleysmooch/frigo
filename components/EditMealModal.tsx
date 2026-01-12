@@ -2,7 +2,7 @@
 // Modal for editing meal details (title, description, date, location, type)
 // Created: December 10, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -14,7 +14,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 import DateTimePicker from './DateTimePicker';
 
@@ -53,6 +53,163 @@ export default function EditMealModal({
   currentUserId,
   initialValues,
 }: EditMealModalProps) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    saveButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    disabled: {
+      opacity: 0.4,
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    fieldGroup: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 10,
+    },
+    input: {
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    textArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+      paddingTop: 14,
+    },
+    typeScroll: {
+      marginHorizontal: -20,
+      paddingHorizontal: 20,
+    },
+    typeContainer: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingRight: 20,
+    },
+    typeButton: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: colors.background.secondary,
+      minWidth: 80,
+    },
+    typeButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    typeEmoji: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    typeLabel: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    typeLabelActive: {
+      color: colors.background.card,
+    },
+    dateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    dateButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    dateIcon: {
+      fontSize: 20,
+    },
+    dateButtonText: {
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    dateButtonPlaceholder: {
+      color: colors.text.tertiary,
+    },
+    dateButtonArrow: {
+      fontSize: 20,
+      color: colors.text.tertiary,
+    },
+    quickDates: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 12,
+    },
+    quickButton: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 20,
+    },
+    quickButtonText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    clearButton: {
+      marginTop: 8,
+      alignSelf: 'flex-start',
+    },
+    clearButtonText: {
+      fontSize: 13,
+      color: functionalColors.error,
+    },
+  }), [colors, functionalColors]);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mealType, setMealType] = useState<string | undefined>(undefined);
@@ -176,7 +333,7 @@ export default function EditMealModal({
                 placeholder="e.g., Sunday Dinner, Friendsgiving 2025"
                 value={title}
                 onChangeText={setTitle}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 maxLength={100}
               />
             </View>
@@ -282,7 +439,7 @@ export default function EditMealModal({
                 placeholder="e.g., Tom's house, The kitchen"
                 value={location}
                 onChangeText={setLocation}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 maxLength={100}
               />
             </View>
@@ -295,7 +452,7 @@ export default function EditMealModal({
                 placeholder="Any notes about the meal..."
                 value={description}
                 onChangeText={setDescription}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 multiline
                 numberOfLines={3}
                 maxLength={500}
@@ -318,158 +475,3 @@ export default function EditMealModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  saveButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  fieldGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#111',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingTop: 14,
-  },
-  typeScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingRight: 20,
-  },
-  typeButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    minWidth: 80,
-  },
-  typeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  typeEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  typeLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  typeLabelActive: {
-    color: 'white',
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  dateButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dateIcon: {
-    fontSize: 20,
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#111',
-  },
-  dateButtonPlaceholder: {
-    color: '#9CA3AF',
-  },
-  dateButtonArrow: {
-    fontSize: 20,
-    color: '#9CA3AF',
-  },
-  quickDates: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  quickButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-  },
-  quickButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  clearButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  clearButtonText: {
-    fontSize: 13,
-    color: '#EF4444',
-  },
-});

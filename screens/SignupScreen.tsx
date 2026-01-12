@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface SignupScreenProps {
   onSignupSuccess: () => void;
@@ -20,11 +21,79 @@ interface SignupScreenProps {
 }
 
 export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: SignupScreenProps) {
+  const { colors, functionalColors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 8,
+      color: colors.text.primary,
+    },
+    subtitle: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 32,
+      color: colors.text.secondary,
+    },
+    form: {
+      gap: 16,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 16,
+      fontSize: 16,
+      backgroundColor: colors.background.card,
+      color: colors.text.primary,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    loginLink: {
+      marginTop: 16,
+      alignItems: 'center',
+    },
+    loginText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    loginTextBold: {
+      fontWeight: '600',
+      color: colors.primary,
+    },
+  }), [colors, functionalColors]);
 
   const handleSignup = async () => {
     if (!email || !password || !firstName || !lastName) {
@@ -54,7 +123,7 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
         // Profile is auto-created by database trigger
         // Wait briefly for trigger to complete, then update display_name
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         const displayName = `${firstName.trim()} ${lastName.trim()}`;
         await supabase
           .from('user_profiles')
@@ -76,11 +145,11 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -91,7 +160,7 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
             <TextInput
               style={styles.input}
               placeholder="First Name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={firstName}
               onChangeText={setFirstName}
               autoCapitalize="words"
@@ -100,7 +169,7 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
             <TextInput
               style={styles.input}
               placeholder="Last Name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={lastName}
               onChangeText={setLastName}
               autoCapitalize="words"
@@ -109,7 +178,7 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -120,26 +189,26 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
             <TextInput
               style={styles.input}
               placeholder="Password (min 6 characters)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
             />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleSignup}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.background.card} />
               ) : (
                 <Text style={styles.buttonText}>Sign Up</Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.loginLink}
               onPress={onNavigateToLogin}
             >
@@ -153,69 +222,3 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 32,
-    color: '#666',
-  },
-  form: {
-    gap: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#FC4C02',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loginLink: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  loginText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  loginTextBold: {
-    fontWeight: '600',
-    color: '#FC4C02',
-  },
-});

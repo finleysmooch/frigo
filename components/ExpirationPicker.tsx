@@ -4,10 +4,11 @@
 // Dual scroll picker for editing expiration (number + unit)
 // Location: components/ExpirationPicker.tsx
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { EXPIRATION_UNITS } from '../constants/pantry';
 import { getDaysUntilExpiration } from '../utils/pantryHelpers';
 
@@ -24,6 +25,7 @@ export default function ExpirationPicker({
   onClose,
   onSave,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
   // Convert current expiration to number and unit
   const initialDays = currentExpiration ? getDaysUntilExpiration(currentExpiration) : 7;
   
@@ -43,6 +45,58 @@ export default function ExpirationPicker({
 
   const [selectedNumber, setSelectedNumber] = useState(initialNumber);
   const [selectedUnit, setSelectedUnit] = useState(initialUnit);
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.background.primary,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    saveButton: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    pickersContainer: {
+      flexDirection: 'row',
+      paddingVertical: spacing.md,
+    },
+    pickerWrapper: {
+      flex: 1,
+    },
+    picker: {
+      height: 200,
+    },
+    pickerItem: {
+      fontSize: typography.sizes.xl,
+      height: 200,
+    },
+  }), [colors, functionalColors]);
 
   const handleSave = () => {
     let totalDays = selectedNumber;
@@ -130,55 +184,3 @@ export default function ExpirationPicker({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  cancelButton: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  saveButton: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  pickersContainer: {
-    flexDirection: 'row',
-    paddingVertical: spacing.md,
-  },
-  pickerWrapper: {
-    flex: 1,
-  },
-  picker: {
-    height: 200,
-  },
-  pickerItem: {
-    fontSize: typography.sizes.xl,
-    height: 200,
-  },
-});

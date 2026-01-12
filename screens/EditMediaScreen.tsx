@@ -3,7 +3,7 @@
 // November 16, 2025
 // CORRECTED: Imports PostPhoto from App.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { chooseImageSource, uploadPostImages } from '../lib/services/imageStorageService';
 import { MyPostsStackParamList, PostPhoto } from '../App'; // Import types from App
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PHOTO_SIZE = (SCREEN_WIDTH - 48) / 3; // 3 columns with padding
@@ -26,6 +27,7 @@ const PHOTO_SIZE = (SCREEN_WIDTH - 48) / 3; // 3 columns with padding
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'EditMedia'>;
 
 export default function EditMediaScreen({ navigation, route }: Props) {
+  const { colors, functionalColors } = useTheme();
   const { postId, existingPhotos } = route.params;
 
   const [photos, setPhotos] = useState<PostPhoto[]>(existingPhotos || []);
@@ -147,6 +149,132 @@ export default function EditMediaScreen({ navigation, route }: Props) {
     return a.order - b.order;
   });
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.secondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 60,
+      paddingBottom: 16,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerButton: {
+      padding: 8,
+    },
+    headerButtonText: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    headerButtonSave: {
+      fontWeight: '600',
+    },
+    headerButtonDisabled: {
+      color: colors.text.tertiary,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    content: {
+      flex: 1,
+    },
+    gridContainer: {
+      padding: 12,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    photoCard: {
+      width: PHOTO_SIZE,
+      height: PHOTO_SIZE + 60,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      overflow: 'hidden',
+      marginBottom: 12,
+    },
+    photoThumbnail: {
+      width: '100%',
+      height: PHOTO_SIZE,
+    },
+    highlightBadge: {
+      position: 'absolute',
+      top: 8,
+      left: 8,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 4,
+    },
+    highlightText: {
+      color: colors.background.card,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    photoActions: {
+      flexDirection: 'column',
+      padding: 8,
+      gap: 6,
+    },
+    actionButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    actionButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    actionButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    actionButtonTextPrimary: {
+      color: colors.background.card,
+    },
+    addPhotoCard: {
+      width: PHOTO_SIZE,
+      height: PHOTO_SIZE + 60,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: colors.border.medium,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    addPhotoIcon: {
+      fontSize: 48,
+      marginBottom: 8,
+    },
+    addPhotoText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    instructions: {
+      backgroundColor: colors.background.card,
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    instructionsText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+  }), [colors, functionalColors]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -219,7 +347,7 @@ export default function EditMediaScreen({ navigation, route }: Props) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={colors.primary} />
             ) : (
               <>
                 <Text style={styles.addPhotoIcon}>📷</Text>
@@ -247,129 +375,3 @@ export default function EditMediaScreen({ navigation, route }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  headerButtonSave: {
-    fontWeight: '600',
-  },
-  headerButtonDisabled: {
-    color: '#999',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  content: {
-    flex: 1,
-  },
-  gridContainer: {
-    padding: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  photoCard: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE + 60,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  photoThumbnail: {
-    width: '100%',
-    height: PHOTO_SIZE,
-  },
-  highlightBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  highlightText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  photoActions: {
-    flexDirection: 'column',
-    padding: 8,
-    gap: 6,
-  },
-  actionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  actionButtonPrimary: {
-    backgroundColor: '#007AFF',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-  },
-  actionButtonTextPrimary: {
-    color: '#fff',
-  },
-  addPhotoCard: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE + 60,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addPhotoIcon: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  addPhotoText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  instructions: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  instructionsText: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
-  },
-});

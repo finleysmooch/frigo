@@ -9,6 +9,7 @@ export const functionalColors = {
   warningLight: '#fef3c7',
   error: '#ef4444',
   errorLight: '#fee2e2',
+  like: '#0d9488', // Primary teal for "Yas Chef" likes
 } as const;
 
 // Base color scheme type

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const LOADING_MESSAGES = [
   { text: 'Reading your recipe... 📖', duration: 1500 },
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function RecipeExtractionLoadingScreen({ imageUri }: Props) {
+  const { colors } = useTheme();
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
@@ -24,14 +26,45 @@ export function RecipeExtractionLoadingScreen({ imageUri }: Props) {
     return () => clearInterval(interval);
   }, [messageIndex]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.text.primary,
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+      opacity: 0.4,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    message: {
+      color: colors.background.card,
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginTop: 16,
+      textAlign: 'center',
+    },
+    subtitle: {
+      color: colors.background.card,
+      fontSize: 14,
+      marginTop: 8,
+      opacity: 0.7,
+    },
+  }), [colors]);
+
   return (
     <View style={styles.container}>
       {/* Dimmed recipe image as background */}
       <Image source={{ uri: imageUri }} style={styles.image} />
-      
+
       {/* Overlay with progress */}
       <View style={styles.overlay}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={colors.background.card} />
         <Text style={styles.message}>
           {LOADING_MESSAGES[messageIndex].text}
         </Text>
@@ -40,34 +73,3 @@ export function RecipeExtractionLoadingScreen({ imageUri }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.4,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  message: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: '#fff',
-    fontSize: 14,
-    marginTop: 8,
-    opacity: 0.7,
-  },
-});

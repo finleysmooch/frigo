@@ -3,7 +3,7 @@
 // Created: November 19, 2025
 // Updated: November 20, 2025 - Uses proper foreign key joins
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -16,7 +16,7 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { ParticipantRole } from '../lib/services/postParticipantsService';
 
 interface FollowedUser {
@@ -41,6 +41,7 @@ export default function AddCookingPartnersModal({
   currentUserId,
   defaultRole = 'ate_with',
 }: AddCookingPartnersModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [followedUsers, setFollowedUsers] = useState<FollowedUser[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedRole, setSelectedRole] = useState<ParticipantRole>(defaultRole);
@@ -127,6 +128,181 @@ export default function AddCookingPartnersModal({
     return emojis[hash % emojis.length];
   };
 
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 20,
+      height: '85%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    doneButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    roleSelector: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 10,
+    },
+    roleButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    roleButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    roleButtonText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    roleButtonTextActive: {
+      color: colors.background.card,
+    },
+    description: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      paddingHorizontal: 20,
+      paddingBottom: 15,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 10,
+      marginHorizontal: 20,
+      marginBottom: 15,
+      paddingHorizontal: 12,
+    },
+    searchIcon: {
+      fontSize: 18,
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    userItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    userInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatar: {
+      width: 45,
+      height: 45,
+      borderRadius: 22.5,
+      backgroundColor: colors.accentLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    avatarEmoji: {
+      fontSize: 24,
+    },
+    userText: {
+      flex: 1,
+    },
+    displayName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    username: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkmark: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+      paddingHorizontal: 40,
+    },
+    selectedCountContainer: {
+      backgroundColor: colors.background.secondary,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+    },
+    selectedCountText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+  }), [colors, functionalColors]);
+
   return (
     <Modal
       visible={visible}
@@ -196,7 +372,7 @@ export default function AddCookingPartnersModal({
               placeholder="Search your connections..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text.tertiary}
             />
           </View>
 
@@ -265,178 +441,3 @@ export default function AddCookingPartnersModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    height: '85%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  doneButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  roleSelector: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  roleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  roleButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  roleButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  roleButtonTextActive: {
-    color: 'white',
-  },
-  description: {
-    fontSize: 14,
-    color: '#6B7280',
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    marginHorizontal: 20,
-    marginBottom: 15,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#FFE5D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarEmoji: {
-    fontSize: 24,
-  },
-  userText: {
-    flex: 1,
-  },
-  displayName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-  },
-  username: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-  selectedCountContainer: {
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  selectedCountText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-});

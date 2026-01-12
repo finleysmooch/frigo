@@ -4,9 +4,11 @@
 // Single-line pantry item with smart tappable zones + stock badges + quick-add to grocery
 // Location: components/PantryItemRow.tsx
 
+import { useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { PantryItemWithIngredient } from '../lib/types/pantry';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 import { formatQuantityDisplay, formatExpirationShort, isExpiringSoon } from '../utils/pantryHelpers';
 
 interface Props {
@@ -38,6 +40,115 @@ export default function PantryItemRow({
   isExpiring = false,
   compact = false,
 }: Props) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.md,
+      marginBottom: 4,
+      ...shadows.small,
+    },
+    containerExpiring: {
+      borderWidth: 2,
+      borderColor: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '15',
+    },
+    containerLowStock: {
+      borderWidth: 1,
+      borderColor: functionalColors.warning,
+      backgroundColor: functionalColors.warning + '15',
+    },
+    mainTouchable: {
+      paddingVertical: 8,
+      paddingHorizontal: spacing.sm,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    nameSection: {
+      flex: 1,
+      minWidth: 100,
+    },
+    name: {
+      fontSize: 15,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    stockBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      marginTop: 2,
+    },
+    stockBadgeText: {
+      fontSize: 11,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    detailsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    tapZone: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.background.tertiary,
+      borderRadius: borderRadius.sm,
+      minWidth: 40,
+      alignItems: 'center',
+    },
+    tapZoneLowStock: {
+      backgroundColor: functionalColors.warning + '20',
+    },
+    detailValue: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+    detailValueLowStock: {
+      color: functionalColors.warning,
+      fontWeight: typography.weights.bold,
+    },
+    detailValueWarning: {
+      color: functionalColors.warning,
+      fontWeight: typography.weights.semibold,
+    },
+    separator: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.quaternary,
+      fontWeight: typography.weights.regular,
+    },
+    recipesButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.tertiary,
+      borderRadius: borderRadius.sm,
+    },
+    recipesIcon: {
+      fontSize: typography.sizes.md,
+    },
+    quickAddButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: functionalColors.warning,
+      borderRadius: borderRadius.sm,
+    },
+    quickAddIcon: {
+      fontSize: 14,
+      fontWeight: typography.weights.bold,
+    },
+  }), [colors, functionalColors]);
+
   const quantityDisplay = formatQuantityDisplay(item.quantity_display, item.unit_display);
   const expirationDisplay = formatExpirationShort(item.expiration_date);
   const storageDisplay = item.storage_location.charAt(0).toUpperCase() + 
@@ -61,11 +172,11 @@ export default function PantryItemRow({
   const getStockBadge = () => {
     switch (stockStatus) {
       case 'out':
-        return { emoji: '🚫', label: 'Out', color: '#FF3B30' };
+        return { emoji: '🚫', label: 'Out', color: functionalColors.error };
       case 'critical':
-        return { emoji: '⚠️', label: 'Critical', color: '#FF9500' };
+        return { emoji: '⚠️', label: 'Critical', color: functionalColors.warning };
       case 'low':
-        return { emoji: '📉', label: 'Low', color: '#FF9500' };
+        return { emoji: '📉', label: 'Low', color: functionalColors.warning };
       default:
         return null;
     }
@@ -173,110 +284,3 @@ export default function PantryItemRow({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    marginBottom: 4,
-    ...shadows.small,
-  },
-  containerExpiring: {
-    borderWidth: 2,
-    borderColor: colors.warning,
-    backgroundColor: '#FFF9E6',
-  },
-  containerLowStock: {
-    borderWidth: 1,
-    borderColor: '#FF9500',
-    backgroundColor: '#FFF5E6',
-  },
-  mainTouchable: {
-    paddingVertical: 8,
-    paddingHorizontal: spacing.sm,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  nameSection: {
-    flex: 1,
-    minWidth: 100,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    marginBottom: 2,
-  },
-  stockBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 2,
-  },
-  stockBadgeText: {
-    fontSize: 11,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tapZone: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.sm,
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  tapZoneLowStock: {
-    backgroundColor: '#FF9500' + '20',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-  detailValueLowStock: {
-    color: '#FF9500',
-    fontWeight: typography.weights.bold,
-  },
-  detailValueWarning: {
-    color: colors.warning,
-    fontWeight: typography.weights.semibold,
-  },
-  separator: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.quaternary,
-    fontWeight: typography.weights.regular,
-  },
-  recipesButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.sm,
-  },
-  recipesIcon: {
-    fontSize: typography.sizes.md,
-  },
-  quickAddButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FF9500',
-    borderRadius: borderRadius.sm,
-  },
-  quickAddIcon: {
-    fontSize: 14,
-    fontWeight: typography.weights.bold,
-  },
-});

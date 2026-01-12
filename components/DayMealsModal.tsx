@@ -3,7 +3,7 @@
 // Shows meals for that day with View/Add options
 // Created: December 10, 2025
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface MealSummary {
   id: string;
@@ -52,6 +52,157 @@ export default function DayMealsModal({
   onViewMeal,
   onAddMeal,
 }: DayMealsModalProps) {
+  const { colors, functionalColors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: 20,
+      padding: 20,
+      width: '100%',
+      maxWidth: 360,
+      maxHeight: '70%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 20,
+      gap: 10,
+    },
+    dateText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+      textAlign: 'center',
+    },
+    todayBadge: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.background.card,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    mealsList: {
+      maxHeight: 200,
+    },
+    mealItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+    },
+    mealInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    mealEmoji: {
+      fontSize: 28,
+      marginRight: 12,
+    },
+    mealDetails: {
+      flex: 1,
+    },
+    mealTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    mealMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    mealTime: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    mealParticipants: {
+      fontSize: 12,
+      color: colors.text.secondary,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    statusPlanning: {
+      backgroundColor: functionalColors.warning,
+    },
+    statusCompleted: {
+      backgroundColor: functionalColors.success,
+    },
+    viewArrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+      marginLeft: 8,
+    },
+    actions: {
+      marginTop: 16,
+      gap: 10,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    primaryButtonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: colors.background.secondary,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    secondaryButtonText: {
+      color: colors.text.primary,
+      fontSize: 15,
+      fontWeight: '500',
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 20,
+    },
+    emptyEmoji: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    closeButton: {
+      marginTop: 16,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+    },
+  }), [colors, functionalColors]);
+
   if (!date) return null;
 
   const formatDate = (d: Date): string => {
@@ -131,18 +282,18 @@ export default function DayMealsModal({
                             </Text>
                           )}
                           <Text style={styles.mealParticipants}>
-                            👥 {meal.participant_count}
+                            {meal.participant_count}
                           </Text>
                           <View style={[
                             styles.statusDot,
-                            meal.meal_status === 'planning' 
-                              ? styles.statusPlanning 
+                            meal.meal_status === 'planning'
+                              ? styles.statusPlanning
                               : styles.statusCompleted
                           ]} />
                         </View>
                       </View>
                     </View>
-                    <Text style={styles.viewArrow}>›</Text>
+                    <Text style={styles.viewArrow}>></Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -179,11 +330,11 @@ export default function DayMealsModal({
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>📅</Text>
               <Text style={styles.emptyText}>
-                {isFuture || isToday 
-                  ? 'No meals planned for this day' 
+                {isFuture || isToday
+                  ? 'No meals planned for this day'
                   : 'No meals recorded for this day'}
               </Text>
-              
+
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={handleAddMeal}
@@ -202,152 +353,3 @@ export default function DayMealsModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  container: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    width: '100%',
-    maxWidth: 360,
-    maxHeight: '70%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    gap: 10,
-  },
-  dateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-    textAlign: 'center',
-  },
-  todayBadge: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  mealsList: {
-    maxHeight: 200,
-  },
-  mealItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  mealInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  mealEmoji: {
-    fontSize: 28,
-    marginRight: 12,
-  },
-  mealDetails: {
-    flex: 1,
-  },
-  mealTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  mealMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  mealTime: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  mealParticipants: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusPlanning: {
-    backgroundColor: '#F59E0B',
-  },
-  statusCompleted: {
-    backgroundColor: '#10B981',
-  },
-  viewArrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-    marginLeft: 8,
-  },
-  actions: {
-    marginTop: 16,
-    gap: 10,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#374151',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  closeButton: {
-    marginTop: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 15,
-    color: '#6B7280',
-  },
-});

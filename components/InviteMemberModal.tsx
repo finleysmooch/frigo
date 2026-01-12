@@ -8,7 +8,7 @@
 // Note: Uses mutual follows search for privacy
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -21,15 +21,16 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
-import { 
-  SpaceRole, 
-  getRoleDisplayName, 
-  getRoleDescription 
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
+import {
+  SpaceRole,
+  getRoleDisplayName,
+  getRoleDescription
 } from '../lib/types/space';
-import { 
-  searchUsersToInvite, 
-  inviteMember 
+import {
+  searchUsersToInvite,
+  inviteMember
 } from '../lib/services/spaceService';
 import { supabase } from '../lib/supabase';
 
@@ -65,6 +66,8 @@ export default function InviteMemberModal({
   onClose,
   onInvited,
 }: InviteMemberModalProps) {
+  const { colors, functionalColors } = useTheme();
+
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -75,6 +78,269 @@ export default function InviteMemberModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modal: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      maxHeight: '85%',
+      minHeight: 400,
+      ...shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    closeButton: {
+      fontSize: typography.sizes.xl,
+      color: colors.text.tertiary,
+      padding: spacing.xs,
+    },
+    content: {
+      flex: 1,
+      padding: spacing.lg,
+    },
+    successContainer: {
+      backgroundColor: '#D1FAE5',
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.md,
+    },
+    successText: {
+      color: '#065F46',
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.medium,
+    },
+    errorContainer: {
+      backgroundColor: '#FEE2E2',
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.md,
+    },
+    errorText: {
+      color: functionalColors.error,
+      fontSize: typography.sizes.sm,
+    },
+    sectionLabel: {
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.tertiary,
+      marginBottom: spacing.sm,
+      letterSpacing: 0.5,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    searchInput: {
+      flex: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+    },
+    searchSpinner: {
+      marginRight: spacing.md,
+    },
+    searchResults: {
+      marginTop: spacing.md,
+      maxHeight: 200,
+    },
+    searchResult: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarText: {
+      color: colors.background.card,
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.bold,
+    },
+    userInfo: {
+      flex: 1,
+      marginLeft: spacing.md,
+    },
+    displayName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+    },
+    username: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    noResults: {
+      padding: spacing.xl,
+      alignItems: 'center',
+    },
+    noResultsText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+    helpText: {
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+    },
+    helpTextTitle: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    helpTextContent: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    selectedSection: {
+      flex: 1,
+    },
+    selectedUser: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+    },
+    removeButton: {
+      padding: spacing.sm,
+    },
+    removeButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.tertiary,
+    },
+    roleOptions: {
+      gap: spacing.sm,
+    },
+    roleOption: {
+      padding: spacing.md,
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.md,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    roleOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
+    roleOptionDisabled: {
+      opacity: 0.5,
+    },
+    roleHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    radioButton: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.text.tertiary,
+      marginRight: spacing.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    radioButtonSelected: {
+      borderColor: colors.primary,
+    },
+    radioButtonInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    roleName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+    },
+    roleNameDisabled: {
+      color: colors.text.tertiary,
+    },
+    roleDescription: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      marginLeft: 28,
+    },
+    roleDescriptionDisabled: {
+      color: colors.text.tertiary,
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: spacing.lg,
+      paddingBottom: spacing.xl,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.md,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.secondary,
+    },
+    inviteButton: {
+      flex: 2,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    inviteButtonDisabled: {
+      backgroundColor: colors.text.tertiary,
+    },
+    inviteButtonText: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.background.card,
+    },
+  }), [colors, functionalColors]);
 
   // Get current user ID on mount
   useEffect(() => {
@@ -411,270 +677,3 @@ export default function InviteMemberModal({
     </Modal>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modal: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '85%',
-    minHeight: 400,
-    ...shadows.large,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  title: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  closeButton: {
-    fontSize: typography.sizes.xl,
-    color: colors.text.tertiary,
-    padding: spacing.xs,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  successContainer: {
-    backgroundColor: '#D1FAE5',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-  },
-  successText: {
-    color: '#065F46',
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium,
-  },
-  errorContainer: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: typography.sizes.sm,
-  },
-  sectionLabel: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.tertiary,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  searchInput: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-  },
-  searchSpinner: {
-    marginRight: spacing.md,
-  },
-  searchResults: {
-    marginTop: spacing.md,
-    maxHeight: 200,
-  },
-  searchResult: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  displayName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-  },
-  username: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  noResults: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-  },
-  helpText: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-  },
-  helpTextTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  helpTextContent: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-  selectedSection: {
-    flex: 1,
-  },
-  selectedUser: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  removeButton: {
-    padding: spacing.sm,
-  },
-  removeButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.tertiary,
-  },
-  roleOptions: {
-    gap: spacing.sm,
-  },
-  roleOption: {
-    padding: spacing.md,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  roleOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  roleOptionDisabled: {
-    opacity: 0.5,
-  },
-  roleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.text.tertiary,
-    marginRight: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioButtonSelected: {
-    borderColor: colors.primary,
-  },
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-  },
-  roleName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.primary,
-  },
-  roleNameDisabled: {
-    color: colors.text.tertiary,
-  },
-  roleDescription: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    marginLeft: 28,
-  },
-  roleDescriptionDisabled: {
-    color: colors.text.tertiary,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    gap: spacing.md,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background.secondary,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.text.secondary,
-  },
-  inviteButton: {
-    flex: 2,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inviteButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-  },
-  inviteButtonText: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: '#fff',
-  },
-});

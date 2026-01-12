@@ -9,7 +9,7 @@
 // Shows current space with tap to open dropdown
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,8 @@ import {
 } from 'react-native';
 import { useSpaceSwitcher, usePendingInvitations } from '../contexts/SpaceContext';
 import { getRoleDisplayName, getRoleBadgeColor } from '../lib/types/space';
-import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 interface SpaceSwitcherProps {
   onCreateSpace?: () => void;  // Callback to open create space modal
@@ -31,12 +32,14 @@ interface SpaceSwitcherProps {
   compact?: boolean;           // Smaller version for tight spaces
 }
 
-export default function SpaceSwitcher({ 
-  onCreateSpace, 
+export default function SpaceSwitcher({
+  onCreateSpace,
   onViewInvitations,
   onManageSpaces,
-  compact = false 
+  compact = false
 }: SpaceSwitcherProps) {
+  const { colors, functionalColors } = useTheme();
+
   const {
     currentSpace,
     spaces,
@@ -47,6 +50,266 @@ export default function SpaceSwitcher({
   const { invitations, count: invitationCount } = usePendingInvitations();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.md,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    containerCompact: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      marginHorizontal: spacing.md,
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    loadingText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    currentSpace: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: spacing.sm,
+    },
+    emoji: {
+      fontSize: 18,
+    },
+    emojiCompact: {
+      fontSize: 16,
+    },
+    spaceName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    spaceNameCompact: {
+      fontSize: typography.sizes.sm,
+    },
+    dropdownIcon: {
+      fontSize: 10,
+      color: colors.text.tertiary,
+      marginLeft: spacing.xs,
+    },
+    switchingIndicator: {
+      marginLeft: spacing.xs,
+    },
+    memberBadge: {
+      backgroundColor: colors.primary + '20',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+      marginLeft: spacing.sm,
+    },
+    memberBadgeText: {
+      fontSize: typography.sizes.xs,
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+    invitationBadge: {
+      backgroundColor: functionalColors.warning,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: spacing.sm,
+    },
+    invitationBadgeText: {
+      fontSize: typography.sizes.xs,
+      color: colors.background.card,
+      fontWeight: typography.weights.bold,
+    },
+
+    // Modal styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    dropdown: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.xl,
+      maxHeight: '70%',
+      ...shadows.large,
+    },
+    dropdownHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    dropdownTitle: {
+      fontSize: typography.sizes.lg,
+      fontWeight: typography.weights.bold,
+      color: colors.text.primary,
+    },
+    headerBadge: {
+      backgroundColor: '#FEF3C7',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.md,
+    },
+    headerBadgeText: {
+      fontSize: typography.sizes.xs,
+      color: '#92400E',
+      fontWeight: typography.weights.semibold,
+    },
+    spaceList: {
+      maxHeight: 280,
+    },
+    spaceItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    spaceItemActive: {
+      backgroundColor: colors.primary + '10',
+    },
+    spaceItemEmoji: {
+      fontSize: 24,
+      marginRight: spacing.md,
+    },
+    spaceItemInfo: {
+      flex: 1,
+    },
+    spaceItemNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: 2,
+    },
+    spaceItemName: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+    },
+    spaceItemNameActive: {
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+    roleBadge: {
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 1,
+      borderRadius: borderRadius.sm,
+    },
+    roleBadgeText: {
+      fontSize: 10,
+      fontWeight: typography.weights.semibold,
+    },
+    spaceItemMeta: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+    checkmark: {
+      fontSize: typography.sizes.lg,
+      color: colors.primary,
+      fontWeight: typography.weights.bold,
+    },
+    emptyState: {
+      padding: spacing.xxl,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+    },
+
+    // Invitations preview
+    invitationsPreview: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      backgroundColor: '#FEF3C7',
+      gap: spacing.sm,
+    },
+    invitationsPreviewIcon: {
+      fontSize: typography.sizes.lg,
+    },
+    invitationsPreviewText: {
+      flex: 1,
+      fontSize: typography.sizes.sm,
+      color: '#92400E',
+      fontWeight: typography.weights.medium,
+    },
+    invitationsPreviewArrow: {
+      fontSize: typography.sizes.xl,
+      color: '#92400E',
+    },
+
+    // Create button
+    createButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.sm,
+    },
+    createButtonIcon: {
+      fontSize: typography.sizes.xl,
+      color: colors.primary,
+      fontWeight: typography.weights.bold,
+    },
+    createButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: typography.weights.semibold,
+    },
+
+    // Manage button
+    manageButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.sm,
+    },
+    manageButtonIcon: {
+      fontSize: typography.sizes.md,
+    },
+    manageButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
+
+    // Cancel button
+    cancelButton: {
+      paddingVertical: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+  }), [colors, functionalColors]);
 
   // ============================================
   // HANDLERS
@@ -255,267 +518,3 @@ export default function SpaceSwitcher({
     </>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  containerCompact: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    marginHorizontal: spacing.md,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  currentSpace: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  emoji: {
-    fontSize: 18,
-  },
-  emojiCompact: {
-    fontSize: 16,
-  },
-  spaceName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  spaceNameCompact: {
-    fontSize: typography.sizes.sm,
-  },
-  dropdownIcon: {
-    fontSize: 10,
-    color: colors.text.tertiary,
-    marginLeft: spacing.xs,
-  },
-  switchingIndicator: {
-    marginLeft: spacing.xs,
-  },
-  memberBadge: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    marginLeft: spacing.sm,
-  },
-  memberBadgeText: {
-    fontSize: typography.sizes.xs,
-    color: colors.primary,
-    fontWeight: typography.weights.medium,
-  },
-  invitationBadge: {
-    backgroundColor: '#F59E0B',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.sm,
-  },
-  invitationBadgeText: {
-    fontSize: typography.sizes.xs,
-    color: '#fff',
-    fontWeight: typography.weights.bold,
-  },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  dropdown: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
-    maxHeight: '70%',
-    ...shadows.large,
-  },
-  dropdownHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  dropdownTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.text.primary,
-  },
-  headerBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-  },
-  headerBadgeText: {
-    fontSize: typography.sizes.xs,
-    color: '#92400E',
-    fontWeight: typography.weights.semibold,
-  },
-  spaceList: {
-    maxHeight: 280,
-  },
-  spaceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  spaceItemActive: {
-    backgroundColor: colors.primary + '10',
-  },
-  spaceItemEmoji: {
-    fontSize: 24,
-    marginRight: spacing.md,
-  },
-  spaceItemInfo: {
-    flex: 1,
-  },
-  spaceItemNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: 2,
-  },
-  spaceItemName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium,
-    color: colors.text.primary,
-  },
-  spaceItemNameActive: {
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-  roleBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: typography.weights.semibold,
-  },
-  spaceItemMeta: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-  checkmark: {
-    fontSize: typography.sizes.lg,
-    color: colors.primary,
-    fontWeight: typography.weights.bold,
-  },
-  emptyState: {
-    padding: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-  },
-
-  // Invitations preview
-  invitationsPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: '#FEF3C7',
-    gap: spacing.sm,
-  },
-  invitationsPreviewIcon: {
-    fontSize: typography.sizes.lg,
-  },
-  invitationsPreviewText: {
-    flex: 1,
-    fontSize: typography.sizes.sm,
-    color: '#92400E',
-    fontWeight: typography.weights.medium,
-  },
-  invitationsPreviewArrow: {
-    fontSize: typography.sizes.xl,
-    color: '#92400E',
-  },
-
-  // Create button
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    gap: spacing.sm,
-  },
-  createButtonIcon: {
-    fontSize: typography.sizes.xl,
-    color: colors.primary,
-    fontWeight: typography.weights.bold,
-  },
-  createButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: typography.weights.semibold,
-  },
-
-  // Manage button
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    gap: spacing.sm,
-  },
-  manageButtonIcon: {
-    fontSize: typography.sizes.md,
-  },
-  manageButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: typography.weights.medium,
-  },
-
-  // Cancel button
-  cancelButton: {
-    paddingVertical: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-});

@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -67,6 +67,170 @@ export default function MealCalendarView({
   onMonthChange,
   currentUserId,
 }: MealCalendarViewProps) {
+  const { colors, functionalColors } = useTheme();
+
+  const DAY_SIZE = (SCREEN_WIDTH - 32 - 12) / 7; // Account for padding and gaps
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginTop: 8,
+      padding: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    navButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.background.secondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    navButtonText: {
+      fontSize: 20,
+      color: colors.text.primary,
+      fontWeight: '300',
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    weekdayHeader: {
+      flexDirection: 'row',
+      marginBottom: 4,
+    },
+    weekdayText: {
+      width: DAY_SIZE,
+      textAlign: 'center',
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+    },
+    monthGrid: {
+      // Container for month view
+    },
+    weekView: {
+      // Container for week view
+    },
+    weekRow: {
+      flexDirection: 'row',
+      marginBottom: 1,
+    },
+    dayCell: {
+      width: DAY_SIZE,
+      height: DAY_SIZE * 0.85,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 2,
+      borderRadius: 6,
+    },
+    weekDayCell: {
+      width: DAY_SIZE,
+      minHeight: 70,
+      alignItems: 'center',
+      paddingTop: 4,
+      paddingHorizontal: 2,
+      borderRadius: 6,
+      backgroundColor: colors.background.secondary,
+      marginHorizontal: 1,
+    },
+    todayCell: {
+      backgroundColor: '#EFF6FF',
+    },
+    selectedCell: {
+      backgroundColor: colors.primary,
+    },
+    otherMonthCell: {
+      opacity: 0.4,
+    },
+    dayNumber: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    todayText: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    selectedText: {
+      color: colors.background.card,
+      fontWeight: '700',
+    },
+    selectedSubText: {
+      color: 'rgba(255, 255, 255, 0.8)',
+    },
+    otherMonthText: {
+      color: colors.text.tertiary,
+    },
+    mealIndicators: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 1,
+      gap: 2,
+    },
+    dot: {
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+    },
+    planningDot: {
+      backgroundColor: functionalColors.warning,
+    },
+    completedDot: {
+      backgroundColor: functionalColors.success,
+    },
+    participantCount: {
+      fontSize: 8,
+      color: colors.text.tertiary,
+      marginLeft: 1,
+    },
+    weekMealList: {
+      marginTop: 2,
+      width: '100%',
+    },
+    weekMealTitle: {
+      fontSize: 9,
+      color: colors.text.primary,
+      textAlign: 'center',
+      lineHeight: 12,
+    },
+    weekMoreMeals: {
+      fontSize: 8,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+    },
+    legend: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 16,
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.background.secondary,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+    },
+  }), [colors, functionalColors, DAY_SIZE]);
 
   // Get meals grouped by local date string (YYYY-MM-DD)
   const mealsByDate = useMemo(() => {
@@ -341,166 +505,3 @@ export default function MealCalendarView({
     </View>
   );
 }
-
-const DAY_SIZE = (SCREEN_WIDTH - 32 - 12) / 7; // Account for padding and gaps
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  navButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navButtonText: {
-    fontSize: 20,
-    color: '#374151',
-    fontWeight: '300',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-  },
-  weekdayHeader: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  weekdayText: {
-    width: DAY_SIZE,
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  monthGrid: {
-    // Container for month view
-  },
-  weekView: {
-    // Container for week view
-  },
-  weekRow: {
-    flexDirection: 'row',
-    marginBottom: 1,
-  },
-  dayCell: {
-    width: DAY_SIZE,
-    height: DAY_SIZE * 0.85,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 2,
-    borderRadius: 6,
-  },
-  weekDayCell: {
-    width: DAY_SIZE,
-    minHeight: 70,
-    alignItems: 'center',
-    paddingTop: 4,
-    paddingHorizontal: 2,
-    borderRadius: 6,
-    backgroundColor: '#F9FAFB',
-    marginHorizontal: 1,
-  },
-  todayCell: {
-    backgroundColor: '#EFF6FF',
-  },
-  selectedCell: {
-    backgroundColor: colors.primary,
-  },
-  otherMonthCell: {
-    opacity: 0.4,
-  },
-  dayNumber: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  todayText: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  selectedText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  selectedSubText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  otherMonthText: {
-    color: '#9CA3AF',
-  },
-  mealIndicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 1,
-    gap: 2,
-  },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  planningDot: {
-    backgroundColor: '#F59E0B',
-  },
-  completedDot: {
-    backgroundColor: '#10B981',
-  },
-  participantCount: {
-    fontSize: 8,
-    color: '#9CA3AF',
-    marginLeft: 1,
-  },
-  weekMealList: {
-    marginTop: 2,
-    width: '100%',
-  },
-  weekMealTitle: {
-    fontSize: 9,
-    color: '#374151',
-    textAlign: 'center',
-    lineHeight: 12,
-  },
-  weekMoreMeals: {
-    fontSize: 8,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-});

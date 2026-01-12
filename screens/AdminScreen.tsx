@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
+import { useState, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
   ScrollView,
   TouchableOpacity,
   TextInput,
   Alert
 } from 'react-native';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { parseIngredientString, matchToDatabase, processRecipeIngredients } from '../lib/ingredientsParser';
 import {
@@ -21,9 +22,114 @@ import {
 } from '../lib/searchService';
 
 export default function AdminScreen() {
+  const { colors, functionalColors } = useTheme();
+
   const [testResults, setTestResults] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // NEW: for search testing
+
+  // Dynamic styles based on theme
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+      padding: 20,
+    },
+    header: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 20,
+      marginTop: 40,
+      color: colors.text.primary,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 15,
+      marginTop: 10,
+      color: colors.primary,
+    },
+    buttonSection: {
+      gap: 10,
+      marginBottom: 20,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      padding: 15,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    buttonSecondary: {
+      backgroundColor: functionalColors.success,
+    },
+    buttonTertiary: {
+      backgroundColor: functionalColors.warning,
+    },
+    buttonSearch: {
+      backgroundColor: colors.accent,
+    },
+    buttonClear: {
+      backgroundColor: functionalColors.error,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      color: colors.background.card,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    searchInput: {
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      marginBottom: 10,
+      color: colors.text.primary,
+    },
+    loading: {
+      textAlign: 'center',
+      fontSize: 16,
+      color: colors.text.secondary,
+      marginVertical: 10,
+    },
+    resultsContainer: {
+      marginTop: 20,
+    },
+    resultsHeader: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: colors.text.primary,
+    },
+    resultsBox: {
+      backgroundColor: colors.background.secondary,
+      padding: 15,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    resultLine: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.text.secondary,
+      fontFamily: 'monospace',
+    },
+    resultHeader: {
+      fontWeight: 'bold',
+      color: colors.primary,
+      marginTop: 10,
+    },
+    resultError: {
+      color: functionalColors.error,
+    },
+    resultDivider: {
+      color: colors.text.tertiary,
+      marginVertical: 5,
+    },
+  }), [colors, functionalColors]);
 
   // Test OR Pattern Detection
   const testOrPatterns = async () => {
@@ -623,101 +729,3 @@ export default function AdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    marginTop: 40,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    marginTop: 10,
-    color: '#007AFF',
-  },
-  buttonSection: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonSecondary: {
-    backgroundColor: '#34C759',
-  },
-  buttonTertiary: {
-    backgroundColor: '#FF9500',
-  },
-  buttonSearch: {
-    backgroundColor: '#5856D6',
-  },
-  buttonClear: {
-    backgroundColor: '#FF3B30',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  searchInput: {
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  loading: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
-    marginVertical: 10,
-  },
-  resultsContainer: {
-    marginTop: 20,
-  },
-  resultsHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  resultsBox: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  resultLine: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#333',
-    fontFamily: 'monospace',
-  },
-  resultHeader: {
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginTop: 10,
-  },
-  resultError: {
-    color: '#FF3B30',
-  },
-  resultDivider: {
-    color: '#999',
-    marginVertical: 5,
-  },
-});

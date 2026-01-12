@@ -2,7 +2,7 @@
 // Modal for selecting a meal to add a dish to
 // Created: December 2, 2025
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getUserRecentMeals,
   addDishesToMeal,
@@ -53,6 +53,7 @@ export default function SelectMealModal({
   onSuccess,
   onCreateNewMeal,
 }: SelectMealModalProps) {
+  const { colors, functionalColors } = useTheme();
   const [meals, setMeals] = useState<RecentMeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -130,6 +131,177 @@ export default function SelectMealModal({
     const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+      minHeight: 400,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
+      marginHorizontal: 10,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    cancelButton: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      width: 60,
+    },
+    backButton: {
+      fontSize: 16,
+      color: colors.primary,
+      width: 60,
+    },
+    addButton: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+      width: 60,
+      textAlign: 'right',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: 200,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 34,
+    },
+    createNewRow: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    createNewText: {
+      fontSize: 16,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    mealItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    mealEmoji: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: colors.accentLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    mealEmojiText: {
+      fontSize: 24,
+    },
+    mealInfo: {
+      flex: 1,
+    },
+    mealTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    mealMeta: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      marginRight: 8,
+    },
+    statusPlanning: {
+      backgroundColor: functionalColors.warning + '30',
+    },
+    statusCompleted: {
+      backgroundColor: functionalColors.success + '30',
+    },
+    statusText: {
+      fontSize: 12,
+    },
+    arrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 40,
+    },
+    emptyEmoji: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    createButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    createButtonText: {
+      fontSize: 16,
+      color: colors.background.card,
+      fontWeight: '600',
+    },
+    courseContainer: {
+      padding: 20,
+    },
+    sectionLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+  }), [colors, functionalColors]);
 
   const renderMealItem = ({ item }: { item: RecentMeal }) => (
     <TouchableOpacity
@@ -277,174 +449,3 @@ export default function SelectMealModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    minHeight: 400,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B7280',
-    width: 60,
-  },
-  backButton: {
-    fontSize: 16,
-    color: colors.primary,
-    width: 60,
-  },
-  addButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-    width: 60,
-    textAlign: 'right',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 200,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 34,
-  },
-  createNewRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  createNewText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  mealItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  mealEmoji: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  mealEmojiText: {
-    fontSize: 24,
-  },
-  mealInfo: {
-    flex: 1,
-  },
-  mealTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  mealMeta: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  statusPlanning: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusCompleted: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusText: {
-    fontSize: 12,
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  createButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  createButtonText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
-  },
-  courseContainer: {
-    padding: 20,
-  },
-  sectionLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 16,
-  },
-});

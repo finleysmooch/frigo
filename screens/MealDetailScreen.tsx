@@ -3,7 +3,7 @@
 // Created: December 2, 2025
 // Updated: December 10, 2025 - Added edit meal functionality
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import {
   getMeal,
   getMealParticipants,
@@ -53,7 +53,8 @@ interface MealDetailScreenProps {
 
 export default function MealDetailScreen({ navigation, route }: MealDetailScreenProps) {
   const { mealId, currentUserId } = route.params;
-  
+  const { colors, functionalColors } = useTheme();
+
   const [meal, setMeal] = useState<MealWithDetails | null>(null);
   const [participants, setParticipants] = useState<MealParticipant[]>([]);
   const [dishes, setDishes] = useState<DishInMeal[]>([]);
@@ -62,13 +63,447 @@ export default function MealDetailScreen({ navigation, route }: MealDetailScreen
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myRsvpStatus, setMyRsvpStatus] = useState<string | null>(null);
-  
+
   // Modals
   const [showAddDishes, setShowAddDishes] = useState(false);
   const [showAddParticipants, setShowAddParticipants] = useState(false);
   const [showAddPlanItem, setShowAddPlanItem] = useState(false);
   const [showEditMeal, setShowEditMeal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      padding: 20,
+    },
+    errorText: {
+      fontSize: 18,
+      color: colors.text.secondary,
+      marginBottom: 20,
+    },
+    backButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+    },
+    backButtonText: {
+      color: 'white',
+      fontWeight: '600',
+    },
+    headerImage: {
+      width: SCREEN_WIDTH,
+      height: SCREEN_WIDTH * 0.6,
+      backgroundColor: colors.background.secondary,
+      position: 'relative',
+    },
+    headerImageContent: {
+      width: '100%',
+      height: '100%',
+    },
+    headerPlaceholder: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerEmoji: {
+      fontSize: 80,
+    },
+    statusBadge: {
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    statusPlanning: {
+      backgroundColor: '#FEF3C7',
+    },
+    statusCompleted: {
+      backgroundColor: '#D1FAE5',
+    },
+    statusText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    mealInfo: {
+      padding: 20,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    mealTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text.primary,
+      flex: 1,
+      marginRight: 12,
+    },
+    editButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 16,
+    },
+    editButtonText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.primary,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    metaIcon: {
+      fontSize: 16,
+      marginRight: 8,
+    },
+    metaText: {
+      fontSize: 15,
+      color: colors.text.secondary,
+      flex: 1,
+    },
+    setDateButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      marginLeft: 8,
+    },
+    setDateButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: 'white',
+    },
+    description: {
+      fontSize: 15,
+      color: colors.text.primary,
+      lineHeight: 22,
+      marginTop: 12,
+    },
+    // Invitation Banner Styles
+    invitationBanner: {
+      backgroundColor: '#FEF3C7',
+      marginHorizontal: 20,
+      marginBottom: 16,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    invitationText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#92400E',
+      marginBottom: 12,
+    },
+    invitationButtons: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    declineButton: {
+      backgroundColor: '#FEE2E2',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    declineButtonText: {
+      color: functionalColors.error,
+      fontWeight: '600',
+    },
+    maybeButton: {
+      backgroundColor: '#FEF3C7',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: functionalColors.warning,
+    },
+    maybeButtonText: {
+      color: functionalColors.warning,
+      fontWeight: '600',
+    },
+    acceptButton: {
+      backgroundColor: functionalColors.success,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    acceptButtonText: {
+      color: 'white',
+      fontWeight: '600',
+    },
+    maybeBanner: {
+      backgroundColor: '#FEF9C3',
+      marginHorizontal: 20,
+      marginBottom: 16,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    maybeStatusText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: '#854D0E',
+      marginBottom: 12,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 20,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: colors.background.secondary,
+      marginHorizontal: 20,
+    },
+    stat: {
+      alignItems: 'center',
+      paddingHorizontal: 30,
+    },
+    statValue: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 4,
+    },
+    statDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.border.medium,
+    },
+    section: {
+      padding: 20,
+      borderTopWidth: 8,
+      borderTopColor: colors.background.secondary,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    addButton: {
+      fontSize: 15,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    participantGroup: {
+      marginBottom: 16,
+    },
+    groupLabel: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    participantItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.background.secondary,
+    },
+    participantPending: {
+      opacity: 0.6,
+    },
+    participantMaybe: {
+      opacity: 0.8,
+    },
+    participantAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: '#FFE5D9',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    avatarPending: {
+      backgroundColor: colors.border.medium,
+    },
+    avatarMaybe: {
+      backgroundColor: '#FEF3C7',
+    },
+    participantAvatarText: {
+      fontSize: 22,
+    },
+    participantInfo: {
+      flex: 1,
+    },
+    participantName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    participantNamePending: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+    participantNameMaybe: {
+      fontSize: 16,
+      color: '#92400E',
+    },
+    participantMeta: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 40,
+    },
+    emptyEmoji: {
+      fontSize: 48,
+      marginBottom: 16,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+      marginBottom: 20,
+    },
+    ctaButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    ctaButtonText: {
+      fontSize: 16,
+      color: 'white',
+      fontWeight: '600',
+    },
+    courseSection: {
+      marginBottom: 20,
+    },
+    courseLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      marginBottom: 12,
+    },
+    dishCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 10,
+    },
+    dishImageContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: 8,
+      overflow: 'hidden',
+      marginRight: 12,
+    },
+    dishImage: {
+      width: '100%',
+      height: '100%',
+    },
+    dishImagePlaceholder: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: colors.border.medium,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dishImageEmoji: {
+      fontSize: 28,
+    },
+    dishInfo: {
+      flex: 1,
+    },
+    dishTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    dishContributor: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    dishRating: {
+      fontSize: 12,
+      marginTop: 4,
+    },
+    dishArrow: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+      marginLeft: 8,
+    },
+    bottomBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      paddingBottom: 34,
+      backgroundColor: colors.background.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: 12,
+    },
+    secondaryButton: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    secondaryButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    primaryButton: {
+      flex: 2,
+      paddingVertical: 14,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    primaryButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: 'white',
+    },
+  }), [colors, functionalColors]);
 
   useEffect(() => {
     loadMealData();
@@ -206,7 +641,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
     // Navigate to RecipeDetailScreen with meal plan context
     navigation.navigate('RecipesStack', {
       screen: 'RecipeDetail',
-      params: { 
+      params: {
         recipe: recipeData,
         planItemId: planItemId,
         mealId: mealId,
@@ -248,7 +683,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
 
   // Check if current user is an accepted participant
   const isAcceptedParticipant = myRsvpStatus === 'accepted';
-  
+
   // Get accepted participants for MealPlanSection
   const acceptedParticipantsForPlan = participants
     .filter(p => p.rsvp_status === 'accepted')
@@ -273,7 +708,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Meal not found</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -314,7 +749,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
               <Text style={styles.headerEmoji}>🍽️</Text>
             </View>
           )}
-          
+
           {/* Status Badge */}
           <View style={[
             styles.statusBadge,
@@ -339,7 +774,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
               </TouchableOpacity>
             )}
           </View>
-          
+
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>📅</Text>
             <Text style={styles.metaText}>
@@ -546,7 +981,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
               <Text style={styles.emptyEmoji}>🍽️</Text>
               <Text style={styles.emptyText}>No dishes added yet</Text>
               {(isHost || isAcceptedParticipant) && meal.meal_status === 'planning' && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.ctaButton}
                   onPress={() => setShowAddDishes(true)}
                 >
@@ -559,7 +994,7 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
               {courseOrder.map(course => {
                 const courseDishes = groupedDishes.get(course) || [];
                 if (courseDishes.length === 0) return null;
-                
+
                 return (
                   <View key={course} style={styles.courseSection}>
                     <Text style={styles.courseLabel}>
@@ -617,13 +1052,13 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
       {/* Bottom Action Bar */}
       {isHost && meal.meal_status === 'planning' && (
         <View style={styles.bottomBar}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.secondaryButton}
             onPress={handleDeleteMeal}
           >
             <Text style={styles.secondaryButtonText}>Delete</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleCompleteMeal}
           >
@@ -678,437 +1113,3 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#6B7280',
-    marginBottom: 20,
-  },
-  backButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  headerImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.6,
-    backgroundColor: '#F3F4F6',
-    position: 'relative',
-  },
-  headerImageContent: {
-    width: '100%',
-    height: '100%',
-  },
-  headerPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerEmoji: {
-    fontSize: 80,
-  },
-  statusBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusPlanning: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusCompleted: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  mealInfo: {
-    padding: 20,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  mealTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111',
-    flex: 1,
-    marginRight: 12,
-  },
-  editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-  },
-  editButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  metaIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  metaText: {
-    fontSize: 15,
-    color: '#6B7280',
-    flex: 1,
-  },
-  setDateButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  setDateButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  description: {
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 22,
-    marginTop: 12,
-  },
-  // Invitation Banner Styles
-  invitationBanner: {
-    backgroundColor: '#FEF3C7',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  invitationText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#92400E',
-    marginBottom: 12,
-  },
-  invitationButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  declineButton: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  declineButtonText: {
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  maybeButton: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D97706',
-  },
-  maybeButtonText: {
-    color: '#D97706',
-    fontWeight: '600',
-  },
-  acceptButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  acceptButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  maybeBanner: {
-    backgroundColor: '#FEF9C3',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  maybeStatusText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#854D0E',
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#F3F4F6',
-    marginHorizontal: 20,
-  },
-  stat: {
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#E5E7EB',
-  },
-  section: {
-    padding: 20,
-    borderTopWidth: 8,
-    borderTopColor: '#F3F4F6',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  addButton: {
-    fontSize: 15,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  participantGroup: {
-    marginBottom: 16,
-  },
-  groupLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  participantItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  participantPending: {
-    opacity: 0.6,
-  },
-  participantMaybe: {
-    opacity: 0.8,
-  },
-  participantAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFE5D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarPending: {
-    backgroundColor: '#E5E7EB',
-  },
-  avatarMaybe: {
-    backgroundColor: '#FEF3C7',
-  },
-  participantAvatarText: {
-    fontSize: 22,
-  },
-  participantInfo: {
-    flex: 1,
-  },
-  participantName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-  },
-  participantNamePending: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  participantNameMaybe: {
-    fontSize: 16,
-    color: '#92400E',
-  },
-  participantMeta: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginBottom: 20,
-  },
-  ctaButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  ctaButtonText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
-  },
-  courseSection: {
-    marginBottom: 20,
-  },
-  courseLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  dishCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  dishImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  dishImage: {
-    width: '100%',
-    height: '100%',
-  },
-  dishImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dishImageEmoji: {
-    fontSize: 28,
-  },
-  dishInfo: {
-    flex: 1,
-  },
-  dishTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 2,
-  },
-  dishContributor: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  dishRating: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  dishArrow: {
-    fontSize: 24,
-    color: '#9CA3AF',
-    marginLeft: 8,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 34,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    gap: 12,
-  },
-  secondaryButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  primaryButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-});

@@ -4,7 +4,7 @@
 // Modal for adding new regular grocery items
 // Location: components/AddRegularItemModal.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -19,7 +19,8 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { colors, typography, spacing } from '../lib/theme';
+import { typography, spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme/ThemeContext';
 import { addRegularItem } from '../lib/groceryService';
 import { PurchaseFrequency } from '../lib/types/grocery';
 
@@ -42,6 +43,9 @@ export default function AddRegularItemModal({
   onClose,
   onSuccess,
 }: AddRegularItemModalProps) {
+  const { colors, functionalColors } = useTheme();
+  const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Ingredient[]>([]);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
@@ -344,7 +348,7 @@ export default function AddRegularItemModal({
                 disabled={!selectedIngredient || !quantity || loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.text.inverse} />
                 ) : (
                   <Text style={styles.saveButtonText}>Add Item</Text>
                 )}
@@ -357,213 +361,215 @@ export default function AddRegularItemModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modal: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.medium,
-  },
-  title: {
-    fontSize: typography.sizes.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  closeButton: {
-    padding: spacing.sm,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: colors.text.tertiary,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    padding: spacing.md,
-    fontSize: typography.sizes.md,
-    color: colors.text.primary,
-    backgroundColor: '#fff',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  quantityInput: {
-    flex: 1,
-  },
-  unitInput: {
-    flex: 1,
-  },
-  searchLoader: {
-    marginTop: spacing.sm,
-  },
-  searchResults: {
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    maxHeight: 200,
-  },
-  searchResultItem: {
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.medium,
-  },
-  searchResultName: {
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  searchResultFamily: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-  },
-  selectedBadge: {
-    marginTop: spacing.sm,
-    backgroundColor: colors.primary + '20',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-  },
-  selectedText: {
-    fontSize: typography.sizes.md,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  frequencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
-  },
-  frequencyOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border.medium,
-    marginRight: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-  },
-  frequencyText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  frequencyTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  customFrequencyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  customDaysInput: {
-    flex: 1,
-  },
-  customDaysLabel: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-  },
-  helperText: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  previewContainer: {
-    backgroundColor: '#f9f9f9',
-    padding: spacing.md,
-    borderRadius: 8,
-    marginTop: spacing.md,
-  },
-  previewLabel: {
-    fontSize: typography.sizes.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  previewDate: {
-    fontSize: typography.sizes.lg,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.medium,
-    gap: spacing.sm,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.sizes.md,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-  },
-  saveButtonText: {
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-});
+function createStyles(colors: any, functionalColors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modal: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    title: {
+      fontSize: typography.sizes.xl,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+    },
+    closeButton: {
+      padding: spacing.sm,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.text.tertiary,
+    },
+    content: {
+      padding: spacing.md,
+    },
+    section: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sizes.md,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      padding: spacing.md,
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      backgroundColor: colors.background.card,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    quantityInput: {
+      flex: 1,
+    },
+    unitInput: {
+      flex: 1,
+    },
+    searchLoader: {
+      marginTop: spacing.sm,
+    },
+    searchResults: {
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      maxHeight: 200,
+    },
+    searchResultItem: {
+      padding: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    searchResultName: {
+      fontSize: typography.sizes.md,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    searchResultFamily: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+    },
+    selectedBadge: {
+      marginTop: spacing.sm,
+      backgroundColor: colors.primary + '20',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 8,
+    },
+    selectedText: {
+      fontSize: typography.sizes.md,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    frequencyOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: 8,
+      marginBottom: spacing.sm,
+    },
+    frequencyOptionActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '10',
+    },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border.medium,
+      marginRight: spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    frequencyText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    frequencyTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    customFrequencyContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    customDaysInput: {
+      flex: 1,
+    },
+    customDaysLabel: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+    },
+    helperText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      marginTop: spacing.xs,
+    },
+    previewContainer: {
+      backgroundColor: colors.background.secondary,
+      padding: spacing.md,
+      borderRadius: 8,
+      marginTop: spacing.md,
+    },
+    previewLabel: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+    },
+    previewDate: {
+      fontSize: typography.sizes.lg,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      gap: spacing.sm,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
+    saveButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      backgroundColor: colors.text.tertiary,
+    },
+    saveButtonText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.inverse,
+      fontWeight: 'bold',
+    },
+  });
+}
