@@ -3,12 +3,14 @@
 // Updated: November 19, 2025
 // Updated: December 10, 2025 - Added selection mode params for recipe selection flow
 // Updated: December 18, 2025 - Added SpaceProvider for shared pantries
+// Updated: January 12, 2026 - Added custom font loading (Poppins, Outfit)
 
 import { useState, useEffect } from 'react';
-import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useFonts } from 'expo-font';
 import RecipeListScreen from './screens/RecipeListScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import MealDetailScreen from './screens/MealDetailScreen';
@@ -35,6 +37,10 @@ import SignupScreen from './screens/SignupScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
+import LogoPlaygroundScreen from './screens/LogoPlaygroundScreen';
+
+// Logo component for branding
+import { Logo } from './components/branding';
 
 // NEW: Social Feature Screens
 import FeedScreen from './screens/FeedScreen';
@@ -48,7 +54,26 @@ import SpaceSettingsScreen from './screens/SpaceSettingsScreen';
 import { SpaceProvider } from './contexts/SpaceContext';
 
 // Theme Provider for color schemes
-import { ThemeProvider } from './lib/theme/ThemeContext';
+import { ThemeProvider, useTheme } from './lib/theme/ThemeContext';
+
+// Logo Config Provider for app-wide logo settings
+import { LogoConfigProvider } from './contexts/LogoConfigContext';
+
+// Icon components
+import {
+  HomeOutline,
+  HomeFilled,
+  RecipesOutline,
+  RecipesFilled,
+  CalendarOutline,
+  CalendarFilled,
+  ChefHat2,
+  ChefHat2Inverse,
+  PantryOutline,
+  PantryFilled,
+  GroceryOutline,
+  GroceryFilled,
+} from './components/icons';
 
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -118,6 +143,10 @@ export type FeedStackParamList = {
   PostDetail: { postId: string };
   YasChefsList: { postId: string; postTitle: string };
   CommentsList: { postId: string };
+  UserSearch: undefined;
+  Profile: undefined;
+  Settings: undefined;
+  EditProfile: undefined;
 };
 
 // UPDATED: MealsStackParamList with recipe selection return params
@@ -153,6 +182,7 @@ export type ProfileStackParamList = {
   ProfileHome: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  LogoPlayground: undefined;
 };
 
 export type GroceryStackParamList = {
@@ -167,14 +197,12 @@ export type PantryStackParamList = {
 };
 
 export type RootTabParamList = {
-  FeedStack: undefined; // NEW
-  SearchStack: undefined; // NEW
+  FeedStack: undefined;
   RecipesStack: undefined;
   MealsStack: undefined;
   MyPostsStack: undefined;
   PantryStack: undefined;
   GroceryStack: undefined;
-  ProfileStack: undefined;
   Stores: undefined;
   Admin: undefined;
 };
@@ -255,49 +283,61 @@ function FeedStackNavigator() {
         headerShown: false,
       }}
     >
-      <FeedStack.Screen 
-        name="FeedMain" 
+      <FeedStack.Screen
+        name="FeedMain"
         component={FeedScreen}
-        options={({ navigation }: any) => ({
-          headerShown: true,
-          title: 'Home',
-          headerRight: () => (
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('PendingApprovals')}
-              style={{ marginRight: 15, position: 'relative' }}
-            >
-              <Text style={{ fontSize: 24 }}>🔔</Text>
-              {pendingCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{pendingCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ),
-        })}
+        initialParams={{ pendingCount }}
       />
-      <FeedStack.Screen 
-        name="PendingApprovals" 
+      <FeedStack.Screen
+        name="PendingApprovals"
         component={PendingApprovalsScreen}
         options={{
           headerShown: true,
           title: 'Cooking Invitations',
         }}
       />
-      <FeedStack.Screen 
-        name="YasChefsList" 
+      <FeedStack.Screen
+        name="YasChefsList"
         component={YasChefScreen}
         options={{
           headerShown: true,
           title: 'Yas Chefs',
         }}
       />
-      <FeedStack.Screen 
-        name="CommentsList" 
+      <FeedStack.Screen
+        name="CommentsList"
         component={CommentsScreen}
         options={{
           headerShown: true,
           title: 'Comments',
+        }}
+      />
+      <FeedStack.Screen
+        name="UserSearch"
+        component={UserSearchScreen}
+        options={{
+          headerShown: true,
+          title: 'Find People',
+        }}
+      />
+      <FeedStack.Screen
+        name="Profile"
+        component={ProfileScreen}
+      />
+      <FeedStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Settings',
+        }}
+      />
+      <FeedStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Edit Profile',
         }}
       />
     </FeedStack.Navigator>
@@ -466,17 +506,25 @@ function ProfileStackNavigator() {
         headerShown: false,
       }}
     >
-      <ProfileStack.Screen 
-        name="ProfileHome" 
+      <ProfileStack.Screen
+        name="ProfileHome"
         component={ProfileScreen}
       />
-      <ProfileStack.Screen 
-        name="Settings" 
+      <ProfileStack.Screen
+        name="Settings"
         component={SettingsScreen}
       />
-      <ProfileStack.Screen 
-        name="EditProfile" 
+      <ProfileStack.Screen
+        name="EditProfile"
         component={EditProfileScreen}
+      />
+      <ProfileStack.Screen
+        name="LogoPlayground"
+        component={LogoPlaygroundScreen}
+        options={{
+          headerShown: true,
+          title: 'Logo Playground',
+        }}
       />
     </ProfileStack.Navigator>
   );
@@ -527,116 +575,123 @@ function GroceryStackNavigator() {
 }
 
 function MainTabNavigator() {
+  const { colors } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: colors.background.card,
           borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
+          borderTopColor: colors.border.medium,
           height: 88,
           paddingBottom: 34,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.text.tertiary,
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
         },
       }}
     >
-      {/* Feed Tab - Home feed with posts from people you follow */}
+      {/* Home Tab - Feed with posts from people you follow */}
       <Tab.Screen
         name="FeedStack"
         component={FeedStackNavigator}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🏠' : '🏡'}</Text>
-          ),
-        }}
-      />
-      
-      {/* Search Tab - Find and follow people */}
-      <Tab.Screen
-        name="SearchStack"
-        component={UserSearchScreen}
-        options={{
-          headerShown: true,
-          title: 'Find People',
-          tabBarLabel: 'Search',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🔍' : '🔎'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const Icon = focused ? HomeFilled : HomeOutline;
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            return <Icon size={24} color={iconColor} />;
+          },
         }}
       />
 
+      {/* Recipes Tab */}
       <Tab.Screen
         name="RecipesStack"
         component={RecipesStackNavigator}
         options={{
           tabBarLabel: 'Recipes',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '📖' : '📕'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const Icon = focused ? RecipesFilled : RecipesOutline;
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            return <Icon size={24} color={iconColor} />;
+          },
         }}
       />
-      
-      {/* NEW: Meals Tab */}
+
+      {/* Meals Tab */}
       <Tab.Screen
         name="MealsStack"
         component={MealsStackNavigator}
         options={{
           tabBarLabel: 'Meals',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🍽️' : '🥗'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const Icon = focused ? CalendarFilled : CalendarOutline;
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            return <Icon size={24} color={iconColor} />;
+          },
         }}
       />
-      
+
+      {/* My Posts Tab */}
       <Tab.Screen
         name="MyPostsStack"
         component={MyPostsStackNavigator}
         options={{
           tabBarLabel: 'My Posts',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🍳' : '🥘'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            if (focused) {
+              // Use PNG image for filled state (matches premium avatar badge)
+              return (
+                <Image
+                  source={require('./assets/icons/chefhat2inverse.png')}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    tintColor: iconColor,
+                  }}
+                />
+              );
+            } else {
+              // Use outline SVG for inactive state
+              return <ChefHat2 size={24} color={iconColor} />;
+            }
+          },
         }}
       />
-      
+
+      {/* Pantry Tab */}
       <Tab.Screen
         name="PantryStack"
         component={PantryStackNavigator}
         options={{
           tabBarLabel: 'Pantry',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🏪' : '📦'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const Icon = focused ? PantryFilled : PantryOutline;
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            return <Icon size={24} color={iconColor} />;
+          },
         }}
       />
-      
+
+      {/* Grocery Tab */}
       <Tab.Screen
         name="GroceryStack"
         component={GroceryStackNavigator}
         options={{
           tabBarLabel: 'Grocery',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '🛒' : '🛍️'}</Text>
-          ),
-        }}
-      />
-      
-      <Tab.Screen
-        name="ProfileStack"
-        component={ProfileStackNavigator}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => (
-            <Text style={{ fontSize: 24 }}>{focused ? '👤' : '👥'}</Text>
-          ),
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const Icon = focused ? GroceryFilled : GroceryOutline;
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            return <Icon size={24} color={iconColor} />;
+          },
         }}
       />
     </Tab.Navigator>
@@ -647,6 +702,21 @@ function MainTabNavigator() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Load custom fonts
+  // NOTE: Font files are in subdirectories:
+  // - Poppins fonts in assets/fonts/Poppins/
+  // - Outfit fonts in assets/fonts/Outfit/static/
+  const [fontsLoaded] = useFonts({
+    'Poppins-Regular': require('./assets/fonts/Poppins/Poppins-Regular.ttf'),
+    'Poppins-Medium': require('./assets/fonts/Poppins/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('./assets/fonts/Poppins/Poppins-SemiBold.ttf'),
+    'Poppins-Bold': require('./assets/fonts/Poppins/Poppins-Bold.ttf'),
+    'Outfit-Regular': require('./assets/fonts/Outfit/static/Outfit-Regular.ttf'),
+    'Outfit-Medium': require('./assets/fonts/Outfit/static/Outfit-Medium.ttf'),
+    'Outfit-SemiBold': require('./assets/fonts/Outfit/static/Outfit-SemiBold.ttf'),
+    'Outfit-Bold': require('./assets/fonts/Outfit/static/Outfit-Bold.ttf'),
+  });
 
   useEffect(() => {
     // Check initial session
@@ -667,26 +737,28 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FC4C02" />
-      </View>
-    );
-  }
-
-  // UPDATED: Wrap authenticated app with SpaceProvider
+  // UPDATED: Wrap entire app with ThemeProvider and LogoConfigProvider
   return (
     <ThemeProvider initialScheme="tealMintSlate">
-      <NavigationContainer>
-        {session ? (
-          <SpaceProvider>
-            <MainTabNavigator />
-          </SpaceProvider>
+      <LogoConfigProvider>
+        {(!fontsLoaded || loading) ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
+            <Logo size="large" />
+            <ActivityIndicator size="large" color="#0d9488" style={{ marginTop: 24 }} />
+            <Text style={{ marginTop: 16, color: '#666', fontSize: 14 }}>Loading...</Text>
+          </View>
         ) : (
-          <AuthStackNavigator />
+          <NavigationContainer>
+            {session ? (
+              <SpaceProvider>
+                <MainTabNavigator />
+              </SpaceProvider>
+            ) : (
+              <AuthStackNavigator />
+            )}
+          </NavigationContainer>
         )}
-      </NavigationContainer>
+      </LogoConfigProvider>
     </ThemeProvider>
   );
 }

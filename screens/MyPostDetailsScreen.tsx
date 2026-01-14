@@ -24,6 +24,7 @@ import AddMediaModal from '../components/AddMediaModal';
 import AddCookingPartnersModal from '../components/AddCookingPartnersModal';  // ← NEW
 import { uploadPostImages } from '../lib/services/imageStorageService';
 import { addParticipantsToPost, getPostParticipants, ParticipantRole } from '../lib/services/postParticipantsService';  // ← NEW
+import UserAvatar from '../components/UserAvatar';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'MyPostDetails'>;
 
@@ -43,6 +44,8 @@ interface Post {
 interface Like {
   user_id: string;
   created_at: string;
+  avatar_url?: string | null;
+  subscription_tier?: string;
   user_profiles?: {
     id: string;
     display_name?: string;
@@ -85,6 +88,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Tom Morley');
   const [userInitials, setUserInitials] = useState('TM');
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<string>('free');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [likes, setLikes] = useState<Like[]>([]);
   const [currentUserLiked, setCurrentUserLiked] = useState(false);
@@ -405,9 +409,20 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
-      const consistentAvatar = getAvatarForUser(user.id);
-      setUserName('Tom Morley');
-      setUserInitials(consistentAvatar);
+
+      // Load actual user profile with avatar and subscription
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name, username, avatar_url, subscription_tier')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        setUserName(profile.display_name || profile.username || 'User');
+        const userAvatar = profile.avatar_url || '👤';
+        setUserInitials(userAvatar);
+        setUserSubscriptionTier(profile.subscription_tier || 'free');
+      }
     }
   };
 
@@ -497,9 +512,23 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
 
       if (error) throw error;
 
+      // Fetch user profiles for likers
+      const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
+      let likerProfiles: Map<string, { avatar_url?: string | null; subscription_tier?: string }> = new Map();
+      if (likerUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id, avatar_url, subscription_tier')
+          .in('id', likerUserIds);
+
+        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier }]) || []);
+      }
+
       const transformedLikes: Like[] = (likesData || []).map((like: any) => ({
         user_id: like.user_id,
         created_at: like.created_at,
+        avatar_url: likerProfiles.get(like.user_id)?.avatar_url || null,
+        subscription_tier: likerProfiles.get(like.user_id)?.subscription_tier || 'free',
         user_profiles: null
       }));
       
@@ -822,10 +851,14 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       <ScrollView style={styles.content}>
         {/* User Header */}
         <View style={styles.postHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{userInitials}</Text>
-          </View>
-          
+          <UserAvatar
+            user={{
+              avatar_url: userInitials,
+              subscription_tier: userSubscriptionTier
+            }}
+            size={48}
+          />
+
           <View style={styles.headerInfo}>
             <Text style={styles.userName}>{userName}</Text>
             <View style={styles.metaRow}>
@@ -918,16 +951,17 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
                 >
                   <View style={styles.avatarStack}>
                     {likes.slice(0, 3).map((like, index) => (
-                      <View 
-                        key={like.user_id} 
-                        style={[
-                          styles.miniAvatar,
-                          { marginLeft: index > 0 ? -8 : 0, zIndex: 3 - index }
-                        ]}
+                      <View
+                        key={like.user_id}
+                        style={{ marginLeft: index > 0 ? -8 : 0, zIndex: 3 - index }}
                       >
-                        <Text style={styles.miniAvatarText}>
-                          {getAvatarForUser(like.user_id)}
-                        </Text>
+                        <UserAvatar
+                          user={{
+                            avatar_url: like.avatar_url,
+                            subscription_tier: like.subscription_tier
+                          }}
+                          size={28}
+                        />
                       </View>
                     ))}
                   </View>

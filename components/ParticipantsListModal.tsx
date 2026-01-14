@@ -13,12 +13,14 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from './UserAvatar';
 
 interface Participant {
   user_id: string;
   username: string;
   display_name?: string;
   avatar_url?: string | null;
+  subscription_tier?: string;
   isFollowing?: boolean;
 }
 
@@ -30,13 +32,6 @@ interface ParticipantsListModalProps {
   ateWith: Participant[];
   currentUserId: string;
 }
-
-const AVATAR_EMOJIS = ['🧑‍🍳', '👨‍🍳', '👩‍🍳', '🍕', '🌮', '🍔', '🍜', '🥘', '🍱', '🥗', '🍝', '🥙'];
-
-const getAvatarForUser = (userId: string): string => {
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length];
-};
 
 export default function ParticipantsListModal({
   visible,
@@ -51,18 +46,17 @@ export default function ParticipantsListModal({
   const renderParticipant = (participant: Participant, role: 'sous_chef' | 'ate_with') => {
     const isYou = participant.user_id === currentUserId;
     const displayName = isYou ? 'You' : (participant.display_name || participant.username);
-    
-    // Get avatar
-    const avatarUrl = participant.avatar_url;
-    const isEmoji = avatarUrl && /^[\p{Emoji}\u200D]+$/u.test(avatarUrl);
-    const avatar = isEmoji ? avatarUrl : getAvatarForUser(participant.user_id);
-    
+
     return (
       <View key={participant.user_id} style={styles.participantRow}>
         <View style={styles.participantLeft}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatar}</Text>
-          </View>
+          <UserAvatar
+            user={{
+              avatar_url: participant.avatar_url,
+              subscription_tier: participant.subscription_tier
+            }}
+            size={48}
+          />
           <View style={styles.participantInfo}>
             <Text style={styles.participantName}>{displayName}</Text>
             {!isYou && (

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import ParticipantsListModal from './ParticipantsListModal';  // ← NEW
+import UserAvatar from './UserAvatar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -38,6 +39,7 @@ interface UserProfile {
   username: string;
   display_name?: string;
   avatar_url?: string | null;
+  subscription_tier?: string;
 }
 
 export interface PostCardData {
@@ -62,7 +64,7 @@ interface PostCardProps {
     hasLike: boolean;
     likesText?: string;
     commentCount?: number;
-    likes?: Array<{ user_id: string; created_at: string; avatar_url?: string | null }>;
+    likes?: Array<{ user_id: string; created_at: string; avatar_url?: string | null; subscription_tier?: string }>;
   };
   participants?: {
     sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
@@ -500,12 +502,8 @@ export default function PostCard({
   return (
     <View style={styles.postCard}>
       <View style={styles.postHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarEmoji}>
-            {avatarContent}
-          </Text>
-        </View>
-        
+        <UserAvatar user={post.user_profiles} size={48} />
+
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{displayName}</Text>
           <View style={styles.metaRow}>
@@ -588,20 +586,20 @@ export default function PostCard({
               {likeData.likes && likeData.likes.length > 0 && (
                 <View style={styles.avatarStack}>
                   {likeData.likes.slice(0, 3).map((like, index) => {
-                    // Use actual avatar from database or default
-                    const likerAvatar = like.avatar_url || '👤';
-                    
                     return (
-                      <View 
-                        key={like.user_id} 
+                      <View
+                        key={like.user_id}
                         style={[
-                          styles.miniAvatar,
                           { marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }
                         ]}
                       >
-                        <Text style={styles.miniAvatarText}>
-                          {likerAvatar}
-                        </Text>
+                        <UserAvatar
+                          user={{
+                            avatar_url: like.avatar_url,
+                            subscription_tier: like.subscription_tier
+                          }}
+                          size={28}
+                        />
                       </View>
                     );
                   })}

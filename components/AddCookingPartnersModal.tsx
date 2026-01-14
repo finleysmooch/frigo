@@ -18,12 +18,14 @@ import {
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { ParticipantRole } from '../lib/services/postParticipantsService';
+import UserAvatar from './UserAvatar';
 
 interface FollowedUser {
   id: string;
   username: string;
   display_name?: string;
   avatar_url?: string;
+  subscription_tier?: string;
 }
 
 interface AddCookingPartnersModalProps {
@@ -71,7 +73,8 @@ export default function AddCookingPartnersModal({
             id,
             username,
             display_name,
-            avatar_url
+            avatar_url,
+            subscription_tier
           )
         `)
         .eq('follower_id', currentUserId);
@@ -391,11 +394,13 @@ export default function AddCookingPartnersModal({
                   onPress={() => toggleUserSelection(item.id)}
                 >
                   <View style={styles.userInfo}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarEmoji}>
-                        {getAvatarEmoji(item.id)}
-                      </Text>
-                    </View>
+                    <UserAvatar
+                      user={{
+                        avatar_url: item.avatar_url,
+                        subscription_tier: item.subscription_tier
+                      }}
+                      size={45}
+                    />
                     <View style={styles.userText}>
                       <Text style={styles.displayName}>
                         {item.display_name || item.username}

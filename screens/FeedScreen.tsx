@@ -11,6 +11,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
@@ -18,6 +21,8 @@ import { useTheme } from '../lib/theme/ThemeContext';
 import PostCard, { PostCardData } from '../components/PostCard';
 import LinkedPostsGroup from '../components/LinkedPostsGroup';
 import MealPostCard from '../components/MealPostCard';
+import { Logo } from '../components/branding';
+import { SearchIcon, ProfileOutline, BellOutline, Messages1Outline } from '../components/icons';
 import { FeedStackParamList } from '../App';
 import { getPostParticipants } from '../lib/services/postParticipantsService';
 import { groupPostsForFeed, FeedItem } from '../lib/services/feedGroupingService';
@@ -40,6 +45,7 @@ interface Post {
     username: string;
     display_name?: string;
     avatar_url?: string | null;
+    subscription_tier?: string;
   };
 }
 
@@ -47,6 +53,7 @@ interface Like {
   user_id: string;
   created_at: string;
   avatar_url?: string | null;
+  subscription_tier?: string;
 }
 
 interface PostLikes {
@@ -90,6 +97,45 @@ export default function FeedScreen({ navigation }: Props) {
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
+      flex: 1,
+      backgroundColor: colors.background.card,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 6,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+    },
+    headerCenter: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'none',
+    },
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6,
+      flex: 1,
+    },
+    iconButton: {
+      padding: 4,
+    },
+    content: {
       flex: 1,
       backgroundColor: colors.background.secondary,
     },
@@ -228,7 +274,7 @@ export default function FeedScreen({ navigation }: Props) {
     const userProfileIds = [...new Set(postsData.map(p => p.user_id))];
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('id, username, display_name, avatar_url, subscription_tier')
       .in('id', userProfileIds);
 
     // Fetch recipes separately
@@ -283,14 +329,14 @@ export default function FeedScreen({ navigation }: Props) {
       const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
       
       // Fetch user profiles for all likers
-      let likerProfiles: Map<string, { avatar_url?: string | null }> = new Map();
+      let likerProfiles: Map<string, { avatar_url?: string | null; subscription_tier?: string }> = new Map();
       if (likerUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('user_profiles')
-          .select('id, avatar_url')
+          .select('id, avatar_url, subscription_tier')
           .in('id', likerUserIds);
-        
-        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url }]) || []);
+
+        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier }]) || []);
       }
 
       const likesMap: PostLikes = {};
@@ -299,10 +345,11 @@ export default function FeedScreen({ navigation }: Props) {
         likesMap[postId] = {
           hasLike: postLikesList.some(l => l.user_id === currentUserId),
           totalCount: postLikesList.length,
-          likes: postLikesList.map(l => ({ 
-            user_id: l.user_id, 
+          likes: postLikesList.map(l => ({
+            user_id: l.user_id,
             created_at: l.created_at,
-            avatar_url: likerProfiles.get(l.user_id)?.avatar_url || null
+            avatar_url: likerProfiles.get(l.user_id)?.avatar_url || null,
+            subscription_tier: likerProfiles.get(l.user_id)?.subscription_tier
           })),
         };
       });
@@ -444,10 +491,10 @@ export default function FeedScreen({ navigation }: Props) {
           .from('post_likes')
           .insert({ post_id: postId, user_id: currentUserId });
 
-        // Get current user's avatar for the like
+        // Get current user's avatar and subscription for the like
         const { data: currentUserProfile } = await supabase
           .from('user_profiles')
-          .select('avatar_url')
+          .select('avatar_url, subscription_tier')
           .eq('id', currentUserId)
           .single();
 
@@ -456,10 +503,11 @@ export default function FeedScreen({ navigation }: Props) {
           [postId]: {
             hasLike: true,
             totalCount: (prev[postId]?.totalCount || 0) + 1,
-            likes: [...(prev[postId]?.likes || []), { 
-              user_id: currentUserId, 
+            likes: [...(prev[postId]?.likes || []), {
+              user_id: currentUserId,
               created_at: new Date().toISOString(),
-              avatar_url: currentUserProfile?.avatar_url || null
+              avatar_url: currentUserProfile?.avatar_url || null,
+              subscription_tier: currentUserProfile?.subscription_tier
             }],
           }
         }));
@@ -591,40 +639,90 @@ export default function FeedScreen({ navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Logo size="large" />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {feedItems.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>🍽️</Text>
-          <Text style={styles.emptyTitle}>No posts yet</Text>
-          <Text style={styles.emptyText}>
-            Follow some people to see their cooking activity!
-          </Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={colors.background.card} barStyle="dark-content" />
+      {/* Header */}
+      <View style={styles.header}>
+        {/* Left side - Profile and Search icons */}
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <ProfileOutline size={23} color={colors.text.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('UserSearch')}
+          >
+            <SearchIcon size={23} color={colors.text.primary} />
+          </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={feedItems}
-          keyExtractor={(item) => {
-            if (item.type === 'meal') return `meal-${item.meal.id}`;
-            if (item.type === 'grouped') return item.id;
-            return item.post.id;
-          }}
-          renderItem={renderFeedItem}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-          contentContainerStyle={styles.listContent}
-        />
-      )}
-    </View>
+
+        {/* Center - Logo (absolutely positioned) */}
+        <View style={styles.headerCenter}>
+          <View style={{ transform: [{ scale: 0.75 }] }}>
+            <Logo size="small" />
+          </View>
+        </View>
+
+        {/* Right side - Messages and Bell icons */}
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => {
+              // TODO: Navigate to messages screen
+              console.log('Messages pressed');
+            }}
+          >
+            <Messages1Outline size={35} color={colors.text.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('PendingApprovals')}
+          >
+            <BellOutline size={23} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        {feedItems.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyEmoji}>🍽️</Text>
+            <Text style={styles.emptyTitle}>No posts yet</Text>
+            <Text style={styles.emptyText}>
+              Follow some people to see their cooking activity!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={feedItems}
+            keyExtractor={(item) => {
+              if (item.type === 'meal') return `meal-${item.meal.id}`;
+              if (item.type === 'grouped') return item.id;
+              return item.post.id;
+            }}
+            renderItem={renderFeedItem}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
+            contentContainerStyle={styles.listContent}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }

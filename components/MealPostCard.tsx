@@ -13,6 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from './UserAvatar';
 import {
   MealWithDetails,
   MealParticipant,
@@ -481,16 +482,16 @@ export default function MealPostCard({
       <View style={styles.header}>
         <View style={styles.participantAvatars}>
           {visibleParticipants.slice(0, 3).map((p, index) => (
-            <View 
-              key={p.user_id} 
+            <View
+              key={p.user_id}
               style={[
-                styles.avatar,
                 index > 0 && styles.avatarOverlap,
               ]}
             >
-              <Text style={styles.avatarEmoji}>
-                {p.user_profile?.avatar_url || getAvatarEmoji(p.user_id)}
-              </Text>
+              <UserAvatar
+                user={p.user_profile || { avatar_url: null, subscription_tier: 'free' }}
+                size={40}
+              />
             </View>
           ))}
         </View>

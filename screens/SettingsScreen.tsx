@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
+import { Logo } from '../components/branding';
+import { upgradeToPremium, downgradeToFree } from '../lib/services/subscriptionService';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -112,6 +114,16 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       fontWeight: '600',
       color: colors.primary,
     },
+    footer: {
+      alignItems: 'center',
+      paddingVertical: 32,
+      marginTop: 16,
+    },
+    versionText: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      marginTop: 12,
+    },
   }), [colors, functionalColors]);
 
   useEffect(() => {
@@ -167,6 +179,79 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     Alert.alert('Coming Soon', 'This feature is coming in a future update!');
   };
 
+  const handleSubscriptionTap = async () => {
+    if (subscriptionTier === 'premium') {
+      // Show downgrade option
+      Alert.alert(
+        'Premium Subscription',
+        'Would you like to downgrade to the free tier?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Downgrade to Free',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                  Alert.alert('Error', 'User not found');
+                  return;
+                }
+
+                const success = await downgradeToFree(user.id);
+                if (success) {
+                  setSubscriptionTier('free');
+                  Alert.alert('Downgraded', 'You have been downgraded to the free tier.');
+                } else {
+                  Alert.alert('Error', 'Failed to downgrade subscription. Please try again.');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Something went wrong. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Upgrade to Premium?',
+      'Unlock exclusive features with Frigo Premium!',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes',
+          onPress: async () => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                Alert.alert('Error', 'User not found');
+                return;
+              }
+
+              const success = await upgradeToPremium(user.id);
+              if (success) {
+                setSubscriptionTier('premium');
+                Alert.alert('Success!', 'You are now a Frigo Premium subscriber! 🎉');
+              } else {
+                Alert.alert('Error', 'Failed to upgrade subscription. Please try again.');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Something went wrong. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -182,13 +267,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>ACCOUNT {email.toUpperCase()}</Text>
           
-          <TouchableOpacity style={styles.row} onPress={showComingSoon}>
+          <TouchableOpacity style={styles.row} onPress={handleSubscriptionTap}>
             <View style={styles.rowLeft}>
               <Text style={styles.rowIcon}>💳</Text>
               <View>
                 <Text style={styles.rowTitle}>Your Frigo Subscription</Text>
                 <Text style={styles.rowSubtitle}>
-                  {subscriptionTier === 'free' ? 'Free Plan' : subscriptionTier}
+                  {subscriptionTier === 'free' ? 'Free' : 'Premium'}
                 </Text>
               </View>
             </View>
@@ -282,6 +367,22 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           </TouchableOpacity>
         </View>
 
+        {/* Developer Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>DEVELOPER</Text>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => navigation.navigate('LogoPlayground')}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>🎨</Text>
+              <Text style={styles.rowTitle}>Logo Playground</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Logout Button */}
         <View style={styles.section}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -289,7 +390,11 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        {/* Footer with Logo and Version */}
+        <View style={styles.footer}>
+          <Logo size="small" />
+          <Text style={styles.versionText}>v0.1.0</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

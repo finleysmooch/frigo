@@ -33,6 +33,7 @@ import {
   inviteMember
 } from '../lib/services/spaceService';
 import { supabase } from '../lib/supabase';
+import UserAvatar from './UserAvatar';
 
 // ============================================
 // PROPS
@@ -52,6 +53,7 @@ interface SearchResult {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  subscription_tier?: string;
 }
 
 // ============================================
@@ -451,11 +453,13 @@ export default function InviteMemberModal({
       style={styles.searchResult}
       onPress={() => handleSelectUser(item)}
     >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {(item.display_name || item.username).charAt(0).toUpperCase()}
-        </Text>
-      </View>
+      <UserAvatar
+        user={{
+          avatar_url: item.avatar_url,
+          subscription_tier: item.subscription_tier
+        }}
+        size={40}
+      />
       <View style={styles.userInfo}>
         <Text style={styles.displayName}>
           {item.display_name || item.username}
@@ -555,11 +559,13 @@ export default function InviteMemberModal({
               <View style={styles.selectedSection}>
                 <Text style={styles.sectionLabel}>INVITING</Text>
                 <View style={styles.selectedUser}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {(selectedUser.display_name || selectedUser.username).charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                  <UserAvatar
+                    user={{
+                      avatar_url: selectedUser.avatar_url,
+                      subscription_tier: selectedUser.subscription_tier
+                    }}
+                    size={40}
+                  />
                   <View style={styles.userInfo}>
                     <Text style={styles.displayName}>
                       {selectedUser.display_name || selectedUser.username}

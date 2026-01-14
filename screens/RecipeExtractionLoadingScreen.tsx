@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Image, ActivityIndicator, StyleSheet } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
+import { Logo } from '../components/branding';
 
 const LOADING_MESSAGES = [
   { text: 'Reading your recipe... 📖', duration: 1500 },
@@ -64,7 +65,8 @@ export function RecipeExtractionLoadingScreen({ imageUri }: Props) {
 
       {/* Overlay with progress */}
       <View style={styles.overlay}>
-        <ActivityIndicator size="large" color={colors.background.card} />
+        <Logo size="large" textColor={colors.background.card} iconColor={colors.background.card} />
+        <ActivityIndicator size="large" color={colors.background.card} style={{ marginTop: 24 }} />
         <Text style={styles.message}>
           {LOADING_MESSAGES[messageIndex].text}
         </Text>

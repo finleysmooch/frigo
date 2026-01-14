@@ -18,6 +18,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { MyPostsStackParamList, FeedStackParamList } from '../App';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from '../components/UserAvatar';
 
 // Support navigation from both stacks
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'CommentsList'> |
@@ -30,6 +31,7 @@ interface Comment {
   user_id: string;
   user_name?: string;
   avatar_url?: string;
+  subscription_tier?: string;
   likes: number;
   currentUserLiked: boolean;
 }
@@ -47,6 +49,8 @@ interface Post {
 interface Like {
   user_id: string;
   created_at: string;
+  avatar_url?: string;
+  subscription_tier?: string;
 }
 
 // Cooking method icons mapping
@@ -350,9 +354,28 @@ export default function CommentsScreen({ route, navigation }: Props) {
         .order('created_at', { ascending: true });
 
       if (!likesError && likesData) {
-        setYasChefs(likesData);
-        setYasChefCount(likesData.length);
-        setCurrentUserYasChef(likesData.some(l => l.user_id === user.id));
+        // Fetch user profiles for yas chefs
+        const likeUserIds = [...new Set(likesData.map(l => l.user_id))];
+        const { data: likeProfilesData } = await supabase
+          .from('user_profiles')
+          .select('id, avatar_url, subscription_tier')
+          .in('id', likeUserIds);
+
+        const likeProfilesMap = new Map(likeProfilesData?.map(p => [p.id, p]) || []);
+
+        const formattedLikes: Like[] = likesData.map(like => {
+          const profile = likeProfilesMap.get(like.user_id);
+          return {
+            user_id: like.user_id,
+            created_at: like.created_at,
+            avatar_url: profile?.avatar_url || undefined,
+            subscription_tier: profile?.subscription_tier || 'free'
+          };
+        });
+
+        setYasChefs(formattedLikes);
+        setYasChefCount(formattedLikes.length);
+        setCurrentUserYasChef(formattedLikes.some(l => l.user_id === user.id));
       }
 
       // Load comments
@@ -387,7 +410,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
       // Fetch user profiles separately
       const { data: profilesData } = await supabase
         .from('user_profiles')
-        .select('id, username, display_name, avatar_url')
+        .select('id, username, display_name, avatar_url, subscription_tier')
         .in('id', userIds);
 
       // Create a map for quick lookup
@@ -412,6 +435,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           user_id: comment.user_id,
           user_name: userProfile?.display_name || userProfile?.username || 'Someone',
           avatar_url: userProfile?.avatar_url || undefined,
+          subscription_tier: userProfile?.subscription_tier || 'free',
           likes: commentLikes.length,
           currentUserLiked: commentLikes.some(l => l.user_id === userId)
         };
@@ -455,7 +479,26 @@ export default function CommentsScreen({ route, navigation }: Props) {
         .order('created_at', { ascending: true });
 
       if (likesData) {
-        setYasChefs(likesData);
+        // Fetch user profiles for yas chefs
+        const likeUserIds = [...new Set(likesData.map(l => l.user_id))];
+        const { data: likeProfilesData } = await supabase
+          .from('user_profiles')
+          .select('id, avatar_url, subscription_tier')
+          .in('id', likeUserIds);
+
+        const likeProfilesMap = new Map(likeProfilesData?.map(p => [p.id, p]) || []);
+
+        const formattedLikes: Like[] = likesData.map(like => {
+          const profile = likeProfilesMap.get(like.user_id);
+          return {
+            user_id: like.user_id,
+            created_at: like.created_at,
+            avatar_url: profile?.avatar_url || undefined,
+            subscription_tier: profile?.subscription_tier || 'free'
+          };
+        });
+
+        setYasChefs(formattedLikes);
       }
     } catch (error) {
       console.error('Error toggling yas chef:', error);
@@ -572,18 +615,15 @@ export default function CommentsScreen({ route, navigation }: Props) {
   };
 
   const renderComment = ({ item }: { item: Comment }) => {
-    // Check if avatar_url is an emoji (not URL) using regex
-    // Regex matches emojis including complex ones with ZWJ (Zero Width Joiner)
-    const isEmoji = item.avatar_url && /^[\p{Emoji}\u200D]+$/u.test(item.avatar_url);
-    const avatarToShow = isEmoji ? item.avatar_url : getAvatarForUser(item.user_id);
-
     return (
       <View style={styles.commentContainer}>
-        <View style={styles.commentAvatar}>
-          <Text style={styles.commentAvatarText}>
-            {avatarToShow}
-          </Text>
-        </View>
+        <UserAvatar
+          user={{
+            avatar_url: item.avatar_url,
+            subscription_tier: item.subscription_tier
+          }}
+          size={40}
+        />
 
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
@@ -684,14 +724,15 @@ export default function CommentsScreen({ route, navigation }: Props) {
             {yasChefs.slice(0, 10).map((like, index) => (
               <View
                 key={like.user_id}
-                style={[
-                  styles.miniAvatar,
-                  { marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }
-                ]}
+                style={{ marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }}
               >
-                <Text style={styles.miniAvatarText}>
-                  {getAvatarForUser(like.user_id)}
-                </Text>
+                <UserAvatar
+                  user={{
+                    avatar_url: like.avatar_url,
+                    subscription_tier: like.subscription_tier
+                  }}
+                  size={28}
+                />
               </View>
             ))}
           </View>

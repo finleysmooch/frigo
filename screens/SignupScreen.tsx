@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
+import { Logo } from '../components/branding';
 
 interface SignupScreenProps {
   onSignupSuccess: () => void;
@@ -41,18 +42,9 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
       justifyContent: 'center',
       padding: 24,
     },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: 8,
-      color: colors.text.primary,
-    },
-    subtitle: {
-      fontSize: 16,
-      textAlign: 'center',
+    logoContainer: {
+      alignItems: 'center',
       marginBottom: 32,
-      color: colors.text.secondary,
     },
     form: {
       gap: 16,
@@ -153,8 +145,9 @@ export default function SignupScreen({ onSignupSuccess, onNavigateToLogin }: Sig
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join the cooking community</Text>
+          <View style={styles.logoContainer}>
+            <Logo size="large" />
+          </View>
 
           <View style={styles.form}>
             <TextInput

@@ -923,7 +923,7 @@ export async function searchUsersToInvite(
   spaceId: string,
   currentUserId: string,
   limit: number = 10
-): Promise<{ id: string; username: string; display_name: string | null; avatar_url: string | null }[]> {
+): Promise<{ id: string; username: string; display_name: string | null; avatar_url: string | null; subscription_tier?: string }[]> {
   try {
     if (!query || query.length < 2) return [];
 
@@ -977,7 +977,7 @@ export async function searchUsersToInvite(
     // Search within invitable users
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('id, username, display_name, avatar_url, subscription_tier')
       .in('id', invitableIds)
       .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
       .limit(limit);

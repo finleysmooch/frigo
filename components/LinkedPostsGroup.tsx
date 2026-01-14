@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import PostCard, { PostCardData } from './PostCard';
+import UserAvatar from './UserAvatar';
 
 interface LinkedPostsGroupProps {
   posts: PostCardData[];
@@ -93,7 +94,7 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
     return sortedPosts.map(post => {
       const profile = post.user_profiles;
       const avatarUrl = profile?.avatar_url;
-      
+
       // Debug log
       console.log('🔍 LinkedPostsGroup avatar:', {
         userId: post.user_id,
@@ -101,10 +102,11 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
         avatarUrl: avatarUrl,
         avatarType: typeof avatarUrl
       });
-      
+
       return {
         userId: post.user_id,
         avatar: avatarUrl || '👤',  // ✅ Use avatar or default
+        subscription_tier: profile?.subscription_tier,
         displayName: profile?.display_name || profile?.username || 'Unknown'
       };
     });
@@ -281,18 +283,22 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
           {/* Avatars below the timestamp line */}
           <View style={styles.avatarStack}>
             {userAvatars.map((user, index) => (
-              <View 
+              <View
                 key={user.userId}
                 style={[
-                  styles.stackedAvatar,
-                  { 
+                  {
                     marginLeft: index > 0 ? -8 : 0,
-                    zIndex: userAvatars.length - index 
+                    zIndex: userAvatars.length - index
                   }
                 ]}
               >
-                {/* ✅ SIMPLIFIED: Just show the avatar, no emoji check */}
-                <Text style={styles.stackedAvatarEmoji}>{user.avatar}</Text>
+                <UserAvatar
+                  user={{
+                    avatar_url: user.avatar,
+                    subscription_tier: user.subscription_tier
+                  }}
+                  size={28}
+                />
               </View>
             ))}
           </View>

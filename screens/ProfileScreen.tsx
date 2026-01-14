@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from '../components/UserAvatar';
 
 const { width } = Dimensions.get('window');
 const PHOTO_SIZE = width / 4;
@@ -28,6 +29,7 @@ interface UserProfile {
   bio: string | null;
   location: string | null;
   avatar_url: string | null;
+  subscription_tier?: string;
   following_count: number;
   followers_count: number;
 }
@@ -40,20 +42,12 @@ interface Post {
   } | null;
 }
 
-// Use the same avatar system from MyPostsScreen
-const getAvatarForUser = (userId: string): string => {
-  const emojis = ['👨‍🍳', '👩‍🍳', '🧑‍🍳', '🍳', '🥘', '🍲'];
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return emojis[hash % emojis.length];
-};
-
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { colors, functionalColors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [thisWeekCount, setThisWeekCount] = useState(0);
-  const [avatar, setAvatar] = useState('👨‍🍳'); // Default avatar
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -120,17 +114,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       paddingVertical: 20,
       paddingHorizontal: 16,
     },
-    avatarContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.border.light,
-      justifyContent: 'center',
-      alignItems: 'center',
+    avatarWrapper: {
       marginBottom: 12,
-    },
-    avatar: {
-      fontSize: 40,
     },
     displayName: {
       fontSize: 24,
@@ -309,13 +294,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // Set avatar (use stored or default from hash)
-      if (profileData.avatar_url) {
-        setAvatar(profileData.avatar_url);
-      } else {
-        setAvatar(getAvatarForUser(user.id));
-      }
-
       // Load user's posts for photo grid
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
@@ -400,8 +378,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {/* User Info */}
         <View style={styles.userInfoSection}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatar}>{avatar}</Text>
+          <View style={styles.avatarWrapper}>
+            <UserAvatar
+              user={{
+                avatar_url: profile.avatar_url,
+                subscription_tier: profile.subscription_tier
+              }}
+              size={80}
+            />
           </View>
           <Text style={styles.displayName}>{profile.display_name}</Text>
           {profile.location && (

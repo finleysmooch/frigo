@@ -11,6 +11,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { MyPostsStackParamList } from '../App';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from '../components/UserAvatar';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'YasChefsList'>;
 
@@ -19,16 +20,9 @@ interface Chef {
   name: string;
   location?: string;
   created_at: string;
+  avatar_url?: string | null;
+  subscription_tier?: string;
 }
-
-// Fun emoji avatars for users (same as MyPostsScreen)
-const AVATAR_EMOJIS = ['🧑‍🍳', '👨‍🍳', '👩‍🍳', '🍕', '🌮', '🍔', '🍜', '🥘', '🍱', '🥗', '🍝', '🥙'];
-
-// Consistent avatar for each user
-const getAvatarForUser = (userId: string): string => {
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length];
-};
 
 // Get name from friend_references or fallback to "Chef"
 const getChefName = (userId: string, friendName?: string): string => {
@@ -194,16 +188,28 @@ export default function YasChefsScreen({ route, navigation }: Props) {
         .select('user_id, name')
         .in('user_id', likesData.map(l => l.user_id));
 
+      // Get user profiles for avatars and subscription tiers
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('id, avatar_url, subscription_tier')
+        .in('id', likesData.map(l => l.user_id));
+
       // Combine the data
       const friendsMap = new Map(
         friendsData?.map(f => [f.user_id, f.name]) || []
+      );
+
+      const profilesMap = new Map(
+        profilesData?.map(p => [p.id, { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier }]) || []
       );
 
       const chefsWithNames: Chef[] = likesData.map(like => ({
         user_id: like.user_id,
         name: getChefName(like.user_id, friendsMap.get(like.user_id)),
         location: 'Portland, Oregon', // You can add real locations later
-        created_at: like.created_at
+        created_at: like.created_at,
+        avatar_url: profilesMap.get(like.user_id)?.avatar_url || null,
+        subscription_tier: profilesMap.get(like.user_id)?.subscription_tier || 'free'
       }));
 
       setChefs(chefsWithNames);
@@ -219,9 +225,13 @@ export default function YasChefsScreen({ route, navigation }: Props) {
     <TouchableOpacity style={styles.chefRow}>
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getAvatarForUser(item.user_id)}</Text>
-        </View>
+        <UserAvatar
+          user={{
+            avatar_url: item.avatar_url,
+            subscription_tier: item.subscription_tier
+          }}
+          size={56}
+        />
         {/* Orange arrow (Strava style) */}
         <View style={styles.arrowBadge}>
           <Text style={styles.arrowText}>›</Text>

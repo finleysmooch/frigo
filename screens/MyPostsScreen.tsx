@@ -26,6 +26,7 @@ import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
 import { uploadPostImages } from '../lib/services/imageStorageService';
 import CreateMealModal from '../components/CreateMealModal';
+import UserAvatar from '../components/UserAvatar';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'MyPostsList'>;
 
@@ -53,6 +54,7 @@ interface Like {
   user_id: string;
   created_at: string;
   avatar_url?: string | null;
+  subscription_tier?: string;
   user_profiles?: {
     id: string;
     display_name?: string;
@@ -100,6 +102,7 @@ export default function MyPostsScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('Tom Morley');
   const [userInitials, setUserInitials] = useState('TM');
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<string>('free');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [postLikes, setPostLikes] = useState<PostLikes>({});
   const [postComments, setPostComments] = useState<PostComments>({});
@@ -424,16 +427,17 @@ export default function MyPostsScreen({ navigation }: Props) {
       // Load actual user profile with avatar
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('display_name, username, avatar_url')
+        .select('display_name, username, avatar_url, subscription_tier')
         .eq('id', user.id)
         .single();
       
       if (profile) {
         setUserName(profile.display_name || profile.username || 'User');
-        
+
         // Use actual avatar_url from profile, or default if null
         const userAvatar = profile.avatar_url || '👤';
         setUserInitials(userAvatar);
+        setUserSubscriptionTier(profile.subscription_tier || 'free');
       }
     }
   };
@@ -561,14 +565,14 @@ export default function MyPostsScreen({ navigation }: Props) {
       const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
       
       // Step 3: Fetch user profiles for all likers (to get their avatars)
-      let likerProfiles: Map<string, { avatar_url?: string | null }> = new Map();
+      let likerProfiles: Map<string, { avatar_url?: string | null; subscription_tier?: string }> = new Map();
       if (likerUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('user_profiles')
-          .select('id, avatar_url')
+          .select('id, avatar_url, subscription_tier')
           .in('id', likerUserIds);
-        
-        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url }]) || []);
+
+        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier }]) || []);
       }
 
       // Step 4: Build likes map with avatar data
@@ -583,6 +587,7 @@ export default function MyPostsScreen({ navigation }: Props) {
           user_id: like.user_id,
           created_at: like.created_at,
           avatar_url: likerProfiles.get(like.user_id)?.avatar_url || null,  // ← Include actual avatar
+          subscription_tier: likerProfiles.get(like.user_id)?.subscription_tier || 'free',
           user_profiles: null
         }));
         
@@ -837,16 +842,17 @@ export default function MyPostsScreen({ navigation }: Props) {
           >
             <View style={styles.avatarStack}>
               {displayLikes.map((like, index) => (
-                <View 
-                  key={like.user_id} 
-                  style={[
-                    styles.miniAvatar,
-                    { marginLeft: index > 0 ? -8 : 0, zIndex: 3 - index }
-                  ]}
+                <View
+                  key={like.user_id}
+                  style={{ marginLeft: index > 0 ? -8 : 0, zIndex: 3 - index }}
                 >
-                  <Text style={styles.miniAvatarText}>
-                    {like.avatar_url || '👤'}
-                  </Text>
+                  <UserAvatar
+                    user={{
+                      avatar_url: like.avatar_url,
+                      subscription_tier: like.subscription_tier
+                    }}
+                    size={28}
+                  />
                 </View>
               ))}
             </View>
@@ -961,10 +967,14 @@ export default function MyPostsScreen({ navigation }: Props) {
         activeOpacity={0.7}
       >
         <View style={styles.postHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{userInitials}</Text>
-          </View>
-          
+          <UserAvatar
+            user={{
+              avatar_url: userInitials,
+              subscription_tier: userSubscriptionTier
+            }}
+            size={48}
+          />
+
           <View style={styles.headerInfo}>
             <Text style={styles.userName}>{userName}</Text>
             <View style={styles.metaRow}>

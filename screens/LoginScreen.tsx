@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
+import { Logo } from '../components/branding';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -38,18 +39,9 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
       justifyContent: 'center',
       padding: 24,
     },
-    title: {
-      fontSize: 48,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: 8,
-      color: colors.text.primary,
-    },
-    subtitle: {
-      fontSize: 16,
-      textAlign: 'center',
+    logoContainer: {
+      alignItems: 'center',
       marginBottom: 48,
-      color: colors.text.secondary,
     },
     form: {
       gap: 16,
@@ -144,8 +136,9 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          <Text style={styles.title}>Frigo</Text>
-          <Text style={styles.subtitle}>Strava for Cooking</Text>
+          <View style={styles.logoContainer}>
+            <Logo size="large" />
+          </View>
 
           <View style={styles.form}>
             <TextInput

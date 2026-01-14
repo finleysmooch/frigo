@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
+import UserAvatar from '../components/UserAvatar';
 
 type Props = NativeStackScreenProps<any, 'UserSearch'>;
 
@@ -25,6 +26,8 @@ interface User {
   username: string;
   display_name?: string;
   bio?: string;
+  avatar_url?: string | null;
+  subscription_tier?: string;
   followers_count: number;
   following_count: number;
 }
@@ -33,13 +36,6 @@ interface UserWithFollowStatus extends User {
   isFollowing: boolean;
   followsYou: boolean;
 }
-
-const AVATAR_EMOJIS = ['🧑‍🍳', '👨‍🍳', '👩‍🍳', '🍕', '🌮', '🍔', '🍜', '🥘', '🍱', '🥗', '🍝', '🥙'];
-
-const getAvatarForUser = (userId: string): string => {
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length];
-};
 
 export default function UserSearchScreen({ navigation }: Props) {
   const { colors, functionalColors } = useTheme();
@@ -253,7 +249,7 @@ export default function UserSearchScreen({ navigation }: Props) {
       // Search by username or display name
       const { data: userData, error } = await supabase
         .from('user_profiles')
-        .select('id, username, display_name, bio, followers_count, following_count')
+        .select('id, username, display_name, bio, avatar_url, subscription_tier, followers_count, following_count')
         .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
         .neq('id', currentUserId) // Don't show current user
         .limit(20);
@@ -278,7 +274,7 @@ export default function UserSearchScreen({ navigation }: Props) {
       // Get recent users (excluding current user and already following)
       const { data: userData, error } = await supabase
         .from('user_profiles')
-        .select('id, username, display_name, bio, followers_count, following_count')
+        .select('id, username, display_name, bio, avatar_url, subscription_tier, followers_count, following_count')
         .neq('id', currentUserId)
         .limit(20);
 
@@ -409,9 +405,13 @@ export default function UserSearchScreen({ navigation }: Props) {
     return (
       <View style={styles.userCard}>
         <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarEmoji}>{getAvatarForUser(item.id)}</Text>
-          </View>
+          <UserAvatar
+            user={{
+              avatar_url: item.avatar_url,
+              subscription_tier: item.subscription_tier
+            }}
+            size={50}
+          />
           <View style={styles.userDetails}>
             <View style={styles.userNameRow}>
               <Text style={styles.displayName}>
