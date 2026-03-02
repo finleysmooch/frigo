@@ -9,6 +9,11 @@ Frigo is a "Strava for cooking" mobile app - users track their cooking, manage p
 - **AI:** Claude API for recipe extraction from photos/URLs
 - **State:** React Context (SpaceContext, etc.)
 
+## Project Documentation (docs/)
+- Always read `docs/FRIGO_ARCHITECTURE.md` at the start of a session for codebase context
+- Append session summaries to `docs/SESSION_LOG.md` after completing work
+- Session log format: date, files modified/created, DB changes, key decisions, deferred items, status
+
 ## Project Structure
 ```
 frigo/
