@@ -44,6 +44,9 @@ yarn-error.*
 # Claude temp files
 tmpclaude-*
 
+# Supabase temp files
+supabase/.temp/
+
 # Dev artifacts
 External documents/
 assets/svg-source/
