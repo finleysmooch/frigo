@@ -70,7 +70,7 @@ export default function UserAvatar({ user, size = 40 }: UserAvatarProps) {
       justifyContent: 'center',
     },
     emojiText: {
-      fontSize: size * 0.6,
+      fontSize: size * 0.75,
     },
     badge: {
       position: 'absolute',
@@ -104,7 +104,7 @@ export default function UserAvatar({ user, size = 40 }: UserAvatarProps) {
   };
 
   // Check if avatar_url is an emoji
-  const isEmoji = user.avatar_url && /^[\p{Emoji}\u200D]+$/u.test(user.avatar_url);
+  const isEmoji = user.avatar_url && /^[\p{Emoji}\u200D\uFE0F]+$/u.test(user.avatar_url);
 
   // Check if it's a valid image URL
   const isImageUrl = user.avatar_url &&

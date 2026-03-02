@@ -1,3 +1,14 @@
+import { ComponentType } from 'react';
+import {
+  VegetablesIcon, MeatIcon, DairyProductsIcon, CannedFoodIcon,
+  LeafyGreensIcon, CarrotIcon, GarlicIcon, LemonIcon, FruitIcon,
+  SquashIcon, HerbIcon, MushroomIcon, SteakIcon, PoultryIcon,
+  SeafoodIcon, TofuIcon, MilkIcon, YogurtIcon, CheeseIcon,
+  ButterIcon, EggsIcon, GrainIcon, BakingIcon, OliveOilIcon,
+  OilIcon, CondimentIcon, SpicesIcon, NutsIcon, RaisinsIcon, BeansIcon,
+  FridgeIcon, ColdIcon, PantryFilled,
+} from '../components/icons';
+
 // ============================================
 // FRIGO - PANTRY CONSTANTS
 // ============================================
@@ -112,12 +123,32 @@ export function getFamilyIcon(family: string): string {
   return FAMILY_ICONS[family as keyof typeof FAMILY_ICONS] || '📦';
 }
 
+// Map lowercase DB values (from ingredient suggestion service) to canonical type keys
+const INGREDIENT_TYPE_ALIASES: Record<string, string> = {
+  'vegetable': 'Vegetables',
+  'fruit': 'Fruits',
+  'herb': 'Fresh Herbs',
+  'meat': 'Red Meat',
+  'dairy': 'Fresh Dairy',
+  'seafood': 'Seafood',
+  'mushroom': 'Mushrooms',
+  'produce': 'Vegetables',
+  'spice': 'Spices & Dried Herbs',
+  'pantry staple': 'Canned/Jarred Goods',
+  'legume': 'Legumes',
+  'grain': 'Grains',
+  'nut': 'Nuts & Seeds',
+};
+
 /**
  * Get emoji icon for an ingredient type
  */
 export function getTypeIcon(type: string | null): string {
   if (!type) return '📦';
-  return INGREDIENT_TYPE_ICONS[type as keyof typeof INGREDIENT_TYPE_ICONS] || '📦';
+  const canonical = INGREDIENT_TYPE_ALIASES[type.toLowerCase()] || type;
+  return INGREDIENT_TYPE_ICONS[canonical as keyof typeof INGREDIENT_TYPE_ICONS]
+    || INGREDIENT_TYPE_ICONS[type as keyof typeof INGREDIENT_TYPE_ICONS]
+    || '📦';
 }
 
 /**
@@ -146,4 +177,69 @@ export function getExpirationColor(daysUntilExpiration: number): string {
   if (daysUntilExpiration <= 1) return EXPIRATION_COLORS.CRITICAL;
   if (daysUntilExpiration <= 3) return EXPIRATION_COLORS.WARNING;
   return EXPIRATION_COLORS.SAFE;
+}
+
+// ============================================
+// COMPONENT-BASED ICON MAPPINGS
+// ============================================
+
+type IconComponent = ComponentType<{ size?: number; color?: string }>;
+
+export const FAMILY_ICON_COMPONENTS: Record<string, IconComponent> = {
+  'Produce': VegetablesIcon,
+  'Proteins': MeatIcon,
+  'Dairy': DairyProductsIcon,
+  'Pantry': PantryFilled,
+};
+
+export const INGREDIENT_TYPE_ICON_COMPONENTS: Record<string, IconComponent> = {
+  'Vegetables': VegetablesIcon,
+  'Leafy Greens': LeafyGreensIcon,
+  'Root Vegetables': CarrotIcon,
+  'Alliums': GarlicIcon,
+  'Citrus': LemonIcon,
+  'Fruits': FruitIcon,
+  'Gourds': SquashIcon,
+  'Fresh Herbs': HerbIcon,
+  'Mushrooms': MushroomIcon,
+  'Red Meat': SteakIcon,
+  'Poultry': PoultryIcon,
+  'Seafood': SeafoodIcon,
+  'Plant-Based Proteins': TofuIcon,
+  'Fresh Dairy': MilkIcon,
+  'Cultured Dairy': YogurtIcon,
+  'Cheese': CheeseIcon,
+  'Butter': ButterIcon,
+  'Eggs': EggsIcon,
+  'Grains': GrainIcon,
+  'Baking': BakingIcon,
+  'Oils & Fats': OliveOilIcon,
+  'Vinegars': OilIcon,
+  'Condiments & Sauces': CondimentIcon,
+  'Spices & Dried Herbs': SpicesIcon,
+  'Nuts & Seeds': NutsIcon,
+  'Dried Fruit': RaisinsIcon,
+  'Canned/Jarred Goods': CannedFoodIcon,
+  'Legumes': BeansIcon,
+};
+
+export const STORAGE_ICON_COMPONENTS: Record<string, IconComponent> = {
+  'fridge': FridgeIcon,
+  'freezer': ColdIcon,
+  'pantry': PantryFilled,
+  // 'counter' — no SVG yet, falls back to emoji
+};
+
+export function getFamilyIconComponent(family: string): IconComponent | null {
+  return FAMILY_ICON_COMPONENTS[family] || null;
+}
+
+export function getTypeIconComponent(type: string | null): IconComponent | null {
+  if (!type) return null;
+  const canonical = INGREDIENT_TYPE_ALIASES[type.toLowerCase()] || type;
+  return INGREDIENT_TYPE_ICON_COMPONENTS[canonical] || INGREDIENT_TYPE_ICON_COMPONENTS[type] || null;
+}
+
+export function getStorageIconComponent(storage: string): IconComponent | null {
+  return STORAGE_ICON_COMPONENTS[storage.toLowerCase()] || null;
 }

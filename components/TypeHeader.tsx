@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { TypeSection } from '../utils/pantryHelpers';
-import { getTypeIcon } from '../constants/pantry';
+import { getTypeIconComponent } from '../constants/pantry';
 
 interface Props {
   typeSection: TypeSection;
@@ -23,7 +23,7 @@ export default function TypeHeader({
   onToggle,
 }: Props) {
   const { colors, functionalColors } = useTheme();
-  const icon = getTypeIcon(typeSection.type);
+  const IconComponent = getTypeIconComponent(typeSection.type);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -77,7 +77,11 @@ export default function TypeHeader({
       activeOpacity={0.7}
     >
       <View style={styles.content}>
-        <Text style={styles.icon}>{icon}</Text>
+        {IconComponent ? (
+          <IconComponent size={24} color={colors.text.secondary} />
+        ) : (
+          <Text style={styles.icon}>📦</Text>
+        )}
         <Text style={styles.typeText}>{typeSection.type}</Text>
         <Text style={styles.count}>({typeSection.items.length})</Text>
         {typeSection.expiringCount > 0 && (

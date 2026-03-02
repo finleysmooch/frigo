@@ -22,3 +22,15 @@ export { default as Messages1Filled } from './Messages1Filled';
 // Branding icon exports
 export { default as ChefHat2 } from '../branding/icons/ChefHat2';
 export { default as ChefHat2Inverse } from '../branding/icons/ChefHat2Inverse';
+
+// Recipe domain icons
+export * from './recipe';
+
+// Vibe domain icons
+export * from './vibe';
+
+// Pantry domain icons
+export * from './pantry';
+
+// Filter domain icons
+export * from './filter';

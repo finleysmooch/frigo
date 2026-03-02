@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { FamilySection } from '../utils/pantryHelpers';
-import { getFamilyIcon, getTypeIcon } from '../constants/pantry';
+import { getFamilyIcon, getTypeIcon, getFamilyIconComponent, getTypeIconComponent } from '../constants/pantry';
 
 interface Props {
   section: FamilySection;
@@ -28,20 +28,7 @@ export default function CategoryHeader({
   const styles = useMemo(() => createStyles(colors, functionalColors), [colors, functionalColors]);
 
   const familyIcon = getFamilyIcon(section.family);
-
-  // Create type breakdown summary
-  const typeBreakdown = section.types
-    .map(({ type, items, expiringCount }) => {
-      const icon = getTypeIcon(type);
-      const shortType = type.replace('Vegetables', 'Veg');
-      const count = items.length;
-      
-      if (expiringCount > 0) {
-        return `${icon} ${shortType} (${count}, ${expiringCount} soon)`;
-      }
-      return `${icon} ${shortType} (${count})`;
-    })
-    .join(', ');
+  const FamilyIconComponent = getFamilyIconComponent(section.family);
 
   return (
     <TouchableOpacity
@@ -53,7 +40,11 @@ export default function CategoryHeader({
         {/* Left Side: Family Info */}
         <View style={styles.leftSection}>
           <View style={styles.titleRow}>
-            <Text style={styles.familyEmoji}>{familyIcon}</Text>
+            {FamilyIconComponent ? (
+              <FamilyIconComponent size={30} color={colors.text.primary} />
+            ) : (
+              <Text style={styles.familyEmoji}>{familyIcon}</Text>
+            )}
             <Text style={styles.familyTitle}>{section.family}</Text>
             <Text style={styles.count}>({section.totalCount})</Text>
             {section.expiringCount > 0 && (
@@ -62,12 +53,27 @@ export default function CategoryHeader({
               </Text>
             )}
           </View>
-          
+
           {/* Type Breakdown - Only show when collapsed */}
           {!isExpanded && (
-            <Text style={styles.typeBreakdown} numberOfLines={2}>
-              {typeBreakdown}
-            </Text>
+            <View style={styles.typeBreakdownRow}>
+              {section.types.map(({ type, items, expiringCount }) => {
+                const TypeIcon = getTypeIconComponent(type);
+                const typeEmoji = getTypeIcon(type);
+                const shortType = type.replace('Vegetables', 'Veg');
+                const countText = expiringCount > 0
+                  ? `${items.length}, ${expiringCount} soon`
+                  : `${items.length}`;
+                return (
+                  <View key={type} style={styles.typeChip}>
+                    {TypeIcon
+                      ? <TypeIcon size={12} color={colors.text.tertiary} />
+                      : <Text style={styles.typeChipEmoji}>{typeEmoji}</Text>}
+                    <Text style={styles.typeChipText}>{shortType} ({countText})</Text>
+                  </View>
+                );
+              })}
+            </View>
           )}
         </View>
 
@@ -84,7 +90,7 @@ export default function CategoryHeader({
               <Text style={styles.addButtonText}>+</Text>
             </TouchableOpacity>
           )}
-          
+
           <Text style={styles.collapseIcon}>
             {isExpanded ? '▼' : '▶'}
           </Text>
@@ -135,10 +141,22 @@ function createStyles(colors: any, functionalColors: any) {
       paddingHorizontal: spacing.sm,
       borderRadius: borderRadius.sm,
     },
-    typeBreakdown: {
+    typeBreakdownRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    typeChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    typeChipEmoji: {
+      fontSize: 11,
+    },
+    typeChipText: {
       fontSize: typography.sizes.sm,
       color: colors.text.tertiary,
-      lineHeight: typography.sizes.sm * typography.lineHeights.normal,
     },
     rightSection: {
       flexDirection: 'row',

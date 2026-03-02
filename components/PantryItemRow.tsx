@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { NoneIcon, WarningIcon, LowFuelIcon } from '../components/icons';
 import { PantryItemWithIngredient } from '../lib/types/pantry';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius, shadows } from '../lib/theme';
@@ -172,11 +173,11 @@ export default function PantryItemRow({
   const getStockBadge = () => {
     switch (stockStatus) {
       case 'out':
-        return { emoji: '🚫', label: 'Out', color: functionalColors.error };
+        return { IconComponent: NoneIcon, label: 'Out', color: functionalColors.error };
       case 'critical':
-        return { emoji: '⚠️', label: 'Critical', color: functionalColors.warning };
+        return { IconComponent: WarningIcon, label: 'Critical', color: functionalColors.warning };
       case 'low':
-        return { emoji: '📉', label: 'Low', color: functionalColors.warning };
+        return { IconComponent: LowFuelIcon, label: 'Low', color: functionalColors.warning };
       default:
         return null;
     }
@@ -202,10 +203,9 @@ export default function PantryItemRow({
               {item.ingredient.name}
             </Text>
             {badge && (
-              <View style={[styles.stockBadge, { backgroundColor: badge.color + '20' }]}>
-                <Text style={styles.stockBadgeText}>
-                  {badge.emoji} {badge.label}
-                </Text>
+              <View style={[styles.stockBadge, { backgroundColor: badge.color + '20', flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+                <badge.IconComponent size={17} color={badge.color} />
+                <Text style={styles.stockBadgeText}>{badge.label}</Text>
               </View>
             )}
           </View>

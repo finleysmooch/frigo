@@ -37,8 +37,8 @@ import {
   groupItemsByStorageAndFamily,
   StorageSection
 } from '../utils/pantryHelpers';
-import { getTypeIcon } from '../constants/pantry';
-import { getFamilyIcon } from '../constants/pantry';
+import { getTypeIcon, getFamilyIcon, getTypeIconComponent, getFamilyIconComponent, getStorageIconComponent } from '../constants/pantry';
+import { VegetablesIcon, WarningIcon } from '../components/icons';
 
 // Space Context
 import { useSpace, useActiveSpaceId, useSpacePermissions } from '../contexts/SpaceContext';
@@ -798,7 +798,7 @@ export default function PantryScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateEmoji}>🥬</Text>
+          <VegetablesIcon size={72} color={colors.text.tertiary} />
           <Text style={styles.emptyStateTitle}>
             {activeSpace?.is_default ? 'Pantry is Empty' : `${activeSpace?.name} Pantry is Empty`}
           </Text>
@@ -935,7 +935,10 @@ export default function PantryScreen({ navigation }: Props) {
           <View style={[styles.section, styles.sectionCompact]}>
             <View style={styles.sectionCard}>
               <View style={styles.expiringHeader}>
-                <Text style={styles.expiringTitle}>⚠️ Expiring Soon</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <WarningIcon size={24} color={functionalColors.warning} />
+                  <Text style={styles.expiringTitle}>Expiring Soon</Text>
+                </View>
                 <Text style={styles.expiringCount}>{expiringItems.length} items</Text>
               </View>
               {expiringItems.map(item => (
@@ -977,7 +980,8 @@ export default function PantryScreen({ navigation }: Props) {
                       const typeKey = `${section.family}-${typeSection.type}`;
                       const isTypeExpanded = expandedTypes.has(typeKey);
                       const typeIcon = getTypeIcon(typeSection.type);
-                      
+                      const TypeIconComp = getTypeIconComponent(typeSection.type);
+
                       return (
                         <View key={typeSection.type} style={styles.typeSection}>
                           <TouchableOpacity
@@ -988,9 +992,12 @@ export default function PantryScreen({ navigation }: Props) {
                             onPress={() => toggleType(section.family, typeSection.type)}
                             activeOpacity={0.7}
                           >
-                            <Text style={styles.typeSectionTitle}>
-                              {typeIcon} {typeSection.type} ({typeSection.items.length})
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.xs }}>
+                              {TypeIconComp
+                                ? <TypeIconComp size={21} color={colors.text.secondary} />
+                                : <Text style={styles.typeSectionTitle}>{typeIcon}</Text>}
+                              <Text style={styles.typeSectionTitle}>{typeSection.type} ({typeSection.items.length})</Text>
+                            </View>
                             <Text style={styles.typeCollapseIcon}>
                               {isTypeExpanded ? '▼' : '▶'}
                             </Text>
@@ -1026,7 +1033,8 @@ export default function PantryScreen({ navigation }: Props) {
             const storageKey = section.storage;
             const isExpanded = expandedFamilies.has(storageKey);
             const storageIcon = getStorageIcon(section.storage);
-            
+            const StorageIconComp = getStorageIconComponent(section.storage);
+
             return (
               <View key={section.storage} style={styles.section}>
                 <View style={styles.sectionCard}>
@@ -1037,7 +1045,9 @@ export default function PantryScreen({ navigation }: Props) {
                     activeOpacity={0.7}
                   >
                     <View style={styles.storageHeaderLeft}>
-                      <Text style={styles.storageEmoji}>{storageIcon}</Text>
+                      {StorageIconComp
+                        ? <StorageIconComp size={33} color={colors.text.primary} />
+                        : <Text style={styles.storageEmoji}>{storageIcon}</Text>}
                       <Text style={styles.storageTitle}>
                         {section.storage.charAt(0).toUpperCase() + section.storage.slice(1)}
                       </Text>
@@ -1070,7 +1080,8 @@ export default function PantryScreen({ navigation }: Props) {
                         const familyKey = `${storageKey}-${familySection.family}`;
                         const isFamilyExpanded = expandedTypes.has(familyKey);
                         const familyIcon = getFamilyIcon(familySection.family);
-                        
+                        const FamilyIconComp = getFamilyIconComponent(familySection.family);
+
                         return (
                           <View key={familySection.family} style={styles.typeSection}>
                             <TouchableOpacity
@@ -1081,9 +1092,12 @@ export default function PantryScreen({ navigation }: Props) {
                               onPress={() => toggleType(storageKey, familySection.family)}
                               activeOpacity={0.7}
                             >
-                              <Text style={styles.typeSectionTitle}>
-                                {familyIcon} {familySection.family} ({familySection.items.length})
-                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.xs }}>
+                                {FamilyIconComp
+                                  ? <FamilyIconComp size={21} color={colors.text.secondary} />
+                                  : <Text style={styles.typeSectionTitle}>{familyIcon}</Text>}
+                                <Text style={styles.typeSectionTitle}>{familySection.family} ({familySection.items.length})</Text>
+                              </View>
                               <Text style={styles.typeCollapseIcon}>
                                 {isFamilyExpanded ? '▼' : '▶'}
                               </Text>

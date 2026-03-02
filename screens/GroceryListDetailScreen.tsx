@@ -20,6 +20,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { typography, spacing } from '../lib/theme';
 import { useTheme } from '../lib/theme/ThemeContext';
+import { GroceryFilled } from '../components/icons';
 import {
   getItemsForList,
   deleteItemFromList,
@@ -632,7 +633,7 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
 
         {/* Progress Bar WITH CART ICON */}
         <View style={styles.progressContainer}>
-          <Text style={styles.cartIcon}>🛒</Text>
+          <GroceryFilled size={20} color={colors.primary} />
           <View style={styles.progressBar}>
             <View 
               style={[
@@ -681,7 +682,7 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
       >
         {items.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🛒</Text>
+            <GroceryFilled size={48} color={colors.text.tertiary} />
             <Text style={styles.emptyTitle}>No Items Yet</Text>
             <Text style={styles.emptyText}>
               Add items to your {listName} list
