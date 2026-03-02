@@ -9,10 +9,64 @@ Frigo is a "Strava for cooking" mobile app - users track their cooking, manage p
 - **AI:** Claude API for recipe extraction from photos/URLs
 - **State:** React Context (SpaceContext, etc.)
 
-## Project Documentation (docs/)
-- Always read `docs/FRIGO_ARCHITECTURE.md` at the start of a session for codebase context
-- Append session summaries to `docs/SESSION_LOG.md` after completing work
-- Session log format: date, files modified/created, DB changes, key decisions, deferred items, status
+---
+
+## Documentation System
+
+### What to read every session
+1. **This file** (CLAUDE.md) — conventions, instructions, tracker format
+2. **docs/FRIGO_ARCHITECTURE.md** — codebase map, services, patterns, domain boundaries
+
+### What to read only when referenced in the prompt
+3. **docs/DEFERRED_WORK.md** — master backlog (only if the prompt references specific items)
+
+### What to write
+4. **docs/SESSION_LOG.md** — Write a detailed entry after every session (format below)
+
+### What NOT to edit
+- Do not edit FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or any other living docs
+- Flag recommended changes in your SESSION_LOG entry — Claude.ai will make the edits
+
+### SESSION_LOG Entry Format
+
+The session log is the contract between Claude Code and Claude.ai. Entries must be detailed enough for Claude.ai to update all living docs without guessing. Add new entries at the TOP of the file.
+
+```markdown
+### YYYY-MM-DD — [Brief Title]
+**Phase:** [which phase, or "cross-cutting"]
+**Prompt from:** [brief description of what Claude.ai asked for]
+
+**Files created:**
+- [file] — [purpose and key design choices]
+
+**Files modified:**
+- [file] — [what changed and why]
+
+**DB changes:** [migrations, schema changes, or "none"]
+
+**Decisions made during execution:**
+- [Decision]: [Why — especially anything not specified in the prompt]
+
+**Deferred during execution:**
+- [Item]: [Why deferred, what would be needed]
+
+**Recommended doc updates:**
+- ARCHITECTURE: [what to add/change and why it matters]
+- DEFERRED_WORK: [any items that should be tracked]
+- PROJECT_CONTEXT: [any changes to "what works" or known issues]
+
+**Status:** [What's working, what needs testing, blockers]
+
+**Surprises / Notes for Claude.ai:**
+- [Anything unexpected that affects planning]
+```
+
+### Key principles
+- **Follow decisions/constraints from Claude.ai prompts** — don't re-decide things that have already been decided
+- **Be detailed in SESSION_LOG** — Claude.ai depends on these entries to maintain all project documentation
+- **When in doubt, flag it** — use "Recommended doc updates" and "Surprises" to surface anything Claude.ai should know
+
+---
 
 ## Project Structure
 ```
@@ -60,6 +114,9 @@ All code maps to one of these domains:
 - ✅ Social feed with posts
 - ✅ Meal planning
 - ✅ Shared Pantries (Spaces)
+- ✅ Nutrition data + dietary badges
+- ✅ Smart recipe browse (3 modes, expandable cards, 60 SVG icons)
+- ✅ Test data seeded (1,740 posts, 17 users, full year)
 
 ## Commands
 ```bash

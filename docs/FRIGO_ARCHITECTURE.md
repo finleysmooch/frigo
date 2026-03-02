@@ -1,6 +1,6 @@
 # Frigo — Architecture & Codebase Map
 **Last Updated:** March 2, 2026  
-**Version:** 2.0
+**Version:** 2.1
 
 ---
 
@@ -16,6 +16,90 @@ Screens → Components → Services → Supabase
 ```
 
 **Core rule:** Services handle ALL Supabase calls. Components never call the database directly.
+
+---
+
+## Feature Domains
+
+Frigo is organized into **8 Feature Domains**. Each feature belongs to exactly ONE domain. Use these boundaries when deciding where new code belongs.
+
+### Domain Overview
+
+| Domain | Emoji | Description |
+|--------|-------|-------------|
+| Recipe Management | 🍳 | Adding, storing, viewing, organizing recipes |
+| Cooking Experience | 👩‍🍳 | Active cooking: step-by-step, timers, guidance |
+| Meal Planning | 🗓️ | Scheduling, calendars, "cook soon" lists |
+| Social & Cooking History | 👥 | Posts, feeds, followers, cooking history |
+| Pantry & Inventory | 🥫 | What you have, expiration, shared pantries |
+| Grocery & Shopping | 🛒 | Shopping lists, stores, purchasing |
+| Discovery & Intelligence | 🔍 | Search, filtering, AI, recommendations |
+| Platform & Settings | ⚙️ | Auth, profile, preferences, admin |
+
+### Domain Scope Boundaries
+
+**🍳 Recipe Management**
+- **Includes:** Recipe input (image, URL, manual), recipe display/browsing, editing/annotations, cookbook/book management, recipe organization (folders, tags, stars), search within user's recipes
+- **Does NOT include:** Active cooking mode (→ Cooking), AI-powered discovery (→ Discovery), shopping list generation (→ Grocery)
+
+**👩‍🍳 Cooking Experience**
+- **Includes:** Cooking mode display, step-by-step guidance, timers/alerts, ingredient checking during cook, post-cook reflection, offline cooking support
+- **Does NOT include:** Recipe browsing/selection (→ Recipe), post creation after cooking (→ Social)
+
+**🗓️ Meal Planning**
+- **Includes:** Meal calendar, recipe scheduling, "cook soon" / "want to make" lists, flexible meal planning, prep timing reminders, meal events (dinners with friends)
+- **Does NOT include:** Actual cooking (→ Cooking), shopping list management (→ Grocery)
+
+**👥 Social & Cooking History**
+- **Includes:** Feed display/algorithm, posts (dishes and meals), likes/comments, following/followers, cooking partners, meal participants, recipe sharing, historical posts, post statistics, ingredient source logging
+- **Does NOT include:** Recipe input/editing (→ Recipe), meal scheduling (→ Meal Planning)
+
+**🥫 Pantry & Inventory**
+- **Includes:** Pantry item management, stock levels/expiration, storage locations, shared pantries (Spaces), space membership/invites
+- **Does NOT include:** Shopping lists (→ Grocery), recipe-pantry matching logic (→ Discovery)
+
+**🛒 Grocery & Shopping**
+- **Includes:** Grocery lists, regular/recurring items, store management, recipe-to-list flow, list sharing
+- **Does NOT include:** Pantry tracking (→ Pantry), receipt scanning for pantry (→ Pantry)
+
+**🔍 Discovery & Intelligence**
+- **Includes:** Recipe search/filtering, ingredient-based discovery, recipe-pantry matching ("what can I make?"), AI recommendations, effort/difficulty ratings, pairing suggestions, ingredient parsing/matching
+- **Does NOT include:** Basic recipe display (→ Recipe), pantry data storage (→ Pantry)
+
+**⚙️ Platform & Settings**
+- **Includes:** Authentication (login/signup), user profiles, settings/preferences, dietary needs config, admin panel, feature flags/testing, payments/subscriptions, notifications
+- **Does NOT include:** Feature-specific preferences (belong with their features)
+
+### Cross-Domain Integration Map
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  🍳 Recipe      │────▶│  👩‍🍳 Cooking     │────▶│  👥 Social      │
+│  Management     │     │  Experience      │     │  & History      │
+└────────┬────────┘     └──────────────────┘     └─────────────────┘
+         │                                                │
+         ▼                                                │
+┌─────────────────┐     ┌──────────────────┐              │
+│  🔍 Discovery   │◀────│  🥫 Pantry       │◀─────────────┘
+│  & Intelligence │     │  & Inventory     │
+└────────┬────────┘     └────────┬─────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────┐     ┌──────────────────┐
+│  🗓️ Meal        │────▶│  🛒 Grocery      │
+│  Planning       │     │  & Shopping      │
+└─────────────────┘     └──────────────────┘
+
+         ┌──────────────────┐
+         │  ⚙️ Platform     │  (underlies all)
+         │  & Settings      │
+         └──────────────────┘
+```
+
+**Primary User Flows:**
+1. **Recipe → Cook → Share:** 🍳 Recipe Management → 👩‍🍳 Cooking Experience → 👥 Social
+2. **Plan → Shop → Stock:** 🗓️ Meal Planning → 🛒 Grocery → 🥫 Pantry
+3. **Stock → Discover → Plan:** 🥫 Pantry → 🔍 Discovery → 🗓️ Meal Planning
 
 ---
 
@@ -233,6 +317,34 @@ pantry_items → ingredients (space-aware)
 grocery_lists → grocery_list_items → ingredients
 regular_items
 ```
+
+### Key Database Tables by Domain
+
+| Domain | Tables |
+|--------|--------|
+| 🍳 Recipe | recipes, recipe_ingredients, instruction_sections, instruction_steps, recipe_photos, recipe_annotations, recipe_references, books, chefs, user_books |
+| 👩‍🍳 Cooking | recipe_annotations (edits while cooking), instruction_steps |
+| 🗓️ Meal Planning | meal_dish_plans, user_recipe_tags, posts (meal type) |
+| 👥 Social | posts, post_likes, post_comments, comment_likes, post_participants, post_relationships, follows, meal_participants |
+| 🥫 Pantry | pantry_items, spaces, space_members, space_settings, user_active_space, user_pantry_preferences |
+| 🛒 Grocery | grocery_lists, grocery_list_items, regular_grocery_items, stores |
+| 🔍 Discovery | ingredients, ingredient_suggestions, or_pattern_decisions |
+| ⚙️ Platform | user_profiles, user_ingredient_preferences, user_recipe_preferences, user_ingredient_choices |
+
+### Extraction Tables (semi-independent subproject)
+
+| Table | Purpose |
+|-------|---------|
+| recipe_extraction_queue | Processing pipeline |
+| recipe_extraction_comparison | Accuracy metrics |
+| recipe_extraction_verification | 4-pass verification |
+| extraction_logs | Historical extractions |
+| extraction_corrections | User corrections |
+| book_page_scans | Page-level extraction |
+| book_recipe_assembly | Multi-page assembly |
+| book_assembly_runs | Batch processing |
+
+Integration: Extraction outputs flow into `recipes` table via review flow (RecipeReviewScreen).
 
 ### Materialized Views
 - **recipe_nutrition_computed** — Per-recipe nutrition + dietary flags + quality labels. Refresh: `SELECT refresh_recipe_nutrition()`

@@ -25,11 +25,13 @@
     padding: 12px 14px; flex: 1; min-width: 200px; position: relative;
   }
   .doc-card.primary { border-left: 3px solid #6c9eff; }
+  .doc-card.phase { border-left: 3px solid #38bdf8; }
   .doc-card.process { border-left: 3px solid #34d399; }
   .doc-card.reference { border-left: 3px solid #fbbf24; }
   .doc-card.external { border-left: 3px solid #fb923c; }
   .doc-card.repo { border-left: 3px solid #a78bfa; }
   .doc-card.retired { border-left: 3px solid #555; opacity: 0.55; }
+  .doc-card.historical { border-left: 3px solid #7c8ba0; }
   
   .doc-name { font-size: 12.5px; font-weight: 700; color: #fff; margin-bottom: 2px; line-height: 1.3; }
   .doc-desc { font-size: 11px; color: #9ca0b0; line-height: 1.4; }
@@ -42,12 +44,16 @@
     padding: 2px 6px; border-radius: 4px; margin-top: 5px; margin-right: 3px;
   }
   .badge-weekly { background: #1e2a3a; color: #6c9eff; }
+  .badge-phase { background: #1a2a3a; color: #38bdf8; }
   .badge-session { background: #3a1e2a; color: #f87171; }
   .badge-reference { background: #2a2a1e; color: #fbbf24; }
   .badge-repo { background: #2a1e3a; color: #a78bfa; }
   .badge-external { background: #2e2218; color: #fb923c; }
   .badge-retire { background: #222; color: #777; }
   .badge-stale { background: #2e1a1a; color: #f87171; }
+  .badge-notion { background: #2a1e2e; color: #e879f9; }
+  .badge-completion { background: #1a2e26; color: #34d399; }
+  .badge-historical { background: #1e2228; color: #7c8ba0; }
   
   /* Flow diagram */
   .flow-diagram {
@@ -66,10 +72,12 @@
   .flow-node.red { background: #2e1a1e; border-color: #f87171; }
   .flow-node.purple { background: #261a2e; border-color: #a78bfa; }
   .flow-node.orange { background: #2e2218; border-color: #fb923c; }
+  .flow-node.sky { background: #1a2535; border-color: #38bdf8; }
   .flow-node-title { font-size: 11px; font-weight: 700; color: #fff; }
   .flow-node-sub { font-size: 9px; color: #8b8fa3; margin-top: 2px; }
   .flow-arrow-down { display: flex; justify-content: center; padding: 3px 0; color: #4a4f65; }
   .flow-arrow-right { display: flex; align-items: center; padding: 0 2px; color: #4a4f65; flex-shrink: 0; }
+  .flow-label { font-size: 9px; font-weight: 600; margin-top: 1px; }
 
   /* Legend */
   .legend {
@@ -100,212 +108,234 @@
 <div class="diagram">
   <div>
     <h1>Frigo Documentation Ecosystem</h1>
-    <p class="subtitle">How documents relate, what each does, and when to update them · Updated Feb 28, 2026</p>
+    <p class="subtitle">How documents relate, what each does, and when to update them · Updated March 2, 2026 · Doc System v3.2</p>
   </div>
 
   <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#6c9eff"></div> Living Doc — Project Knowledge (weekly)</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div> External — Google Docs/Sheets (weekly)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6c9eff"></div> Living Doc — Project Knowledge</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div> Active Phase Doc</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div> External — Google / Notion</div>
     <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div> Process Doc</div>
     <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div> Repo File</div>
     <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Reference (rarely updated)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7c8ba0"></div> Historical (archived)</div>
     <div class="legend-item"><div class="legend-dot" style="background:#555"></div> Retired</div>
   </div>
 
-  <!-- ═══════════ MAIN FLOW ═══════════ -->
+  <!-- ═══════════ MAIN FLOW: Planning → Execution → Reconciliation ═══════════ -->
   
-  <div class="section-label" style="margin-top: 4px;">Daily → Weekly → Living Docs Flow</div>
+  <div class="section-label" style="margin-top: 4px;">Planning → Execution → Reconciliation Loop</div>
   
   <div class="flow-diagram">
+    <!-- Row 1: The two actors -->
     <div class="flow-row">
-      <div class="flow-node red">
-        <div class="flow-node-title">Claude Code Sessions</div>
-        <div class="flow-node-sub">Daily development work</div>
+      <div class="flow-node highlight" style="flex: 1.2;">
+        <div class="flow-node-title">🧠 Claude.ai — Planning Brain</div>
+        <div class="flow-node-sub">Makes decisions · Writes active phase doc · Generates Claude Code prompts</div>
       </div>
-      <div class="flow-arrow-right"><svg width="16" height="12"><path d="M0 6h10l-3-3M10 6l-3 3" stroke="#4a4f65" fill="none" stroke-width="1.5"/></svg></div>
-      <div class="flow-node red">
-        <div class="flow-node-title">Claude.ai Chat Sessions</div>
-        <div class="flow-node-sub">Planning, debugging, docs</div>
+      <div class="flow-arrow-right" style="flex-direction: column; justify-content: center; gap: 2px;">
+        <svg width="36" height="12"><path d="M0 6h28l-4-4M28 6l-4 4" stroke="#6c9eff" fill="none" stroke-width="1.5"/></svg>
+        <span class="flow-label" style="color: #6c9eff;">prompts</span>
       </div>
-      <div class="flow-arrow-right"><svg width="16" height="12"><path d="M0 6h10l-3-3M10 6l-3 3" stroke="#4a4f65" fill="none" stroke-width="1.5"/></svg></div>
-      <div class="flow-node purple" style="flex: 0.7;">
-        <div class="flow-node-title">Git Commits</div>
-        <div class="flow-node-sub">Code pushed</div>
+      <div class="flow-node purple" style="flex: 1.2;">
+        <div class="flow-node-title">🔧 Claude Code — Execution Hands</div>
+        <div class="flow-node-sub">Builds what was asked · Reads ARCHITECTURE · Writes SESSION_LOG only</div>
       </div>
     </div>
     
-    <div class="flow-arrow-down"><svg width="100" height="16"><path d="M50 0v10l-3-3M50 10l3-3" stroke="#4a4f65" fill="none" stroke-width="1.5"/></svg></div>
-    
+    <!-- Row 2: What they produce -->
     <div class="flow-row">
-      <div class="flow-node purple" style="flex: 1;">
-        <div class="flow-node-title">📓 SESSION_LOG.md (in repo)</div>
-        <div class="flow-node-sub">2-3 min after each session · files changed, decisions, deferred items</div>
+      <div class="flow-node sky" style="flex: 1.2;">
+        <div class="flow-node-title">📋 Active Phase Doc</div>
+        <div class="flow-node-sub">Goals · Decisions · Progress · Deferred items</div>
+      </div>
+      <div class="flow-arrow-right" style="flex-direction: column; justify-content: center; gap: 2px;">
+        <svg width="36" height="12"><path d="M28 6h-28M0 6l4-4M0 6l4 4" stroke="#a78bfa" fill="none" stroke-width="1.5"/></svg>
+        <span class="flow-label" style="color: #a78bfa;">SESSION_LOG</span>
+      </div>
+      <div class="flow-node purple" style="flex: 1.2;">
+        <div class="flow-node-title">📓 SESSION_LOG.md</div>
+        <div class="flow-node-sub">Detailed entries · Decisions · Deferred · Recommended doc updates</div>
       </div>
     </div>
-    
+
+    <!-- Row 3: Reconciliation -->
     <div class="flow-arrow-down">
-      <svg width="140" height="22">
-        <path d="M70 0v16l-3-3M70 16l3-3" stroke="#34d399" fill="none" stroke-width="1.5"/>
-        <text x="82" y="11" fill="#34d399" font-size="9" font-weight="700">WEEKLY SYNC</text>
+      <svg width="200" height="22">
+        <path d="M100 0v16l-3-3M100 16l3-3" stroke="#34d399" fill="none" stroke-width="1.5"/>
+        <text x="115" y="11" fill="#34d399" font-size="9" font-weight="700">RECONCILE + WEEKLY SYNC</text>
       </svg>
     </div>
     
     <div class="flow-row">
-      <div class="flow-node highlight" style="flex: 1.2;">
-        <div class="flow-node-title">Project Knowledge (Claude reads these)</div>
-        <div class="flow-node-sub">PROJECT_CONTEXT · ARCHITECTURE · STATUS · DEFERRED_WORK</div>
+      <div class="flow-node highlight" style="flex: 1;">
+        <div class="flow-node-title">Claude.ai Reconciles</div>
+        <div class="flow-node-sub">SESSION_LOG → updates phase doc · Acts on recommended doc updates · Updates CONTEXT + ARCHITECTURE</div>
       </div>
       <div class="flow-arrow-right"><svg width="24" height="12"><path d="M0 6h18l-4-4M18 6l-4 4" stroke="#fb923c" fill="none" stroke-width="1.5"/></svg></div>
-      <div class="flow-node orange" style="flex: 0.9;">
-        <div class="flow-node-title">Google Docs + Tracker</div>
-        <div class="flow-node-sub">Feature Roadmap · DB Reference · Tracker</div>
+      <div class="flow-node orange" style="flex: 0.7;">
+        <div class="flow-node-title">Google Sheets + Docs</div>
+        <div class="flow-node-sub">Tracker · DB Reference</div>
       </div>
     </div>
-    
-    <div class="flow-arrow-down"><svg width="100" height="16"><path d="M50 0v10l-3-3M50 10l3-3" stroke="#4a4f65" fill="none" stroke-width="1.5"/></svg></div>
-    
+
+    <!-- Row 4: Phase completion -->
+    <div class="flow-arrow-down">
+      <svg width="200" height="22">
+        <path d="M100 0v16l-3-3M100 16l3-3" stroke="#34d399" fill="none" stroke-width="1.5"/>
+        <text x="115" y="11" fill="#34d399" font-size="9" font-weight="700">AT PHASE COMPLETION</text>
+      </svg>
+    </div>
+
     <div class="flow-row">
       <div class="flow-node green" style="flex: 1;">
-        <div class="flow-node-title">🤖 New Claude Sessions</div>
-        <div class="flow-node-sub">Read living docs → understand project → do work → log to SESSION_LOG → cycle repeats</div>
+        <div class="flow-node-title">Phase Completion</div>
+        <div class="flow-node-sub">Phase doc → ✅ archived · Deferred items reconciled → DEFERRED_WORK · CONTEXT + ARCHITECTURE updated · New phase doc created</div>
       </div>
     </div>
   </div>
 
   <!-- ═══════════ PROJECT KNOWLEDGE ═══════════ -->
 
-  <div class="section-label" style="margin-top: 8px;">Project Knowledge — Living Documents (Claude reads these first)</div>
+  <div class="section-label" style="margin-top: 8px;">Project Knowledge — Living Documents (Claude.ai owns these)</div>
   
   <div class="doc-row">
     <div class="doc-card primary">
-      <div class="doc-name">📋 PROJECT_CONTEXT_28FEB26</div>
+      <div class="doc-name">📋 PROJECT_CONTEXT</div>
       <div class="doc-desc"><strong>The #1 doc.</strong> Every Claude session reads this first. What Frigo is, what works, what's broken, what's next, data metrics, tech stack. Points to all other docs.</div>
       <div class="doc-link">📎 In Claude Project Knowledge</div>
       <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span></div>
     </div>
     <div class="doc-card primary">
       <div class="doc-name">🏗️ FRIGO_ARCHITECTURE</div>
-      <div class="doc-desc"><strong>Codebase map.</strong> Directory tree, every service/screen/component, data model, icon system, common patterns. The code-level reference for how to build things.</div>
-      <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span></div>
+      <div class="doc-desc"><strong>Codebase map.</strong> Domain boundaries, directory tree, every service/screen/component, data model, icon system, extraction pipeline, common patterns.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge + repo docs/</div>
+      <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span> <span class="doc-badge badge-repo">ALSO IN REPO</span></div>
     </div>
   </div>
   
   <div class="doc-row">
-    <div class="doc-card primary">
-      <div class="doc-name">📊 FRIGO_PROJECT_STATUS_28FEB26</div>
-      <div class="doc-desc"><strong>Phase history.</strong> What was built per phase, key decisions and why, files changed. Distills all handoff docs into one place.</div>
+    <div class="doc-card phase">
+      <div class="doc-name">🎯 Active Phase Doc (currently PHASE_4_COOKING_STATS)</div>
+      <div class="doc-desc"><strong>The planning center.</strong> Current phase goals, decisions log, session-by-session progress, deferred items. Claude.ai writes decisions here in real time. One active at a time.</div>
       <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span></div>
+      <div><span class="doc-badge badge-phase">DURING PLANNING + RECONCILIATION</span></div>
     </div>
     <div class="doc-card primary">
-      <div class="doc-name">📝 FRIGO_DEFERRED_WORK_v2</div>
-      <div class="doc-desc"><strong>The backlog.</strong> Every deferred item, bug, idea, and tech debt with priority. Organized by origin phase. Nothing gets lost.</div>
-      <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span></div>
+      <div class="doc-name">📝 DEFERRED_WORK</div>
+      <div class="doc-desc"><strong>Master backlog.</strong> Every deferred item, bug, idea, and tech debt with priority. Organized by origin phase. Updated at phase completion via reconciliation from phase doc.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge + repo docs/</div>
+      <div><span class="doc-badge badge-completion">AT PHASE COMPLETION</span> <span class="doc-badge badge-repo">ALSO IN REPO</span></div>
     </div>
   </div>
 
-  <!-- ═══════════ EXTERNAL GOOGLE DOCS ═══════════ -->
+  <!-- ═══════════ EXTERNAL ═══════════ -->
 
-  <div class="section-label">External — Google Docs & Sheets</div>
+  <div class="section-label">External — Google Docs, Sheets & Notion</div>
   
   <div class="doc-row">
-    <div class="doc-card external">
-      <div class="doc-name">🗺️ Feature Roadmap</div>
-      <div class="doc-desc"><strong>Product planning.</strong> 100+ features by domain with Notion links, feature↔file mapping, status. The product-level view of everything Frigo could be.</div>
-      <div class="doc-link"><a class="ext" href="https://docs.google.com/document/d/14rjbQs4uRrWzw9P4Rd_XvBkyYSWcspKwunr8iKslSOc/edit" target="_blank">↗ Open in Google Docs</a></div>
-      <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span> <span class="doc-badge badge-stale">NEEDS MAJOR UPDATE</span></div>
-    </div>
     <div class="doc-card external">
       <div class="doc-name">📊 FRIGO_TRACKER</div>
       <div class="doc-desc"><strong>Code tracking.</strong> Committed code rows, feature statuses. The spreadsheet record of what's been shipped and when.</div>
       <div class="doc-link"><a class="ext" href="https://docs.google.com/spreadsheets/d/1gm5Nn5cruugDaMwA_nyxeGHBLwoVyQ7O/edit?gid=1283144815#gid=1283144815" target="_blank">↗ Open in Google Sheets</a></div>
       <div><span class="doc-badge badge-weekly">UPDATE WEEKLY</span></div>
     </div>
-  </div>
-
-  <div class="doc-row">
     <div class="doc-card external">
       <div class="doc-name">🗄️ Claude Shared Reference (DB Schema)</div>
-      <div class="doc-desc"><strong>Database schema.</strong> Every table, column, and view with purpose annotations. Shared with Claude subprojects for context.</div>
+      <div class="doc-desc"><strong>Annotated database schema.</strong> Every table, column, and view with purpose annotations. Shared with Claude subprojects for context.</div>
       <div class="doc-link"><a class="ext" href="https://docs.google.com/document/d/1Jymn6fTOqIO71nPpOOlCFB3oFpAjtcI38wkna7fqbMs/edit" target="_blank">↗ Open in Google Docs</a></div>
       <div><span class="doc-badge badge-reference">AFTER MIGRATIONS</span> <span class="doc-badge badge-stale">NEEDS PHASE 3A COLS</span></div>
     </div>
-    <div class="doc-card external">
-      <div class="doc-name">🏛️ Product Architecture (Domain Map)</div>
-      <div class="doc-desc"><strong>8 feature domains.</strong> Scope definitions, "includes/excludes", integration map, cross-domain user flows. Product-level thinking that complements code-level FRIGO_ARCHITECTURE.</div>
-      <div class="doc-link"><a class="ext" href="https://docs.google.com/document/d/1ynYJZ3XjVbzFlH1iE_4sE6w0O64Whtekb6vVCDAu8LM/edit" target="_blank">↗ Open in Google Docs</a></div>
-      <div><span class="doc-badge badge-reference">UPDATE RARELY</span></div>
+  </div>
+
+  <div class="doc-row">
+    <div class="doc-card" style="border-left: 3px solid #e879f9;">
+      <div class="doc-name">🗺️ Notion Feature List</div>
+      <div class="doc-desc"><strong>Product planning source of truth.</strong> Prioritized feature list by domain. Tom manages directly. Not synced to Claude — used for high-level planning.</div>
+      <div class="doc-link"><a class="ext" href="https://www.notion.so/28677d3b625d8070a139f42b0758ab67?v=29377d3b625d80b6941e000c26b2eef0" target="_blank" style="color:#e879f9;">↗ Open in Notion</a></div>
+      <div><span class="doc-badge badge-notion">PRODUCT PLANNING</span></div>
+    </div>
+    <div class="doc-card retired">
+      <div class="doc-name">📁 Product Architecture (Google Doc) → RETIRED</div>
+      <div class="doc-desc">Domain scope boundaries now live in FRIGO_ARCHITECTURE v2.1. Google Doc no longer maintained.</div>
+      <div><span class="doc-badge badge-retire">RETIRED MAR 2026</span></div>
     </div>
   </div>
 
   <div class="doc-row">
     <div class="doc-card retired">
+      <div class="doc-name">📁 Feature Roadmap → RETIRED</div>
+      <div class="doc-desc">Google Doc mapping features to domains with Notion links. Superseded by Notion (product planning) + Deferred Work (dev backlog) + Tracker (code log).</div>
+      <div class="doc-link"><a class="ext" href="https://docs.google.com/document/d/14rjbQs4uRrWzw9P4Rd_XvBkyYSWcspKwunr8iKslSOc/edit" target="_blank" style="color:#777;">↗ Archived in Google Docs</a></div>
+      <div><span class="doc-badge badge-retire">RETIRED MAR 2026</span></div>
+    </div>
+    <div class="doc-card retired">
       <div class="doc-name">📁 Codebase Map → RETIRED</div>
-      <div class="doc-desc">144 files from Jan 2025 — now 200+. Missing 60+ SVG icons, nutrition services, recipe history, Phase 3A changes. <strong>Fully replaced by FRIGO_ARCHITECTURE.md</strong> in project knowledge.</div>
-      <div class="doc-link"><a href="https://docs.google.com/document/d/1CMvcFxP4Lxinf7sMOjuA2JNXQaB0XOfpFVlZkVoqcQs/edit" target="_blank" style="color:#666;">↗ Archive link</a></div>
-      <div><span class="doc-badge badge-retire">RETIRED — REPLACED BY FRIGO_ARCHITECTURE.md</span></div>
+      <div class="doc-desc">Google Doc listing 144 files — now 200+. Completely replaced by FRIGO_ARCHITECTURE.md in project knowledge + repo.</div>
+      <div><span class="doc-badge badge-retire">RETIRED MAR 2026</span></div>
     </div>
   </div>
 
-  <!-- ═══════════ PROCESS + REPO ═══════════ -->
-  
+  <!-- ═══════════ PROCESS & REPO ═══════════ -->
+
   <div class="section-label">Process & Repo Files</div>
-  
+
   <div class="doc-row">
     <div class="doc-card process">
-      <div class="doc-name">⚙️ DOC_MAINTENANCE_PROCESS</div>
-      <div class="doc-desc"><strong>The system.</strong> Weekly sync checklist, session logging rules, project knowledge cleanup criteria, naming conventions. The meta-doc.</div>
+      <div class="doc-name">🔄 DOC_MAINTENANCE_PROCESS v3.2</div>
+      <div class="doc-desc"><strong>The full workflow.</strong> Planning/execution/reconciliation loop, SESSION_LOG entry format, weekly sync checklist, phase completion checklist, phase doc template.</div>
       <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-reference">PROCESS REFERENCE</span></div>
+      <div><span class="doc-badge badge-weekly">PROCESS REFERENCE</span></div>
     </div>
     <div class="doc-card repo">
-      <div class="doc-name">📓 SESSION_LOG.md</div>
-      <div class="doc-desc"><strong>The funnel.</strong> Quick entries after each session. Weekly sync reads this → distributes into living docs + Google Docs → clears processed entries.</div>
-      <div class="doc-link">📎 In repo: <code>docs/SESSION_LOG.md</code></div>
+      <div class="doc-name">📓 docs/SESSION_LOG.md</div>
+      <div class="doc-desc"><strong>The bridge.</strong> Detailed structured entries after each Claude Code session — files changed, decisions made, things deferred, recommended doc updates. Claude.ai reads these to reconcile.</div>
+      <div class="doc-link">📎 In repo docs/</div>
       <div><span class="doc-badge badge-session">AFTER EACH SESSION</span></div>
     </div>
+  </div>
+
+  <div class="doc-row">
     <div class="doc-card repo">
       <div class="doc-name">📖 CLAUDE.md</div>
-      <div class="doc-desc"><strong>Claude Code instructions.</strong> Session logging rules, tracker row generation, code patterns to follow.</div>
+      <div class="doc-desc"><strong>Claude Code instructions.</strong> Doc system reading list, SESSION_LOG format, 8 domains, tracker row generation, code conventions.</div>
       <div class="doc-link">📎 In repo root</div>
+      <div><span class="doc-badge badge-repo">IN REPO</span></div>
+    </div>
+    <div class="doc-card repo">
+      <div class="doc-name">📄 docs/README.md</div>
+      <div class="doc-desc"><strong>Docs index.</strong> File index, reading order for Claude Code, what does NOT live in the repo.</div>
+      <div class="doc-link">📎 In repo docs/</div>
+      <div><span class="doc-badge badge-repo">IN REPO</span></div>
+    </div>
+    <div class="doc-card repo">
+      <div class="doc-name">🌐 docs/doc-ecosystem.html</div>
+      <div class="doc-desc"><strong>This file.</strong> Visual reference for Tom showing how all docs relate. Open in browser.</div>
+      <div class="doc-link">📎 In repo docs/</div>
       <div><span class="doc-badge badge-repo">IN REPO</span></div>
     </div>
   </div>
 
   <!-- ═══════════ REFERENCE ═══════════ -->
   
-  <div class="section-label">Reference Documents (update per phase or rarely)</div>
+  <div class="section-label">Reference Documents (in project knowledge, update per phase or rarely)</div>
 
   <div class="doc-row">
     <div class="doc-card reference">
       <div class="doc-name">NUTRITION_UI_PROJECT_PLAN</div>
-      <div class="doc-desc">Phase specs. 1-3 done, Phase 4 (stats) next. Has queries, component specs, design notes.</div>
+      <div class="doc-desc">Phase specs. Phases 1-3 done, Phase 4 (stats) next. Has queries, component specs, design notes.</div>
       <div class="doc-link">📎 In Claude Project Knowledge</div>
       <div><span class="doc-badge badge-reference">UPDATE PER PHASE</span></div>
     </div>
     <div class="doc-card reference">
-      <div class="doc-name">PHASE_3A_SMART_RECIPE_BROWSE</div>
-      <div class="doc-desc">Scope doc for Phase 3A. Reference for B-series deferred items. Phase complete.</div>
+      <div class="doc-name">Feature Specs</div>
+      <div class="doc-desc">MEALS_DISHES_FEATURE_SPEC, SHARED_PANTRIES_FEATURE_SPEC, RECIPE_EXTRACTION_MASTER_DOC, CONCEPT_FLEXIBLE_MEAL_PLANNING — Consult when modifying those areas.</div>
       <div class="doc-link">📎 In Claude Project Knowledge</div>
       <div><span class="doc-badge badge-reference">REFERENCE ONLY</span></div>
-    </div>
-    <div class="doc-card reference">
-      <div class="doc-name">DATA_SEEDING_HANDOFF</div>
-      <div class="doc-desc">Test data details, user profiles, Phase 4 implementation approach. Keep until Phase 4 done.</div>
-      <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-reference">UNTIL PHASE 4 DONE</span></div>
     </div>
   </div>
   
   <div class="doc-row">
-    <div class="doc-card reference">
-      <div class="doc-name">Feature Specs</div>
-      <div class="doc-desc">MEALS_*, SHARED_PANTRIES_*, RECIPE_EXTRACTION_* — Original feature specifications. Consult when modifying those areas.</div>
-      <div class="doc-link">📎 In Claude Project Knowledge</div>
-      <div><span class="doc-badge badge-reference">REFERENCE ONLY</span></div>
-    </div>
     <div class="doc-card reference">
       <div class="doc-name">Database Schema CSVs</div>
       <div class="doc-desc">Supabase CSV snapshots (4 files). Raw schema data — the Claude Shared Reference Google Doc is the annotated version.</div>
@@ -318,6 +348,37 @@
       <div class="doc-link">📎 In Claude Project Knowledge</div>
       <div><span class="doc-badge badge-repo">AFTER GIT PUSH</span></div>
     </div>
+    <div class="doc-card reference">
+      <div class="doc-name">Reference Data</div>
+      <div class="doc-desc">GOLD_STANDARD_RECIPES.jsonl, VERIFIED_RECIPES_FROM_DB.jsonl — extraction benchmarking data.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge</div>
+      <div><span class="doc-badge badge-reference">REFERENCE ONLY</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ HISTORICAL ═══════════ -->
+
+  <div class="section-label">Historical Phase Docs (in project knowledge, archived reference)</div>
+
+  <div class="doc-row">
+    <div class="doc-card historical">
+      <div class="doc-name">PHASE_1_RECIPES_EXTRACTION</div>
+      <div class="doc-desc">Oct 2025 – Feb 2026. Extraction pipeline, pantry redesign, grocery system, gold standards. ✅ Complete.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge</div>
+      <div><span class="doc-badge badge-historical">ARCHIVED</span></div>
+    </div>
+    <div class="doc-card historical">
+      <div class="doc-name">PHASE_2_SOCIAL_MEALS_SPACES</div>
+      <div class="doc-desc">Nov – Dec 2025. Social feed, meals system, shared pantries (Phase 1 of 5), cooking mode. ✅ Complete.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge</div>
+      <div><span class="doc-badge badge-historical">ARCHIVED</span></div>
+    </div>
+    <div class="doc-card historical">
+      <div class="doc-name">PHASE_3_NUTRITION_BROWSE</div>
+      <div class="doc-desc">Feb 2–26, 2026. Nutrition data foundation, dietary badges, smart recipe browse, SVG icons, data seeding. ✅ Complete.</div>
+      <div class="doc-link">📎 In Claude Project Knowledge</div>
+      <div><span class="doc-badge badge-historical">ARCHIVED</span></div>
+    </div>
   </div>
 
   <div class="divider"></div>
@@ -328,40 +389,40 @@
   
   <div class="rel-grid">
     <div class="rel-card">
-      <div class="rel-from">Session Log (repo)</div>
+      <div class="rel-from">Claude Code</div>
+      <div class="rel-arrow">writes →</div>
+      <div class="rel-to">SESSION_LOG.md</div>
+      <div class="rel-why">The only file Claude Code writes to. Detailed entries with decisions, deferred items, and recommended doc updates.</div>
+    </div>
+    <div class="rel-card">
+      <div class="rel-from">SESSION_LOG</div>
       <div class="rel-arrow">feeds into →</div>
-      <div class="rel-to">All 4 Living Docs + Tracker + Feature Roadmap</div>
-      <div class="rel-why">The single capture point. Weekly sync reads entries and distributes changes everywhere.</div>
+      <div class="rel-to">Active Phase Doc (via Claude.ai reconciliation)</div>
+      <div class="rel-why">Claude.ai reads the log, incorporates execution results into the phase doc — progress, new decisions, deferred items.</div>
+    </div>
+    <div class="rel-card">
+      <div class="rel-from">Active Phase Doc</div>
+      <div class="rel-arrow">reconciles into →</div>
+      <div class="rel-to">DEFERRED_WORK (at phase completion)</div>
+      <div class="rel-why">When a phase completes, its deferred items are reviewed: resolved → dropped, still relevant → moved to DEFERRED_WORK.</div>
     </div>
     <div class="rel-card">
       <div class="rel-from">Project Context</div>
       <div class="rel-arrow">points to →</div>
-      <div class="rel-to">Architecture, Status, Deferred Work, Plans, Google Docs</div>
-      <div class="rel-why">Entry point. "Read me first, then go deeper." Every Claude session starts here.</div>
+      <div class="rel-to">Architecture, Active Phase Doc, Deferred Work, Specs</div>
+      <div class="rel-why">Entry point. "Read me first, then go deeper." Every Claude.ai session starts here.</div>
     </div>
     <div class="rel-card">
-      <div class="rel-from">Deferred Work</div>
-      <div class="rel-arrow">surfaces into →</div>
-      <div class="rel-to">Project Context ("Known Issues", "What's Next")</div>
-      <div class="rel-why">High-priority items surface into context doc. Full backlog stays in deferred work.</div>
+      <div class="rel-from">FRIGO_ARCHITECTURE</div>
+      <div class="rel-arrow">maintained in →</div>
+      <div class="rel-to">Project Knowledge + repo docs/ (identical copies)</div>
+      <div class="rel-why">Claude.ai produces updates. Tom pushes to repo. Claude Code reads from repo for context.</div>
     </div>
     <div class="rel-card">
-      <div class="rel-from">FRIGO_ARCHITECTURE (PK)</div>
-      <div class="rel-arrow">replaces →</div>
-      <div class="rel-to">Codebase Map (Google Doc — retired)</div>
-      <div class="rel-why">Single source of truth for code structure. More maintainable in project knowledge than Google Docs.</div>
-    </div>
-    <div class="rel-card">
-      <div class="rel-from">Product Architecture (Google Doc)</div>
-      <div class="rel-arrow">complements →</div>
-      <div class="rel-to">FRIGO_ARCHITECTURE (PK)</div>
-      <div class="rel-why">Domain definitions (product-level) + code map (code-level) = complete picture. Different audiences, different update cadences.</div>
-    </div>
-    <div class="rel-card">
-      <div class="rel-from">Feature Roadmap (Google Doc)</div>
-      <div class="rel-arrow">complements →</div>
-      <div class="rel-to">Deferred Work + Project Context</div>
-      <div class="rel-why">Product-level feature tracking with Notion links. Deferred Work has dev-level detail. Both track what's built and what's next.</div>
+      <div class="rel-from">Notion Feature List</div>
+      <div class="rel-arrow">informs →</div>
+      <div class="rel-to">Phase doc goals + Deferred Work</div>
+      <div class="rel-why">Product priorities flow into dev planning. Notion is Tom's source of truth, phase docs + DEFERRED_WORK are Claude's.</div>
     </div>
     <div class="rel-card">
       <div class="rel-from">DB Schema CSVs</div>
@@ -372,8 +433,8 @@
     <div class="rel-card">
       <div class="rel-from">Git Commits</div>
       <div class="rel-arrow">trigger updates to →</div>
-      <div class="rel-to">Architecture, Code files in PK, Tracker, Feature Roadmap</div>
-      <div class="rel-why">New files → architecture. Changed code → project knowledge. Features done → tracker + roadmap.</div>
+      <div class="rel-to">Architecture, Code files in PK, Tracker</div>
+      <div class="rel-why">New files → architecture. Changed code → project knowledge. Features done → tracker.</div>
     </div>
   </div>
 
@@ -386,34 +447,38 @@
   <div class="flow-diagram" style="padding: 16px;">
     <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; font-size: 11px; align-items: center;">
       <span style="color: #6c9eff; font-weight: 700;">1.</span>
-      <span>Read SESSION_LOG.md entries since last sync</span>
+      <span>Gather unprocessed SESSION_LOG entries from repo</span>
       <span style="color: #8b8fa3; font-size: 10px;">5 min</span>
       
       <span style="color: #6c9eff; font-weight: 700;">2.</span>
-      <span>Update 4 living docs in project knowledge (Context, Architecture, Status, Deferred)</span>
-      <span style="color: #8b8fa3; font-size: 10px;">15 min</span>
+      <span>Reconcile into active phase doc (progress, decisions, deferred items)</span>
+      <span style="color: #8b8fa3; font-size: 10px;">10 min</span>
       
       <span style="color: #6c9eff; font-weight: 700;">3.</span>
-      <span>Upload updated docs to Claude project knowledge, remove stale ones</span>
-      <span style="color: #8b8fa3; font-size: 10px;">5 min</span>
+      <span>Act on recommended doc updates — update ARCHITECTURE + PROJECT_CONTEXT as needed</span>
+      <span style="color: #8b8fa3; font-size: 10px;">10 min</span>
       
-      <span style="color: #fb923c; font-weight: 700;">4.</span>
-      <span>Update <a href="https://docs.google.com/spreadsheets/d/1gm5Nn5cruugDaMwA_nyxeGHBLwoVyQ7O/edit?gid=1283144815#gid=1283144815" target="_blank" style="color:#fb923c;">FRIGO_TRACKER ↗</a> with committed code rows</span>
+      <span style="color: #6c9eff; font-weight: 700;">4.</span>
+      <span>Upload updated docs to project knowledge, remove stale files</span>
       <span style="color: #8b8fa3; font-size: 10px;">5 min</span>
       
       <span style="color: #fb923c; font-weight: 700;">5.</span>
-      <span>Update <a href="https://docs.google.com/document/d/14rjbQs4uRrWzw9P4Rd_XvBkyYSWcspKwunr8iKslSOc/edit" target="_blank" style="color:#fb923c;">Feature Roadmap ↗</a> (statuses, new features, file mappings)</span>
+      <span>Update <a href="https://docs.google.com/spreadsheets/d/1gm5Nn5cruugDaMwA_nyxeGHBLwoVyQ7O/edit?gid=1283144815#gid=1283144815" target="_blank" style="color:#fb923c;">FRIGO_TRACKER ↗</a> with committed code rows</span>
       <span style="color: #8b8fa3; font-size: 10px;">5 min</span>
       
       <span style="color: #fb923c; font-weight: 700;">6.</span>
       <span>Update <a href="https://docs.google.com/document/d/1Jymn6fTOqIO71nPpOOlCFB3oFpAjtcI38wkna7fqbMs/edit" target="_blank" style="color:#fb923c;">Claude Shared Reference ↗</a> if DB schema changed</span>
-      <span style="color: #8b8fa3; font-size: 10px;">5 min if needed</span>
+      <span style="color: #8b8fa3; font-size: 10px;">if needed</span>
       
       <span style="color: #34d399; font-weight: 700;">7.</span>
+      <span>Push ARCHITECTURE + DEFERRED_WORK to repo if changed</span>
+      <span style="color: #8b8fa3; font-size: 10px;">2 min</span>
+      
+      <span style="color: #34d399; font-weight: 700;">8.</span>
       <span>Clear processed SESSION_LOG entries</span>
       <span style="color: #8b8fa3; font-size: 10px;">1 min</span>
     </div>
-    <div style="margin-top: 10px; font-size: 11px; color: #6b7080; text-align: right;">Total: ~35-40 min with Claude</div>
+    <div style="margin-top: 10px; font-size: 11px; color: #6b7080; text-align: right;">Total: ~30 min with Claude</div>
   </div>
 
 </div>
