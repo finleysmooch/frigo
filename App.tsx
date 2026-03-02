@@ -147,6 +147,8 @@ export type FeedStackParamList = {
   Profile: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
+  AuthorView: { chefName: string };
 };
 
 // UPDATED: MealsStackParamList with recipe selection return params
@@ -339,6 +341,16 @@ function FeedStackNavigator() {
           headerShown: true,
           title: 'Edit Profile',
         }}
+      />
+      <FeedStack.Screen
+        name="RecipeDetail"
+        component={RecipeDetailScreen}
+        options={{ headerShown: true, title: 'Recipe' }}
+      />
+      <FeedStack.Screen
+        name="AuthorView"
+        component={AuthorViewScreen}
+        options={{ headerShown: true, title: 'Chef' }}
       />
     </FeedStack.Navigator>
   );

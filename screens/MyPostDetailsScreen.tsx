@@ -1,6 +1,7 @@
 // screens/MyPostDetailsScreen.tsx
 // NEW: Detailed view of a single post (like Strava's activity detail screen)
 // Created: November 16, 2025
+// Updated: February 19, 2026 - Added RecipeNutritionPanel, removed stars
 
 import { useEffect, useState, useMemo } from 'react';
 import {
@@ -21,10 +22,11 @@ import { useTheme } from '../lib/theme/ThemeContext';
 import { MyPostsStackParamList, PostPhoto } from '../App';
 import PostActionMenu from '../components/PostActionMenu';
 import AddMediaModal from '../components/AddMediaModal';
-import AddCookingPartnersModal from '../components/AddCookingPartnersModal';  // ← NEW
+import AddCookingPartnersModal from '../components/AddCookingPartnersModal';
 import { uploadPostImages } from '../lib/services/imageStorageService';
-import { addParticipantsToPost, getPostParticipants, ParticipantRole } from '../lib/services/postParticipantsService';  // ← NEW
+import { addParticipantsToPost, getPostParticipants, ParticipantRole } from '../lib/services/postParticipantsService';
 import UserAvatar from '../components/UserAvatar';
+import RecipeNutritionPanel from '../components/RecipeNutritionPanel';
 
 type Props = NativeStackScreenProps<MyPostsStackParamList, 'MyPostDetails'>;
 
@@ -98,11 +100,11 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   
   const [menuVisible, setMenuVisible] = useState(false);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
-  const [partnersModalVisible, setPartnersModalVisible] = useState(false);  // ← NEW
+  const [partnersModalVisible, setPartnersModalVisible] = useState(false);
   const [participants, setParticipants] = useState<{
     sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
     ate_with: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
-  }>({ sous_chefs: [], ate_with: [] });  // ← NEW
+  }>({ sous_chefs: [], ate_with: [] });
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -146,20 +148,6 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       flexDirection: 'row',
       padding: 16,
       paddingBottom: 12,
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.background.secondary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-      borderWidth: 2,
-      borderColor: colors.border.medium,
-    },
-    avatarText: {
-      fontSize: 28,
     },
     headerInfo: {
       flex: 1,
@@ -252,16 +240,6 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       fontSize: 16,
       color: colors.primary,
     },
-    ratingContainer: {
-      marginBottom: 16,
-    },
-    starsContainer: {
-      flexDirection: 'row',
-      gap: 4,
-    },
-    star: {
-      fontSize: 20,
-    },
     modificationsContainer: {
       backgroundColor: colors.background.secondary,
       padding: 16,
@@ -338,24 +316,6 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       flexDirection: 'row',
       marginRight: 8,
     },
-    miniAvatar: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: colors.background.card,
-      borderWidth: 2,
-      borderColor: colors.background.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: colors.text.primary,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
-    },
-    miniAvatarText: {
-      fontSize: 14,
-    },
     likesText: {
       fontSize: 11,
       color: colors.text.secondary,
@@ -396,7 +356,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   useEffect(() => {
     loadUserInfo();
     loadPost();
-    loadParticipants();  // ← NEW
+    loadParticipants();
   }, [postId]);
 
   useEffect(() => {
@@ -469,11 +429,13 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
         return;
       }
 
+      // NEW: Added recipe id to query for RecipeNutritionPanel
       const { data, error } = await supabase
         .from('posts')
         .select(`
           *,
           recipes (
+            id,
             title,
             chefs (
               name
@@ -593,7 +555,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
           'Your cooking partners have been notified.',
           [{ text: 'OK', onPress: () => {
             setPartnersModalVisible(false);
-            loadParticipants();  // Reload to show pending invitations
+            loadParticipants();
           }}]
         );
       } else {
@@ -643,20 +605,6 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       hour: 'numeric',
       minute: '2-digit'
     });
-  };
-
-  const renderStars = (rating: number | null) => {
-    if (!rating) return null;
-    
-    return (
-      <View style={styles.starsContainer}>
-        {[...Array(5)].map((_, i) => (
-          <Text key={i} style={styles.star}>
-            {i < rating ? '⭐' : '☆'}
-          </Text>
-        ))}
-      </View>
-    );
   };
 
   function handleAddMedia() {
@@ -849,7 +797,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* User Header */}
+        {/* User Header - uses UserAvatar with subscription tier */}
         <View style={styles.postHeader}>
           <UserAvatar
             user={{
@@ -888,10 +836,9 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
             )}
           </View>
 
-          {post.rating && (
-            <View style={styles.ratingContainer}>
-              {renderStars(post.rating)}
-            </View>
+          {/* NEW: Nutrition Panel (replaces star rating) */}
+          {recipe?.id && (
+            <RecipeNutritionPanel recipeId={recipe.id} />
           )}
 
           {post.modifications && (

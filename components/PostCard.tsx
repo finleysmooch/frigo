@@ -1,8 +1,9 @@
 // components/PostCard.tsx
-// Shared post card component - MATCHES MyPosts layout exactly
-// Updated: November 20, 2025
+// Shared post card component
+// Updated: February 19, 2026 v3
+// Strava-style stat blocks, clickable recipe/chef, recipe image fallback
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,8 +14,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
-import ParticipantsListModal from './ParticipantsListModal';  // ← NEW
+import ParticipantsListModal from './ParticipantsListModal';
 import UserAvatar from './UserAvatar';
+import { CompactNutrition, getCompactNutrition } from '../lib/services/nutritionService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -29,6 +31,9 @@ interface Recipe {
   id: string;
   title: string;
   image_url?: string;
+  cook_time_min?: number;
+  prep_time_min?: number;
+  cuisine_types?: string[];
   chefs?: {
     name: string;
   } | { name: string }[];
@@ -69,14 +74,16 @@ interface PostCardProps {
   participants?: {
     sous_chefs: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
     ate_with: Array<{ user_id: string; username: string; avatar_url?: string | null; display_name?: string }>;
-    hiddenSousChefs?: number;  // ← NEW
-    hiddenAteWith?: number;    // ← NEW
+    hiddenSousChefs?: number;
+    hiddenAteWith?: number;
   };
   onLike?: () => void;
   onComment?: () => void;
   onMenu?: () => void;
   onViewLikes?: () => void;
-  onViewParticipants?: () => void;  // ← NEW (optional, for custom handling)
+  onViewParticipants?: () => void;
+  onRecipePress?: (recipeId: string) => void;
+  onChefPress?: (chefName: string) => void;
 }
 
 const COOKING_METHOD_ICON_IMAGES: { [key: string]: any } = {
@@ -92,6 +99,29 @@ const COOKING_METHOD_ICON_IMAGES: { [key: string]: any } = {
   preserve: require('../assets/icons/preserve.png'),
 };
 
+const COOKING_METHOD_DISPLAY: Record<string, string> = {
+  cook: 'Cook',
+  bake: 'Bake',
+  bbq: 'BBQ',
+  meal_prep: 'Meal Prep',
+  snack: 'Snack',
+  eating_out: 'Eat Out',
+  breakfast: 'Breakfast',
+  slow_cook: 'Slow Cook',
+  soup: 'Soup',
+  preserve: 'Preserve',
+};
+
+// Dietary flag emoji mapping
+const DIETARY_EMOJIS: Record<string, { emoji: string; label: string }> = {
+  vegan:       { emoji: '🌱', label: 'Vegan' },
+  vegetarian:  { emoji: '🥬', label: 'Veg' },
+  gluten_free: { emoji: '🌾', label: 'GF' },
+  dairy_free:  { emoji: '🥛', label: 'DF' },
+  nut_free:    { emoji: '🥜', label: 'NF' },
+  egg_free:    { emoji: '🥚', label: 'EF' },
+};
+
 export default function PostCard({
   post,
   currentUserId,
@@ -103,11 +133,73 @@ export default function PostCard({
   onComment,
   onMenu,
   onViewLikes,
-  onViewParticipants,  // ← NEW
+  onViewParticipants,
+  onRecipePress,
+  onChefPress,
 }: PostCardProps) {
   const { colors, functionalColors } = useTheme();
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const [participantsModalVisible, setParticipantsModalVisible] = useState(false);  // ← NEW
+  const [participantsModalVisible, setParticipantsModalVisible] = useState(false);
+  const [nutrition, setNutrition] = useState<CompactNutrition | null>(null);
+
+  // Fetch dietary flags for this post's recipe
+  useEffect(() => {
+    const recipeId = post.recipes?.id;
+    if (recipeId) {
+      getCompactNutrition(recipeId).then(setNutrition).catch(() => {});
+    }
+  }, [post.recipes?.id]);
+
+  // ── Data extraction ──────────────────────────────────────────
+
+  const recipe = post.recipes;
+  const chef = recipe?.chefs ? (Array.isArray(recipe.chefs) ? recipe.chefs[0] : recipe.chefs) : null;
+  
+  const displayName = isOwnPost
+    ? 'You'
+    : post.user_profiles?.display_name || post.user_profiles?.username || 'Someone';
+
+  const postTitle = post.title || 'Cooking Session';
+
+  // ── Stats data ───────────────────────────────────────────────
+
+  const cookTime = recipe?.cook_time_min;
+  const prepTime = recipe?.prep_time_min;
+  const totalTime = (cookTime || 0) + (prepTime || 0);
+  const cuisines = recipe?.cuisine_types?.filter(Boolean) || [];
+  const dietaryFlags = nutrition?.dietaryFlags || [];
+  const cookingMethod = post.cooking_method;
+
+  const formatTime = (minutes: number): string => {
+    if (minutes >= 60) {
+      const hrs = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    }
+    return `${minutes}m`;
+  };
+
+  // Build stats array — only include stats that have data
+  const stats: Array<{ value: string; label: string; icon?: any }> = [];
+  
+  if (totalTime > 0) {
+    stats.push({ value: formatTime(totalTime), label: 'Time' });
+  }
+  if (cookingMethod && COOKING_METHOD_DISPLAY[cookingMethod]) {
+    stats.push({ 
+      value: COOKING_METHOD_DISPLAY[cookingMethod], 
+      label: 'Method',
+      icon: COOKING_METHOD_ICON_IMAGES[cookingMethod],
+    });
+  }
+  if (cuisines.length > 0) {
+    stats.push({ 
+      value: cuisines[0], 
+      label: cuisines.length > 1 ? `+${cuisines.length - 1} more` : 'Cuisine' 
+    });
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -121,49 +213,37 @@ export default function PostCard({
     const { sous_chefs, ate_with, hiddenSousChefs = 0, hiddenAteWith = 0 } = participants;
     const parts: string[] = [];
     
-    // Sous chefs text
     if (sous_chefs.length > 0 || hiddenSousChefs > 0) {
       const visibleCount = sous_chefs.length;
       const totalHidden = hiddenSousChefs;
       
       if (visibleCount === 0 && totalHidden > 0) {
-        // Only hidden participants
         parts.push(`👨‍🍳 Cooked with ${totalHidden} other${totalHidden > 1 ? 's' : ''}`);
       } else if (visibleCount === 1 && totalHidden === 0) {
-        // One visible, no hidden
         parts.push(`👨‍🍳 Cooked with ${sous_chefs[0].display_name || sous_chefs[0].username}`);
       } else if (visibleCount === 1 && totalHidden > 0) {
-        // One visible, some hidden
         parts.push(`👨‍🍳 Cooked with ${sous_chefs[0].display_name || sous_chefs[0].username} and ${totalHidden} other${totalHidden > 1 ? 's' : ''}`);
       } else if (visibleCount === 2 && totalHidden === 0) {
-        // Two visible, no hidden
         parts.push(`👨‍🍳 Cooked with ${sous_chefs[0].display_name || sous_chefs[0].username} and ${sous_chefs[1].display_name || sous_chefs[1].username}`);
       } else if (visibleCount >= 2) {
-        // Multiple visible (with or without hidden)
         const othersCount = (visibleCount - 1) + totalHidden;
         parts.push(`👨‍🍳 Cooked with ${sous_chefs[0].display_name || sous_chefs[0].username} and ${othersCount} other${othersCount > 1 ? 's' : ''}`);
       }
     }
     
-    // Ate with text
     if (ate_with.length > 0 || hiddenAteWith > 0) {
       const visibleCount = ate_with.length;
       const totalHidden = hiddenAteWith;
       
       if (visibleCount === 0 && totalHidden > 0) {
-        // Only hidden participants
         parts.push(`🍽️ Ate with ${totalHidden} other${totalHidden > 1 ? 's' : ''}`);
       } else if (visibleCount === 1 && totalHidden === 0) {
-        // One visible, no hidden
         parts.push(`🍽️ Ate with ${ate_with[0].display_name || ate_with[0].username}`);
       } else if (visibleCount === 1 && totalHidden > 0) {
-        // One visible, some hidden
         parts.push(`🍽️ Ate with ${ate_with[0].display_name || ate_with[0].username} and ${totalHidden} other${totalHidden > 1 ? 's' : ''}`);
       } else if (visibleCount === 2 && totalHidden === 0) {
-        // Two visible, no hidden
         parts.push(`🍽️ Ate with ${ate_with[0].display_name || ate_with[0].username} and ${ate_with[1].display_name || ate_with[1].username}`);
       } else if (visibleCount >= 2) {
-        // Multiple visible (with or without hidden)
         const othersCount = (visibleCount - 1) + totalHidden;
         parts.push(`🍽️ Ate with ${ate_with[0].display_name || ate_with[0].username} and ${othersCount} other${othersCount > 1 ? 's' : ''}`);
       }
@@ -172,23 +252,33 @@ export default function PostCard({
     return parts.length > 0 ? parts : null;
   };
 
-  const renderStars = (rating: number | null) => {
-    if (!rating) return null;
-    return (
-      <View style={styles.starsContainer}>
-        {[...Array(5)].map((_, i) => (
-          <Text key={`star-${post.id}-${i}`} style={styles.star}>
-            {i < rating ? '⭐' : '☆'}
-          </Text>
-        ))}
-      </View>
-    );
-  };
+  // ── Photo carousel ───────────────────────────────────────────
 
   const renderPhotoCarousel = () => {
-    if (!post.photos || post.photos.length === 0) return null;
+    const hasPostPhotos = post.photos && post.photos.length > 0;
+    const recipeImageUrl = post.recipes?.image_url;
+    
+    if (!hasPostPhotos && !recipeImageUrl) return null;
 
-    const sortedPhotos = [...post.photos].sort((a, b) => {
+    // Fallback to recipe image when no post photos
+    if (!hasPostPhotos && recipeImageUrl) {
+      return (
+        <View style={styles.photoCarouselContainer}>
+          <View style={styles.photoSlide}>
+            <Image
+              source={{ uri: recipeImageUrl }}
+              style={styles.photoImage}
+              resizeMode="cover"
+            />
+            <View style={styles.recipeImageBadge}>
+              <Text style={styles.recipeImageBadgeText}>📖 Recipe photo</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    const sortedPhotos = [...post.photos!].sort((a, b) => {
       if (a.is_highlight) return -1;
       if (b.is_highlight) return 1;
       return a.order - b.order;
@@ -243,35 +333,7 @@ export default function PostCard({
     );
   };
 
-  const recipe = post.recipes;
-  const chef = recipe?.chefs ? (Array.isArray(recipe.chefs) ? recipe.chefs[0] : recipe.chefs) : null;
-  
-  const displayName = isOwnPost 
-    ? 'You'
-    : post.user_profiles?.display_name || post.user_profiles?.username || 'Someone';
-
-  // Validate displayName is a string
-  if (typeof displayName !== 'string') {
-    console.error('❌ DISPLAY NAME NOT STRING:', {
-      postId: post.id,
-      displayName,
-      type: typeof displayName,
-      user_profiles: post.user_profiles
-    });
-  }
-
-  // Use avatar from user profile, or userInitials prop, or default
-  const avatarContent = post.user_profiles?.avatar_url || userInitials || '👤';
-
-  // Validate post title
-  const postTitle = post.title || 'Cooking Session';
-  if (typeof postTitle !== 'string') {
-    console.error('❌ POST TITLE NOT STRING:', {
-      postId: post.id,
-      title: post.title,
-      type: typeof post.title
-    });
-  }
+  // ── Styles ───────────────────────────────────────────────────
 
   const styles = useMemo(() => StyleSheet.create({
     postCard: {
@@ -289,26 +351,10 @@ export default function PostCard({
       flexDirection: 'row',
       marginBottom: 12,
     },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.background.secondary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-      borderWidth: 2,
-      borderColor: colors.border.medium,
-    },
-    avatarText: {
-      fontSize: 28,
-    },
-    avatarEmoji: {
-      fontSize: 24,
-    },
     headerInfo: {
       flex: 1,
       justifyContent: 'center',
+      marginLeft: 12,
     },
     userName: {
       fontSize: 16,
@@ -319,11 +365,6 @@ export default function PostCard({
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
-    },
-    methodIconSmall: {
-      width: 20,
-      height: 20,
-      marginRight: 6,
     },
     metaText: {
       fontSize: 13,
@@ -338,6 +379,8 @@ export default function PostCard({
       color: colors.text.tertiary,
       lineHeight: 20,
     },
+
+    // ── Photo Carousel ──
     photoCarouselContainer: {
       marginHorizontal: -16,
       marginBottom: 12,
@@ -386,35 +429,122 @@ export default function PostCard({
       height: 8,
       borderRadius: 4,
     },
+    recipeImageBadge: {
+      position: 'absolute',
+      top: 12,
+      left: 12,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    recipeImageBadgeText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '500',
+    },
+
+    // ── Content ──
     postTitle: {
       fontSize: 18,
       fontWeight: '700',
       color: colors.text.primary,
-      marginBottom: 8,
+      marginBottom: 4,
     },
     recipeRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginBottom: 8,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    recipeIcon: {
+      fontSize: 14,
+      marginRight: 4,
     },
     recipeTitle: {
       fontSize: 14,
       color: colors.text.secondary,
     },
+    recipeSeparator: {
+      fontSize: 14,
+      color: colors.text.tertiary,
+    },
     chefName: {
       fontSize: 14,
+      color: colors.text.secondary,
+    },
+    linkText: {
       color: colors.primary,
+      fontWeight: '500',
     },
-    ratingContainer: {
-      marginBottom: 8,
-    },
-    starsContainer: {
+
+    // ── Strava-style Stats Row ──
+    statsRow: {
       flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: colors.border.medium,
+      marginBottom: 10,
     },
-    star: {
-      fontSize: 16,
-      marginRight: 2,
+    stat: {
+      flex: 1,
+      alignItems: 'center',
     },
+    statValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    statIcon: {
+      width: 16,
+      height: 16,
+      marginRight: 4,
+    },
+    statValue: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    statDivider: {
+      width: 1,
+      height: 28,
+      backgroundColor: colors.border.medium,
+    },
+
+    // ── Dietary badges ──
+    dietaryRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 10,
+    },
+    dietaryBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    dietaryEmoji: {
+      fontSize: 12,
+      marginRight: 3,
+    },
+    dietaryLabel: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+
+    // ── Participants ──
     participantsContainer: {
       marginBottom: 8,
     },
@@ -424,6 +554,8 @@ export default function PostCard({
       marginBottom: 2,
       fontWeight: '500',
     },
+
+    // ── Modifications ──
     modificationsContainer: {
       marginBottom: 12,
     },
@@ -438,15 +570,14 @@ export default function PostCard({
       color: colors.text.secondary,
       lineHeight: 20,
     },
+
+    // ── Social ──
     likesSection: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingTop: 12,
-      paddingBottom: 8,
-      borderTopWidth: 0,
-      borderTopColor: colors.background.secondary,
-      marginTop: 12,
+      paddingTop: 10,
+      paddingBottom: 6,
     },
     likesSectionLeft: {
       flexDirection: 'row',
@@ -456,24 +587,6 @@ export default function PostCard({
     avatarStack: {
       flexDirection: 'row',
       marginRight: 8,
-    },
-    miniAvatar: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.background.card,
-      borderWidth: 2,
-      borderColor: colors.background.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
-    },
-    miniAvatarText: {
-      fontSize: 12,
     },
     likesText: {
       fontSize: 13,
@@ -499,21 +612,17 @@ export default function PostCard({
     },
   }), [colors, functionalColors]);
 
+  // ── Render ───────────────────────────────────────────────────
+
   return (
     <View style={styles.postCard}>
+      {/* Header */}
       <View style={styles.postHeader}>
         <UserAvatar user={post.user_profiles} size={48} />
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>{displayName}</Text>
           <View style={styles.metaRow}>
-            {post.cooking_method && COOKING_METHOD_ICON_IMAGES[post.cooking_method] && (
-              <Image 
-                source={COOKING_METHOD_ICON_IMAGES[post.cooking_method]}
-                style={styles.methodIconSmall}
-                resizeMode="contain"
-              />
-            )}
             <Text style={styles.metaText}>
               {formatDate(post.created_at)} in Portland, Oregon
             </Text>
@@ -527,25 +636,77 @@ export default function PostCard({
         )}
       </View>
 
-      {renderPhotoCarousel()}
-
+      {/* Post Title */}
       <Text style={styles.postTitle}>{postTitle}</Text>
 
+      {/* Recipe + Chef (clickable) */}
       {recipe && (
         <View style={styles.recipeRow}>
-          <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          <Text style={styles.recipeIcon}>📖</Text>
+          <TouchableOpacity
+            onPress={() => onRecipePress?.(recipe.id)}
+            activeOpacity={onRecipePress ? 0.6 : 1}
+          >
+            <Text style={[styles.recipeTitle, onRecipePress && styles.linkText]}>
+              {recipe.title}
+            </Text>
+          </TouchableOpacity>
           {chef?.name && (
-            <Text style={styles.chefName}> by {chef.name}</Text>
+            <>
+              <Text style={styles.recipeSeparator}> · by </Text>
+              <TouchableOpacity
+                onPress={() => onChefPress?.(chef.name)}
+                activeOpacity={onChefPress ? 0.6 : 1}
+              >
+                <Text style={[styles.chefName, onChefPress && styles.linkText]}>
+                  {chef.name}
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       )}
 
-      {post.rating && (
-        <View style={styles.ratingContainer}>
-          {renderStars(post.rating)}
+      {/* Photos */}
+      {renderPhotoCarousel()}
+
+      {/* Strava-style Stats Row */}
+      {stats.length > 0 && (
+        <View style={styles.statsRow}>
+          {stats.map((stat, index) => (
+            <React.Fragment key={stat.label}>
+              {index > 0 && <View style={styles.statDivider} />}
+              <View style={styles.stat}>
+                <View style={styles.statValueRow}>
+                  {stat.icon && (
+                    <Image source={stat.icon} style={styles.statIcon} resizeMode="contain" />
+                  )}
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                </View>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
       )}
 
+      {/* Dietary Badges */}
+      {dietaryFlags.length > 0 && (
+        <View style={styles.dietaryRow}>
+          {dietaryFlags.map((flag) => {
+            const display = DIETARY_EMOJIS[flag.key];
+            if (!display) return null;
+            return (
+              <View key={flag.key} style={styles.dietaryBadge}>
+                <Text style={styles.dietaryEmoji}>{display.emoji}</Text>
+                <Text style={styles.dietaryLabel}>{display.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Participants */}
       {formatParticipantsText() && (
         <TouchableOpacity 
           style={styles.participantsContainer}
@@ -566,6 +727,7 @@ export default function PostCard({
         </TouchableOpacity>
       )}
 
+      {/* Notes */}
       {post.modifications && (
         <View style={styles.modificationsContainer}>
           <Text style={styles.modificationsLabel}>💭 Notes:</Text>
@@ -575,7 +737,8 @@ export default function PostCard({
         </View>
       )}
 
-      {likeData && (likeData.likesText || (likeData.commentCount && likeData.commentCount > 0 && onComment)) && (
+      {/* Likes & Comments */}
+      {likeData && (!!likeData.likesText || ((likeData.commentCount ?? 0) > 0 && !!onComment)) && (
         <View style={styles.likesSection}>
           {likeData.likesText && (
             <TouchableOpacity 
@@ -585,30 +748,25 @@ export default function PostCard({
             >
               {likeData.likes && likeData.likes.length > 0 && (
                 <View style={styles.avatarStack}>
-                  {likeData.likes.slice(0, 3).map((like, index) => {
-                    return (
-                      <View
-                        key={like.user_id}
-                        style={[
-                          { marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }
-                        ]}
-                      >
-                        <UserAvatar
-                          user={{
-                            avatar_url: like.avatar_url,
-                            subscription_tier: like.subscription_tier
-                          }}
-                          size={28}
-                        />
-                      </View>
-                    );
-                  })}
+                  {likeData.likes.slice(0, 3).map((like, index) => (
+                    <View
+                      key={like.user_id}
+                      style={{ marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }}
+                    >
+                      <UserAvatar
+                        user={{
+                          avatar_url: like.avatar_url,
+                        }}
+                        size={28}
+                      />
+                    </View>
+                  ))}
                 </View>
               )}
               <Text style={styles.likesText}>{likeData.likesText}</Text>
             </TouchableOpacity>
           )}
-          {likeData.commentCount && likeData.commentCount > 0 && onComment && (
+          {(likeData.commentCount ?? 0) > 0 && onComment && (
             <TouchableOpacity onPress={onComment} activeOpacity={0.7}>
               <Text style={styles.commentsText}>
                 {likeData.commentCount} comment{likeData.commentCount !== 1 ? 's' : ''}
@@ -618,6 +776,7 @@ export default function PostCard({
         </View>
       )}
 
+      {/* Action Buttons */}
       {(onLike || onComment) && (
         <View style={styles.actionsRow}>
           {onLike && (

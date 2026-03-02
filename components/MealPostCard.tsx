@@ -1,6 +1,7 @@
 // components/MealPostCard.tsx
 // Card component for displaying meal posts in the feed
 // Created: December 2, 2025
+// Updated: February 19, 2026 - useTheme, UserAvatar, Strava stats, clickable dishes
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import UserAvatar from './UserAvatar';
+import DietaryBadgeRow from './DietaryBadgeRow';
 import {
   MealWithDetails,
   MealParticipant,
@@ -23,6 +25,11 @@ import {
   getCourseDisplayName,
   CourseType,
 } from '../lib/services/mealService';
+import {
+  CompactNutrition,
+  getRecipeNutritionBatch,
+  aggregateMealNutrition,
+} from '../lib/services/nutritionService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -34,10 +41,12 @@ interface MealPostCardProps {
   onLike?: () => void;
   onComment?: () => void;
   onMenu?: () => void;
+  onDishPress?: (dish: DishInMeal) => void;
   likeData?: {
     hasLike: boolean;
     likesText?: string;
     commentCount?: number;
+    likes?: Array<{ user_id: string; created_at: string; avatar_url?: string | null; subscription_tier?: string }>;
   };
 }
 
@@ -49,12 +58,14 @@ export default function MealPostCard({
   onLike,
   onComment,
   onMenu,
+  onDishPress,
   likeData,
 }: MealPostCardProps) {
   const { colors, functionalColors } = useTheme();
   const [participants, setParticipants] = useState<MealParticipant[]>([]);
   const [dishes, setDishes] = useState<DishInMeal[]>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [nutrition, setNutrition] = useState<CompactNutrition | null>(null);
 
   useEffect(() => {
     loadMealData();
@@ -67,6 +78,22 @@ export default function MealPostCard({
     ]);
     setParticipants(participantsData);
     setDishes(dishesData);
+
+    // Fetch nutrition for all dishes with recipe IDs
+    const recipeIds = dishesData
+      .map(d => d.recipe_id)
+      .filter((id): id is string => !!id);
+    if (recipeIds.length > 0) {
+      try {
+        const nutritionMap = await getRecipeNutritionBatch(recipeIds);
+        const nutritions = Array.from(nutritionMap.values());
+        if (nutritions.length > 0) {
+          setNutrition(aggregateMealNutrition(nutritions));
+        }
+      } catch (err) {
+        // Nutrition is non-critical — fail silently
+      }
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -128,252 +155,15 @@ export default function MealPostCard({
     group.push(dish);
   });
 
-  // Get avatar emoji based on user ID hash
+  // Get avatar emoji based on user ID hash (kept as fallback)
   const getAvatarEmoji = (userId: string): string => {
     const emojis = ['🧑‍🍳', '👨‍🍳', '👩‍🍳', '🍕', '🌮', '🍔', '🍜', '🥘'];
     const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return emojis[hash % emojis.length];
   };
 
-  const styles = useMemo(() => StyleSheet.create({
-    card: {
-      backgroundColor: colors.background.card,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 15,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    participantAvatars: {
-      flexDirection: 'row',
-      marginRight: 12,
-    },
-    avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.background.secondary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 2,
-      borderColor: colors.background.card,
-    },
-    avatarOverlap: {
-      marginLeft: -12,
-    },
-    avatarEmoji: {
-      fontSize: 20,
-    },
-    headerInfo: {
-      flex: 1,
-    },
-    headerText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.text.primary,
-      marginBottom: 2,
-    },
-    metaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    mealIcon: {
-      fontSize: 14,
-      marginRight: 4,
-    },
-    metaText: {
-      fontSize: 13,
-      color: colors.text.secondary,
-    },
-    menuButton: {
-      padding: 4,
-    },
-    menuButtonText: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: colors.text.tertiary,
-    },
-    photoCarouselContainer: {
-      marginHorizontal: -16,
-      marginBottom: 12,
-      position: 'relative',
-    },
-    photoSlide: {
-      width: SCREEN_WIDTH - 32,
-      height: (SCREEN_WIDTH - 32) * 0.75,
-      backgroundColor: '#000',
-    },
-    photoImage: {
-      width: '100%',
-      height: '100%',
-    },
-    photoCaption: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-    },
-    photoCaptionText: {
-      color: colors.background.card,
-      fontSize: 13,
-      fontWeight: '500',
-    },
-    photoIndicators: {
-      position: 'absolute',
-      bottom: 50,
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    indicator: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: 'rgba(255, 255, 255, 0.5)',
-      marginHorizontal: 3,
-    },
-    indicatorActive: {
-      backgroundColor: colors.background.card,
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    morePhotosText: {
-      color: colors.background.card,
-      fontSize: 12,
-      marginLeft: 6,
-    },
-    noPhotosPlaceholder: {
-      height: 150,
-      backgroundColor: colors.background.secondary,
-      marginHorizontal: -16,
-      marginBottom: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    noPhotosEmoji: {
-      fontSize: 48,
-      marginBottom: 8,
-    },
-    noPhotosText: {
-      fontSize: 14,
-      color: colors.text.secondary,
-    },
-    mealTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.text.primary,
-      marginBottom: 12,
-    },
-    dishPreviewContainer: {
-      marginBottom: 12,
-    },
-    courseSection: {
-      marginBottom: 8,
-    },
-    courseLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.primary,
-      textTransform: 'uppercase',
-      marginBottom: 4,
-    },
-    dishList: {
-      paddingLeft: 8,
-    },
-    dishName: {
-      fontSize: 14,
-      color: colors.text.primary,
-      marginBottom: 2,
-    },
-    moreText: {
-      fontSize: 13,
-      color: colors.text.tertiary,
-      fontStyle: 'italic',
-    },
-    moreCourses: {
-      fontSize: 13,
-      color: colors.text.tertiary,
-      fontStyle: 'italic',
-      marginTop: 4,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.background.secondary,
-      marginTop: 4,
-    },
-    stat: {
-      alignItems: 'center',
-      paddingHorizontal: 24,
-    },
-    statValue: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.text.primary,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.text.secondary,
-      marginTop: 2,
-    },
-    statDivider: {
-      width: 1,
-      height: 30,
-      backgroundColor: colors.border.medium,
-    },
-    likesSection: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingTop: 8,
-      paddingBottom: 8,
-      borderTopWidth: 1,
-      borderTopColor: colors.background.secondary,
-    },
-    likesText: {
-      fontSize: 13,
-      color: colors.text.secondary,
-    },
-    commentsText: {
-      fontSize: 13,
-      color: colors.text.secondary,
-    },
-    actionsRow: {
-      flexDirection: 'row',
-      paddingTop: 8,
-      paddingHorizontal: '5%',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    actionButton: {
-      padding: 8,
-    },
-    actionIcon: {
-      width: 30,
-      height: 30,
-    },
-  }), [colors, functionalColors]);
-
   const renderPhotoCarousel = () => {
     if (allPhotos.length === 0) {
-      // No photos - show placeholder
       return (
         <View style={styles.noPhotosPlaceholder}>
           <Text style={styles.noPhotosEmoji}>🍽️</Text>
@@ -432,7 +222,6 @@ export default function MealPostCard({
   };
 
   const renderDishPreview = () => {
-    // Show a compact preview of dishes grouped by course
     const nonEmptyCourses = courseOrder.filter(
       course => (groupedDishes.get(course)?.length || 0) > 0
     );
@@ -450,9 +239,28 @@ export default function MealPostCard({
               </Text>
               <View style={styles.dishList}>
                 {courseDishes.slice(0, 2).map(dish => (
-                  <Text key={dish.dish_id} style={styles.dishName} numberOfLines={1}>
-                    • {dish.recipe_title || dish.dish_title}
-                  </Text>
+                  <TouchableOpacity
+                    key={dish.dish_id}
+                    onPress={() => onDishPress?.(dish)}
+                    activeOpacity={onDishPress ? 0.6 : 1}
+                    disabled={!onDishPress}
+                    style={styles.dishRow}
+                  >
+                    <Text 
+                      style={[
+                        styles.dishName, 
+                        onDishPress && styles.dishNameClickable
+                      ]} 
+                      numberOfLines={1}
+                    >
+                      • {dish.recipe_title || dish.dish_title}
+                    </Text>
+                    {dish.contributor_display_name && (
+                      <Text style={styles.dishContributor}>
+                        {' '}· {dish.contributor_display_name}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 ))}
                 {courseDishes.length > 2 && (
                   <Text style={styles.moreText}>
@@ -472,24 +280,329 @@ export default function MealPostCard({
     );
   };
 
+  // Non-empty courses count for stats
+  const courseCount = courseOrder.filter(c => (groupedDishes.get(c)?.length || 0) > 0).length;
+
+  // ── Styles ───────────────────────────────────────────────────
+
+  const styles = useMemo(() => StyleSheet.create({
+    card: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    participantAvatars: {
+      flexDirection: 'row',
+      marginRight: 12,
+    },
+    avatarOverlap: {
+      marginLeft: -12,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    headerText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    mealIcon: {
+      fontSize: 14,
+      marginRight: 4,
+    },
+    metaText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    menuButton: {
+      padding: 4,
+    },
+    menuButtonText: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text.tertiary,
+    },
+
+    // ── Photos ──
+    photoCarouselContainer: {
+      marginHorizontal: -16,
+      marginBottom: 12,
+      position: 'relative',
+    },
+    photoSlide: {
+      width: SCREEN_WIDTH - 32,
+      height: (SCREEN_WIDTH - 32) * 0.75,
+      backgroundColor: '#000',
+    },
+    photoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    photoCaption: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    photoCaptionText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    photoIndicators: {
+      position: 'absolute',
+      bottom: 50,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    indicator: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+      marginHorizontal: 3,
+    },
+    indicatorActive: {
+      backgroundColor: colors.background.card,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    morePhotosText: {
+      color: '#fff',
+      fontSize: 12,
+      marginLeft: 6,
+    },
+    noPhotosPlaceholder: {
+      height: 150,
+      backgroundColor: colors.background.secondary,
+      marginHorizontal: -16,
+      marginBottom: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    noPhotosEmoji: {
+      fontSize: 48,
+      marginBottom: 8,
+    },
+    noPhotosText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+
+    // ── Content ──
+    mealTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 12,
+    },
+
+    // ── Dish Preview ──
+    dishPreviewContainer: {
+      marginBottom: 12,
+    },
+    courseSection: {
+      marginBottom: 8,
+    },
+    courseLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    dishList: {
+      paddingLeft: 8,
+    },
+    dishRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    dishName: {
+      fontSize: 14,
+      color: colors.text.primary,
+    },
+    dishNameClickable: {
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    dishContributor: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+    },
+    moreText: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+    },
+    moreCourses: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      marginTop: 4,
+    },
+
+    // ── Nutrition Section ──
+    nutritionSection: {
+      marginBottom: 4,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+    },
+    nutritionStatsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+    },
+    nutritionStat: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    nutritionStatLabel: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      fontWeight: '500',
+      marginBottom: 2,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+    },
+    nutritionStatValue: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    nutritionStatDivider: {
+      width: 1,
+      height: 24,
+      backgroundColor: colors.border.medium,
+    },
+    nutritionBadgeRow: {
+      marginTop: 8,
+      paddingHorizontal: 8,
+    },
+
+    // ── Strava-style Stats Row ──
+    statsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+      marginTop: 4,
+    },
+    stat: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginTop: 2,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    statDivider: {
+      width: 1,
+      height: 30,
+      backgroundColor: colors.border.medium,
+    },
+
+    // ── Social ──
+    likesSection: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 8,
+      paddingBottom: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+    },
+    likesSectionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      marginRight: 8,
+    },
+    likesText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    commentsText: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      paddingTop: 8,
+      paddingHorizontal: '5%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    actionButton: {
+      padding: 8,
+    },
+    actionIcon: {
+      width: 30,
+      height: 30,
+    },
+  }), [colors, functionalColors]);
+
+  // ── Render ───────────────────────────────────────────────────
+
   return (
     <TouchableOpacity 
       style={styles.card} 
       onPress={onPress}
       activeOpacity={onPress ? 0.9 : 1}
     >
-      {/* Header with participants */}
+      {/* Header with participant avatars */}
       <View style={styles.header}>
         <View style={styles.participantAvatars}>
           {visibleParticipants.slice(0, 3).map((p, index) => (
-            <View
-              key={p.user_id}
-              style={[
-                index > 0 && styles.avatarOverlap,
-              ]}
+            <View 
+              key={p.user_id} 
+              style={index > 0 ? styles.avatarOverlap : undefined}
             >
               <UserAvatar
-                user={p.user_profile || { avatar_url: null, subscription_tier: 'free' }}
+                user={{
+                  avatar_url: p.user_profile?.avatar_url,
+                  subscription_tier: p.user_profile?.subscription_tier,
+                }}
                 size={40}
               />
             </View>
@@ -520,36 +633,100 @@ export default function MealPostCard({
       {/* Meal Title */}
       <Text style={styles.mealTitle}>{meal.title}</Text>
 
-      {/* Dish Preview */}
+      {/* Dish Preview (clickable dish names) */}
       {renderDishPreview()}
 
-      {/* Stats Row */}
+      {/* Meal Nutrition — Strava-inspired compact row */}
+      {nutrition && (
+        <View style={styles.nutritionSection}>
+          <View style={styles.nutritionStatsRow}>
+            <View style={styles.nutritionStat}>
+              <Text style={styles.nutritionStatLabel}>Calories</Text>
+              <Text style={styles.nutritionStatValue}>{nutrition.cal_per_serving}</Text>
+            </View>
+            <View style={styles.nutritionStatDivider} />
+            <View style={styles.nutritionStat}>
+              <Text style={styles.nutritionStatLabel}>Protein</Text>
+              <Text style={styles.nutritionStatValue}>{Math.round(nutrition.protein_per_serving_g)}g</Text>
+            </View>
+            <View style={styles.nutritionStatDivider} />
+            <View style={styles.nutritionStat}>
+              <Text style={styles.nutritionStatLabel}>Carbs</Text>
+              <Text style={styles.nutritionStatValue}>{Math.round(nutrition.carbs_per_serving_g)}g</Text>
+            </View>
+            <View style={styles.nutritionStatDivider} />
+            <View style={styles.nutritionStat}>
+              <Text style={styles.nutritionStatLabel}>Fat</Text>
+              <Text style={styles.nutritionStatValue}>{Math.round(nutrition.fat_per_serving_g)}g</Text>
+            </View>
+          </View>
+          {nutrition.dietaryFlags.length > 0 && (
+            <View style={styles.nutritionBadgeRow}>
+              <DietaryBadgeRow flags={nutrition.dietaryFlags} size="compact" />
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Strava-style Stats Row */}
       <View style={styles.statsRow}>
         <View style={styles.stat}>
           <Text style={styles.statValue}>{meal.dish_count}</Text>
           <Text style={styles.statLabel}>
-            {meal.dish_count === 1 ? 'dish' : 'dishes'}
+            {meal.dish_count === 1 ? 'Dish' : 'Dishes'}
           </Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
           <Text style={styles.statValue}>{meal.participant_count}</Text>
           <Text style={styles.statLabel}>
-            {meal.participant_count === 1 ? 'person' : 'people'}
+            {meal.participant_count === 1 ? 'Person' : 'People'}
           </Text>
         </View>
+        {courseCount > 0 && (
+          <>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{courseCount}</Text>
+              <Text style={styles.statLabel}>
+                {courseCount === 1 ? 'Course' : 'Courses'}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Likes Section */}
-      {likeData && (likeData.likesText || likeData.commentCount) && (
+      {likeData && (!!likeData.likesText || (likeData.commentCount ?? 0) > 0) && (
         <View style={styles.likesSection}>
           {likeData.likesText && (
-            <Text style={styles.likesText}>{likeData.likesText}</Text>
+            <View style={styles.likesSectionLeft}>
+              {likeData.likes && likeData.likes.length > 0 && (
+                <View style={styles.avatarStack}>
+                  {likeData.likes.slice(0, 3).map((like, index) => (
+                    <View
+                      key={like.user_id}
+                      style={{ marginLeft: index > 0 ? -8 : 0, zIndex: 10 - index }}
+                    >
+                      <UserAvatar
+                        user={{
+                          avatar_url: like.avatar_url,
+                        }}
+                        size={24}
+                      />
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Text style={styles.likesText}>{likeData.likesText}</Text>
+            </View>
           )}
-          {likeData.commentCount && likeData.commentCount > 0 && (
-            <Text style={styles.commentsText}>
-              {likeData.commentCount} comment{likeData.commentCount !== 1 ? 's' : ''}
-            </Text>
+          {(likeData.commentCount ?? 0) > 0 && (
+            <TouchableOpacity onPress={onComment} activeOpacity={0.7}>
+              <Text style={styles.commentsText}>
+                {likeData.commentCount} comment{likeData.commentCount !== 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       )}

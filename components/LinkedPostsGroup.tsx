@@ -329,7 +329,7 @@ const LinkedPostsGroup: React.FC<LinkedPostsGroupProps> = ({
           const participants = postParticipants?.[post.id];
 
           // Format likes text for likeData
-          let likesText = '';
+          let likesText: string | undefined = undefined;
           if (likeData && likeData.totalCount > 0) {
             likesText = likeData.totalCount === 1 
               ? '1 chef\'s kiss'

@@ -1,6 +1,7 @@
 // screens/FeedScreen.tsx
 // Feed showing posts from people you follow
-// Updated: December 4, 2025 - Added meal integration
+// Updated: February 19, 2026
+// MERGED: Working theme/header base (Dec 4) + recipe query fields + navigation callbacks
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -277,7 +278,7 @@ export default function FeedScreen({ navigation }: Props) {
       .select('id, username, display_name, avatar_url, subscription_tier')
       .in('id', userProfileIds);
 
-    // Fetch recipes separately
+    // Fetch recipes separately — NEW: include cook_time_min, prep_time_min, cuisine_types
     const recipeIds = postsData
       .map(p => p.recipe_id)
       .filter((id): id is string => id !== null);
@@ -286,7 +287,7 @@ export default function FeedScreen({ navigation }: Props) {
     if (recipeIds.length > 0) {
       const { data } = await supabase
         .from('recipes')
-        .select('id, title, image_url, chefs(name)')
+        .select('id, title, image_url, cook_time_min, prep_time_min, cuisine_types, chefs(name)')
         .in('id', recipeIds);
       recipesData = data || [];
     }
@@ -405,26 +406,19 @@ export default function FeedScreen({ navigation }: Props) {
           // Filter approved participants and apply privacy rules
           const approvedParticipants = participants.filter(p => p.status === 'approved');
           
-          // Privacy filtering: only show participants if:
-          // 1. Viewer is the post creator, OR
-          // 2. Viewer is the participant, OR
-          // 3. Viewer follows both the post creator AND the participant
           const visibleParticipants = approvedParticipants.filter(p => {
             const participantId = p.participant_user_id;
             
-            // You can always see yourself
             if (participantId === currentUserId || postCreatorId === currentUserId) {
               return true;
             }
             
-            // You can see participant if you follow both post creator and participant
             const followsCreator = followingIdsSet.has(postCreatorId || '');
             const followsParticipant = followingIdsSet.has(participantId);
             
             return followsCreator && followsParticipant;
           });
           
-          // Count hidden participants
           const hiddenCount = {
             sous_chef: approvedParticipants.filter(p => 
               p.role === 'sous_chef' && 
@@ -541,11 +535,8 @@ export default function FeedScreen({ navigation }: Props) {
   };
 
   const handleMealPress = (mealId: string) => {
-    // Navigate to meal detail - need to handle cross-stack navigation
-    // For now, we'll use the navigation prop to go to PostDetail (or could add MealDetail to FeedStack)
-    // TODO: Consider adding MealDetail to FeedStack for better UX
+    // TODO: Add MealDetail to FeedStack for better UX
     console.log('Meal pressed:', mealId);
-    // navigation.navigate('MealDetail', { mealId, currentUserId });
   };
 
   const renderFeedItem = ({ item }: { item: CombinedFeedItem }) => {
@@ -558,12 +549,15 @@ export default function FeedScreen({ navigation }: Props) {
             currentUserId={currentUserId}
             followingIds={followingIds}
             onPress={() => handleMealPress(item.meal.id)}
+            onDishPress={(dish) => {
+              if (dish.recipe_id) {
+                navigation.navigate('RecipeDetail', { recipe: { id: dish.recipe_id } });
+              }
+            }}
             onLike={() => {
-              // TODO: Implement meal liking
               console.log('Like meal:', item.meal.id);
             }}
             onComment={() => {
-              // TODO: Navigate to meal comments
               console.log('Comment on meal:', item.meal.id);
             }}
           />
@@ -621,6 +615,12 @@ export default function FeedScreen({ navigation }: Props) {
           participants={participants}
           onLike={() => toggleLike(post.id)}
           onComment={() => navigation.navigate('CommentsList', { postId: post.id })}
+          onRecipePress={(recipeId) => {
+            navigation.navigate('RecipeDetail', { recipe: post.recipes });
+          }}
+          onChefPress={(chefName) => {
+            navigation.navigate('AuthorView', { chefName });
+          }}
           onViewLikes={likesText ? () => {
             navigation.navigate('YasChefsList', { 
               postId: post.id, 
@@ -678,7 +678,6 @@ export default function FeedScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
-              // TODO: Navigate to messages screen
               console.log('Messages pressed');
             }}
           >
