@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(cd /c/Users/tommo/Frigo && node --input-type=module --eval \"\nimport { readFileSync } from 'fs';\nconst src = readFileSync\\('./screens/RecipeListScreen.tsx', 'utf8'\\);\nconsole.log\\('Lines:', src.split\\('\\\\n'\\).length\\);\nconsole.log\\('renderRecipeCard opens at:', src.split\\('\\\\n'\\).findIndex\\(l => l.includes\\('const renderRecipeCard'\\)\\) + 1\\);\nconst lines = src.split\\('\\\\n'\\);\nconst start = lines.findIndex\\(l => l.includes\\('const renderRecipeCard'\\)\\);\n// Count function close\nlet depth = 0;\nfor \\(let i = start; i < Math.min\\(start + 300, lines.length\\); i++\\) {\n  for \\(const ch of lines[i]\\) { if \\(ch==='{'\\) depth++; else if \\(ch==='}'\\) depth--; }\n  if \\(depth === 0 && i > start\\) { console.log\\('Function closes at line:', i + 1\\); break; }\n}\n\" 2>&1)",
+      "Bash(cd:*)",
+      "Bash(supabase functions:*)",
+      "Bash(grep:*)",
+      "Bash(xxd .gitignore:*)"
     ]
   }
 }
