@@ -40,6 +40,7 @@ export interface MealParticipant {
     username: string;
     display_name?: string;
     avatar_url?: string;
+    subscription_tier?: string;
   };
   dish_count?: number;
 }
@@ -747,6 +748,7 @@ export async function getMealParticipants(mealId: string): Promise<MealParticipa
         username: p.username,
         display_name: p.display_name,
         avatar_url: p.avatar_url,
+        subscription_tier: p.subscription_tier,
       },
     }));
   } catch (error) {

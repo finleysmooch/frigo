@@ -183,6 +183,13 @@ export interface ExtractedRecipeData {
     meal_type?: string[];
     dietary_tags?: string[];
     cooking_methods?: string[];
+    // Phase 3A classification fields
+    hero_ingredients?: string[];
+    vibe_tags?: string[];
+    serving_temp?: string | null;
+    course_type?: string | null;
+    make_ahead_score?: number | null;
+    cooking_concept?: string | null;
   };
   book_metadata?: {
     book_title?: string;
@@ -248,6 +255,9 @@ export interface ExtractedIngredient {
   sequence_order: number;
   is_optional?: boolean;
   alternatives?: IngredientAlternative[];
+  // Phase 3A classification fields
+  ingredient_classification?: 'hero' | 'primary' | 'secondary';
+  flavor_tags?: string[];
 }
 
 export interface IngredientAlternative {
@@ -376,6 +386,7 @@ export interface RecipeWithBook {
   book_author?: string;
   chef_name?: string;
   cuisine_types?: string[];
+  page_number?: number;  // Added for book view sorting
 }
 
 // For book views

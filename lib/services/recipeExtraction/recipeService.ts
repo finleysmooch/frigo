@@ -144,6 +144,13 @@ async function saveRecipe(
       // Store raw extraction data for future parsing
       // This includes recipe notes, ingredient swaps, and other text not yet parsed
       raw_extraction_data: raw_extraction_data || null,
+      // Phase 3A classification fields
+      hero_ingredients: recipe.hero_ingredients || [],
+      vibe_tags: recipe.vibe_tags || [],
+      serving_temp: recipe.serving_temp || null,
+      course_type: recipe.course_type || null,
+      make_ahead_score: recipe.make_ahead_score || null,
+      cooking_concept: recipe.cooking_concept || null,
     })
     .select('id')
     .single();
@@ -177,6 +184,9 @@ async function saveIngredients(
     match_notes: ing.match_notes,
     needs_review: ing.needs_review,
     optional_confidence: ing.is_optional ? 1.0 : 0.0,
+    // Phase 3A classification fields
+    ingredient_classification: ing.ingredient_classification || 'secondary',
+    flavor_tags: ing.flavor_tags || [],
   }));
 
   console.log(`Inserting ${ingredientInserts.length} ingredients...`);
