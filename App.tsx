@@ -1,9 +1,11 @@
+// ⚡ IN-PROGRESS — Stats Dashboard work (2026-03-04)
 // App.tsx
 // Updated with Social Features: Feed, Following, and Cooking Partners
 // Updated: November 19, 2025
 // Updated: December 10, 2025 - Added selection mode params for recipe selection flow
 // Updated: December 18, 2025 - Added SpaceProvider for shared pantries
 // Updated: January 12, 2026 - Added custom font loading (Poppins, Outfit)
+// Updated: March 3, 2026 - Replaced MyPostsStack with StatsStack ("You" tab)
 
 import { useState, useEffect } from 'react';
 import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet, Image } from 'react-native';
@@ -20,7 +22,10 @@ import { AddRecipeFromUrlScreen } from './screens/AddRecipeFromUrlScreen';
 import { MissingIngredientsScreen } from './screens/MissingIngredientsScreen';
 import { RecipeReviewScreen } from './screens/RecipeReviewScreen';
 import CookingScreen from './screens/CookingScreen';
-import MyPostsScreen from './screens/MyPostsScreen';
+import StatsScreen from './screens/StatsScreen';
+import DrillDownScreen from './screens/DrillDownScreen';
+import ChefDetailScreen from './screens/ChefDetailScreen';
+import BookDetailScreen from './screens/BookDetailScreen';
 import AdminScreen from './screens/AdminScreen';
 import YasChefScreen from './screens/YasChefScreen';
 import CommentsScreen from './screens/CommentsScreen';
@@ -30,7 +35,6 @@ import GroceryListDetailScreen from './screens/GroceryListDetailScreen';
 import StoresScreen from './screens/StoresScreen';
 import BookViewScreen from './screens/BookViewScreen';
 import AuthorViewScreen from './screens/AuthorViewScreen';
-import EditMediaScreen from './screens/EditMediaScreen';
 import MyPostDetailsScreen from './screens/MyPostDetailsScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
@@ -38,6 +42,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import LogoPlaygroundScreen from './screens/LogoPlaygroundScreen';
+import UserPostsScreen from './screens/UserPostsScreen';
 
 // Logo component for branding
 import { Logo } from './components/branding';
@@ -107,6 +112,14 @@ export type RecipesStackParamList = {
       location?: string;
       description?: string;
     };
+    // Initial filter params from stats drill-downs
+    initialBrowseMode?: 'all' | 'cook_again' | 'try_new';
+    initialCuisine?: string;
+    initialCookingConcept?: string;
+    initialDietaryFlag?: string;
+    initialChefId?: string;
+    initialBookId?: string;
+    sortBy?: string;
   } | undefined;
   RecipeDetail: { 
     recipe: any;
@@ -171,6 +184,7 @@ export type MealsStackParamList = {
   MealDetail: { mealId: string; currentUserId: string };
 };
 
+// Legacy type — kept for screens that still import it (YasChefScreen, CommentsScreen, etc.)
 export type MyPostsStackParamList = {
   MyPostsList: undefined;
   YasChefsList: { postId: string; postTitle: string };
@@ -178,6 +192,29 @@ export type MyPostsStackParamList = {
   EditMedia: { postId: string; existingPhotos: PostPhoto[] };
   MyPostDetails: { postId: string };
   MealDetail: { mealId: string; currentUserId: string };
+};
+
+export type StatsStackParamList = {
+  StatsHome: undefined;
+  DrillDown: {
+    type: 'cuisine' | 'concept' | 'method' | 'ingredient';
+    value: string;
+    label: string;
+  };
+  ChefDetail: { chefId: string };
+  BookDetail: { bookId: string };
+  RecipeDetail: {
+    recipe: any;
+    planItemId?: string;
+    mealId?: string;
+    mealTitle?: string;
+  };
+  MyPostDetails: { postId: string };
+  YasChefsList: { postId: string; postTitle: string };
+  UserPosts: { userId: string; displayName: string };
+  Profile: undefined;
+  Settings: undefined;
+  EditProfile: undefined;
 };
 
 export type ProfileStackParamList = {
@@ -202,7 +239,7 @@ export type RootTabParamList = {
   FeedStack: undefined;
   RecipesStack: undefined;
   MealsStack: undefined;
-  MyPostsStack: undefined;
+  StatsStack: undefined;
   PantryStack: undefined;
   GroceryStack: undefined;
   Stores: undefined;
@@ -212,7 +249,7 @@ export type RootTabParamList = {
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>(); // NEW
 const RecipesStack = createNativeStackNavigator<RecipesStackParamList>();
-const MyPostsStack = createNativeStackNavigator<MyPostsStackParamList>();
+const StatsStackNav = createNativeStackNavigator<StatsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const MealsStack = createNativeStackNavigator<MealsStackParamList>();
@@ -433,56 +470,67 @@ function RecipesStackNavigator() {
   );
 }
 
-// My Posts Stack Navigator
-function MyPostsStackNavigator() {
+// Placeholder screens for future Stats drill-down routes
+
+// Stats Stack Navigator (replaces MyPostsStack)
+function StatsStackNavigator() {
   return (
-    <MyPostsStack.Navigator
+    <StatsStackNav.Navigator
       screenOptions={{
         headerShown: false,
       }}
     >
-      <MyPostsStack.Screen name="MyPostsList" component={MyPostsScreen} />
-      <MyPostsStack.Screen 
-        name="YasChefsList" 
-        component={YasChefScreen}
-        options={{
-          headerShown: true,
-          title: 'Yas Chefs',
-        }}
+      <StatsStackNav.Screen name="StatsHome" component={StatsScreen} />
+      <StatsStackNav.Screen
+        name="DrillDown"
+        component={DrillDownScreen}
+        options={{ headerShown: true, title: 'Details' }}
       />
-      <MyPostsStack.Screen 
-        name="CommentsList" 
-        component={CommentsScreen}
-        options={{
-          headerShown: true,
-          title: 'Comments',
-        }}
+      <StatsStackNav.Screen
+        name="ChefDetail"
+        component={ChefDetailScreen}
+        options={{ headerShown: true, title: 'Chef' }}
       />
-      <MyPostsStack.Screen 
-        name="EditMedia" 
-        component={EditMediaScreen}
-        options={{
-          headerShown: true,
-          title: 'Edit Photos',
-        }}
+      <StatsStackNav.Screen
+        name="BookDetail"
+        component={BookDetailScreen}
+        options={{ headerShown: true, title: 'Cookbook' }}
       />
-      <MyPostsStack.Screen 
-        name="MyPostDetails" 
+      <StatsStackNav.Screen
+        name="RecipeDetail"
+        component={RecipeDetailScreen}
+        options={{ headerShown: true, title: 'Recipe' }}
+      />
+      <StatsStackNav.Screen
+        name="MyPostDetails"
         component={MyPostDetailsScreen}
-        options={{
-          headerShown: true,
-          title: 'Post Details',
-        }}
+        options={{ headerShown: true, title: 'Post' }}
       />
-      <MyPostsStack.Screen 
-        name="MealDetail" 
-        component={MealDetailScreen}
-        options={{
-          headerShown: true,
-          title: 'Meal',
-        }}
+      <StatsStackNav.Screen
+        name="YasChefsList"
+        component={YasChefScreen}
+        options={{ headerShown: true, title: 'Yas Chefs' }}
       />
-    </MyPostsStack.Navigator>
+      <StatsStackNav.Screen
+        name="UserPosts"
+        component={UserPostsScreen}
+        options={{ headerShown: true, title: 'Posts' }}
+      />
+      <StatsStackNav.Screen
+        name="Profile"
+        component={ProfileScreen}
+      />
+      <StatsStackNav.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: true, title: 'Settings' }}
+      />
+      <StatsStackNav.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ headerShown: true, title: 'Edit Profile' }}
+      />
+    </StatsStackNav.Navigator>
   );
 }
 
@@ -651,34 +699,6 @@ function MainTabNavigator() {
         }}
       />
 
-      {/* My Posts Tab */}
-      <Tab.Screen
-        name="MyPostsStack"
-        component={MyPostsStackNavigator}
-        options={{
-          tabBarLabel: 'My Posts',
-          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
-            const iconColor = focused ? colors.primary : colors.text.tertiary;
-            if (focused) {
-              // Use PNG image for filled state (matches premium avatar badge)
-              return (
-                <Image
-                  source={require('./assets/icons/chefhat2inverse.png')}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    tintColor: iconColor,
-                  }}
-                />
-              );
-            } else {
-              // Use outline SVG for inactive state
-              return <ChefHat2 size={24} color={iconColor} />;
-            }
-          },
-        }}
-      />
-
       {/* Pantry Tab */}
       <Tab.Screen
         name="PantryStack"
@@ -703,6 +723,32 @@ function MainTabNavigator() {
             const Icon = focused ? GroceryFilled : GroceryOutline;
             const iconColor = focused ? colors.primary : colors.text.tertiary;
             return <Icon size={24} color={iconColor} />;
+          },
+        }}
+      />
+
+      {/* You (Stats) Tab */}
+      <Tab.Screen
+        name="StatsStack"
+        component={StatsStackNavigator}
+        options={{
+          tabBarLabel: 'You',
+          tabBarIcon: ({ focused }: { color: string; focused: boolean }) => {
+            const iconColor = focused ? colors.primary : colors.text.tertiary;
+            if (focused) {
+              return (
+                <Image
+                  source={require('./assets/icons/chefhat2inverse.png')}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    tintColor: iconColor,
+                  }}
+                />
+              );
+            } else {
+              return <ChefHat2 size={24} color={iconColor} />;
+            }
           },
         }}
       />

@@ -117,6 +117,11 @@ All code maps to one of these domains:
 - ✅ Nutrition data + dietary badges
 - ✅ Smart recipe browse (3 modes, expandable cards, 60 SVG icons)
 - ✅ Test data seeded (1,740 posts, 17 users, full year)
+- ✅ Stats dashboard with WeeklyChart (5 modes: meals, calories, protein, veg%, new/repeat)
+- ✅ Stats Recipes page: Kitchen/Frontier sections, podium, bubble map, family ingredient chips
+- ✅ Frontier Cards (worth exploring suggestions) + Gateway Card insights with period comparisons
+- ✅ Nutrition page: Frigo color palette, macro summary cards, macro/secondary divider
+- ✅ Insights page: Cooking Personality Card, Growth Timeline, diversity growth context, compact complexity
 
 ## Commands
 ```bash
@@ -129,47 +134,11 @@ npx expo start --android # Android emulator
 
 ## Tracker Row Generation
 
-When asked to "generate tracker rows" after a commit, output tab-separated rows for the Code_Log spreadsheet.
+When asked to "generate tracker rows" after a commit, follow the spec in `docs/TRACKER_SPEC.md`.
 
-### Columns (tab-separated):
+**Quick reference:** 13 tab-separated columns → `docs/tracker_update.tsv`
 ```
 EntryDate | File | Status | ReplacedBy | Domain | Type | Lines | CodeDate | Imports | Exports | Purpose | Changes | Notes
 ```
 
-### How to determine values:
-- **EntryDate:** YYYY-MM-DD
-- **Status:** `Active` | `Renamed` | `Deleted`
-- **Domain:** Use text from 8 Domains above (match by filename keywords)
-- **Type:** `Screen` | `Modal` | `Service` | `Component` | `Utility`
-- **CodeDate:** DDMMMYY (e.g., `29JAN25`)
-- **Purpose:** `[PURPOSE]` for new files, blank for updates (persists via formula)
-- **Changes:** Commit message + file-specific details
-
-### Examples:
-
-**New file:**
-```
-2025-01-29	NewModal.tsx	Active		Recipe	Modal	234	29JAN25	theme; types	NewModal	[PURPOSE]	feat(recipes): Add modal	
-```
-
-**Modified file:**
-```
-2025-01-29	recipeService.ts	Active		Recipe	Service	445	29JAN25	supabase	updateRecipe		feat(recipes): Add scaling	
-```
-
-**Renamed (TWO rows):**
-```
-2025-01-29	OldName.tsx	Renamed	NewName.tsx								refactor: Rename	
-2025-01-29	NewName.tsx	Active		Recipe	Modal	234	29JAN25	imports	exports	[PURPOSE]	refactor: Renamed from OldName	
-```
-
-**Deleted:**
-```
-2025-01-29	DeadFile.tsx	Deleted									chore: Remove unused	
-```
-
-### Workflow:
-1. Get commit message: `git log -1 --pretty=%s`
-2. Get changed files: `git diff-tree --no-commit-id --name-status -r HEAD`
-3. Generate row for each .ts/.tsx file
-4. Output with reminder to fill Purpose for new files
+Read `docs/TRACKER_SPEC.md` for column definitions, path rules, examples, and the generation workflow.

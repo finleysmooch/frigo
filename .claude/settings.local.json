@@ -7,7 +7,20 @@
       "Bash(cd:*)",
       "Bash(supabase functions:*)",
       "Bash(grep:*)",
-      "Bash(xxd .gitignore:*)"
+      "Bash(xxd .gitignore:*)",
+      "Bash(awk {print NF}:*)",
+      "Bash(sed:*)",
+      "Bash(node:*)",
+      "Bash(awk {print NF \"\" columns\"\"}:*)",
+      "Bash(while read f)",
+      "Bash(do if echo \"$f\")",
+      "Bash(awk -F'\\\\t' 'NF!=13 {print NR\"\": \"\"NF\"\" columns\"\"}' docs/tracker_update.tsv)",
+      "Bash(npx supabase:*)",
+      "Bash(ls:*)",
+      "Bash(do:*)",
+      "Bash(rm:*)",
+      "Bash(npx tsx:*)",
+      "Bash(\"C:/Users/tommo/Frigo/docs/tracker_update.tsv\":*)"
     ]
   }
 }

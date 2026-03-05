@@ -1,3 +1,4 @@
+// ⚡ IN-PROGRESS — Stats Dashboard work (2026-03-04)
 // screens/RecipeListScreen.tsx
 // Updated: February 2026
 // - Phase 3A Block 4: Browse modes (All/Cook Again/Try New) + header simplification
@@ -944,6 +945,68 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       }
     }, [route.params?.selectionMode, route.params?.returnToMeals])
   );
+
+  // Handle initial filter params from stats drill-downs
+  useEffect(() => {
+    const params = route.params;
+    if (!params) return;
+
+    const {
+      initialBrowseMode,
+      initialCuisine,
+      initialCookingConcept,
+      initialDietaryFlag,
+      initialChefId,
+      initialBookId,
+    } = params;
+
+    const hasInitialFilter =
+      initialBrowseMode || initialCuisine || initialCookingConcept ||
+      initialDietaryFlag || initialChefId || initialBookId;
+
+    // Handle sortBy param (from stats podium "See all")
+    if (params.sortBy === 'cook_count') {
+      setSortOption('most_cooked');
+      navigation.setParams({ sortBy: undefined } as any);
+    }
+
+    if (!hasInitialFilter) return;
+
+    // Apply browse mode
+    if (initialBrowseMode) {
+      setBrowseMode(initialBrowseMode);
+    } else {
+      setBrowseMode('try_new');
+    }
+
+    // Build advanced filters from initial params
+    const newFilters: Partial<FilterState> = {};
+
+    if (initialCuisine) {
+      newFilters.cuisineTypes = [initialCuisine];
+    }
+    if (initialCookingConcept) {
+      // cooking concept maps to vibe tags in filter system
+      newFilters.vibeTags = [initialCookingConcept];
+    }
+    if (initialDietaryFlag) {
+      newFilters.dietaryFlags = { [initialDietaryFlag]: true } as any;
+    }
+
+    if (Object.keys(newFilters).length > 0) {
+      setAdvancedFilters(prev => ({ ...prev, ...newFilters }));
+    }
+
+    // Clear the initial params so they don't re-apply on re-focus
+    navigation.setParams({
+      initialBrowseMode: undefined,
+      initialCuisine: undefined,
+      initialCookingConcept: undefined,
+      initialDietaryFlag: undefined,
+      initialChefId: undefined,
+      initialBookId: undefined,
+    } as any);
+  }, [route.params?.initialCuisine, route.params?.initialCookingConcept, route.params?.initialDietaryFlag, route.params?.initialBrowseMode, route.params?.initialChefId, route.params?.initialBookId]);
 
   useEffect(() => {
     const runFilters = async () => { await applyFilters(); };

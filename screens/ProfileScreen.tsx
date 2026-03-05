@@ -1,3 +1,4 @@
+// ⚡ IN-PROGRESS — Stats Dashboard work (2026-03-04)
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
@@ -463,7 +464,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <View style={styles.activitiesSection}>
           <TouchableOpacity
             style={styles.activityRow}
-            onPress={() => navigation.navigate('MyPosts', { screen: 'MyPostsList' })}
+            onPress={() => navigation.navigate('StatsStack', { screen: 'StatsHome' })}
           >
             <View style={styles.activityLeft}>
               <Text style={styles.activityIcon}>📋</Text>
