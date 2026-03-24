@@ -53,6 +53,10 @@ assets/svg-source/
 test-*.ps1
 recipe_classification_*.json
 
+# Claude.ai delivery & export folders
+claude_update/
+claude_project_upload/
+
 # Superseded edge function versions
 supabase/functions/extract-recipe-v[0-9]*/
 supabase/functions/extract-recipe-v10.*/

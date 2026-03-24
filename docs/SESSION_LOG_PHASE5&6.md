@@ -2,6 +2,62 @@
 
 Append new entries at the top. Archived logs from completed phases live in separate files (e.g., SESSION_LOG_PHASE4.md).
 
+### 2026-03-24 — Phase 5+6 Git Commit
+**Commit:** `4fc3357` on `main`
+**Scope:** 39 files changed, +9,730 / -1,574 lines
+**Includes:** All Phase 5 (Ingredient Architecture) + Phase 6A-H (Cooking Mode v2, RecipeDetailScreen Redesign + Corrections)
+
+**Files committed (full list):**
+
+*Modified:*
+- `.claude/settings.local.json`
+- `App.tsx`
+- `components/IngredientPopup.tsx`
+- `docs/FRIGO_ARCHITECTURE.md`
+- `docs/SESSION_LOG.md`
+- `docs/tracker_update.tsv`
+- `lib/services/statsService.ts`
+- `package-lock.json`
+- `package.json`
+- `screens/CookingScreen.tsx`
+- `screens/RecipeDetailScreen.tsx`
+
+*New files:*
+- `components/cooking/ClassicView.tsx`
+- `components/cooking/CompactTimerBar.tsx`
+- `components/cooking/IngredientDetailPopup.tsx`
+- `components/cooking/IngredientSheet.tsx`
+- `components/cooking/PostCookFlow.tsx`
+- `components/cooking/SectionCard.tsx`
+- `components/cooking/SectionDots.tsx`
+- `components/cooking/StepIngredients.tsx`
+- `components/cooking/StepNoteDisplay.tsx`
+- `components/cooking/StepNoteInput.tsx`
+- `components/cooking/TimerDetail.tsx`
+- `components/cooking/ViewModeMenu.tsx`
+- `components/recipe/IngredientsSection.tsx`
+- `components/recipe/PreparationSection.tsx`
+- `components/recipe/RecipeHeader.tsx`
+- `components/recipe/SaveIcon.tsx`
+- `components/recipe/ScaleConvertControls.tsx`
+- `contexts/CookingTimerContext.tsx`
+- `docs/SESSION_LOG_PHASE5&6.md`
+- `lib/services/cookingService.ts`
+- `lib/services/postService.ts`
+- `lib/types/cooking.ts`
+- `lib/utils/timerDetection.ts`
+- `scripts/classify_unmatched_ingredients.py`
+- `scripts/detect-sections.ts`
+- `scripts/test-cooking-service.ts`
+- `scripts/test-ingredient-mapping.ts`
+- `scripts/test-timer-detection.ts`
+
+**Not committed (excluded):** `claude_project_upload/` (flat file export for Claude project), `claude_update/` (Claude.ai delivery files)
+
+**Status:** Committed locally, NOT pushed. Branch `main` is 2 commits ahead of origin.
+
+---
+
 ### 2026-03-24 — Sticky Nav PREPARATION Scroll Target Tuning
 **Phase:** Phase 6H
 **Prompt from:** User on-device feedback — PREPARATION tap cutting off Step 1
