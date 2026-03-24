@@ -1,6 +1,6 @@
 # Frigo — Architecture & Codebase Map
-**Last Updated:** March 2, 2026  
-**Version:** 2.1
+**Last Updated:** March 5, 2026  
+**Version:** 3.0
 
 ---
 
@@ -30,7 +30,7 @@ Frigo is organized into **8 Feature Domains**. Each feature belongs to exactly O
 | Recipe Management | 🍳 | Adding, storing, viewing, organizing recipes |
 | Cooking Experience | 👩‍🍳 | Active cooking: step-by-step, timers, guidance |
 | Meal Planning | 🗓️ | Scheduling, calendars, "cook soon" lists |
-| Social & Cooking History | 👥 | Posts, feeds, followers, cooking history |
+| Social & Cooking History | 👥 | Posts, feeds, followers, cooking history, **cooking stats** |
 | Pantry & Inventory | 🥫 | What you have, expiration, shared pantries |
 | Grocery & Shopping | 🛒 | Shopping lists, stores, purchasing |
 | Discovery & Intelligence | 🔍 | Search, filtering, AI, recommendations |
@@ -51,7 +51,7 @@ Frigo is organized into **8 Feature Domains**. Each feature belongs to exactly O
 - **Does NOT include:** Actual cooking (→ Cooking), shopping list management (→ Grocery)
 
 **👥 Social & Cooking History**
-- **Includes:** Feed display/algorithm, posts (dishes and meals), likes/comments, following/followers, cooking partners, meal participants, recipe sharing, historical posts, post statistics, ingredient source logging
+- **Includes:** Feed display/algorithm, posts (dishes and meals), likes/comments, following/followers, cooking partners, meal participants, recipe sharing, historical posts, post statistics, **cooking stats dashboard**, ingredient source logging
 - **Does NOT include:** Recipe input/editing (→ Recipe), meal scheduling (→ Meal Planning)
 
 **🥫 Pantry & Inventory**
@@ -100,6 +100,7 @@ Frigo is organized into **8 Feature Domains**. Each feature belongs to exactly O
 1. **Recipe → Cook → Share:** 🍳 Recipe Management → 👩‍🍳 Cooking Experience → 👥 Social
 2. **Plan → Shop → Stock:** 🗓️ Meal Planning → 🛒 Grocery → 🥫 Pantry
 3. **Stock → Discover → Plan:** 🥫 Pantry → 🔍 Discovery → 🗓️ Meal Planning
+4. **Cook → Reflect → Discover:** 👥 Social (stats) → 🔍 Discovery → 🍳 Recipe Management
 
 ---
 
@@ -107,10 +108,28 @@ Frigo is organized into **8 Feature Domains**. Each feature belongs to exactly O
 
 ```
 frigo/
-├── App.tsx                          ← Main entry, navigation, tab bar
+├── App.tsx                          ← Main entry, navigation, tab bar (6 tabs)
 ├── CLAUDE.md                        ← Claude Code instructions (8 domains, tracker rows, conventions)
-├── screens/                         ← 30+ screen components
+├── screens/                         ← 35+ screen components
 ├── components/
+│   ├── stats/                       ← ~30 stats dashboard components (Phase 4)
+│   │   ├── index.ts                 ← Barrel export for all stats components
+│   │   ├── StatsOverview.tsx        ← Overview page (chart, calendar, gateway, partners)
+│   │   ├── StatsRecipes.tsx         ← Cooking page (podium, bubbles, ingredients, frontier)
+│   │   ├── StatsNutrition.tsx       ← Nutrition page (donut, goals, dietary)
+│   │   ├── StatsInsights.tsx        ← Insights page (personality, diversity, growth, heatmap)
+│   │   ├── WeeklyChart.tsx          ← 5-mode SVG chart with tappable dots
+│   │   ├── CalendarWeekCard.tsx     ← 7-day emoji grid, streak, week stats
+│   │   ├── MostCookedPodium.tsx     ← 3-pedestal with 5-way toggle (embedded prop)
+│   │   ├── ConceptBubbleMap.tsx     ← Size-scaled bubbles, 3 tiers
+│   │   ├── CookingPersonalityCard.tsx ← Dark teal card, AI-generated profile
+│   │   ├── GrowthTimeline.tsx       ← Monthly milestones
+│   │   ├── FrontierCards.tsx        ← Horizontal scroll suggestions
+│   │   ├── GatewayCard.tsx          ← Tappable overview card with insight/period
+│   │   ├── MealTypeDropdown.tsx     ← Anchored popup (measureInWindow)
+│   │   ├── PeriodToggle.tsx         ← Pill toggle with compact prop
+│   │   ├── SectionHeader.tsx        ← Kitchen/Frontier dividers
+│   │   └── [16 more shared components]
 │   ├── icons/
 │   │   ├── index.ts                 ← Barrel export for all icon subdirectories
 │   │   ├── recipe/                  ← 18 SVG components (TimerIcon, FireIcon, SortIcon, etc.)
@@ -122,9 +141,12 @@ frigo/
 │   │   └── ...
 │   ├── branding/
 │   │   └── icons/ChefHat2.tsx       ← Brand icons
+│   ├── NutritionGoalsModal.tsx      ← Stepper inputs, daily/per-meal toggle
 │   └── [40+ component files]        ← Modals, cards, pickers, sections
 ├── lib/
 │   ├── services/                    ← ALL database interaction
+│   │   ├── statsService.ts          ← 38 exported functions (Phase 4)
+│   │   ├── nutritionGoalsService.ts ← Nutrition goal CRUD (Phase 4)
 │   │   ├── recipeExtraction/        ← Extraction-specific services
 │   │   └── [20+ service files]
 │   ├── types/                       ← TypeScript type definitions
@@ -152,6 +174,12 @@ frigo/
 │   │   ├── process-recipe-queue/        ← v12 queue processor with TOC-guided extraction
 │   │   └── scrape-recipe/               ← Web URL scraping function
 │   └── import_map.json                  ← Deno import map for edge functions
+├── docs/
+│   ├── _SESSION_LOG.md              ← Active session log (current phase)
+│   ├── _SESSION_LOG_PHASE4.md       ← Archived Phase 4 session log
+│   ├── FRIGO_ARCHITECTURE.md        ← This file (canonical)
+│   ├── DEFERRED_WORK.md             ← Master backlog (canonical)
+│   └── README.md                    ← Index of docs/
 └── external_documents/              ← Claude Code prompt files (gitignored)
 ```
 
@@ -159,8 +187,12 @@ frigo/
 
 ## Services (lib/services/)
 
+### Core Services
+
 | Service | Purpose | Key Functions |
 |---------|---------|---------------|
+| **statsService.ts** | Cooking stats data layer (38 functions) | Overview: getWeekDots, getCookingStreak, getWeeklyFrequency, getOverviewStats, getHowYouCook, getCookingPartners, getNewVsRepeat. Recipes: getMostCooked, getCookingConcepts, getTopIngredients, getCuisineBreakdown, getMethodBreakdown, getTopChefs, getTopBooks, getCookbookProgress, getRecipeDiscovery. Nutrition: getNutritionAverages, getNutrientTrend, getTopNutrientSources, getHighestNutrientRecipes, getDietaryBreakdown. Insights: getDiversityScore, getComplexityTrend, getSeasonalPatterns, getCookingHeatmap, getPantryUtilization. Drill-down: getCuisineDetail, getConceptDetail, getMethodDetail, getIngredientDetail. Chef/Book: getChefStats, getBookStats. Helpers: computeDateRange, getGatewayInsights, getFrontierSuggestions, getCookingPersonality, getGrowthMilestones. Exports: StatsPeriod ('12w'\|'6m'\|'1y'), DateRange, StatsParams, MealTypeFilter, CONCEPT_EMOJI_MAP. |
+| **nutritionGoalsService.ts** | Nutrition goal CRUD | getNutritionGoals, upsertNutritionGoals, deleteNutritionGoal. Table: user_nutrition_goals. |
 | **recipeService.ts** | Recipe CRUD, save from extraction | getRecipes, saveRecipe (saves Phase 3A fields: hero_ingredients, vibe_tags, serving_temp, course_type, make_ahead_score, cooking_concept + per-ingredient classification/flavor_tags) |
 | **nutritionService.ts** | Nutrition queries, batch fetch | getRecipeNutrition, getRecipeNutritionBatch, getCompactNutrition, getRecipeNutritionBreakdown, aggregateMealNutrition |
 | **recipeHistoryService.ts** | Cooking history for browse modes | getCookingHistory → Map<recipe_id, CookingHistory>, getFriendsCookingInfo |
@@ -186,6 +218,26 @@ frigo/
 | **annotationService.ts** | Recipe edit annotations | — |
 | **unitConverter.ts** | Metric/imperial conversion | convert |
 
+### statsService.ts Key Patterns
+
+```typescript
+// Rolling window period model — all queries use DateRange with both bounds
+type StatsPeriod = '12w' | '6m' | '1y';
+type DateRange = { start: string; end: string };
+computeDateRange(period: StatsPeriod, offset: number) → DateRange
+
+// Shared params object — passed to most functions
+type StatsParams = { userId: string; dateRange: DateRange; mealType: MealTypeFilter };
+
+// Internal helpers
+fetchFilteredPosts(params, fields) → filtered posts
+fetchRecipesForPosts(posts, selectFields) → batch recipe fetch
+applyDateRangeFilter(query, dateRange) → adds .gte AND .lte on cooked_at
+
+// getWeeklyFrequency fetches ALL data (no date filter), caller slices to window
+getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
+```
+
 ### Extraction Services (lib/services/recipeExtraction/)
 | Service | Purpose |
 |---------|---------|
@@ -201,8 +253,13 @@ frigo/
 
 | Screen | Notes |
 |--------|-------|
+| **StatsScreen.tsx** | Main stats container. Cooking Stats/My Posts toggle (Strava underline). Sub-tabs: Overview/Cooking/Nutrition/Insights. Sticky bar with descriptive subtitle on non-Overview tabs. ControlStrip at top of content for Cooking/Nutrition/Insights. My Posts inline with .map() (no FlatList). Contains ActivityCard and ControlStrip inline components. |
+| **DrillDownScreen.tsx** | Reusable drill-down for cuisine/concept/method/ingredient. Stats, most cooked, ingredients, chefs, explore CTA. Cross-stack nav to RecipeList with filters. |
+| **ChefDetailScreen.tsx** | Chef stats: hero stats, nutrition comparison, most cooked, concepts, signature ingredients, stock up, books. |
+| **BookDetailScreen.tsx** | Book stats: progress bar, completion%, most cooked, highest rated, key ingredients, cuisines, methods. |
+| **UserPostsScreen.tsx** | Read-only Strava-style activity cards for other users' posts. |
 | RecipeDetailScreen.tsx | Largest screen. RecipeNutritionPanel integrated. Static StyleSheet (dynamic theming removed). |
-| RecipeListScreen.tsx | Phase 3A overhaul. Expandable cards, 3 browse modes (All/Cook Again/Try New), 8 sort options, quick filter chips with SVG icons. |
+| RecipeListScreen.tsx | Phase 3A overhaul. Expandable cards, 3 browse modes (All/Cook Again/Try New), 8 sort options, quick filter chips with SVG icons. Accepts initial filter params from stats drill-downs (cuisine, concept, dietary, sortBy). |
 | FeedScreen.tsx | Feed data loading. Navigation callbacks for onRecipePress, onChefPress, onDishPress. Queries include cook_time, prep_time, cuisine. |
 | MyPostDetailsScreen.tsx | RecipeNutritionPanel replaces old star ratings. Uses UserAvatar component. |
 | BookViewScreen.tsx | Static styling. User auth check — filters recipes by user_id (security fix). |
@@ -217,7 +274,7 @@ frigo/
 | MyMealsScreen.tsx | Meals list |
 | CookSoonScreen.tsx | Saved recipes queue |
 | CommentsScreen.tsx | Post comments |
-| MyPostsScreen.tsx | User's posts list |
+| MyPostsScreen.tsx | User's posts list (legacy — My Posts now inline in StatsScreen) |
 | AuthorViewScreen.tsx | Chef/author profile and recipes |
 | UserSearchScreen.tsx | Find and follow people |
 | PendingApprovalsScreen.tsx | Space join approvals |
@@ -233,8 +290,22 @@ frigo/
 
 ## Components (components/)
 
+### Stats Dashboard (components/stats/)
+
+**Sub-pages (rendered inside StatsScreen):**
+StatsOverview.tsx (independent section loading: frequency, sections, week data, streak each load separately; chart card with footer controls + date nav popup), StatsRecipes.tsx (Kitchen/Frontier structure with SectionHeader dividers; "Your Kitchen" header removed, "Your Frontier" header remains), StatsNutrition.tsx (SVG donut, macro cards, nutrient drill-downs, nutrition goals, dietary breakdown), StatsInsights.tsx (7 sections: personality, diversity, growth, complexity, seasonal, heatmap, pantry utilization)
+
+**Chart & Calendar:**
+WeeklyChart.tsx (5 modes: meals/calories/protein/veg_pct/new_repeat; tappable dots with 44px hit areas; 1Y monthly aggregation; selected week highlight), CalendarWeekCard.tsx (7-day emoji grid, week nav arrows, streak badge, 4-stat summary with prior-week deltas)
+
+**Cards & Display:**
+GatewayCard.tsx (icon/value/label/detail/insight/period props), MostCookedPodium.tsx (3-pedestal with embedded prop for card-less rendering, 5-way toggle), ConceptBubbleMap.tsx (size-scaled circles: Staple/Regular/Frontier tiers), CookingPersonalityCard.tsx (dark #0b6b60 card, template narrative + tags), GrowthTimeline.tsx (vertical timeline entries), FrontierCards.tsx (horizontal scroll with loading skeleton), SectionHeader.tsx (kitchen teal / frontier amber pill + line)
+
+**Shared Components:**
+PeriodToggle.tsx (compact prop for chart footer), MealTypeDropdown.tsx (anchored popup via measureInWindow, opens up/down based on screen position), StreakDots.tsx, MiniBarRow.tsx, CompactBarRow.tsx, RankedList.tsx, TappableConceptList.tsx, ComparisonBars.tsx, DrillDownPanel.tsx, NutrientRow.tsx, IngredientFilterPills.tsx, DiversityBadge.tsx, GoalRow.tsx, SignatureIngredientGroup.tsx, StockUpCard.tsx, CookbookProgressRow.tsx
+
 ### Cards & Display
-PostCard.tsx (Strava-style stat row, recipe/chef press callbacks, recipe image fallback with badge, dietary badges, star ratings removed), MealPostCard.tsx (batch nutrition fetch + aggregation, clickable dish names, stacked UserAvatar for likes), LinkedPostsGroup.tsx, RecipeNutritionPanel.tsx (collapsible: calories+PCF collapsed, full macro breakdown expanded, quality confidence indicator), DietaryBadgeRow.tsx (color-coded dietary flags, compact/default sizes, overflow +N), UserAvatar.tsx (emoji regex includes \uFE0F, emoji font size 0.75x), PostActionMenu.tsx, CategoryHeader.tsx (SVG family icons, chip-style type breakdown), TypeHeader.tsx (SVG type icons with emoji fallback), PantryItemRow.tsx (SVG stock status: NoneIcon/WarningIcon/LowFuelIcon), GroceryListItem.tsx, MealInvitationsCard.tsx, PendingSpaceInvitations.tsx, MarkupText.tsx
+PostCard.tsx (Strava-style stat row, recipe/chef press callbacks, recipe image fallback with badge, dietary badges, star ratings removed), MealPostCard.tsx (batch nutrition fetch + aggregation, clickable dish names, stacked UserAvatar for likes), LinkedPostsGroup.tsx, RecipeNutritionPanel.tsx (collapsible: calories+PCF collapsed, full macro breakdown expanded, quality confidence indicator), DietaryBadgeRow.tsx (color-coded dietary flags, compact/default sizes, overflow +N), UserAvatar.tsx (handles emoji strings, URLs, and null via regex `/^[\p{Emoji}\u200D\uFE0F]+$/u`; emoji font size 0.75x), NutritionGoalsModal.tsx (6 nutrients, stepper inputs, daily/per-meal toggle, MEALS_PER_DAY=2.5), PostActionMenu.tsx, CategoryHeader.tsx (SVG family icons, chip-style type breakdown), TypeHeader.tsx (SVG type icons with emoji fallback), PantryItemRow.tsx (SVG stock status: NoneIcon/WarningIcon/LowFuelIcon), GroceryListItem.tsx, MealInvitationsCard.tsx, PendingSpaceInvitations.tsx, MarkupText.tsx
 
 ### Modals
 AddRecipeModal, AddDishToMealModal, AddGroceryItemModal, AddMealParticipantsModal, AddMediaModal, AddPantryItemModal, AddPlanItemModal, AddRecipeToListModal, AddRegularItemModal, AddCookingPartnersModal, AnnotationModal, AnnotationModeModal, BookOwnershipModal, BookSelectionModal, CookingPartnerApprovalModal, CreateMealModal, CreateSpaceModal, DayMealsModal, EditIngredientModal, EditInstructionModal, EditMealModal, EditRegularItemModal, EmojiPickerModal, FilterDrawer (major rewrite — see FilterDrawer State below), InviteMemberModal, ItemDetailModal, ParticipantsListModal, PostCreationModal, QuickAddModal, QuickMealPlanModal, SelectMealForRecipeModal, SelectMealModal
@@ -250,6 +321,74 @@ InlineEditableIngredient, InlineEditableInstruction, IngredientPopup
 
 ### Other
 AddRecipeImageButton, RemainderPrompt, StorageChangePrompt, SpaceSwitcher
+
+---
+
+## Navigation (App.tsx)
+
+### Bottom Tab Bar (left to right)
+
+| Tab | Stack | Key Screens |
+|-----|-------|-------------|
+| **Home** | FeedStack | FeedScreen → PendingApprovals, RecipeDetail, AuthorView, YasChefsList, CommentsList |
+| **Recipes** | RecipesStack | RecipeListScreen → RecipeDetail → CookingScreen, BookView, AuthorView, AddFromPhoto, AddFromUrl, RecipeReview, MissingIngredients |
+| **Meals** | MealsStack | MyMealsScreen → MealDetailScreen |
+| **Pantry** | PantryStack | PantryScreen → SpaceSettingsScreen |
+| **Grocery** | GroceryStack | GroceryListsScreen → GroceryListDetailScreen |
+| **You** | StatsStack | StatsScreen → DrillDown, ChefDetail, BookDetail, UserPosts, RecipeDetail, Profile, Settings, EditProfile |
+
+### StatsStack Routes
+```typescript
+type StatsStackParamList = {
+  StatsHome: undefined;
+  DrillDown: { type: string; value: string; label: string };
+  ChefDetail: { chefId: string };
+  BookDetail: { bookId: string };
+  UserPosts: { userId: string; displayName: string };
+  RecipeDetail: { recipe: { id: string; title: string } };
+  Profile: undefined;
+  Settings: undefined;
+  EditProfile: undefined;
+};
+```
+
+### Cross-Stack Navigation
+Stats drill-downs navigate to RecipeList via: `navigation.getParent()?.navigate('RecipesStack', { screen: 'RecipeList', params: { initialCuisine, initialCookingConcept, initialDietaryFlag, sortBy } })`
+
+---
+
+## StatsScreen Architecture
+
+### Layout Structure
+```
+<ScrollView stickyHeaderIndices={[1]}>
+  Child 0: Header + Cooking Stats/My Posts toggle (scrolls away)
+  Child 1: Sticky bar (sub-tabs + optional descriptive subtitle)
+  Child 2: Content view (sub-page components)
+</ScrollView>
+```
+
+### Control Placement
+- **Overview tab:** Sticky bar = sub-tabs only. Period pills + date range chip in chart card footer. MealTypeDropdown in chart card header. Date range chip opens anchored popup with ← Older / Newer → nav.
+- **Cooking/Nutrition/Insights tabs:** Sticky bar = sub-tabs + descriptive subtitle when scrolled past ControlStrip. ControlStrip (MealTypeDropdown + PeriodToggle) at top of content, scrolls with content. Subtitle shows "Last 12 Weeks · All Meals" etc., tappable to expand into overlay controls (period + meal type).
+
+### Scroll-Based Subtitle Logic
+ControlStrip's Y position measured via `onLayout` (relative to content View). Content View's Y measured via separate `onLayout` (relative to ScrollView). Combined = ControlStrip position in ScrollView coordinates. Subtitle appears when `scrollY > stripBottom - stickyBarHeight`, disappears when scrolling back.
+
+### Data Flow
+```
+StatsScreen (owns state: period, timeOffset, mealType)
+  ↓ computeDateRange(period, timeOffset) → dateRange
+  ↓
+  ├── StatsOverview (receives all control props + dateRange)
+  │   ├── Independent loading: streak, frequency, sections, week data
+  │   ├── Chart card footer: date chip + period pills
+  │   └── Date nav popup: ← Older / Newer → (anchored below chip)
+  │
+  ├── StatsRecipes (receives dateRange, mealType)
+  ├── StatsNutrition (receives dateRange, mealType)
+  └── StatsInsights (receives dateRange, mealType)
+```
 
 ---
 
@@ -309,6 +448,7 @@ posts → post_photos, post_participants, post_likes (yas_chefs), comments
 ├── post_type: 'dish' (standalone) or 'meal' (parent)
 ├── parent_meal_id (for dish posts within meals)
 ├── cooking_method, modifications
+├── photos: jsonb column (NOT a relation — [{url, order}])
 ├── (star ratings REMOVED from UI — column may still exist in DB)
 
 meals → meal_dishes, meal_participants, meal_plan_items
@@ -316,6 +456,10 @@ spaces → space_members, space_invitations
 pantry_items → ingredients (space-aware)
 grocery_lists → grocery_list_items → ingredients
 regular_items
+
+user_nutrition_goals                                       ← Phase 4
+├── user_id, nutrient, goal_value, goal_unit
+├── RLS: users manage own goals
 ```
 
 ### Key Database Tables by Domain
@@ -325,7 +469,7 @@ regular_items
 | 🍳 Recipe | recipes, recipe_ingredients, instruction_sections, instruction_steps, recipe_photos, recipe_annotations, recipe_references, books, chefs, user_books |
 | 👩‍🍳 Cooking | recipe_annotations (edits while cooking), instruction_steps |
 | 🗓️ Meal Planning | meal_dish_plans, user_recipe_tags, posts (meal type) |
-| 👥 Social | posts, post_likes, post_comments, comment_likes, post_participants, post_relationships, follows, meal_participants |
+| 👥 Social | posts, post_likes, post_comments, comment_likes, post_participants, post_relationships, follows, meal_participants, **user_nutrition_goals** |
 | 🥫 Pantry | pantry_items, spaces, space_members, space_settings, user_active_space, user_pantry_preferences |
 | 🛒 Grocery | grocery_lists, grocery_list_items, regular_grocery_items, stores |
 | 🔍 Discovery | ingredients, ingredient_suggestions, or_pattern_decisions |
@@ -455,6 +599,16 @@ const { data } = await supabase
   .eq('id', recipeId);
 ```
 
+### posts.photos is JSONB (NOT a relation)
+```typescript
+// CORRECT — photos is a jsonb column on posts table
+const { data } = await supabase.from('posts').select('id, title, photos');
+// data.photos = [{url: '...', order: 0}, ...]
+
+// WRONG — post_photos table does NOT exist
+const { data } = await supabase.from('posts').select('id, post_photos(url, order)');
+```
+
 ### Querying Nutrition Data
 ```typescript
 const { data } = await supabase
@@ -472,6 +626,17 @@ const { data } = await supabase
   .eq('space_id', activeSpaceId);
 ```
 
+### Anchored Popup Pattern (MealTypeDropdown, date nav)
+```typescript
+// measureInWindow gives position relative to screen
+buttonRef.current?.measureInWindow((x, y, w, h) => {
+  setLayout({ x, y, w, h });
+  setVisible(true);
+});
+// Open upward if button is in bottom half, downward otherwise
+const opensUp = layout.y > screenHeight / 2;
+```
+
 ### Theme Usage
 ```typescript
 const { colors, functionalColors } = useTheme();
@@ -479,10 +644,34 @@ const { colors, functionalColors } = useTheme();
 // Exception: RecipeDetailScreen and BookViewScreen currently use static StyleSheet
 ```
 
+### Avatar Handling
+```typescript
+// avatar_url can contain emoji strings ("👨‍🔬"), URLs, or null
+// ALWAYS use UserAvatar component — never raw <Image source={{ uri: avatarUrl }}>
+<UserAvatar user={{ avatar_url: avatarUrl }} size={32} />
+```
+
+### Independent Section Loading (StatsOverview pattern)
+```typescript
+// Instead of one loading state that blanks the whole page:
+const [frequencyLoading, setFrequencyLoading] = useState(true);
+const [sectionsLoading, setSectionsLoading] = useState(true);
+// Card shells always render. Content inside shows small spinner or data.
+// No full-page flash on period/meal type change.
+```
+
 ---
 
 ## Recent Breaking Changes (March 2026)
 
+### Phase 4/I (March 3-5)
+- **MyPostsStack → StatsStack** in App.tsx. "My Posts" tab renamed to "You" and moved to far right of bottom nav
+- **Legacy MyPostsStackParamList** type export kept for 4 screens (YasChef, Comments, EditMedia, MyPostDetails)
+- **"Recipes" sub-tab renamed to "Cooking"** in stats dashboard
+- **Period model changed** from calendar periods ('week'/'month'/'season'/'year'/'all') to rolling windows ('12w'/'6m'/'1y')
+- **All stats queries use DateRange** with both .gte AND .lte bounds (previously only .gte)
+
+### Phase 3A (February)
 - **Star ratings removed** from PostCard and MyPostDetailsScreen — replaced with nutrition display and dietary badges
 - **FilterDrawer state shape changed** — removed: maxCost, minPantryMatch, onePostOnly, dietaryTags. Added: dietaryFlags (8 booleans), heroIngredients, vibeTags, nutrition sliders, servingTemp
 - **Dynamic theming removed** from RecipeDetailScreen and BookViewScreen — now use static StyleSheet.create() with hardcoded colors
@@ -544,17 +733,6 @@ recipe_ingredients.original_text → UI → User sees exact recipe text
     ingredient_id → nutrition, shopping list, pantry matching
 ```
 
-### OR Pattern Detection (designed)
-- Color variants → Equivalent (red/green cabbage)
-- Common substitutions → Primary/Alternative (butter/oil)
-- Decisions tracked to `or_pattern_decisions` table (⚠️ may not exist)
-
-### Analytics Views (designed, may not exist)
-- `or_pattern_analysis` — Aggregated OR patterns across recipes
-- `migration_readiness` — Progress toward ML-based matching
-- `remaining_review_items` — Ingredients needing manual review
-- `unmatched_ingredients` — Items that couldn't be matched
-
 ### Hierarchical Ingredients (confirmed in DB)
 ```
 sugar (parent, base_ingredient_id = NULL)
@@ -567,3 +745,13 @@ sugar (parent, base_ingredient_id = NULL)
 - Always store and display exact recipe wording in `original_text`
 - Never show users the "matched" ingredient name
 - Maintains recipe author's intent
+
+---
+
+## Changelog
+
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-03-05 | 3.0 | **Phase 4 complete.** Added statsService.ts (38 functions) and nutritionGoalsService.ts to services. Added components/stats/ directory (~30 components) to directory structure. Added 5 new screens (StatsScreen, DrillDown, ChefDetail, BookDetail, UserPosts). Added Navigation section with StatsStack routes and cross-stack nav pattern. Added StatsScreen Architecture section (layout, control placement, scroll subtitle, data flow). Added posts.photos JSONB pattern, anchored popup pattern, avatar handling pattern, independent section loading pattern to Common Patterns. Updated data model with user_nutrition_goals table and photos jsonb note. Updated bottom tab bar (6 tabs, You tab far right). Added Phase 4/I breaking changes. |
+| 2026-03-02 | 2.1 | Added domain scope boundaries from Product Architecture, cross-domain integration map. |
+| 2026-03-02 | 2.0 | Major restructure. Added 8 Feature Domains. Ingredient matching section with validation warnings. March 2 changelog incorporated. |

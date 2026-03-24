@@ -1,28 +1,17 @@
 // screens/RecipeDetailScreen.tsx
-// UPDATED VERSION: November 14, 2025
-// New Features:
-// - Unit conversion (Original/Metric/Imperial)
-// - Clickable ingredients in instructions
-// - Full annotation/edit mode with:
-//   * Edit ingredients
-//   * Edit/delete/reorder instructions
-//   * Markup view display
-//   * Ingredient change detection
+// Phase 6B redesign — NYT Cooking-style layout
+// Sub-components in components/recipe/: RecipeHeader, IngredientsSection, PreparationSection, ScaleConvertControls
 
 import { useEffect, useState, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Alert,
   Modal,
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -34,22 +23,25 @@ import { getInstructionSections } from '../lib/services/instructionSectionsServi
 import { InstructionSection } from '../lib/types/recipeExtraction';
 import AddRecipeToListModal from '../components/AddRecipeToListModal';
 import IngredientPopup from '../components/IngredientPopup';
-import InlineEditableIngredient from '../components/InlineEditableIngredient';
-import InlineEditableInstruction from '../components/InlineEditableInstruction';
 import SelectMealForRecipeModal from '../components/SelectMealForRecipeModal';
 import RecipeNutritionPanel from '../components/RecipeNutritionPanel';
-import MarkupText from '../components/MarkupText';
-import { 
-  splitInstructionIntoParts,
+import RecipeHeader from '../components/recipe/RecipeHeader';
+import IngredientsSection from '../components/recipe/IngredientsSection';
+import PreparationSection from '../components/recipe/PreparationSection';
+import ScaleConvertControls from '../components/recipe/ScaleConvertControls';
+import {
   formatIngredientForPopup,
-  TextPart
 } from '../utils/ingredientMatcher';
-import { 
-  convertUnit,
+import {
   convertRecipeIngredients,
   UnitSystem,
-  ConversionResult
 } from '../lib/services/unitConverter';
+import { mapIngredientsToSteps } from '../lib/services/cookingService';
+import { StepIngredient } from '../lib/types/cooking';
+import { buildStepKeys } from '../components/recipe/PreparationSection';
+import { toTitleCase } from '../components/recipe/RecipeHeader';
+import { SaveOutlineIcon, SaveFilledIcon } from '../components/recipe/SaveIcon';
+import { addToCookSoon, removeFromCookSoon, isInCookSoon } from '../lib/services/userRecipeTagsService';
 import {
   getUserRecipeAnnotations,
   saveIngredientEdit,
@@ -71,6 +63,8 @@ interface Ingredient {
   quantity_amount?: number;
   quantity_unit?: string;
   preparation?: string;
+  group_name: string | null;
+  group_number: number | null;
   _annotation?: {
     original: string;
     new: string;
@@ -96,13 +90,8 @@ interface Recipe {
   page_number?: number;
   book_title?: string;
   book_author?: string;
+  servings?: number;
 }
-
-const FIXED_SCALE_OPTIONS = [
-  { label: '1x', value: 1 },
-  { label: '2x', value: 2 },
-  { label: '3x', value: 3 },
-];
 
 const UNIT_SYSTEMS: Array<{ label: string; value: UnitSystem }> = [
   { label: 'Original', value: 'original' },
@@ -127,57 +116,6 @@ function getInstructionText(instruction: any): string {
   return instruction.instruction || instruction.text || '';
 }
 
-function parseAndScaleQuantity(text: string, scale: number): string {
-  if (scale === 1) return text;
-  
-  const parts = text.split(' ');
-  const firstPart = parts[0];
-  
-  const fractionMap: { [key: string]: number } = {
-    '¼': 0.25, '½': 0.5, '¾': 0.75,
-    '⅓': 0.333, '⅔': 0.667,
-    '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875,
-  };
-  
-  let numericValue = 0;
-  let hasNumber = false;
-  
-  if (fractionMap[firstPart]) {
-    numericValue = fractionMap[firstPart];
-    hasNumber = true;
-  } else {
-    const numberMatch = firstPart.match(/^(\d+(?:\.\d+)?)([\u00BC-\u00BE\u2150-\u215E])?/);
-    if (numberMatch) {
-      numericValue = parseFloat(numberMatch[1]);
-      if (numberMatch[2] && fractionMap[numberMatch[2]]) {
-        numericValue += fractionMap[numberMatch[2]];
-      }
-      hasNumber = true;
-    }
-  }
-  
-  if (hasNumber) {
-    const scaled = numericValue * scale;
-    const restOfText = parts.slice(1).join(' ');
-    
-    if (scaled % 1 === 0) {
-      return `${scaled} ${restOfText}`;
-    } else if (scaled % 0.5 === 0) {
-      const whole = Math.floor(scaled);
-      return whole > 0 ? `${whole}½ ${restOfText}` : `½ ${restOfText}`;
-    } else if (scaled % 0.25 === 0) {
-      const whole = Math.floor(scaled);
-      const fraction = scaled - whole;
-      const fractionChar = fraction === 0.25 ? '¼' : fraction === 0.75 ? '¾' : '';
-      return whole > 0 ? `${whole}${fractionChar} ${restOfText}` : `${fractionChar} ${restOfText}`;
-    } else {
-      return `${scaled.toFixed(1)} ${restOfText}`;
-    }
-  }
-  
-  return text;
-}
-
 export default function RecipeDetailScreen({ navigation, route }: Props) {
   const { recipe: recipePreview, planItemId, mealId, mealTitle } = route.params as {
     recipe: any;
@@ -195,19 +133,29 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [currentUnitSystem, setCurrentUnitSystem] = useState<UnitSystem>('original');
   const [convertedIngredients, setConvertedIngredients] = useState<any[]>([]);
   const [showListModal, setShowListModal] = useState(false);
+  const [listModalMode, setListModalMode] = useState<'missing' | 'all'>('all');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [nutritionExpanded, setNutritionExpanded] = useState(false);
+  const [stepIngredients, setStepIngredients] = useState<Map<number, StepIngredient[]>>(new Map());
   const [showScalePicker, setShowScalePicker] = useState(false);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [pickerScale, setPickerScale] = useState(4);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [ingredientsCollapsed, setIngredientsCollapsed] = useState(false);
-  const [instructionsCollapsed, setInstructionsCollapsed] = useState(false);
-  
+  // Scroll tracking + sticky bar
   const [scrollY, setScrollY] = useState(0);
   const [ingredientsHeaderY, setIngredientsHeaderY] = useState(0);
-  const [instructionsHeaderY, setInstructionsHeaderY] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [preparationHeaderY, setPreparationHeaderY] = useState(0);
+  const [titleBottomY, setTitleBottomY] = useState(0);
+  const hasSeenPreparation = useRef(false);
+  const topBarHeight = 52;
+
+  // Cook Soon
+  const [isCookSoon, setIsCookSoon] = useState(false);
+
+  // Step focus mode
+  const [focusedStepKey, setFocusedStepKey] = useState<string | null>(null);
+  const stepPositionsRef = useRef<Map<string, number>>(new Map());
 
   // Ingredient popup state
   const [ingredientPopup, setIngredientPopup] = useState<{
@@ -227,7 +175,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>('clean');
   const [isEditMode, setIsEditMode] = useState(false);
   const [annotations, setAnnotations] = useState<RecipeAnnotation[]>([]);
-  const [showViewModeMenu, setShowViewModeMenu] = useState(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [showMealModal, setShowMealModal] = useState(false);
   
   // Inline editing state
@@ -302,21 +250,23 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         page_number: recipeData.page_number,
         book_title: recipeData.book?.title,
         book_author: recipeData.book?.author,
+        servings: recipeData.servings || undefined,
       };
+
 
       setRecipe(formattedRecipe);
 
       const sections = await getInstructionSections(recipeData.id);
-      console.log('📋 Instruction sections loaded:', sections);
-      console.log('📋 Section count:', sections?.length || 0);
       if (sections && sections.length > 0) {
-        console.log('📋 First section:', JSON.stringify(sections[0], null, 2));
-        console.log('📋 First section steps:', sections[0].steps?.length || 0);
         setInstructionSections(sections);
-        setExpandedSections(sections.map(s => s.id));
-      } else {
-        console.log('⚠️ No instruction sections found - check database!');
-        console.log('⚠️ Recipe ID:', recipeData.id);
+      }
+
+      // Precompute ingredient-to-step mapping for expandable steps
+      try {
+        const mapping = mapIngredientsToSteps(recipeData);
+        setStepIngredients(mapping);
+      } catch (e) {
+        // Non-critical — step expansion just won't show ingredients
       }
 
       const { data: ingredientsData, error: ingredientsError } = await supabase
@@ -334,15 +284,29 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
       if (ingredientsError) throw ingredientsError;
 
-      const formattedIngredients = ingredientsData.map((item: any) => ({
-        id: item.ingredient_id,
-        name: item.ingredient?.name || 'Unknown',
-        displayText: item.original_text,
-        family: item.ingredient?.family || 'Other',
-        quantity_amount: item.quantity_amount,
-        quantity_unit: item.quantity_unit,
-        preparation: item.preparation,
-      }));
+      // Merge group_name from the recipes.ingredients JSONB
+      const rawIngredients = recipeData.ingredients || [];
+
+      const formattedIngredients = ingredientsData.map((item: any) => {
+        // Find matching ingredient in JSONB by original_text or sequence_order
+        const jsonbMatch = rawIngredients.find((raw: any) => {
+          if (typeof raw === 'string') return false;
+          return raw.original_text === item.original_text
+              || raw.sequence_order === item.sequence_order;
+        });
+
+        return {
+          id: item.ingredient_id,
+          name: item.ingredient?.name || 'Unknown',
+          displayText: item.original_text,
+          family: item.ingredient?.family || 'Other',
+          quantity_amount: item.quantity_amount,
+          quantity_unit: item.quantity_unit,
+          preparation: item.preparation,
+          group_name: typeof jsonbMatch === 'object' ? (jsonbMatch.group_name || null) : null,
+          group_number: typeof jsonbMatch === 'object' ? (jsonbMatch.group_number ?? null) : null,
+        };
+      });
 
       setIngredients(formattedIngredients);
 
@@ -362,6 +326,12 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
       setCurrentUserId(user.id);
       const items = await getPantryItems(user.id);
       setPantryItems(items);
+
+      // Check Cook Soon status
+      try {
+        const saved = await isInCookSoon(user.id, recipePreview.id);
+        setIsCookSoon(saved);
+      } catch (_) {}
     } catch (error) {
       console.error('Error loading pantry:', error);
     }
@@ -392,14 +362,6 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     }
   }, [ingredients, pantryItems, currentScale]);
 
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => 
-      prev.includes(sectionId)
-        ? prev.filter(id => id !== sectionId)
-        : [...prev, sectionId]
-    );
-  };
-
   const handleBookPress = () => {
     if (recipe?.book_id) {
       navigation.navigate('BookView' as any, { bookId: recipe.book_id });
@@ -420,11 +382,6 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const handleScalePickerConfirm = () => {
     setCurrentScale(pickerScale);
     setShowScalePicker(false);
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    setScrollY(currentScrollY);
   };
 
   const handleIngredientPress = (
@@ -604,80 +561,76 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     Alert.alert('Coming Soon', 'Drag to reorder will be implemented in the next update');
   };
 
-  const renderInstructionWithClickableIngredients = (
-    instruction: string,
-    stepNumber: number,
-    annotation?: any
-  ) => {
-    // If in markup mode and has annotation, show markup
-    if (viewMode === 'markup' && annotation) {
-      return (
-        <View style={styles.stepTextContainer}>
-          <MarkupText
-            original={annotation.original}
-            edited={annotation.new}
-            notes={annotation.notes}
-            isDeleted={annotation.isDeleted}
-          />
-        </View>
-      );
-    }
-
-    const parts = splitInstructionIntoParts(instruction, ingredients);
-
-    return (
-      <Text style={styles.stepText}>
-        {parts.map((part, index) => {
-          if (part.type === 'ingredient' && part.ingredient) {
-            return (
-              <Text
-                key={`${stepNumber}-${index}`}
-                style={styles.clickableIngredient}
-                onPress={(e) => handleIngredientPress(part.ingredient!, e)}
-              >
-                {part.text}
-              </Text>
-            );
-          }
-          return (
-            <Text key={`${stepNumber}-${index}`}>{part.text}</Text>
-          );
-        })}
-      </Text>
-    );
-  };
-
-  const showIngredientsSticky = scrollY >= ingredientsHeaderY - 50;
-  const showInstructionsSticky = scrollY >= instructionsHeaderY - 50;
-
   // Apply annotations to data
   const displayIngredients = applyIngredientAnnotations(ingredients, annotations, viewMode);
-  const displayInstructions = recipe?.instructions ? 
+  const displayInstructions = recipe?.instructions ?
     applyInstructionAnnotations(recipe.instructions, annotations, viewMode) : [];
 
-  const groupedIngredients = displayIngredients.reduce((acc, ingredient) => {
-    const family = ingredient.family || 'Other';
-    if (!acc[family]) {
-      acc[family] = [];
-    }
-    acc[family].push(ingredient);
-    return acc;
-  }, {} as Record<string, Ingredient[]>);
+  // Step keys for ‹/› navigation
+  const stepKeys = buildStepKeys(instructionSections, displayInstructions);
 
-  const sortedFamilies = Object.keys(groupedIngredients).sort((a, b) => {
-    const order = ['Protein', 'Vegetables', 'Pantry', 'Spices', 'Other'];
-    const aIndex = order.indexOf(a);
-    const bIndex = order.indexOf(b);
-    if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
-    if (aIndex === -1) return 1;
-    if (bIndex === -1) return -1;
-    return aIndex - bIndex;
-  });
+  // Sticky bar visibility (progressive)
+  const stickyOffset = 35;
+  const showStickyIngredients = scrollY >= ingredientsHeaderY + stickyOffset && ingredientsHeaderY > 0;
+  const showStickyPrepNow = scrollY >= preparationHeaderY + stickyOffset && preparationHeaderY > 0;
+  // Once PREPARATION has been seen, keep it in the sticky bar permanently
+  if (showStickyPrepNow) hasSeenPreparation.current = true;
+  const showStickyPrep = showStickyPrepNow || (hasSeenPreparation.current && showStickyIngredients);
+  const showStickyBar = showStickyIngredients;
+
+  // Top bar title visibility (show only when actual title scrolled offscreen)
+  const showTopBarTitle = scrollY >= titleBottomY && titleBottomY > 0;
+
+  // Cook Soon toggle
+  const handleToggleCookSoon = async () => {
+    if (!currentUserId || !recipe) return;
+    try {
+      if (isCookSoon) {
+        await removeFromCookSoon(currentUserId, recipe.id);
+        setIsCookSoon(false);
+      } else {
+        await addToCookSoon(currentUserId, recipe.id);
+        setIsCookSoon(true);
+      }
+    } catch (_) {}
+  };
+
+  // Focus mode handlers
+  const handleStepFocus = (stepKey: string) => {
+    if (focusedStepKey === stepKey) {
+      setFocusedStepKey(null);
+    } else {
+      setFocusedStepKey(stepKey);
+      // No auto-scroll on tap — step expands in place
+    }
+  };
+
+  const handleStepNav = (direction: 'prev' | 'next') => {
+    if (!focusedStepKey) return;
+    const currentIdx = stepKeys.indexOf(focusedStepKey);
+    if (currentIdx === -1) return;
+    const newIdx = direction === 'next' ? currentIdx + 1 : currentIdx - 1;
+    if (newIdx < 0 || newIdx >= stepKeys.length) return;
+    const newKey = stepKeys[newIdx];
+    setFocusedStepKey(newKey);
+    const stepY = stepPositionsRef.current.get(newKey);
+    if (stepY !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: Math.max(0, stepY - 80), animated: true });
+    }
+  };
+
+  const handleStepLayout = (stepKey: string, y: number) => {
+    stepPositionsRef.current.set(stepKey, y);
+  };
+
+  const focusedIdx = focusedStepKey ? stepKeys.indexOf(focusedStepKey) : -1;
+  const canGoPrev = focusedIdx > 0;
+  const canGoNext = focusedIdx >= 0 && focusedIdx < stepKeys.length - 1;
 
   if (loading || !recipe) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#0d9488" />
       </SafeAreaView>
     );
   }
@@ -686,613 +639,252 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Compact Top Bar */}
+      {/* Top Bar: ← + Title + Save + ⋮ */}
       <View style={styles.topBar}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        
+
+        {showTopBarTitle ? (
+          <TouchableOpacity
+            style={styles.topTitleContainer}
+            onPress={() => scrollViewRef.current?.scrollTo({ y: 0, animated: true })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.topTitle} numberOfLines={1} ellipsizeMode="tail">
+              {toTitleCase(recipe.title)}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.topTitleContainer} />
+        )}
+
         <View style={styles.topRightButtons}>
           <TouchableOpacity
-            style={styles.topSmallButton}
-            onPress={() => setShowViewModeMenu(true)}
+            style={styles.topBarIcon}
+            onPress={handleToggleCookSoon}
+            activeOpacity={0.7}
           >
-            <Text style={styles.topSmallButtonText}>
-              {viewMode === 'original' ? '📖' : viewMode === 'markup' ? '✏️' : '👁️'}
-            </Text>
+            {isCookSoon ? <SaveFilledIcon size={23} /> : <SaveOutlineIcon size={23} />}
           </TouchableOpacity>
-          
           <TouchableOpacity
-            style={[
-              styles.topSmallButton,
-              isEditMode && styles.topSmallButtonActive
-            ]}
-            onPress={() => setIsEditMode(!isEditMode)}
+            style={styles.overflowButton}
+            onPress={() => setShowOverflowMenu(true)}
           >
-            <Text style={styles.topSmallButtonText}>
-              {isEditMode ? '✓' : '✏️'}
-            </Text>
-          </TouchableOpacity>
-          
-          {/* NEW: Add to Meal button */}
-          <TouchableOpacity
-            style={styles.topAddToMealButton}
-            onPress={() => setShowMealModal(true)}
-          >
-            <Text style={styles.topAddToMealButtonText}>🍽️</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.topStartCookingButton}
-            onPress={() => navigation.navigate('Cooking', { 
-              recipe: recipe,
-              planItemId,
-              mealId,
-              mealTitle,
-            })}
-          >
-            <Text style={styles.topStartCookingButtonText}>Cook</Text>
+            <Text style={styles.overflowButtonText}>⋮</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* View Mode Menu */}
+      {/* Overflow Menu */}
       <Modal
-        visible={showViewModeMenu}
+        visible={showOverflowMenu}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowViewModeMenu(false)}
+        onRequestClose={() => setShowOverflowMenu(false)}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowViewModeMenu(false)}
+          onPress={() => setShowOverflowMenu(false)}
         >
           <View style={styles.menuContainer}>
-            <Text style={styles.menuTitle}>View Mode</Text>
-            
-            {(['original', 'clean', 'markup'] as ViewMode[]).map((mode) => (
+            {/* View mode options */}
+            {(['clean', 'original', 'markup'] as ViewMode[]).map((mode) => (
               <TouchableOpacity
                 key={mode}
-                style={[
-                  styles.menuItem,
-                  viewMode === mode && styles.menuItemActive
-                ]}
+                style={styles.menuItem}
                 onPress={() => {
                   setViewMode(mode);
-                  setShowViewModeMenu(false);
+                  setShowOverflowMenu(false);
                 }}
               >
-                <Text style={styles.menuItemText}>
-                  {mode === 'original' && '📖 Original'}
-                  {mode === 'clean' && '👁️ Clean'}
-                  {mode === 'markup' && '✏️ Markup'}
+                <Text style={[styles.menuItemText, viewMode === mode && styles.menuItemTextActive]}>
+                  {viewMode === mode ? '✓  ' : '    '}
+                  {mode === 'clean' && 'Clean View'}
+                  {mode === 'original' && 'Original View'}
+                  {mode === 'markup' && 'Markup View'}
                 </Text>
-                {viewMode === mode && (
-                  <Text style={styles.menuItemCheck}>✓</Text>
-                )}
               </TouchableOpacity>
             ))}
+
+            {/* Edit Recipe */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setIsEditMode(!isEditMode);
+                setShowOverflowMenu(false);
+              }}
+            >
+              <Text style={styles.menuItemText}>
+                {isEditMode ? '✓  ' : '    '}Edit Recipe
+              </Text>
+            </TouchableOpacity>
+
+            {/* Unit Conversion */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowOverflowMenu(false);
+                setShowUnitPicker(true);
+              }}
+            >
+              <Text style={styles.menuItemText}>
+                {'    '}Unit Conversion{currentUnitSystem !== 'original' ? ` (${UNIT_SYSTEMS.find(u => u.value === currentUnitSystem)?.label})` : ''}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            {/* Meal Plan */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowOverflowMenu(false);
+                setShowMealModal(true);
+              }}
+            >
+              <Text style={styles.menuItemText}>{'    '}+ Meal Plan</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* Sticky Headers */}
-      {showIngredientsSticky && !showInstructionsSticky && (
-        <TouchableOpacity
-          style={styles.stickyHeader}
-          onPress={() => setIngredientsCollapsed(!ingredientsCollapsed)}
-        >
-          <View style={styles.stickyHeaderLeft}>
-            <Text style={styles.stickySectionTitle}>
-              🥬 Ingredients {currentScale > 1 && `(${currentScale}x)`}
-            </Text>
-            <Text style={styles.stickySectionIcon}>
-              {ingredientsCollapsed ? '▶' : '▼'}
-            </Text>
-          </View>
-          <View style={styles.stickyHeaderButtons}>
-            {missingIngredients.length > 0 && (
+      {/* Progressive sticky section bar */}
+      {showStickyBar && (
+        <View>
+          <View style={styles.stickyAccentLine} />
+          <View style={styles.stickyBar}>
+            {showStickyIngredients && (
               <TouchableOpacity
-                style={styles.stickyInlineButton}
-                onPress={() => setShowListModal(true)}
+                style={styles.stickyTab}
+                onPress={() => scrollViewRef.current?.scrollTo({ y: Math.max(0, ingredientsHeaderY + stickyOffset + 30), animated: true })}
               >
-                <Text style={styles.stickyInlineButtonText}>
-                  + Missing ({missingIngredients.length})
+                <Text style={[styles.stickyTabText, !showStickyPrepNow && styles.stickyTabTextActive]}>
+                  INGREDIENTS
+                  {displayIngredients.length > 0 && (
+                    <Text style={styles.stickyPantryCount}>
+                      {'  '}{displayIngredients.filter(ing => {
+                        const scaled = (ing.quantity_amount || 0) * currentScale;
+                        const inPantry = pantryItems.find(p => p.ingredient_id === ing.id);
+                        return inPantry && (inPantry.quantity_display || 0) >= scaled;
+                      }).length}/{displayIngredients.length}
+                    </Text>
+                  )}
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.stickyInlineButton}
-              onPress={() => setShowListModal(true)}
-            >
-              <Text style={styles.stickyInlineButtonText}>+ All</Text>
-            </TouchableOpacity>
+            {showStickyPrep && (
+              <TouchableOpacity
+                style={[styles.stickyTab, styles.stickyTabRight]}
+                onPress={() => scrollViewRef.current?.scrollTo({ y: Math.max(0, preparationHeaderY + stickyOffset + 35), animated: true })}
+              >
+                <Text style={[styles.stickyTabText, showStickyPrepNow && styles.stickyTabTextActive]}>PREPARATION</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        </TouchableOpacity>
+        </View>
       )}
 
-      {showInstructionsSticky && (
-        <TouchableOpacity
-          style={styles.stickyHeader}
-          onPress={() => setInstructionsCollapsed(!instructionsCollapsed)}
-        >
-          <View style={styles.stickyHeaderLeft}>
-            <Text style={styles.stickySectionTitle}>📝 Instructions</Text>
-            <Text style={styles.stickySectionIcon}>
-              {instructionsCollapsed ? '▶' : '▼'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
-        onScroll={handleScroll}
+        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
       >
-        {/* Header Image */}
-        {recipe.image_url && (
-          <Image source={{ uri: recipe.image_url }} style={styles.headerImage} />
-        )}
+        {/* Header: Image + Title + Chef + Book + Time + Description */}
+        <RecipeHeader
+          recipe={recipe}
+          totalTime={totalTime}
+          onBookPress={handleBookPress}
+          onChefPress={handleChefPress}
+          onShowMealModal={() => setShowMealModal(true)}
+          onToggleCookSoon={handleToggleCookSoon}
+          isCookSoon={isCookSoon}
+          onTitleLayout={(y) => setTitleBottomY(y)}
+        />
 
-        {/* Title & Meta */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{recipe.title}</Text>
-          
-          {recipe.description && (
-            <Text style={styles.description}>{recipe.description}</Text>
-          )}
-
-          <View style={styles.metaRow}>
-            {recipe.prep_time_min > 0 && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>🔪 Prep: {recipe.prep_time_min} min</Text>
-              </View>
-            )}
-            {recipe.cook_time_min > 0 && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>🔥 Cook: {recipe.cook_time_min} min</Text>
-              </View>
-            )}
-            {totalTime > 0 && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>⏱️ Total: {totalTime} min</Text>
-              </View>
-            )}
-            {recipe.times_cooked !== undefined && recipe.times_cooked > 0 && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>👨‍🍳 Cooked {recipe.times_cooked}x</Text>
-              </View>
-            )}
+        {/* Nutrition — expandable row below metadata */}
+        <TouchableOpacity
+          style={styles.nutritionRow}
+          onPress={() => setNutritionExpanded(!nutritionExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.nutritionRowArrow}>{nutritionExpanded ? '▾' : '▸'}</Text>
+          <Text style={styles.nutritionRowText}>Nutritional Information</Text>
+        </TouchableOpacity>
+        {nutritionExpanded && recipe && (
+          <View style={styles.nutritionPanel}>
+            <RecipeNutritionPanel recipeId={recipe.id} />
           </View>
-
-          {(recipe.book_title || recipe.chef_name) && (
-            <View style={styles.sourceRow}>
-              {recipe.book_title && (
-                <TouchableOpacity onPress={handleBookPress}>
-                  <Text style={styles.sourceText}>
-                    📚 {recipe.book_title}
-                    {recipe.page_number && ` (p. ${recipe.page_number})`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {recipe.chef_name && (
-                <TouchableOpacity onPress={handleChefPress}>
-                  <Text style={styles.sourceText}>
-                    👨‍🍳 {recipe.chef_name}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Nutrition Summary */}
-        {recipe && (
-          <RecipeNutritionPanel recipeId={recipe.id} />
         )}
 
         {/* Scale and Convert Controls */}
-        <View style={styles.controlsContainer}>
-          <View style={styles.controlsRow}>
-            <View style={styles.scaleSection}>
-              <Text style={styles.scaleLabel}>Scale:</Text>
-              <View style={styles.scaleButtons}>
-                {FIXED_SCALE_OPTIONS.map(option => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.scaleButton,
-                      currentScale === option.value && styles.scaleButtonActive,
-                    ]}
-                    onPress={() => setCurrentScale(option.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.scaleButtonText,
-                        currentScale === option.value && styles.scaleButtonTextActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity
-                  style={[
-                    styles.scaleButton,
-                    currentScale > 3 && styles.scaleButtonActive,
-                  ]}
-                  onPress={() => setShowScalePicker(true)}
-                >
-                  <Text
-                    style={[
-                      styles.scaleButtonText,
-                      currentScale > 3 && styles.scaleButtonTextActive,
-                    ]}
-                  >
-                    {currentScale > 3 ? `${currentScale}x` : 'More'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.convertSection}>
-              <Text style={styles.scaleLabel}>Convert:</Text>
-              <TouchableOpacity
-                style={styles.unitDropdown}
-                onPress={() => setShowUnitPicker(true)}
-              >
-                <Text style={styles.unitDropdownText}>
-                  {UNIT_SYSTEMS.find(u => u.value === currentUnitSystem)?.label}
-                </Text>
-                <Text style={styles.unitDropdownArrow}>▼</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <ScaleConvertControls
+          currentScale={currentScale}
+          onScaleChange={setCurrentScale}
+          onShowScalePicker={() => setShowScalePicker(true)}
+        />
 
         {/* Ingredients Section */}
-        <View style={styles.sectionCard}>
-        <View
-          style={styles.sectionCardInner}
-          onLayout={(event: LayoutChangeEvent) => {
-            setIngredientsHeaderY(event.nativeEvent.layout.y);
+        <IngredientsSection
+          displayIngredients={displayIngredients}
+          currentScale={currentScale}
+          currentUnitSystem={currentUnitSystem}
+          convertedIngredients={convertedIngredients}
+          pantryItems={pantryItems}
+          missingCount={missingIngredients.length}
+          isEditMode={isEditMode}
+          viewMode={viewMode}
+          editingIngredientIndex={editingIngredientIndex}
+          onEditIngredient={handleEditIngredient}
+          onSaveIngredientEdit={handleSaveIngredientEdit}
+          onCancelIngredientEdit={handleCancelIngredientEdit}
+          onShowMissingListModal={() => {
+            setListModalMode('missing');
+            setShowListModal(true);
           }}
-        >
-          <TouchableOpacity 
-            style={styles.sectionHeader}
-            onPress={() => setIngredientsCollapsed(!ingredientsCollapsed)}
-          >
-            <View style={styles.sectionHeaderLeft}>
-              <Text style={styles.sectionTitle}>
-                🥬 Ingredients {currentScale > 1 && `(${currentScale}x)`}
-                {currentUnitSystem !== 'original' && ` • ${UNIT_SYSTEMS.find(u => u.value === currentUnitSystem)?.label}`}
-              </Text>
-              <Text style={styles.collapseIcon}>
-                {ingredientsCollapsed ? '▶' : '▼'}
-              </Text>
-            </View>
-            <View style={styles.sectionHeaderButtons}>
-              {missingIngredients.length > 0 && (
-                <TouchableOpacity
-                  style={styles.inlineButton}
-                  onPress={() => setShowListModal(true)}
-                >
-                  <Text style={styles.inlineButtonText}>
-                    + Missing ({missingIngredients.length})
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.inlineButton}
-                onPress={() => setShowListModal(true)}
-              >
-                <Text style={styles.inlineButtonText}>+ All</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-          
-          {!ingredientsCollapsed && (
-            <View style={styles.sectionContent}>
-              {sortedFamilies.map((family) => (
-                <View key={family} style={styles.familyGroup}>
-                  <Text style={styles.familyHeader}>{family}</Text>
-                  {groupedIngredients[family].map((ingredient: Ingredient, familyIndex: number) => {
-                    // Get the global index from displayIngredients
-                    const globalIndex = displayIngredients.findIndex(i => i.id === ingredient.id);
-                    
-                    const scaledAmount = (ingredient.quantity_amount || 0) * currentScale;
-                    const inPantry = pantryItems.find(item => item.ingredient_id === ingredient.id);
-                    const hasSufficient = inPantry && (inPantry.quantity_display || 0) >= scaledAmount;
-
-                    // Get display text - use original scaling if no conversion
-                    let displayText: string;
-                    
-                    if (currentUnitSystem === 'original') {
-                      // No unit conversion, just scale the quantity
-                      displayText = parseAndScaleQuantity(ingredient.displayText, currentScale);
-                    } else {
-                      // Try to use converted version
-                      const converted = convertedIngredients.find(c => c.displayText === ingredient.displayText);
-                      displayText = converted?.converted?.displayText || parseAndScaleQuantity(ingredient.displayText, currentScale);
-                    }
-
-                    // Check if this ingredient is being edited
-                    const isEditing = isEditMode && editingIngredientIndex === globalIndex;
-
-                    // Show inline editor if editing this ingredient
-                    if (isEditing) {
-                      return (
-                        <InlineEditableIngredient
-                           key={`${family}-ingredient-${ingredient.id}-${globalIndex}`}
-                          originalText={displayText}
-                          onSave={(newText) => handleSaveIngredientEdit(globalIndex, newText)}
-                          onCancel={handleCancelIngredientEdit}
-                          hasSufficient={hasSufficient}
-                        />
-                      );
-                    }
-
-                    // Check for annotation in markup mode
-                    const showMarkup = viewMode === 'markup' && ingredient._annotation;
-
-                    return (
-                      <View key={`ingredient-${ingredient.id}-${globalIndex}-${family}-${familyIndex}`} style={styles.ingredientRow}>
-                        <View style={styles.ingredient}>
-                          <Text style={hasSufficient ? styles.ingredientHave : styles.ingredientNeed}>
-                            {hasSufficient ? '✓' : '○'}
-                          </Text>
-                          {showMarkup && ingredient._annotation ? (
-                            <View style={styles.ingredientTextContainer}>
-                              <MarkupText
-                                original={ingredient._annotation.original}
-                                edited={ingredient._annotation.new}
-                                notes={ingredient._annotation.notes}
-                              />
-                            </View>
-                          ) : (
-                            <Text style={styles.ingredientText}>{displayText}</Text>
-                          )}
-                        </View>
-                        {isEditMode && (
-                          <View style={styles.ingredientEditButtons}>
-                            <TouchableOpacity
-                              style={styles.editIconButton}
-                              onPress={() => handleEditIngredient(globalIndex)}
-                            >
-                              <Text style={styles.editIconText}>✏️</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-        </View>
-
-        {/* Instructions Section */}
-        <View style={styles.sectionCard}>
-        <View
-          style={styles.sectionCardInner}
-          onLayout={(event: LayoutChangeEvent) => {
-            setInstructionsHeaderY(event.nativeEvent.layout.y);
+          onShowAllListModal={() => {
+            setListModalMode('all');
+            setShowListModal(true);
           }}
-        >
-          <TouchableOpacity 
-            style={styles.sectionHeader}
-            onPress={() => setInstructionsCollapsed(!instructionsCollapsed)}
-          >
-            <View style={styles.sectionHeaderLeft}>
-              <Text style={styles.sectionTitle}>📝 Instructions</Text>
-              <Text style={styles.collapseIcon}>
-                {instructionsCollapsed ? '▶' : '▼'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          
-          {!instructionsCollapsed && (
-            <View style={styles.sectionContent}>
-              {instructionSections.length > 0 ? (
-                instructionSections.map((section) => {
-                  const isExpanded = expandedSections.includes(section.id);
-                  const stepCount = section.steps.length;
-                  
-                  return (
-                    <View key={section.id} style={styles.instructionSectionGroup}>
-                      <TouchableOpacity
-                        style={styles.subsectionHeader}
-                        onPress={() => toggleSection(section.id)}
-                      >
-                        <View style={styles.subsectionHeaderLeft}>
-                          <Text style={styles.subsectionHeaderIcon}>
-                            {isExpanded ? '▼' : '▶'}
-                          </Text>
-                          <View>
-                            <Text style={styles.subsectionHeaderTitle}>
-                              {section.section_title}
-                            </Text>
-                            {section.estimated_time_min && (
-                              <Text style={styles.subsectionHeaderTime}>
-                                ~{section.estimated_time_min} min
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                        <Text style={styles.subsectionHeaderSteps}>
-                          {stepCount} {stepCount === 1 ? 'step' : 'steps'}
-                        </Text>
-                      </TouchableOpacity>
+          onHeaderLayout={(y) => setIngredientsHeaderY(y)}
+        />
 
-                      {isExpanded && (
-                        <View style={styles.subsectionSteps}>
-                          {section.steps.map((step) => {
-                            const stepIndex = step.step_number - 1;
-                            const isEditing = isEditMode && 
-                                            editingInstructionIndex === stepIndex &&
-                                            editingInstructionSection === section.id;
+        {/* Preparation Section */}
+        <PreparationSection
+          instructionSections={instructionSections}
+          displayInstructions={displayInstructions}
+          ingredients={displayIngredients}
+          isEditMode={isEditMode}
+          viewMode={viewMode}
+          annotations={annotations}
+          onEditInstruction={handleEditInstruction}
+          onSaveInstructionEdit={handleSaveInstructionEdit}
+          onCancelInstructionEdit={handleCancelInstructionEdit}
+          onDeleteInstruction={handleDeleteInstruction}
+          editingInstructionIndex={editingInstructionIndex}
+          editingInstructionSection={editingInstructionSection}
+          onIngredientPress={handleIngredientPress}
+          onMoveStepUp={moveStepUp}
+          onMoveStepDown={moveStepDown}
+          currentScale={currentScale}
+          stepIngredients={stepIngredients}
+          focusedStepKey={focusedStepKey}
+          onStepFocus={handleStepFocus}
+          onStepLayout={handleStepLayout}
+          onHeaderLayout={(y) => setPreparationHeaderY(y)}
+        />
 
-                            // Show inline editor if editing this step
-                            if (isEditing) {
-                              return (
-                                <InlineEditableInstruction
-                                  key={step.id}
-                                  originalText={step.instruction}
-                                  stepNumber={step.step_number}
-                                  onSave={(newText) => handleSaveInstructionEdit(stepIndex, newText, section.id)}
-                                  onCancel={handleCancelInstructionEdit}
-                                  onDelete={() => handleDeleteInstruction(stepIndex, section.id)}
-                                />
-                              );
-                            }
-
-                            const annotation = annotations.find(
-                              a => a.field_type === 'instruction' && 
-                                   a.field_index === stepIndex &&
-                                   a.field_id === section.id
-                            );
-
-                            // Create annotation display object if annotation exists
-                            const annotationDisplay = annotation && viewMode === 'markup' ? {
-                              original: annotation.original_value,
-                              new: annotation.annotated_value,
-                              notes: annotation.notes || undefined,
-                              showMarkup: true,
-                              isDeleted: annotation.annotation_type === 'instruction_delete'
-                            } : undefined;
-
-                            return (
-                              <View key={`section-${section.id}-step-${stepIndex}-${step.step_number}`} style={styles.stepRow}>
-                                {isEditMode && (
-                                  <View style={styles.stepControls}>
-                                    <TouchableOpacity
-                                      style={styles.stepControlButton}
-                                      onPress={() => moveStepUp(stepIndex)}
-                                    >
-                                      <Text style={styles.stepControlText}>⬆️</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                      style={styles.stepControlButton}
-                                      onPress={() => moveStepDown(stepIndex)}
-                                    >
-                                      <Text style={styles.stepControlText}>⬇️</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                )}
-                                <View style={styles.step}>
-                                  <Text style={styles.stepNumber}>{step.step_number}.</Text>
-                                  {renderInstructionWithClickableIngredients(
-                                    step.instruction, 
-                                    step.step_number,
-                                    annotationDisplay
-                                  )}
-                                </View>
-                                {isEditMode && (
-                                  <View style={styles.stepEditButtons}>
-                                    <TouchableOpacity
-                                      style={styles.editIconButton}
-                                      onPress={() => handleEditInstruction(stepIndex, section.id)}
-                                    >
-                                      <Text style={styles.editIconText}>✏️</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                )}
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })
-              ) : displayInstructions.length > 0 ? (
-                <View style={styles.flatInstructionsList}>
-                  {displayInstructions.map((instruction, index) => {
-                    const isEditing = isEditMode && 
-                                    editingInstructionIndex === index &&
-                                    editingInstructionSection === null;
-
-                    // Show inline editor if editing this step
-                    if (isEditing) {
-                      return (
-                        <InlineEditableInstruction
-                          key={index}
-                          originalText={getInstructionText(instruction)}
-                          stepNumber={index + 1}
-                          onSave={(newText) => handleSaveInstructionEdit(index, newText)}
-                          onCancel={handleCancelInstructionEdit}
-                          onDelete={() => handleDeleteInstruction(index)}
-                        />
-                      );
-                    }
-
-                    // Check if instruction object has _annotation property
-                    const annotationDisplay = typeof instruction === 'object' && instruction._annotation
-                      ? instruction._annotation
-                      : undefined;
-
-                    return (
-                      <View key={`flat-instruction-${index}`} style={styles.stepRow}>
-                        {isEditMode && (
-                          <View style={styles.stepControls}>
-                            <TouchableOpacity
-                              style={styles.stepControlButton}
-                              onPress={() => moveStepUp(index)}
-                            >
-                              <Text style={styles.stepControlText}>⬆️</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.stepControlButton}
-                              onPress={() => moveStepDown(index)}
-                            >
-                              <Text style={styles.stepControlText}>⬇️</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                        <View style={styles.step}>
-                          <Text style={styles.stepNumber}>{index + 1}.</Text>
-                          {renderInstructionWithClickableIngredients(
-                            getInstructionText(instruction),
-                            index + 1,
-                            annotationDisplay
-                          )}
-                        </View>
-                        {isEditMode && (
-                          <View style={styles.stepEditButtons}>
-                            <TouchableOpacity
-                              style={styles.editIconButton}
-                              onPress={() => handleEditInstruction(index)}
-                            >
-                              <Text style={styles.editIconText}>✏️</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text style={styles.noInstructionsText}>No instructions available</Text>
-              )}
-            </View>
-          )}
-        </View>
-        </View>
-
-        {/* Start Cooking Button */}
+        {/* Start Cooking Button — outlined style */}
         <TouchableOpacity
           style={styles.startCookingButton}
-          onPress={() => navigation.navigate('Cooking', { 
+          onPress={() => navigation.navigate('Cooking', {
             recipe: recipe,
             planItemId,
             mealId,
@@ -1301,7 +893,45 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         >
           <Text style={styles.startCookingButtonText}>Start Cooking</Text>
         </TouchableOpacity>
+
+        {/* Your Notes section */}
+        <View style={styles.notesSection}>
+          <Text style={styles.notesSectionTitle}>Your Private Notes</Text>
+          {annotations.filter(a => a.field_type === 'note').length > 0 ? (
+            annotations.filter(a => a.field_type === 'note').map((note, idx) => (
+              <View key={`note-${idx}`} style={styles.noteItem}>
+                <Text style={styles.noteText}>{note.annotated_value}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.notesEmpty}>
+              You haven't added any notes to this recipe yet.
+            </Text>
+          )}
+        </View>
       </ScrollView>
+
+      {/* Floating step navigation buttons */}
+      {focusedStepKey !== null && (
+        <View style={styles.floatingNav}>
+          <TouchableOpacity
+            style={[styles.floatingBtnPrev, !canGoPrev && styles.floatingBtnDisabled]}
+            onPress={() => handleStepNav('prev')}
+            disabled={!canGoPrev}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.floatingBtnPrevText, !canGoPrev && styles.floatingBtnTextDisabled]}>‹</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.floatingBtnNext, !canGoNext && styles.floatingBtnDisabled]}
+            onPress={() => handleStepNav('next')}
+            disabled={!canGoNext}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.floatingBtnNextText, !canGoNext && styles.floatingBtnTextDisabled]}>›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Scale Picker Modal */}
       <Modal
@@ -1410,7 +1040,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         visible={showListModal}
         onClose={() => setShowListModal(false)}
         recipe={recipe}
-        ingredients={missingIngredients.length > 0 ? missingIngredients : ingredients}
+        ingredients={listModalMode === 'missing' ? missingIngredients : ingredients}
         scale={currentScale}
         userId={currentUserId || ''}
       />
@@ -1423,14 +1053,8 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           recipeId={recipe.id}
           recipeTitle={recipe.title}
           currentUserId={currentUserId}
-          onSuccess={(mealId, mealTitle) => {
-            // Optional: navigate to meal or show success message
-            console.log(`Added to meal: ${mealTitle}`);
-          }}
-          onCreateNewMeal={() => {
-            // Optional: navigate to create meal screen
-            // navigation.navigate('CreateMeal');
-          }}
+          onSuccess={() => {}}
+          onCreateNewMeal={() => {}}
         />
       )}
     </SafeAreaView>
@@ -1468,456 +1092,231 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingVertical: 8,
+    paddingRight: 4,
   },
   backButtonText: {
+    fontSize: 22,
+    color: '#0d9488',
+  },
+  topTitleContainer: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  topTitle: {
     fontSize: 16,
-    color: '#007AFF',
+    fontWeight: '600',
+    color: '#0f172a',
+    textAlign: 'center',
   },
   topRightButtons: {
     flexDirection: 'row',
-    gap: 6,
-  },
-  topSmallButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    minWidth: 36,
     alignItems: 'center',
+    gap: 2,
   },
-  topSmallButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  topSmallButtonText: {
-    fontSize: 16,
-  },
-  topStartCookingButton: {
-    paddingHorizontal: 12,
+  topBarIcon: {
     paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#34C759',
+    paddingHorizontal: 4,
   },
-  topStartCookingButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  topAddToMealButton: {
-    paddingHorizontal: 10,
+  overflowButton: {
+    paddingHorizontal: 6,
     paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
-    minWidth: 36,
-    alignItems: 'center',
   },
-  topAddToMealButtonText: {
-    fontSize: 16,
+  overflowButtonText: {
+    fontSize: 22,
+    color: '#333',
+    fontWeight: '700',
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   menuContainer: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     width: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#e2e8f0',
   },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 4,
   },
   menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  menuItemActive: {
-    backgroundColor: '#f0f7ff',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
   },
   menuItemText: {
     fontSize: 15,
+    color: '#333',
   },
-  menuItemCheck: {
-    fontSize: 16,
-    color: '#007AFF',
+  menuItemTextActive: {
+    color: '#0d9488',
+    fontWeight: '500',
   },
-  headerImage: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#f0f0f0',
+  // Progressive sticky section bar
+  stickyAccentLine: {
+    height: 3,
+    backgroundColor: '#0f172a',
+    marginHorizontal: 16,
   },
-  header: {
-    padding: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
-  },
-  metaItem: {
-    paddingVertical: 4,
-  },
-  metaLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  sourceRow: {
-    marginTop: 8,
-    gap: 6,
-  },
-  sourceText: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  controlsContainer: {
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  controlsRow: {
+  stickyBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
   },
-  scaleSection: {
+  stickyTab: {
+  },
+  stickyTabRight: {
+    marginLeft: 'auto',
+  },
+  stickyTabText: {
+    fontSize: 15,
+    fontWeight: '400',
+    letterSpacing: 1.5,
+    color: '#94a3b8',
+  },
+  stickyTabTextActive: {
+    fontWeight: '700',
+    color: '#111',
+  },
+  stickyPantryCount: {
+    fontSize: 12,
+    fontWeight: '400',
+    letterSpacing: 0,
+    color: '#0d9488',
+  },
+  // Floating step nav buttons
+  floatingNav: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
-  scaleLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  scaleButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  scaleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  floatingBtnPrev: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  scaleButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  scaleButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  scaleButtonTextActive: {
-    color: '#fff',
-  },
-  convertSection: {
-    flexDirection: 'row',
+    borderColor: '#0d9488',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-  },
-  unitDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    gap: 6,
-  },
-  unitDropdownText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  unitDropdownArrow: {
-    fontSize: 10,
-    color: '#666',
-  },
-  // Card wrapper for each section (shadow lives here, no overflow clip)
-  sectionCard: {
-    marginHorizontal: 15,
-    marginBottom: 12,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
-  // Inner view clips rounded corners without killing shadow on wrapper
-  sectionCardInner: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  floatingBtnNext: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0d9488',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f8f8f8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
+  floatingBtnDisabled: {
+    opacity: 0.35,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  floatingBtnPrevText: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#0d9488',
+    marginTop: -2,
   },
-  collapseIcon: {
-    fontSize: 12,
-    color: '#666',
-  },
-  sectionHeaderButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  inlineButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
-  },
-  inlineButtonText: {
+  floatingBtnNextText: {
+    fontSize: 24,
+    fontWeight: '300',
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    marginTop: -2,
   },
-  sectionContent: {
-    padding: 16,
+  floatingBtnTextDisabled: {
+    opacity: 0.5,
   },
-  familyGroup: {
-    marginBottom: 20,
-  },
-  familyHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  ingredientRow: {
+  // Nutrition expandable row
+  nutritionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  ingredient: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  ingredientTextContainer: {
-    flex: 1,
-  },
-  ingredientHave: {
-    fontSize: 16,
-    color: '#34C759',
-    marginRight: 8,
-    width: 20,
-  },
-  ingredientNeed: {
-    fontSize: 16,
-    color: '#ccc',
-    marginRight: 8,
-    width: 20,
-  },
-  ingredientText: {
-    fontSize: 16,
-    lineHeight: 22,
-    flex: 1,
-  },
-  ingredientEditButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginLeft: 8,
-  },
-  editIconButton: {
-    padding: 4,
-  },
-  editIconText: {
-    fontSize: 18,
-  },
-  instructionSectionGroup: {
-    marginBottom: 16,
-  },
-  subsectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    gap: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
   },
-  subsectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
+  nutritionRowArrow: {
+    fontSize: 13,
+    color: '#94a3b8',
   },
-  subsectionHeaderIcon: {
+  nutritionRowText: {
     fontSize: 14,
-    color: '#666',
+    color: '#94a3b8',
   },
-  subsectionHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  nutritionPanel: {
+    paddingHorizontal: 0,
   },
-  subsectionHeaderTime: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  subsectionHeaderSteps: {
-    fontSize: 13,
-    color: '#666',
-  },
-  subsectionSteps: {
-    paddingLeft: 12,
-  },
-  flatInstructionsList: {
-    gap: 16,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  stepControls: {
-    flexDirection: 'column',
-    gap: 4,
-    marginRight: 8,
-  },
-  stepControlButton: {
-    padding: 2,
-  },
-  stepControlText: {
-    fontSize: 16,
-  },
-  step: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-    minWidth: 24,
-  },
-  stepText: {
-    fontSize: 16,
-    lineHeight: 24,
-    flex: 1,
-  },
-  stepTextContainer: {
-    flex: 1,
-  },
-  clickableIngredient: {
-    color: '#007AFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-  },
-  stepEditButtons: {
-    flexDirection: 'column',
-    gap: 4,
-    marginLeft: 8,
-  },
-  noInstructionsText: {
-    fontSize: 16,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
+  // Start Cooking — outlined style (NYT)
   startCookingButton: {
-    backgroundColor: '#34C759',
+    borderWidth: 2,
+    borderColor: '#0f172a',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 16,
     marginTop: 24,
   },
   startCookingButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  stickyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stickyHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  stickySectionTitle: {
+    color: '#222',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  stickySectionIcon: {
-    fontSize: 12,
-    color: '#666',
+  // Your Notes section
+  notesSection: {
+    paddingHorizontal: 16,
+    marginTop: 32,
+    marginBottom: 24,
   },
-  stickyHeaderButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  notesSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: '#111',
+    textTransform: 'uppercase',
+    marginBottom: 12,
   },
-  stickyInlineButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
+  noteItem: {
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0e0e0',
   },
-  stickyInlineButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+  noteText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#333',
+  },
+  notesEmpty: {
+    fontSize: 15,
+    color: '#999',
+    lineHeight: 22,
   },
   modalOverlay: {
     flex: 1,
@@ -1947,14 +1346,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   pickerOptionSelected: {
-    backgroundColor: '#f0f7ff',
+    backgroundColor: '#f0fdfa',
   },
   pickerOptionText: {
     fontSize: 16,
     textAlign: 'center',
   },
   pickerOptionTextSelected: {
-    color: '#007AFF',
+    color: '#0d9488',
     fontWeight: '600',
   },
   pickerButtons: {
@@ -1980,7 +1379,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     borderRadius: 8,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0d9488',
     alignItems: 'center',
   },
   pickerConfirmText: {
@@ -2005,17 +1404,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   unitPickerOptionSelected: {
-    backgroundColor: '#f0f7ff',
+    backgroundColor: '#f0fdfa',
   },
   unitPickerOptionText: {
     fontSize: 16,
   },
   unitPickerOptionTextSelected: {
-    color: '#007AFF',
+    color: '#0d9488',
     fontWeight: '600',
   },
   unitPickerCheck: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#0d9488',
   },
 });

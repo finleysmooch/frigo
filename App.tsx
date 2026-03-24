@@ -382,7 +382,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen
         name="RecipeDetail"
         component={RecipeDetailScreen}
-        options={{ headerShown: true, title: 'Recipe' }}
+        options={{ headerShown: false }}
       />
       <FeedStack.Screen
         name="AuthorView"
@@ -405,10 +405,7 @@ function RecipesStackNavigator() {
       <RecipesStack.Screen 
         name="RecipeDetail" 
         component={RecipeDetailScreen}
-        options={{
-          headerShown: true,
-          title: 'Recipe',
-        }}
+        options={{ headerShown: false }}
       />
       <RecipesStack.Screen 
         name="Cooking" 
@@ -499,7 +496,7 @@ function StatsStackNavigator() {
       <StatsStackNav.Screen
         name="RecipeDetail"
         component={RecipeDetailScreen}
-        options={{ headerShown: true, title: 'Recipe' }}
+        options={{ headerShown: false }}
       />
       <StatsStackNav.Screen
         name="MyPostDetails"

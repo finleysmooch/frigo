@@ -118,7 +118,7 @@ function toDateStr(date: Date): string {
 }
 
 /** Get Monday of a given date's week */
-function getMondayOfWeek(date: Date): Date {
+export function getMondayOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);

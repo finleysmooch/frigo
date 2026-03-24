@@ -20,7 +20,11 @@
       "Bash(do:*)",
       "Bash(rm:*)",
       "Bash(npx tsx:*)",
-      "Bash(\"C:/Users/tommo/Frigo/docs/tracker_update.tsv\":*)"
+      "Bash(\"C:/Users/tommo/Frigo/docs/tracker_update.tsv\":*)",
+      "Bash(npx kill-port:*)",
+      "Bash(taskkill //F //IM \"node.exe\" //FI \"WINDOWTITLE eq Metro*\")",
+      "Bash(while IFS= read -r f)",
+      "Bash(done)"
     ]
   }
 }
