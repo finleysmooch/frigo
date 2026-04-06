@@ -24,6 +24,7 @@ export interface PostData {
   modifications: string;
   cooking_method: 'cook' | 'bake' | 'bbq' | 'meal_prep' | 'snack' | 'eating_out' | 'breakfast' | 'slow_cook' | 'soup' | 'preserve';
   title: string;
+  thoughts?: string;
 }
 
 const COOKING_METHODS = [

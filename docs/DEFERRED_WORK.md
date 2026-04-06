@@ -199,6 +199,59 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 ---
 
+## From: Phase 7B Revision (April 2026)
+
+### Feature Playbook System (proposed by Tom, March 2026)
+A per-feature living document system for tracking: current state, UX rationale,
+known issues, user feedback, and iteration history. One playbook per major
+feature (LogCookSheet, Overflow Menu, Edit Mode, etc.). Roughly 1 page each,
+kept current as features evolve. Goal: institutional memory for design
+decisions so we don't lose context as the app grows.
+
+Scope: 5-10 initial playbooks + template. Priority: medium. Best done after
+F&F launch when user feedback starts flowing.
+
+### Edit Mode Redesign (Phase 8 candidate)
+Current edit mode works but feels unnatural. Tom's vision includes:
+- Lined-paper / notebook aesthetic (spiral binding? playful but clean?)
+- Natural strike-and-write-above editing pattern (not line-level strikethrough)
+- Structured data editing: quantity and ingredient separately editable
+- Drag handles for section reordering (current up/down arrows don't function)
+- "or" substitution support (e.g., "feta or gruyere")
+- Better visual indicator that you're in edit mode (banner added in 7B revision,
+  but the mode itself needs more work)
+
+Substantial workstream — 3-5 sessions. Not blocking F&F launch.
+
+### Historical Cook Logging with Dates (Phase 7D)
+"I've Made This Before" currently updates times_cooked only. Users may want to:
+- Specify dates for individual historical cooks
+- Create actual backdated posts for specific meals (e.g., a Thanksgiving dinner
+  they forgot to log at the time)
+- Retroactively link historical cooks to meals they cooked with others
+
+Requires use of posts.cooked_at column (already exists) plus a date picker UX.
+Intersects with Phase 7C multi-dish posts.
+
+### posts.make_again column cleanup
+The make_again column on posts is no longer used after the 7B revision (star
+rating replaced it). Column can be dropped in a future cleanup pass. All new
+posts will have make_again = null.
+
+### PostCookFlow component cleanup
+components/cooking/PostCookFlow.tsx is deprecated after the 7B revision —
+functionality merged into LogCookSheet full mode. The file is marked deprecated
+but not deleted. Remove in a future cleanup pass once no regressions are found.
+
+### Meal Plan modal: "Create new meal" flow broken
+`onCreateNewMeal` prop on `SelectMealForRecipeModal` is passed as an empty function
+from RecipeDetailScreen. Needs to be wired to open `CreateMealModal` with
+`initialRecipeId`/`initialRecipeTitle` props. The CreateMealModal component exists
+and already supports these props. Fix is straightforward but requires adding
+CreateMealModal state management to RecipeDetailScreen.
+
+---
+
 ## Cross-Cutting Technical Debt
 
 | # | Item | Type | Priority | Notes |
@@ -212,6 +265,7 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 | Date | Change |
 |------|--------|
+| 2026-04-06 | Phase 7B Revision items added: Feature Playbook System, Edit Mode Redesign, Historical Cook Logging, make_again cleanup, PostCookFlow cleanup, Meal Plan modal fix. |
 | 2026-03-02 | **Doc overhaul.** Moved to repo as canonical location. Removed resolved T3/T4. Updated header to describe reconciliation process. Restored Idea Shelf (I1-I9), B1 Detail flavor spec, R3-R5 that were dropped during prior condensation. Restored full detail on B14, B15, B2, B8, B16-B18. Renamed from FRIGO_DEFERRED_WORK_UPDATED_26FEB26_v2. |
 | 2026-02-26 | Data seeding session. Added D1-D3. |
 | 2026-02-26 | SVG icon integration. Marked B9, B11, B12 as ✅ COMPLETED. Added B20, B21. |

@@ -18,10 +18,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useKeepAwake } from 'expo-keep-awake';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import PostCreationModal, { PostData } from '../components/PostCreationModal';
 import { RecipesStackParamList } from '../App';
 import { completePlanItem } from '../lib/services/mealPlanService';
-import { createDishPost } from '../lib/services/postService';
+import { createDishPost, updateTimesCooked } from '../lib/services/postService';
+import LogCookSheet from '../components/LogCookSheet';
+import type { LogCookData } from '../components/LogCookSheet';
+import { generateSmartTitle } from '../utils/titleGenerator';
 import { useTheme } from '../lib/theme/ThemeContext';
 import {
   normalizeInstructions,
@@ -40,7 +42,6 @@ import IngredientSheet from '../components/cooking/IngredientSheet';
 import IngredientDetailPopup from '../components/cooking/IngredientDetailPopup';
 import ViewModeMenu, { type ViewMode } from '../components/cooking/ViewModeMenu';
 import ClassicView from '../components/cooking/ClassicView';
-import PostCookFlow, { type PostCookData } from '../components/cooking/PostCookFlow';
 import type { Timer } from '../contexts/CookingTimerContext';
 
 const VIEW_MODE_KEY = 'frigo_cooking_view_mode';
@@ -63,8 +64,7 @@ export default function CookingScreen({ route, navigation }: Props) {
 
   // ── State ──
   const [currentStep, setCurrentStep] = useState(steps.length > 0 ? steps[0].number : 1);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [doneCooking, setDoneCooking] = useState(false);
+  const [showLogCookSheet, setShowLogCookSheet] = useState(false);
   const [expandedTimer, setExpandedTimer] = useState<Timer | null>(null);
   const [showIngredientSheet, setShowIngredientSheet] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<{
@@ -196,8 +196,8 @@ export default function CookingScreen({ route, navigation }: Props) {
     if (idx < steps.length - 1) {
       setCurrentStep(steps[idx + 1].number);
     } else {
-      // Past last step → done cooking
-      setDoneCooking(true);
+      // Past last step → open LogCookSheet in full mode
+      setShowLogCookSheet(true);
     }
   }, [currentStep, steps]);
 
@@ -221,23 +221,13 @@ export default function CookingScreen({ route, navigation }: Props) {
     return stepNums.sort((a, b) => a - b);
   }, [selectedIngredient, ingredientsByStep]);
 
-  // ── Post-cook flow ──
-  const handleLogAndShare = useCallback(async (postCookData: PostCookData) => {
-    // Open the PostCreationModal — it collects title, rating, method, modifications
-    setShowPostModal(true);
-  }, []);
-
-  const handleJustLog = useCallback(() => {
-    navigation.navigate('RecipeList');
-  }, [navigation]);
-
-  const handlePostCookNoteOnStep = useCallback(() => {
-    // Go back to step-by-step mode so user can add notes
-    setDoneCooking(false);
+  // ── "Note on a step" from LogCookSheet full mode ──
+  const handleNoteOnStep = useCallback(() => {
+    setShowLogCookSheet(false);
     setViewMode('step_by_step');
   }, []);
 
-  const handlePostSubmit = useCallback(async (postData: PostData) => {
+  const handleLogCookSubmit = useCallback(async (logData: LogCookData) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
@@ -245,27 +235,36 @@ export default function CookingScreen({ route, navigation }: Props) {
         return;
       }
 
+      const visibility = logData.wantsToShare ? 'everyone' : 'private';
+
       const post = await createDishPost({
         userId: session.user.id,
         recipeId: recipe.id,
-        title: postData.title,
-        rating: postData.rating,
-        modifications: postData.modifications,
-        cookingMethod: postData.cooking_method,
-        notes: postData.modifications,
+        title: generateSmartTitle(),
+        rating: logData.rating || null,
+        modifications: logData.modifications || null,
+        notes: logData.thoughts || null,
+        visibility,
         parentMealId: mealId || null,
       });
+
+      // Increment times_cooked
+      try {
+        await updateTimesCooked(recipe.id, (recipe.times_cooked || 0) + 1);
+      } catch (_) {}
 
       if (planItemId && post?.id) {
         await completePlanItem(planItemId, session.user.id, post.id);
       }
 
-      setShowPostModal(false);
+      setShowLogCookSheet(false);
 
-      const successTitle = planItemId ? 'Added to Meal!' : 'Success!';
+      const successTitle = planItemId ? 'Added to Meal!' : 'Logged!';
       const successMsg = planItemId
         ? `Your dish has been added to "${mealTitle}"`
-        : 'Your cooking session has been logged!';
+        : logData.wantsToShare
+          ? 'Your cook has been shared!'
+          : 'Logged privately \u2014 counts in your stats but not on the feed.';
 
       Alert.alert(successTitle, successMsg, [
         { text: 'OK', onPress: () => navigation.navigate('RecipeList') },
@@ -274,7 +273,7 @@ export default function CookingScreen({ route, navigation }: Props) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post: ' + (error as any).message);
     }
-  }, [recipe.id, planItemId, mealId, mealTitle, navigation]);
+  }, [recipe.id, recipe.times_cooked, planItemId, mealId, mealTitle, navigation]);
 
   // ── Derived display values ──
   const currentSection = sections[currentSectionIdx] || null;
@@ -431,19 +430,6 @@ export default function CookingScreen({ route, navigation }: Props) {
   const isEmpty = steps.length === 0 || sections.length === 0;
 
   const renderContent = () => {
-    // Done cooking → post-cook retrospective
-    if (doneCooking) {
-      return (
-        <PostCookFlow
-          recipeTitle={recipe.title}
-          bookLine={bookLine}
-          onLogAndShare={handleLogAndShare}
-          onJustLog={handleJustLog}
-          onNoteOnStep={handlePostCookNoteOnStep}
-        />
-      );
-    }
-
     // Empty state
     if (isEmpty) {
       return (
@@ -609,11 +595,13 @@ export default function CookingScreen({ route, navigation }: Props) {
     <CookingTimerProvider recipeTitle={recipe.title}>
       <SafeAreaView style={s.container}>
         {renderContent()}
-        <PostCreationModal
-          visible={showPostModal}
-          recipeTitle={recipe.title}
-          onSubmit={handlePostSubmit}
-          onCancel={() => setShowPostModal(false)}
+        <LogCookSheet
+          visible={showLogCookSheet}
+          mode="full"
+          recipe={recipe}
+          onSubmit={handleLogCookSubmit}
+          onCancel={() => setShowLogCookSheet(false)}
+          onNoteOnStep={handleNoteOnStep}
         />
         <IngredientSheet
           visible={showIngredientSheet}

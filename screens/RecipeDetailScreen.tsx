@@ -24,6 +24,7 @@ import { InstructionSection } from '../lib/types/recipeExtraction';
 import AddRecipeToListModal from '../components/AddRecipeToListModal';
 import IngredientPopup from '../components/IngredientPopup';
 import SelectMealForRecipeModal from '../components/SelectMealForRecipeModal';
+import CreateMealModal from '../components/CreateMealModal';
 import RecipeNutritionPanel from '../components/RecipeNutritionPanel';
 import RecipeHeader from '../components/recipe/RecipeHeader';
 import IngredientsSection from '../components/recipe/IngredientsSection';
@@ -36,12 +37,20 @@ import {
   convertRecipeIngredients,
   UnitSystem,
 } from '../lib/services/unitConverter';
-import { mapIngredientsToSteps } from '../lib/services/cookingService';
-import { StepIngredient } from '../lib/types/cooking';
+import { mapIngredientsToSteps, getStepNotes } from '../lib/services/cookingService';
+import { StepIngredient, StepNote } from '../lib/types/cooking';
 import { buildStepKeys } from '../components/recipe/PreparationSection';
 import { toTitleCase } from '../components/recipe/RecipeHeader';
+import Svg, { Path, Rect, Line } from 'react-native-svg';
 import { SaveOutlineIcon, SaveFilledIcon } from '../components/recipe/SaveIcon';
+import { AgainIcon, CalendarOutline, PencilIcon } from '../components/icons';
+import TimesMadeModal from '../components/TimesMadeModal';
+import LogCookSheet from '../components/LogCookSheet';
+import type { LogCookData } from '../components/LogCookSheet';
+import { createDishPost, updateTimesCooked } from '../lib/services/postService';
+import { generateSmartTitle } from '../utils/titleGenerator';
 import { addToCookSoon, removeFromCookSoon, isInCookSoon } from '../lib/services/userRecipeTagsService';
+import { deleteRecipe } from '../lib/services/recipeService';
 import {
   getUserRecipeAnnotations,
   saveIngredientEdit,
@@ -108,6 +117,53 @@ const generatePickerOptions = () => {
 };
 
 const PICKER_OPTIONS = generatePickerOptions();
+
+// ── Inline SVG icons for overflow menu ──
+
+function MenuShareIcon({ size = 20, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 6l-4-4-4 4" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="12" y1="2" x2="12" y2="15" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MenuTrashIcon({ size = 20, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 6h18" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="10" y1="11" x2="10" y2="17" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Line x1="14" y1="11" x2="14" y2="17" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MenuScaleIcon({ size = 20, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="12" y1="3" x2="12" y2="21" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M4 7l8-4 8 4" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 7l-1 7a3 3 0 005 0L4 7z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+      <Path d="M20 7l-1 7a3 3 0 005 0l-4-7z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+      <Rect x="8" y="19" width="8" height="2" rx="1" stroke={color} strokeWidth={1.5} />
+    </Svg>
+  );
+}
+
+function MenuPlusDocIcon({ size = 20, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="12" y1="12" x2="12" y2="18" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Line x1="9" y1="15" x2="15" y2="15" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 function getInstructionText(instruction: any): string {
   if (typeof instruction === 'string') {
@@ -177,7 +233,13 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [annotations, setAnnotations] = useState<RecipeAnnotation[]>([]);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [showMealModal, setShowMealModal] = useState(false);
-  
+  const [showCreateMealModal, setShowCreateMealModal] = useState(false);
+  const [showLogCookSheet, setShowLogCookSheet] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Step notes (from cooking sessions)
+  const [stepNotes, setStepNotes] = useState<StepNote[]>([]);
+
   // Inline editing state
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null);
   const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
@@ -197,17 +259,28 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (currentUserId && recipe) {
       loadAnnotations();
+      loadStepNotes();
     }
   }, [currentUserId, recipe?.id]);
 
   const loadAnnotations = async () => {
     if (!currentUserId || !recipe) return;
-    
+
     try {
       const userAnnotations = await getUserRecipeAnnotations(currentUserId, recipe.id);
       setAnnotations(userAnnotations);
     } catch (error) {
       console.error('Error loading annotations:', error);
+    }
+  };
+
+  const loadStepNotes = async () => {
+    if (!currentUserId || !recipe) return;
+    try {
+      const notes = await getStepNotes(recipe.id, currentUserId);
+      setStepNotes(notes);
+    } catch (_) {
+      // Step notes are optional
     }
   };
 
@@ -595,6 +668,68 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     } catch (_) {}
   };
 
+  // "I Made This" primary CTA — opens LogCookSheet compact mode
+  const handleIMadeThisPrimary = () => {
+    setShowLogCookSheet(true);
+  };
+
+  const handleLogCookSubmit = async (data: LogCookData) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        Alert.alert('Error', 'Please sign in and try again.');
+        return;
+      }
+
+      const visibility = data.wantsToShare ? 'everyone' : 'private';
+
+      await createDishPost({
+        userId: session.user.id,
+        recipeId: recipe!.id,
+        title: generateSmartTitle(),
+        rating: data.rating || null,
+        modifications: data.modifications || null,
+        notes: data.thoughts || null,
+        visibility,
+      });
+
+      // Increment times_cooked
+      try {
+        const newCount = (recipe!.times_cooked || 0) + 1;
+        await updateTimesCooked(recipe!.id, newCount);
+        setRecipe(prev => prev ? { ...prev, times_cooked: newCount } : prev);
+      } catch (_) {}
+
+      setShowLogCookSheet(false);
+
+      const msg = data.wantsToShare
+        ? 'Your cook has been shared!'
+        : 'Logged privately \u2014 counts in your stats but not on the feed.';
+      Alert.alert('Logged!', msg, [{ text: 'OK' }]);
+    } catch (error) {
+      console.error('Error logging cook:', error);
+      Alert.alert('Error', 'Failed to log cook: ' + (error as any).message);
+    }
+  };
+
+  // "I've Made This Before" — historical cook tracking
+  const handleIMadeThisBefore = () => {
+    setShowOverflowMenu(false);
+    setShowHistoryModal(true);
+  };
+
+  const handleHistoryConfirm = async (count: number) => {
+    if (!recipe) return;
+    try {
+      await updateTimesCooked(recipe.id, count);
+      setRecipe(prev => prev ? { ...prev, times_cooked: count } : prev);
+      setShowHistoryModal(false);
+      Alert.alert('Updated', `Cook history updated \u2014 logged ${count} total cook${count !== 1 ? 's' : ''}.`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update cook history.');
+    }
+  };
+
   // Focus mode handlers
   const handleStepFocus = (stepKey: string) => {
     if (focusedStepKey === stepKey) {
@@ -679,7 +814,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      {/* Overflow Menu */}
+      {/* Overflow Menu — redesigned grouped layout */}
       <Modal
         visible={showOverflowMenu}
         transparent
@@ -692,62 +827,126 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onPress={() => setShowOverflowMenu(false)}
         >
           <View style={styles.menuContainer}>
-            {/* View mode options */}
-            {(['clean', 'original', 'markup'] as ViewMode[]).map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                style={styles.menuItem}
-                onPress={() => {
-                  setViewMode(mode);
-                  setShowOverflowMenu(false);
-                }}
-              >
-                <Text style={[styles.menuItemText, viewMode === mode && styles.menuItemTextActive]}>
-                  {viewMode === mode ? '✓  ' : '    '}
-                  {mode === 'clean' && 'Clean View'}
-                  {mode === 'original' && 'Original View'}
-                  {mode === 'markup' && 'Markup View'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            {/* Edit Recipe */}
+            {/* Plan & Organize group */}
             <TouchableOpacity
-              style={styles.menuItem}
+              style={styles.menuItemRow}
               onPress={() => {
-                setIsEditMode(!isEditMode);
+                handleToggleCookSoon();
                 setShowOverflowMenu(false);
               }}
             >
-              <Text style={styles.menuItemText}>
-                {isEditMode ? '✓  ' : '    '}Edit Recipe
+              {isCookSoon ? <SaveFilledIcon size={18} /> : <SaveOutlineIcon size={18} />}
+              <Text style={[styles.menuItemRowText, isCookSoon && { color: '#0d9488' }]}>
+                {isCookSoon ? 'Remove from Cook Soon' : 'Cook Soon'}
               </Text>
             </TouchableOpacity>
-
-            {/* Unit Conversion */}
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowOverflowMenu(false);
-                setShowUnitPicker(true);
-              }}
-            >
-              <Text style={styles.menuItemText}>
-                {'    '}Unit Conversion{currentUnitSystem !== 'original' ? ` (${UNIT_SYSTEMS.find(u => u.value === currentUnitSystem)?.label})` : ''}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            {/* Meal Plan */}
-            <TouchableOpacity
-              style={styles.menuItem}
+              style={styles.menuItemRow}
               onPress={() => {
                 setShowOverflowMenu(false);
                 setShowMealModal(true);
               }}
             >
-              <Text style={styles.menuItemText}>{'    '}+ Meal Plan</Text>
+              <CalendarOutline size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>Add to Meal Plan</Text>
+            </TouchableOpacity>
+            <View style={[styles.menuItemRow, { opacity: 0.4 }]} pointerEvents="none">
+              <MenuPlusDocIcon size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>Add to Post</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={handleIMadeThisBefore}
+            >
+              <AgainIcon size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>I've Made This Before</Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuGroupDivider} />
+
+            {/* View mode subheader */}
+            <View style={styles.menuSubheader}>
+              <Text style={styles.menuSubheaderText}>RECIPE VIEW</Text>
+            </View>
+            {(['original', 'clean', 'markup'] as ViewMode[]).map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={styles.menuItemRow}
+                onPress={() => {
+                  setViewMode(mode);
+                  setShowOverflowMenu(false);
+                }}
+              >
+                <View style={styles.menuRadio}>
+                  {viewMode === mode && <View style={styles.menuRadioFilled} />}
+                </View>
+                <Text style={[styles.menuItemRowText, viewMode === mode && { color: '#0d9488', fontWeight: '500' }]}>
+                  {mode === 'clean' && 'Clean'}
+                  {mode === 'original' && 'Original'}
+                  {mode === 'markup' && 'Markup'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setShowOverflowMenu(false);
+                setShowUnitPicker(true);
+              }}
+            >
+              <MenuScaleIcon size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>
+                Unit Conversion{currentUnitSystem !== 'original' ? ` (${UNIT_SYSTEMS.find(u => u.value === currentUnitSystem)?.label})` : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setIsEditMode(!isEditMode);
+                setShowOverflowMenu(false);
+              }}
+            >
+              <PencilIcon size={18} color={isEditMode ? '#0d9488' : '#475569'} filled={isEditMode} />
+              <Text style={[styles.menuItemRowText, isEditMode && { color: '#0d9488', fontWeight: '500' }]}>
+                {isEditMode ? 'Done Editing' : 'Edit Recipe'}
+              </Text>
+            </TouchableOpacity>
+            <View style={[styles.menuItemRow, { opacity: 0.4 }]} pointerEvents="none">
+              <MenuShareIcon size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>Share Recipe</Text>
+            </View>
+
+            <View style={styles.menuGroupDivider} />
+
+            {/* Delete */}
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setShowOverflowMenu(false);
+                Alert.alert(
+                  'Delete Recipe',
+                  'Are you sure you want to delete this recipe? This cannot be undone.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await deleteRecipe(recipe.id);
+                          navigation.goBack();
+                        } catch (err) {
+                          console.error('Delete recipe error:', err);
+                          Alert.alert('Error', 'Failed to delete recipe: ' + (err as any)?.message);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <MenuTrashIcon size={18} color="#ef4444" />
+              <Text style={[styles.menuItemRowText, { color: '#ef4444' }]}>Delete Recipe</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -786,6 +985,16 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+      )}
+
+      {/* Edit mode banner */}
+      {isEditMode && (
+        <View style={styles.editBanner}>
+          <Text style={styles.editBannerText}>Recipe Edit Mode</Text>
+          <TouchableOpacity onPress={() => setIsEditMode(false)} activeOpacity={0.7}>
+            <Text style={styles.editBannerExit}>Exit</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -881,9 +1090,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onHeaderLayout={(y) => setPreparationHeaderY(y)}
         />
 
-        {/* Start Cooking Button — outlined style */}
+        {/* Primary CTA: Log This Cook */}
         <TouchableOpacity
-          style={styles.startCookingButton}
+          style={styles.iMadeThisButton}
+          onPress={handleIMadeThisPrimary}
+        >
+          <Text style={styles.iMadeThisButtonText}>Log This Cook</Text>
+        </TouchableOpacity>
+
+        {/* Secondary CTA: Cook in Step-by-Step Mode */}
+        <TouchableOpacity
+          style={styles.stepByStepLink}
           onPress={() => navigation.navigate('Cooking', {
             recipe: recipe,
             planItemId,
@@ -891,19 +1108,27 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             mealTitle,
           })}
         >
-          <Text style={styles.startCookingButtonText}>Start Cooking</Text>
+          <Text style={styles.stepByStepLinkText}>Cook in Step-by-Step Mode</Text>
         </TouchableOpacity>
 
         {/* Your Notes section */}
         <View style={styles.notesSection}>
           <Text style={styles.notesSectionTitle}>Your Private Notes</Text>
-          {annotations.filter(a => a.field_type === 'note').length > 0 ? (
-            annotations.filter(a => a.field_type === 'note').map((note, idx) => (
-              <View key={`note-${idx}`} style={styles.noteItem}>
-                <Text style={styles.noteText}>{note.annotated_value}</Text>
-              </View>
-            ))
-          ) : (
+          {/* Step notes from cooking sessions */}
+          {stepNotes.filter(n => n.note_text).map((note) => (
+            <View key={`step-note-${note.step_number}`} style={styles.noteItem}>
+              <Text style={styles.stepNoteLabel}>Step {note.step_number}</Text>
+              <Text style={styles.noteText}>{note.note_text}</Text>
+            </View>
+          ))}
+          {/* Annotation notes */}
+          {annotations.filter(a => a.field_type === 'note').map((note, idx) => (
+            <View key={`note-${idx}`} style={styles.noteItem}>
+              <Text style={styles.noteText}>{note.annotated_value}</Text>
+            </View>
+          ))}
+          {stepNotes.filter(n => n.note_text).length === 0 &&
+           annotations.filter(a => a.field_type === 'note').length === 0 && (
             <Text style={styles.notesEmpty}>
               You haven't added any notes to this recipe yet.
             </Text>
@@ -1054,7 +1279,47 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           recipeTitle={recipe.title}
           currentUserId={currentUserId}
           onSuccess={() => {}}
-          onCreateNewMeal={() => {}}
+          onCreateNewMeal={() => {
+            setShowMealModal(false);
+            setTimeout(() => setShowCreateMealModal(true), 350);
+          }}
+        />
+      )}
+
+      {/* Create Meal Modal (from "Create new meal" in meal plan flow) */}
+      {currentUserId && recipe && (
+        <CreateMealModal
+          visible={showCreateMealModal}
+          onClose={() => setShowCreateMealModal(false)}
+          currentUserId={currentUserId}
+          initialRecipeId={recipe.id}
+          initialRecipeTitle={recipe.title}
+          onSuccess={() => {
+            setShowCreateMealModal(false);
+            Alert.alert('Meal created', 'Your new meal has been created with this recipe.');
+          }}
+        />
+      )}
+
+      {/* Log Cook Sheet (I Made This primary CTA) */}
+      {recipe && (
+        <LogCookSheet
+          visible={showLogCookSheet}
+          mode="compact"
+          recipe={recipe}
+          onSubmit={handleLogCookSubmit}
+          onCancel={() => setShowLogCookSheet(false)}
+        />
+      )}
+
+      {/* History Modal (I've Made This Before) */}
+      {recipe && (
+        <TimesMadeModal
+          visible={showHistoryModal}
+          recipeName={recipe.title}
+          currentCount={recipe.times_cooked || 0}
+          onConfirm={handleHistoryConfirm}
+          onCancel={() => setShowHistoryModal(false)}
         />
       )}
     </SafeAreaView>
@@ -1135,10 +1400,9 @@ const styles = StyleSheet.create({
     top: 52,
     right: 16,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    width: 200,
+    borderRadius: 12,
+    paddingVertical: 6,
+    width: 240,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -1147,22 +1411,48 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#e2e8f0',
   },
-  menuDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 4,
+  menuGroupDivider: {
+    height: 6,
+    backgroundColor: '#f1f5f9',
   },
-  menuItem: {
-    paddingVertical: 11,
-    paddingHorizontal: 16,
+  menuSubheader: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
-  menuItemText: {
-    fontSize: 15,
+  menuSubheaderText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  menuItemRowText: {
+    fontSize: 14,
     color: '#333',
+    flex: 1,
   },
-  menuItemTextActive: {
-    color: '#0d9488',
-    fontWeight: '500',
+  menuRadio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuRadioFilled: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#0d9488',
   },
   // Progressive sticky section bar
   stickyAccentLine: {
@@ -1196,6 +1486,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     letterSpacing: 0,
+    color: '#0d9488',
+  },
+  // Edit mode banner
+  editBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ccfbf1',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  editBannerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0d9488',
+  },
+  editBannerExit: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#0d9488',
   },
   // Floating step nav buttons
@@ -1273,21 +1582,32 @@ const styles = StyleSheet.create({
   nutritionPanel: {
     paddingHorizontal: 0,
   },
-  // Start Cooking — outlined style (NYT)
-  startCookingButton: {
-    borderWidth: 2,
-    borderColor: '#0f172a',
+  // Primary CTA: I Made This
+  iMadeThisButton: {
+    backgroundColor: '#0d9488',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 16,
     marginTop: 24,
   },
-  startCookingButtonText: {
-    color: '#222',
+  iMadeThisButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  // Secondary CTA: Cook in Step-by-Step Mode
+  stepByStepLink: {
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  stepByStepLinkText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '500',
   },
   // Your Notes section
   notesSection: {
@@ -1307,6 +1627,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0e0e0',
+  },
+  stepNoteLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0d9488',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   noteText: {
     fontSize: 15,

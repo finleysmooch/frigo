@@ -15,3 +15,4 @@ export { default as EasyIcon } from './EasyIcon';
 export { default as SortIcon } from './SortIcon';
 export { default as StarIcon } from './StarIcon';
 export { default as PinIcon } from './PinIcon';
+export { default as PencilIcon } from './PencilIcon';
