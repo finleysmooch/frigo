@@ -45,6 +45,10 @@ interface MyPostItem {
   rating: number | null;
   cooking_method: string | null;
   created_at: string;
+  /** Phase 7H: when the cook actually happened. Nullable for legacy
+   *  posts predating Phase 7G's explicit write; callers should fall back
+   *  to `created_at`. */
+  cooked_at: string | null;
   recipe_id: string | null;
   recipes: {
     title: string;
@@ -179,11 +183,11 @@ export default function StatsScreen({ navigation }: Props) {
       const { data: posts, error: postsError } = await supabase
         .from('posts')
         .select(`
-          id, title, rating, cooking_method, created_at, recipe_id, photos,
+          id, title, rating, cooking_method, created_at, cooked_at, recipe_id, photos,
           recipes(title, cuisine_types)
         `)
         .eq('user_id', currentUserId)
-        .order('created_at', { ascending: false })
+        .order('cooked_at', { ascending: false })
         .limit(30);
 
       if (postsError) {
@@ -534,9 +538,15 @@ function MyPostsContent({ posts, loading, searchQuery, onSearchChange, currentUs
           colors={colors}
           styles={styles}
           onPress={() => {
-            if (post.recipe_id && post.recipes) {
-              navigation.navigate('RecipeDetail', { recipe: { id: post.recipe_id, title: post.recipes.title } });
-            }
+            // Phase 7H: every post — recipe-backed OR freeform (D23) —
+            // navigates to CookDetailScreen (L6). Freeform dishes with
+            // null recipe_id previously dropped through the `if` and did
+            // nothing on tap; now they open the detail screen like any
+            // other post.
+            console.warn(
+              `[StatsScreen] MyPosts tap → CookDetail postId: ${post.id}`
+            );
+            navigation.navigate('CookDetail', { postId: post.id });
           }}
         />
       ))}
@@ -549,7 +559,9 @@ function MyPostsContent({ posts, loading, searchQuery, onSearchChange, currentUs
 /* ── ActivityCard (Strava-style activity card) ── */
 
 function ActivityCard({ post, avatarUrl, displayName, colors, styles, onPress }: any) {
-  const date = new Date(post.created_at);
+  // Phase 7H: drive display from cooked_at (when the cook happened),
+  // fall back to created_at for any legacy post with null cooked_at.
+  const date = new Date(post.cooked_at ?? post.created_at);
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return (

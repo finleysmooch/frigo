@@ -95,6 +95,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
   const [likes, setLikes] = useState<Like[]>([]);
   const [currentUserLiked, setCurrentUserLiked] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
+  const [parentMealTitle, setParentMealTitle] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions>({});
   
@@ -451,7 +452,19 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       }
 
       setPost(data);
-      
+
+      // Fetch parent meal title if this dish is part of a meal
+      if (data.parent_meal_id) {
+        const { data: parentMeal } = await supabase
+          .from('posts')
+          .select('title')
+          .eq('id', data.parent_meal_id)
+          .single();
+        if (parentMeal?.title) {
+          setParentMealTitle(parentMeal.title);
+        }
+      }
+
       // Load likes and comments
       await loadLikes(postId, user.id);
       await loadCommentCount(postId);
@@ -797,6 +810,20 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Parent meal link banner (4.6 / D26) */}
+        {post?.parent_meal_id && (
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E1F5EE', paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
+            onPress={() => navigation.navigate('MealDetail' as any, { mealId: post.parent_meal_id })}
+            activeOpacity={0.7}
+          >
+            <Text style={{ flex: 1, fontSize: 14, color: '#0F6E56', fontWeight: '500' }}>
+              Part of {parentMealTitle || 'a meal'} {'\u00b7'} view meal
+            </Text>
+            <Text style={{ fontSize: 16, color: '#0F6E56' }}>{'\u203A'}</Text>
+          </TouchableOpacity>
+        )}
+
         {/* User Header - uses UserAvatar with subscription tier */}
         <View style={styles.postHeader}>
           <UserAvatar
@@ -922,7 +949,7 @@ export default function MyPostDetailsScreen({ navigation, route }: Props) {
                   onPress={() => navigation.navigate('CommentsList', { postId: post.id })}
                 >
                   <Text style={styles.commentsText}>
-                    {commentCount} comment{commentCount !== 1 ? 's' : ''}
+                    {commentCount} comment{commentCount !== 1 ? 's' : ''} on this dish
                   </Text>
                 </TouchableOpacity>
               )}

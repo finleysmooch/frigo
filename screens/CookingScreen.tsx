@@ -20,7 +20,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
 import { completePlanItem } from '../lib/services/mealPlanService';
-import { createDishPost, updateTimesCooked } from '../lib/services/postService';
+import { createDishPost, updateTimesCooked, computeMealType } from '../lib/services/postService';
+import { addParticipantsToPost } from '../lib/services/postParticipantsService';
+import MadeOtherDishesSheet from '../components/MadeOtherDishesSheet';
 import LogCookSheet from '../components/LogCookSheet';
 import type { LogCookData } from '../components/LogCookSheet';
 import { generateSmartTitle } from '../utils/titleGenerator';
@@ -65,6 +67,11 @@ export default function CookingScreen({ route, navigation }: Props) {
   // ── State ──
   const [currentStep, setCurrentStep] = useState(steps.length > 0 ? steps[0].number : 1);
   const [showLogCookSheet, setShowLogCookSheet] = useState(false);
+  const [showMadeOtherDishes, setShowMadeOtherDishes] = useState(false);
+  const [madeOtherDishesMealId, setMadeOtherDishesMealId] = useState<string | null>(null);
+  const [madeOtherDishesMealTitle, setMadeOtherDishesMealTitle] = useState<string | null>(null);
+  const [madeOtherDishesMealType, setMadeOtherDishesMealType] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [expandedTimer, setExpandedTimer] = useState<Timer | null>(null);
   const [showIngredientSheet, setShowIngredientSheet] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<{
@@ -234,8 +241,10 @@ export default function CookingScreen({ route, navigation }: Props) {
         Alert.alert('Error', 'Please restart the app and try again.');
         return;
       }
+      setCurrentUserId(session.user.id);
 
-      const visibility = logData.wantsToShare ? 'everyone' : 'private';
+      // Use mealId from LogCookSheet if set, otherwise fall back to route param
+      const effectiveMealId = logData.mealId || mealId || null;
 
       const post = await createDishPost({
         userId: session.user.id,
@@ -244,8 +253,13 @@ export default function CookingScreen({ route, navigation }: Props) {
         rating: logData.rating || null,
         modifications: logData.modifications || null,
         notes: logData.thoughts || null,
-        visibility,
-        parentMealId: mealId || null,
+        visibility: logData.visibility,
+        parentMealId: effectiveMealId,
+        mealType: computeMealType({
+          recipe,
+          parentMeal: logData.mealMealType ? { meal_type: logData.mealMealType } : undefined,
+        }),
+        cookedAt: logData.cookedAt,
       });
 
       // Increment times_cooked
@@ -257,23 +271,41 @@ export default function CookingScreen({ route, navigation }: Props) {
         await completePlanItem(planItemId, session.user.id, post.id);
       }
 
+      // Add tagged participants to the new post
+      if (logData.participants && logData.participants.length > 0 && post?.id) {
+        const sousChefs = logData.participants.filter(p => p.role === 'sous_chef').map(p => p.userId);
+        const ateWith = logData.participants.filter(p => p.role === 'ate_with').map(p => p.userId);
+        if (sousChefs.length > 0) {
+          await addParticipantsToPost(post.id, sousChefs, 'sous_chef', session.user.id);
+        }
+        if (ateWith.length > 0) {
+          await addParticipantsToPost(post.id, ateWith, 'ate_with', session.user.id);
+        }
+      }
+
       setShowLogCookSheet(false);
 
-      const successTitle = planItemId ? 'Added to Meal!' : 'Logged!';
-      const successMsg = planItemId
-        ? `Your dish has been added to "${mealTitle}"`
-        : logData.wantsToShare
-          ? 'Your cook has been shared!'
-          : 'Logged privately \u2014 counts in your stats but not on the feed.';
-
-      Alert.alert(successTitle, successMsg, [
-        { text: 'OK', onPress: () => navigation.navigate('RecipeList') },
-      ]);
+      const effectiveMealTitle = logData.mealTitle || mealTitle;
+      // Trigger "Made other dishes too?" if meal context
+      if (effectiveMealId && effectiveMealTitle) {
+        setMadeOtherDishesMealId(effectiveMealId);
+        setMadeOtherDishesMealTitle(effectiveMealTitle);
+        setMadeOtherDishesMealType(logData.mealMealType || null);
+        setShowMadeOtherDishes(true);
+      } else {
+        const successTitle = planItemId ? 'Added to Meal!' : 'Logged!';
+        const successMsg = logData.visibility === 'private'
+          ? 'Logged privately \u2014 counts in your stats but not on the feed.'
+          : 'Your cook has been shared!';
+        Alert.alert(successTitle, successMsg, [
+          { text: 'OK', onPress: () => navigation.navigate('RecipeList') },
+        ]);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post: ' + (error as any).message);
     }
-  }, [recipe.id, recipe.times_cooked, planItemId, mealId, mealTitle, navigation]);
+  }, [recipe.id, recipe.times_cooked, recipe.meal_type, planItemId, mealId, mealTitle, navigation]);
 
   // ── Derived display values ──
   const currentSection = sections[currentSectionIdx] || null;
@@ -603,6 +635,20 @@ export default function CookingScreen({ route, navigation }: Props) {
           onCancel={() => setShowLogCookSheet(false)}
           onNoteOnStep={handleNoteOnStep}
         />
+        {madeOtherDishesMealId && madeOtherDishesMealTitle && (
+          <MadeOtherDishesSheet
+            visible={showMadeOtherDishes}
+            mealId={madeOtherDishesMealId}
+            mealTitle={madeOtherDishesMealTitle}
+            mealType={madeOtherDishesMealType || undefined}
+            userId={currentUserId}
+            onClose={() => {
+              setShowMadeOtherDishes(false);
+              setMadeOtherDishesMealType(null);
+              navigation.navigate('RecipeList');
+            }}
+          />
+        )}
         <IngredientSheet
           visible={showIngredientSheet}
           onClose={() => setShowIngredientSheet(false)}

@@ -51,6 +51,10 @@ import { Logo } from './components/branding';
 import FeedScreen from './screens/FeedScreen';
 import UserSearchScreen from './screens/UserSearchScreen';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
+import CookDetailScreen from './screens/CookDetailScreen';
+import MealEventDetailScreen from './screens/MealEventDetailScreen';
+import EditMediaScreen from './screens/EditMediaScreen';
+import EditPostScreen from './screens/EditPostScreen';
 
 // NEW: Space Settings Screen for shared pantries
 import SpaceSettingsScreen from './screens/SpaceSettingsScreen';
@@ -162,6 +166,19 @@ export type FeedStackParamList = {
   EditProfile: undefined;
   RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
   AuthorView: { chefName: string };
+  /** Phase 7I Checkpoint 5: cook post detail screen (L6). The `photoIndex`
+   *  param is optional; when present, the hero carousel centers on that
+   *  index at mount. Shape is stable/public — D49 renderer and future
+   *  callers depend on it (see PHASE_7I_MASTER_PLAN.md Sub-section 5.5). */
+  CookDetail: { postId: string; photoIndex?: number };
+  /** Phase 7I Checkpoint 6 / L7: meal event detail screen. Reached from
+   *  L4 meal event preheads and L5 nested-meal-event group headers.
+   *  Replaces the legacy `MealDetail` route for meal-event navigation. */
+  MealEventDetail: { mealEventId: string };
+  /** Phase 7I Checkpoint 5 / 5.3: Add photos menu item on CookDetailScreen
+   *  routes here. Shape mirrors the legacy MyPostsStackParamList entry. */
+  EditMedia: { postId: string; existingPhotos: PostPhoto[] };
+  EditPost: { postId: string };
 };
 
 // UPDATED: MealsStackParamList with recipe selection return params
@@ -215,6 +232,11 @@ export type StatsStackParamList = {
   Profile: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  /** Phase 7H: My Posts cards tap through to the 7I L6 detail screen.
+   *  Same param shape as the FeedStack's CookDetail route. */
+  CookDetail: { postId: string; photoIndex?: number };
+  EditMedia: { postId: string; existingPhotos: PostPhoto[] };
+  EditPost: { postId: string };
 };
 
 export type ProfileStackParamList = {
@@ -320,6 +342,7 @@ function FeedStackNavigator() {
     <FeedStack.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <FeedStack.Screen
@@ -389,6 +412,45 @@ function FeedStackNavigator() {
         component={AuthorViewScreen}
         options={{ headerShown: true, title: 'Chef' }}
       />
+      <FeedStack.Screen
+        name="MealDetail"
+        component={MealDetailScreen}
+        options={{ headerShown: true, title: 'Meal' }}
+      />
+      {/* Phase 7I Checkpoint 5: Cook post detail screen (L6). Reached from
+          feed card taps, comment list return nav, and future D49 renderer
+          dish-row taps. CookDetailScreen owns its own header, so headerShown=false. */}
+      <FeedStack.Screen
+        name="CookDetail"
+        component={CookDetailScreen}
+        options={{ headerShown: false }}
+      />
+      {/* Phase 7I Checkpoint 6: MealEventDetailScreen (L7). Owns its own
+          header, so headerShown=false. Replaces the legacy MealDetail route
+          for meal-event navigation; MealDetail route stays registered
+          because other screens (MyMeals, etc.) still reference it.
+          Checkpoint 7 removes it. */}
+      <FeedStack.Screen
+        name="MealEventDetail"
+        component={MealEventDetailScreen}
+        options={{ headerShown: false }}
+      />
+      {/* Phase 7I Checkpoint 5 / 5.3: Edit photos destination reached from
+          CookDetailScreen's overflow menu "Add photos" item. EditMediaScreen
+          exists and is wired; prior to Checkpoint 5 it was imported by
+          MyPostDetailsScreen / MyPostsScreen but not registered in any
+          navigator, so existing calls were orphaned. Registering here makes
+          it reachable from the feed stack. */}
+      <FeedStack.Screen
+        name="EditMedia"
+        component={EditMediaScreen}
+        options={{ headerShown: true, title: 'Edit Photos' }}
+      />
+      <FeedStack.Screen
+        name="EditPost"
+        component={EditPostScreen}
+        options={{ headerShown: false }}
+      />
     </FeedStack.Navigator>
   );
 }
@@ -399,6 +461,7 @@ function RecipesStackNavigator() {
     <RecipesStack.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <RecipesStack.Screen name="RecipeList" component={RecipeListScreen} />
@@ -475,6 +538,7 @@ function StatsStackNavigator() {
     <StatsStackNav.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <StatsStackNav.Screen name="StatsHome" component={StatsScreen} />
@@ -527,6 +591,23 @@ function StatsStackNavigator() {
         component={EditProfileScreen}
         options={{ headerShown: true, title: 'Edit Profile' }}
       />
+      {/* Phase 7H: My Posts cards route here. Same screen as the FeedStack
+          CookDetail registration; owns its own header. */}
+      <StatsStackNav.Screen
+        name="CookDetail"
+        component={CookDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <StatsStackNav.Screen
+        name="EditMedia"
+        component={EditMediaScreen}
+        options={{ headerShown: true, title: 'Edit Photos' }}
+      />
+      <StatsStackNav.Screen
+        name="EditPost"
+        component={EditPostScreen}
+        options={{ headerShown: false }}
+      />
     </StatsStackNav.Navigator>
   );
 }
@@ -537,6 +618,7 @@ function MealsStackNavigator() {
     <MealsStack.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <MealsStack.Screen 
@@ -561,6 +643,7 @@ function ProfileStackNavigator() {
     <ProfileStack.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <ProfileStack.Screen
@@ -595,6 +678,7 @@ function PantryStackNavigator() {
     <PantryStackNav.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <PantryStackNav.Screen name="Pantry" component={PantryScreen} />
@@ -617,6 +701,7 @@ function GroceryStackNavigator() {
     <GroceryStack.Navigator
       screenOptions={{
         headerShown: false,
+        headerTintColor: '#0F6E56',
       }}
     >
       <GroceryStack.Screen 

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
-import { chooseImageSource, uploadPostImages } from '../lib/services/imageStorageService';
+import { chooseImageSourceMulti, uploadPostImages } from '../lib/services/imageStorageService';
 import { MyPostsStackParamList, PostPhoto } from '../App'; // Import types from App
 import { useTheme } from '../lib/theme/ThemeContext';
 
@@ -47,7 +47,8 @@ export default function EditMediaScreen({ navigation, route }: Props) {
   };
 
   const handleAddPhotos = async () => {
-    if (photos.length >= 10) {
+    const remaining = 10 - photos.length;
+    if (remaining <= 0) {
       Alert.alert('Maximum Photos', 'You can add up to 10 photos per post.');
       return;
     }
@@ -57,29 +58,30 @@ export default function EditMediaScreen({ navigation, route }: Props) {
       return;
     }
 
-    const uri = await chooseImageSource();
-    if (!uri) return;
+    const uris = await chooseImageSourceMulti();
+    if (uris.length === 0) return;
+
+    // Clamp to remaining slots
+    const toUpload = uris.slice(0, remaining);
 
     setLoading(true);
     try {
-      // Upload single photo
-      const uploadedPhotos = await uploadPostImages([uri], currentUserId);
-      
+      const uploadedPhotos = await uploadPostImages(toUpload, currentUserId);
+
       if (uploadedPhotos.length === 0) {
         throw new Error('Upload failed');
       }
 
-      // Add to photos array
-      const newPhoto: PostPhoto = {
-        url: uploadedPhotos[0].url,
-        order: photos.length + 1,
-        is_highlight: photos.length === 0, // First photo is highlight
-      };
+      const newPhotos: PostPhoto[] = uploadedPhotos.map((up, i) => ({
+        url: up.url,
+        order: photos.length + i + 1,
+        is_highlight: photos.length === 0 && i === 0,
+      }));
 
-      setPhotos([...photos, newPhoto]);
+      setPhotos([...photos, ...newPhotos]);
     } catch (error) {
-      console.error('Error uploading photo:', error);
-      Alert.alert('Error', 'Failed to upload photo. Please try again.');
+      console.error('Error uploading photos:', error);
+      Alert.alert('Error', 'Failed to upload photos. Please try again.');
     } finally {
       setLoading(false);
     }

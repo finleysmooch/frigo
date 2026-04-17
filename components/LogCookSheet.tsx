@@ -1,5 +1,6 @@
 // components/LogCookSheet.tsx
 // Phase 7B Revision: Unified cook-logging bottom sheet with compact/full modes
+// Phase 7E: Meal-attach chip, visibility model (D34/D35), smart-detect banner stubs
 // Compact: from RecipeDetailScreen "I Made This" — lightweight popup (~55%)
 // Full: from CookingScreen post-cook — replaces PostCookFlow (~90%)
 
@@ -15,14 +16,30 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  PanResponder,
   LayoutChangeEvent,
   Dimensions,
   InputAccessoryView,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 import { useTheme } from '../lib/theme/ThemeContext';
-import { StarIcon, FriendsIcon } from './icons';
+import { FriendsIcon } from './icons';
+import StarRating from './StarRating';
+import {
+  computeDefaultVisibility,
+  computeMealType,
+  type PostVisibility,
+} from '../lib/services/postService';
+import {
+  detectPlannedMealForCook,
+  type SmartDetectResult,
+  type Meal,
+} from '../lib/services/mealService';
+import { supabase } from '../lib/supabase';
+import MealPicker from './MealPicker';
+import InSheetMealCreate from './InSheetMealCreate';
+import AddCookingPartnersModal from './AddCookingPartnersModal';
+import DateTimePicker from './DateTimePicker';
 
 // ── Inline SVG icons ──
 
@@ -105,6 +122,82 @@ function CloseIcon({ size = 20, color = '#475569' }: { size?: number; color?: st
   );
 }
 
+function PlateIcon({ size = 20, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={1.5} />
+      <Circle cx="12" cy="12" r="5" stroke={color} strokeWidth={1.5} />
+      <Line x1="12" y1="3" x2="12" y2="2" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function EyeIcon({ size = 16, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth={1.5} />
+    </Svg>
+  );
+}
+
+function CheckSmallIcon({ size = 14, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polyline points="20 6 9 17 4 12" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 14, color = '#475569' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polyline points="9 18 15 12 9 6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RadioIcon({ size = 18, selected = false, color = '#0F6E56' }: { size?: number; selected?: boolean; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={selected ? color : '#999'} strokeWidth={1.5} />
+      {selected && <Circle cx="12" cy="12" r="6" fill={color} />}
+    </Svg>
+  );
+}
+
+function SparkleIcon({ size = 18, color = '#0F6E56' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2l2.09 6.26L20 10.27l-4.91 3.82L16.18 22 12 18.27 7.82 22l1.09-7.91L4 10.27l5.91-2.01L12 2z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function QuestionIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+      <Path d="M9 9a3 3 0 015.12 2.12c0 2-3.12 2-3.12 4" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Circle cx="12" cy="19" r="0.5" fill={color} stroke={color} strokeWidth={0.5} />
+    </Svg>
+  );
+}
+
+// ── Visibility option config ──
+
+const VISIBILITY_OPTIONS: {
+  value: PostVisibility;
+  label: string;
+  description: string;
+  mealOnly?: boolean;
+}[] = [
+  { value: 'everyone', label: 'Everyone', description: 'Anyone on Frigo can find this post.' },
+  { value: 'followers', label: 'Followers', description: 'Just the people who follow you.' },
+  { value: 'meal_tagged', label: 'People tagged in this meal', description: 'Only the cooks and guests tagged in the meal.', mealOnly: true },
+  { value: 'private', label: 'Just me', description: 'Saves to your history but never appears on the feed.' },
+];
+
 // ── Types ──
 
 export interface LogCookSheetProps {
@@ -116,11 +209,13 @@ export interface LogCookSheetProps {
     book_title?: string;
     book_author?: string;
     page_number?: number;
+    meal_type?: string;
   };
   modifications?: string;       // only used in 'full' mode
   onSubmit: (data: LogCookData) => void;
   onCancel: () => void;
   onNoteOnStep?: () => void;    // full mode only: close sheet, return to step view
+  onOpenMealPicker?: () => void; // Kept for external callers; internal picker used if not set
 }
 
 export interface LogCookData {
@@ -128,10 +223,27 @@ export interface LogCookData {
   thoughts: string;
   modifications: string;
   wantsToShare: boolean;
+  visibility: PostVisibility;
+  mealId: string | null;
+  mealTitle: string | null;
+  mealMealType: string | null;
+  participants: Array<{ userId: string; role: 'sous_chef' | 'ate_with' }>;
+  /**
+   * Phase 7G: when the cook actually happened. ISO string. Defaults to
+   * now() at sheet open; user can backdate via the "When did you cook
+   * this?" row. Callers pass this through to createDishPost's `cookedAt`.
+   */
+  cookedAt: string;
 }
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const KEYBOARD_ACCESSORY_ID = 'logcooksheet-keyboard-done';
+
+// Teal color constants for the meal chip
+const TEAL_FAINT_BG = '#E1F5EE';
+const TEAL_200 = '#99D9C2';
+const TEAL_700 = '#0F6E56';
+const TEAL_ACTIVE_BG = '#C6F0DE';
 
 // ── Component ──
 
@@ -143,20 +255,58 @@ export default function LogCookSheet({
   onSubmit,
   onCancel,
   onNoteOnStep,
+  onOpenMealPicker,
 }: LogCookSheetProps) {
   const { colors } = useTheme();
   const isCompact = mode === 'compact';
 
+  // Existing state
   const [rating, setRating] = useState<number | null>(null);
   const [thoughts, setThoughts] = useState('');
   const [modifications, setModifications] = useState('');
   const thoughtsRef = useRef<TextInput>(null);
   const modificationsRef = useRef<TextInput>(null);
 
+  // Meal context state
+  const [mealContext, setMealContext] = useState<{ mealId: string; mealTitle: string; mealType?: string } | null>(null);
+  // Phase 7L: cached user visibility preference for re-computation on meal context change
+  const userDefaultVisRef = useRef<string | undefined>(undefined);
+
+  // Smart-detect state (D33)
+  const [smartDetectResult, setSmartDetectResult] = useState<SmartDetectResult | null>(null);
+  const [smartDetectDismissed, setSmartDetectDismissed] = useState(false);
+  // Banner display state: 'none' | 'high' | 'low' | 'confirmed'
+  const [bannerState, setBannerState] = useState<'none' | 'high' | 'low' | 'confirmed'>('none');
+
+  // Sheet sub-view state (Checkpoint 3)
+  const [sheetView, setSheetView] = useState<'main' | 'picker' | 'create'>('main');
+
+  // Tag modal state (Checkpoint 3.4)
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [taggedParticipants, setTaggedParticipants] = useState<Array<{ userId: string; role: 'sous_chef' | 'ate_with' }>>([]);
+
+  // Visibility state (D34/D35)
+  const [visibility, setVisibility] = useState<PostVisibility>('followers');
+  const [visibilityManuallySet, setVisibilityManuallySet] = useState(false);
+  const [showVisibilityOverlay, setShowVisibilityOverlay] = useState(false);
+
+  // Phase 7G: cooked_at state — when the cook actually happened.
+  // Defaults to now() on every open; user can backdate via the date row.
+  const [cookedAt, setCookedAt] = useState<Date>(new Date());
+  const [dateManuallySet, setDateManuallySet] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const dismissKeyboard = useCallback(() => {
     thoughtsRef.current?.blur();
     modificationsRef.current?.blur();
   }, []);
+
+  // Compute meal_type for this post (used by visibility defaults and the post itself)
+  const inferredMealType = useMemo(
+    () => computeMealType({ recipe }),
+    [recipe.meal_type]
+  );
 
   // Reset form when sheet opens
   useEffect(() => {
@@ -164,115 +314,234 @@ export default function LogCookSheet({
       setRating(null);
       setThoughts('');
       setModifications(initialModifications?.trim() || '');
-    }
-  }, [visible, initialModifications]);
-
-  // ── Half-star slide-to-rate ──
-  const starsContainerRef = useRef<View>(null);
-  const starsPageXRef = useRef(0);
-  const isDraggingRef = useRef(false);
-
-  const STAR_SIZE = 36;
-  const STAR_GAP = 6;
-  const STARS_TOTAL_WIDTH = 5 * STAR_SIZE + 4 * STAR_GAP; // 204
-
-  const handleStarsLayout = useCallback(() => {
-    starsContainerRef.current?.measureInWindow((x) => {
-      starsPageXRef.current = x;
-    });
-  }, []);
-
-  const ratingFromTouchX = useCallback((pageX: number): number | 'clear' | null => {
-    const relativeX = pageX - starsPageXRef.current;
-    // Way past the right edge — ignore
-    if (relativeX > STARS_TOTAL_WIDTH + 8) return null;
-    // Past left edge — clear the rating
-    if (relativeX < 0) return 'clear';
-    const clamped = Math.min(relativeX, STARS_TOTAL_WIDTH);
-
-    for (let i = 0; i < 5; i++) {
-      const starStart = i * (STAR_SIZE + STAR_GAP);
-      const starEnd = starStart + STAR_SIZE;
-      if (clamped <= starEnd) {
-        const withinStar = Math.max(0, clamped - starStart);
-        return withinStar < STAR_SIZE / 2 ? i + 0.5 : i + 1;
-      }
-      if (clamped < starStart + STAR_SIZE + STAR_GAP) {
-        return i + 1;
-      }
-    }
-    return 5;
-  }, []);
-
-  const starPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gs) =>
-          Math.abs(gs.dx) > 4 && Math.abs(gs.dx) > Math.abs(gs.dy),
-        onPanResponderGrant: (evt) => {
-          isDraggingRef.current = false;
-          starsContainerRef.current?.measureInWindow((x) => {
-            starsPageXRef.current = x;
+      setMealContext(null);
+      setVisibilityManuallySet(false);
+      setShowVisibilityOverlay(false);
+      setSmartDetectResult(null);
+      setSmartDetectDismissed(false);
+      setBannerState('none');
+      setSheetView('main');
+      setShowTagModal(false);
+      setTaggedParticipants([]);
+      setCookedAt(new Date());
+      setDateManuallySet(false);
+      setShowDatePicker(false);
+      // Get current user id + default visibility preference
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (session?.user) {
+          setCurrentUserId(session.user.id);
+          // Fetch stored visibility preference
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('default_visibility')
+            .eq('id', session.user.id)
+            .single();
+          const userDefault = profile?.default_visibility || undefined;
+          userDefaultVisRef.current = userDefault;
+          const defaultVis = computeDefaultVisibility({
+            hasMealContext: false,
+            mealType: computeMealType({ recipe }),
+            userDefault,
           });
-          const result = ratingFromTouchX(evt.nativeEvent.pageX);
-          if (result === 'clear') setRating(null);
-          else if (result !== null) setRating(result);
-        },
-        onPanResponderMove: (evt) => {
-          isDraggingRef.current = true;
-          const result = ratingFromTouchX(evt.nativeEvent.pageX);
-          if (result === 'clear') setRating(null);
-          else if (result !== null) setRating(result);
-        },
-      }),
-    [ratingFromTouchX]
-  );
+          setVisibility(defaultVis);
+        } else {
+          const defaultVis = computeDefaultVisibility({
+            hasMealContext: false,
+            mealType: computeMealType({ recipe }),
+          });
+          setVisibility(defaultVis);
+        }
+      });
+    }
+  }, [visible, initialModifications, recipe.meal_type]);
 
-  const renderStar = useCallback((starIndex: number, currentRating: number | null) => {
-    const starNumber = starIndex + 1;
-    const fillAmount = currentRating === null
-      ? 0
-      : currentRating >= starNumber
-        ? 1
-        : currentRating >= starNumber - 0.5
-          ? 0.5
-          : 0;
+  // Smart-detect: run on open (D33)
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
 
-    const emptyColor = colors.border.medium;
-    const filledColor = colors.primary;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user || cancelled) return;
 
-    return (
-      <View key={starIndex} style={{ width: STAR_SIZE, height: STAR_SIZE }}>
-        <View style={{ position: 'absolute' }}>
-          <StarIcon size={STAR_SIZE} color={emptyColor} />
-        </View>
-        {fillAmount > 0 && (
-          <View style={{
-            position: 'absolute',
-            width: fillAmount === 1 ? STAR_SIZE : STAR_SIZE / 2,
-            height: STAR_SIZE,
-            overflow: 'hidden',
-          }}>
-            <StarIcon size={STAR_SIZE} color={filledColor} />
-          </View>
-        )}
-      </View>
-    );
-  }, [colors]);
+        const result = await detectPlannedMealForCook(session.user.id, recipe.id);
+        if (cancelled) return;
 
+        setSmartDetectResult(result);
+
+        if (!result) {
+          setBannerState('none');
+          return;
+        }
+
+        if (result.confidence === 'high') {
+          // Auto-attach (state 1b)
+          setBannerState('high');
+          setMealContext({ mealId: result.meal.id, mealTitle: result.meal.title, mealType: result.meal.meal_type });
+        } else {
+          // Show recommendation (state 1b-low) — do NOT auto-attach
+          setBannerState('low');
+        }
+      } catch (err) {
+        console.error('Smart-detect error:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [visible, recipe.id]);
+
+  // Re-compute visibility when meal context changes (unless manually overridden)
+  useEffect(() => {
+    if (!visibilityManuallySet) {
+      const defaultVis = computeDefaultVisibility({
+        hasMealContext: !!mealContext,
+        mealType: inferredMealType,
+        userDefault: userDefaultVisRef.current as any,
+      });
+      setVisibility(defaultVis);
+    }
+  }, [mealContext, inferredMealType, visibilityManuallySet]);
+
+  // ── Half-star rating label (StarRating component handles the UI) ──
   const ratingLabel = rating !== null
     ? (Number.isInteger(rating) ? `${rating}.0` : `${rating}`)
     : null;
 
   const handleSubmit = (wantsToShare: boolean) => {
+    const finalVisibility = wantsToShare ? visibility : 'private';
+    const cookedAtIso = cookedAt.toISOString();
+    console.warn(
+      `[LogCookSheet] handleSubmit — cookedAt: ${cookedAtIso}, manuallySet: ${dateManuallySet}, mode: ${mode}`
+    );
     onSubmit({
       rating,
       thoughts: thoughts.trim(),
       modifications: isCompact ? '' : modifications.trim(),
       wantsToShare,
+      visibility: finalVisibility,
+      mealId: mealContext?.mealId ?? null,
+      mealTitle: mealContext?.mealTitle ?? null,
+      mealMealType: mealContext?.mealType ?? null,
+      participants: taggedParticipants,
+      cookedAt: cookedAtIso,
     });
   };
+
+  // Phase 7G: date row handlers
+  const handleDateRowPress = useCallback(() => {
+    console.warn('[LogCookSheet] date row pressed — opening picker');
+    setShowDatePicker(true);
+  }, []);
+
+  const handleDateSelect = useCallback((newDate: Date) => {
+    console.warn(
+      `[LogCookSheet] handleDateSelect — new cookedAt: ${newDate.toISOString()}`
+    );
+    setCookedAt(newDate);
+    setDateManuallySet(true);
+    setShowDatePicker(false);
+  }, []);
+
+  const handleDateReset = useCallback(() => {
+    console.warn('[LogCookSheet] date reset to now');
+    setCookedAt(new Date());
+    setDateManuallySet(false);
+  }, []);
+
+  // Formatted date label for display in the row
+  const formatDateLabel = useCallback((d: Date): string => {
+    const now = new Date();
+    const sameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (sameDay) {
+      // Full mode uses "Today, 2:30 PM"; compact mode uses "Today"
+      if (!isCompact) {
+        const time = d.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        return `Today, ${time}`;
+      }
+      return 'Today';
+    }
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }, [isCompact]);
+
+  const handleVisibilitySelect = (value: PostVisibility) => {
+    setVisibility(value);
+    setVisibilityManuallySet(true);
+    setShowVisibilityOverlay(false);
+  };
+
+  // Attach a meal (from any source: smart-detect, picker, etc.)
+  const attachMeal = useCallback((mealId: string, mealTitle: string, mealType?: string) => {
+    setMealContext({ mealId, mealTitle, mealType });
+    setBannerState('confirmed');
+    setSmartDetectDismissed(false);
+  }, []);
+
+  // Detach current meal
+  const detachMeal = useCallback(() => {
+    setMealContext(null);
+    setBannerState('none');
+    setSmartDetectResult(null);
+    setSmartDetectDismissed(true);
+  }, []);
+
+  // Smart-detect low-confidence: user taps "Attach"
+  const handleSmartDetectAttach = useCallback(() => {
+    if (smartDetectResult?.meal) {
+      attachMeal(smartDetectResult.meal.id, smartDetectResult.meal.title, smartDetectResult.meal.meal_type);
+    }
+  }, [smartDetectResult, attachMeal]);
+
+  // Smart-detect low-confidence: user taps "Not this one"
+  const handleSmartDetectDismiss = useCallback(() => {
+    setBannerState('none');
+    setSmartDetectDismissed(true);
+  }, []);
+
+  // Change/detach from banner or chip — opens the picker
+  const handleChangeOrDetach = useCallback(() => {
+    setSheetView('picker');
+  }, []);
+
+  const handleMealChipPress = () => {
+    setSheetView('picker');
+  };
+
+  // Picker callbacks
+  const handlePickerSelectMeal = useCallback((mealId: string, mealTitle: string, mealType?: string) => {
+    attachMeal(mealId, mealTitle, mealType);
+    setSheetView('main');
+  }, [attachMeal]);
+
+  const handlePickerDetach = useCallback(() => {
+    detachMeal();
+    setSheetView('main');
+  }, [detachMeal]);
+
+  const handlePickerCreateNew = useCallback(() => {
+    setSheetView('create');
+  }, []);
+
+  const handlePickerCancel = useCallback(() => {
+    setSheetView('main');
+  }, []);
+
+  // In-sheet creation callback
+  const handleMealCreated = useCallback((mealId: string, mealTitle: string, mealType?: string) => {
+    attachMeal(mealId, mealTitle, mealType);
+    setSheetView('main');
+  }, [attachMeal]);
 
   const comingSoon = (feature: string) => {
     Alert.alert('Coming soon', `${feature} will be available in a future update.`);
@@ -282,7 +551,211 @@ export default function LogCookSheet({
     ? `${recipe.book_title}${recipe.book_author ? ` \u00b7 ${recipe.book_author}` : ''}${recipe.page_number ? ` \u00b7 p.${recipe.page_number}` : ''}`
     : null;
 
-  const sheetHeight = isCompact ? SCREEN_HEIGHT * 0.65 : SCREEN_HEIGHT * 0.9;
+  // Visibility display label
+  const visibilityLabel = VISIBILITY_OPTIONS.find(o => o.value === visibility)?.label || 'Followers';
+
+  // Expand sheet when showing picker or creation form — those tasks need more room.
+  // NOTE (Fix Pass 4): 'create' view is capped at 0.55 to leave room for the keyboard
+  // push from InSheetMealCreate's TextInputs. This is a hacky tactical fix; the proper
+  // fix is to restructure KeyboardAvoidingView to use behavior="padding" with a flex
+  // layout instead of fixed heights. Tracked as a deferred item.
+  let sheetHeight: number;
+  if (sheetView === 'create') {
+    sheetHeight = SCREEN_HEIGHT * 0.55;
+  } else if (sheetView === 'picker') {
+    sheetHeight = SCREEN_HEIGHT * 0.85;
+  } else {
+    sheetHeight = isCompact ? SCREEN_HEIGHT * 0.65 : SCREEN_HEIGHT * 0.9;
+  }
+
+  // ── Chip row (both modes) ──
+  const renderChipRow = () => (
+    <View style={styles.chipRow}>
+      <TouchableOpacity
+        style={styles.actionChip}
+        onPress={() => comingSoon('Photo upload')}
+        activeOpacity={0.7}
+      >
+        <CameraIcon size={14} color={colors.text.secondary} />
+        <Text style={styles.actionChipText}>Photo</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionChip}
+        onPress={() => comingSoon('Voice recording')}
+        activeOpacity={0.7}
+      >
+        <MicIcon size={14} color={colors.text.secondary} />
+        <Text style={styles.actionChipText}>Voice</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.actionChip,
+          taggedParticipants.length > 0 && styles.mealChipActive,
+        ]}
+        onPress={() => setShowTagModal(true)}
+        activeOpacity={0.7}
+      >
+        <FriendsIcon size={14} color={taggedParticipants.length > 0 ? TEAL_700 : colors.text.secondary} />
+        <Text style={[
+          styles.actionChipText,
+          taggedParticipants.length > 0 && styles.mealChipActiveText,
+        ]}>
+          {taggedParticipants.length > 0 ? `Tagged (${taggedParticipants.length})` : 'Tag'}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.actionChip,
+          mealContext ? styles.mealChipActive : styles.mealChipIdle,
+        ]}
+        onPress={handleMealChipPress}
+        activeOpacity={0.7}
+      >
+        {mealContext ? (
+          <>
+            <CheckSmallIcon size={12} color={TEAL_700} />
+            <Text style={styles.mealChipActiveText} numberOfLines={1}>
+              {mealContext.mealTitle}
+            </Text>
+          </>
+        ) : (
+          <>
+            <PlateIcon size={14} color={TEAL_700} />
+            <Text style={styles.mealChipIdleText}>Add to meal</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ── Smart-detect banner (D33) ──
+  const renderSmartDetectBanner = () => {
+    if (bannerState === 'none' || smartDetectDismissed && bannerState !== 'confirmed') return null;
+
+    const mealTitle = mealContext?.mealTitle || smartDetectResult?.meal?.title || 'Meal';
+
+    // State 1b: High confidence — auto-attached, sparkle icon
+    if (bannerState === 'high') {
+      return (
+        <View style={[styles.smartBanner, styles.smartBannerTeal]}>
+          <SparkleIcon size={18} color={TEAL_700} />
+          <View style={styles.smartBannerTextArea}>
+            <Text style={styles.smartBannerLead}>Attached to {mealTitle}</Text>
+            <Text style={styles.smartBannerBody}>Detected from your meal plan</Text>
+          </View>
+          <TouchableOpacity onPress={handleChangeOrDetach} activeOpacity={0.7}>
+            <Text style={styles.smartBannerChangeLink}>change</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // State 1b-low: Low confidence — question icon, two action buttons
+    if (bannerState === 'low') {
+      return (
+        <View style={[styles.smartBanner, styles.smartBannerAmber]}>
+          <QuestionIcon size={18} color="#92400E" />
+          <View style={styles.smartBannerTextArea}>
+            <Text style={styles.smartBannerLeadAmber}>Part of {mealTitle}?</Text>
+            <Text style={styles.smartBannerBodyAmber}>You have a planned meal tonight</Text>
+            <View style={styles.smartBannerActions}>
+              <TouchableOpacity
+                style={styles.smartBannerDismissBtn}
+                onPress={handleSmartDetectDismiss}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.smartBannerDismissBtnText}>Not this one</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.smartBannerAttachBtn}
+                onPress={handleSmartDetectAttach}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.smartBannerAttachBtnText}>Attach</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    // State 1e: Confirmed — check icon (regardless of how meal was attached)
+    if (bannerState === 'confirmed') {
+      return (
+        <View style={[styles.smartBanner, styles.smartBannerTeal]}>
+          <CheckSmallIcon size={18} color={TEAL_700} />
+          <View style={styles.smartBannerTextArea}>
+            <Text style={styles.smartBannerLead}>Part of {mealTitle}</Text>
+            <Text style={styles.smartBannerBody}>Tap to view or change</Text>
+          </View>
+          <TouchableOpacity onPress={handleChangeOrDetach} activeOpacity={0.7}>
+            <Text style={styles.smartBannerChangeLink}>change</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // ── Visibility override overlay ──
+  const renderVisibilityOverlay = () => {
+    if (!showVisibilityOverlay) return null;
+    const hasMealCtx = !!mealContext;
+
+    return (
+      <View style={styles.visOverlay}>
+        <Text style={styles.visOverlayTitle}>Who can see this</Text>
+        {VISIBILITY_OPTIONS.map((opt) => {
+          const disabled = opt.mealOnly && !hasMealCtx;
+          const selected = visibility === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.visOptionRow, disabled && styles.visOptionDisabled]}
+              onPress={() => !disabled && handleVisibilitySelect(opt.value)}
+              activeOpacity={disabled ? 1 : 0.7}
+              disabled={disabled}
+            >
+              <RadioIcon size={18} selected={selected} color={TEAL_700} />
+              <View style={styles.visOptionTextArea}>
+                <Text style={[styles.visOptionLabel, disabled && { color: colors.text.placeholder }]}>
+                  {opt.label}
+                  {disabled && <Text style={styles.visMealOnlyBadge}> (meal posts only)</Text>}
+                </Text>
+                <Text style={[styles.visOptionDesc, disabled && { color: colors.text.placeholder }]}>
+                  {opt.mealOnly && hasMealCtx
+                    ? `Only the cooks and guests tagged in ${mealContext?.mealTitle || 'the meal'}.`
+                    : opt.description}
+                </Text>
+                {opt.value === 'followers' && !visibilityManuallySet && (
+                  <Text style={styles.visDefaultHint}>your default \u00b7 change in settings</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // ── Visibility row (in CTA area) ──
+  const renderVisibilityRow = () => (
+    <TouchableOpacity
+      style={styles.visibilityRow}
+      onPress={() => setShowVisibilityOverlay(!showVisibilityOverlay)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.visibilityRowLeft}>
+        <EyeIcon size={14} color={colors.text.tertiary} />
+        <Text style={styles.visibilityLabel}>Visible to</Text>
+      </View>
+      <View style={styles.visibilityRowRight}>
+        <Text style={styles.visibilityValue}>{visibilityLabel}</Text>
+        <ChevronRightIcon size={12} color={TEAL_700} />
+      </View>
+    </TouchableOpacity>
+  );
 
   const styles = useMemo(
     () =>
@@ -299,7 +772,7 @@ export default function LogCookSheet({
           backgroundColor: colors.background.card,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          maxHeight: sheetHeight,
+          height: sheetHeight,
         },
         dragHandle: {
           width: 36,
@@ -421,6 +894,128 @@ export default function LogCookSheet({
           fontSize: 12,
           color: colors.text.secondary,
         },
+        // Smart-detect banner (D33)
+        smartBanner: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 10,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderRadius: 12,
+          marginBottom: 14,
+        },
+        smartBannerTeal: {
+          backgroundColor: TEAL_FAINT_BG,
+          borderWidth: 1,
+          borderColor: TEAL_200,
+        },
+        smartBannerAmber: {
+          backgroundColor: '#FEF3C7',
+          borderWidth: 1,
+          borderColor: '#F59E0B',
+        },
+        smartBannerTextArea: {
+          flex: 1,
+        },
+        smartBannerLead: {
+          fontSize: 14,
+          fontWeight: '600',
+          color: TEAL_700,
+        },
+        smartBannerBody: {
+          fontSize: 12,
+          color: TEAL_700,
+          marginTop: 2,
+          opacity: 0.8,
+        },
+        smartBannerLeadAmber: {
+          fontSize: 14,
+          fontWeight: '600',
+          color: '#92400E',
+        },
+        smartBannerBodyAmber: {
+          fontSize: 12,
+          color: '#92400E',
+          marginTop: 2,
+          opacity: 0.8,
+        },
+        smartBannerChangeLink: {
+          fontSize: 13,
+          color: TEAL_700,
+          textDecorationLine: 'underline',
+          marginTop: 2,
+        },
+        smartBannerActions: {
+          flexDirection: 'row',
+          gap: 8,
+          marginTop: 8,
+        },
+        smartBannerDismissBtn: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#92400E',
+        },
+        smartBannerDismissBtnText: {
+          fontSize: 12,
+          fontWeight: '500',
+          color: '#92400E',
+        },
+        smartBannerAttachBtn: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 16,
+          backgroundColor: TEAL_700,
+        },
+        smartBannerAttachBtnText: {
+          fontSize: 12,
+          fontWeight: '600',
+          color: '#ffffff',
+        },
+        // Action chip row (both modes)
+        chipRow: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginBottom: 6,
+        },
+        actionChip: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+          backgroundColor: colors.background.card,
+          borderWidth: 1,
+          borderColor: colors.border.light,
+          borderRadius: 20,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+        },
+        actionChipText: {
+          fontSize: 12,
+          color: colors.text.secondary,
+        },
+        // Meal chip — idle state (lock 2: faint teal bg)
+        mealChipIdle: {
+          backgroundColor: TEAL_FAINT_BG,
+          borderColor: TEAL_200,
+        },
+        mealChipIdleText: {
+          fontSize: 12,
+          color: TEAL_700,
+          fontWeight: '500',
+        },
+        // Meal chip — active state (lock 10: brighter teal, leading check)
+        mealChipActive: {
+          backgroundColor: TEAL_ACTIVE_BG,
+          borderColor: TEAL_700,
+        },
+        mealChipActiveText: {
+          fontSize: 12,
+          color: TEAL_700,
+          fontWeight: '600',
+          maxWidth: 120,
+        },
         // Modifications input (full mode)
         modificationsInput: {
           backgroundColor: colors.background.secondary,
@@ -492,19 +1087,6 @@ export default function LogCookSheet({
           color: colors.text.tertiary,
           marginTop: 8,
         },
-        // Tag row
-        tagRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-          paddingVertical: 12,
-          borderTopWidth: 1,
-          borderTopColor: colors.border.light,
-        },
-        tagText: {
-          fontSize: 14,
-          color: colors.text.secondary,
-        },
         // Multi-dish prompt
         multiDishRow: {
           flexDirection: 'row',
@@ -543,6 +1125,83 @@ export default function LogCookSheet({
           borderTopColor: colors.border.light,
           backgroundColor: colors.background.card,
         },
+        // Visibility row (above CTA buttons)
+        visibilityRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingVertical: 10,
+          marginBottom: 8,
+        },
+        visibilityRowLeft: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        },
+        visibilityLabel: {
+          fontSize: 13,
+          color: colors.text.tertiary,
+        },
+        visibilityRowRight: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+        },
+        visibilityValue: {
+          fontSize: 13,
+          fontWeight: '600',
+          color: TEAL_700,
+        },
+        // Visibility override overlay
+        visOverlay: {
+          backgroundColor: colors.background.card,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.light,
+          paddingHorizontal: 16,
+          paddingTop: 14,
+          paddingBottom: 6,
+          marginBottom: 4,
+        },
+        visOverlayTitle: {
+          fontSize: 14,
+          fontWeight: '600',
+          color: colors.text.primary,
+          marginBottom: 12,
+        },
+        visOptionRow: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 12,
+          paddingVertical: 10,
+        },
+        visOptionDisabled: {
+          opacity: 0.4,
+        },
+        visOptionTextArea: {
+          flex: 1,
+        },
+        visOptionLabel: {
+          fontSize: 14,
+          fontWeight: '500',
+          color: colors.text.primary,
+        },
+        visOptionDesc: {
+          fontSize: 12,
+          color: colors.text.tertiary,
+          marginTop: 2,
+        },
+        visMealOnlyBadge: {
+          fontSize: 11,
+          color: colors.text.placeholder,
+          fontWeight: '400',
+        },
+        visDefaultHint: {
+          fontSize: 11,
+          color: colors.text.tertiary,
+          fontStyle: 'italic',
+          marginTop: 2,
+        },
+        // CTA buttons
         logShareButton: {
           backgroundColor: colors.primary,
           paddingVertical: 15,
@@ -566,6 +1225,53 @@ export default function LogCookSheet({
           fontSize: 14,
           color: colors.text.tertiary,
         },
+        // Phase 7G — date row (compact + full)
+        dateRowCompact: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 18,
+        },
+        dateRowButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: colors.border.light,
+          backgroundColor: colors.background.card,
+          flexShrink: 1,
+        },
+        dateRowButtonText: {
+          fontSize: 13,
+          fontWeight: '500',
+          color: colors.text.secondary,
+        },
+        dateRowButtonTextActive: {
+          color: TEAL_700,
+          fontWeight: '600',
+        },
+        dateRowReset: {
+          padding: 4,
+        },
+        dateRowFull: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          alignSelf: 'flex-start',
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          borderRadius: 16,
+          backgroundColor: colors.background.secondary,
+          marginBottom: 14,
+        },
+        dateRowFullText: {
+          fontSize: 12,
+          fontWeight: '500',
+          color: colors.text.secondary,
+        },
         // Keyboard accessory bar
         keyboardBar: {
           flexDirection: 'row',
@@ -586,7 +1292,7 @@ export default function LogCookSheet({
           color: colors.primary,
         },
       }),
-    [colors, isCompact, sheetHeight]
+    [colors, isCompact, sheetHeight, sheetView, mealContext, visibilityManuallySet]
   );
 
   return (
@@ -597,11 +1303,15 @@ export default function LogCookSheet({
       onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
-        {/* Backdrop tap to dismiss modal + keyboard */}
+        {/* Backdrop tap to dismiss modal + keyboard + visibility overlay */}
         <TouchableOpacity
           style={styles.backdropTap}
           activeOpacity={1}
-          onPress={() => { dismissKeyboard(); onCancel(); }}
+          onPress={() => {
+            dismissKeyboard();
+            setShowVisibilityOverlay(false);
+            onCancel();
+          }}
         />
 
         <KeyboardAvoidingView
@@ -630,9 +1340,35 @@ export default function LogCookSheet({
             </TouchableOpacity>
           </View>
 
-          {/* ── Compact mode: no scroll, everything visible ── */}
-          {isCompact ? (
+          {/* ── Picker sub-view (state 1c) ── */}
+          {sheetView === 'picker' && (
+            <View style={[styles.compactBody, { flex: 1 }]}>
+              <MealPicker
+                currentMealId={mealContext?.mealId ?? null}
+                onSelectMeal={handlePickerSelectMeal}
+                onDetach={handlePickerDetach}
+                onCreateNew={handlePickerCreateNew}
+                onCancel={handlePickerCancel}
+              />
+            </View>
+          )}
+
+          {/* ── In-sheet meal creation (state 1d) ── */}
+          {sheetView === 'create' && (
+            <View style={[styles.compactBody, { flex: 1 }]}>
+              <InSheetMealCreate
+                onCreated={handleMealCreated}
+                onCancel={handlePickerCancel}
+              />
+            </View>
+          )}
+
+          {/* ── Main view ── */}
+          {sheetView === 'main' && (isCompact ? (
             <View style={styles.compactBody}>
+              {/* Smart-detect banner */}
+              {renderSmartDetectBanner()}
+
               {/* Star rating */}
               <View style={[styles.section, { marginBottom: 10 }]}>
                 <View style={styles.ratingHeader}>
@@ -646,14 +1382,36 @@ export default function LogCookSheet({
                     </View>
                   )}
                 </View>
-                <View
-                  ref={starsContainerRef}
-                  onLayout={handleStarsLayout}
-                  style={styles.starsRow}
-                  {...starPanResponder.panHandlers}
+                <StarRating rating={rating} onRatingChange={setRating} colors={colors} />
+              </View>
+
+              {/* Phase 7G — When did you cook this? (compact) */}
+              <View style={styles.dateRowCompact}>
+                <Text style={styles.sectionLabel}>When did you cook this?</Text>
+                <TouchableOpacity
+                  style={styles.dateRowButton}
+                  onPress={handleDateRowPress}
+                  activeOpacity={0.7}
                 >
-                  {[0, 1, 2, 3, 4].map((i) => renderStar(i, rating))}
-                </View>
+                  <Text
+                    style={[
+                      styles.dateRowButtonText,
+                      dateManuallySet && styles.dateRowButtonTextActive,
+                    ]}
+                  >
+                    {formatDateLabel(cookedAt)}
+                  </Text>
+                  <ChevronRightIcon size={14} color={dateManuallySet ? TEAL_700 : colors.text.tertiary} />
+                </TouchableOpacity>
+                {dateManuallySet && (
+                  <TouchableOpacity
+                    onPress={handleDateReset}
+                    style={styles.dateRowReset}
+                    activeOpacity={0.7}
+                  >
+                    <CloseIcon size={14} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Thoughts */}
@@ -670,27 +1428,8 @@ export default function LogCookSheet({
                 />
               </View>
 
-              {/* Photo area */}
-              <View style={styles.section}>
-                <View style={styles.photoRow}>
-                  <TouchableOpacity
-                    style={styles.photoBox}
-                    onPress={() => comingSoon('Photo upload')}
-                    activeOpacity={0.7}
-                  >
-                    <CameraIcon size={24} color={colors.text.tertiary} />
-                    <Text style={styles.photoBoxText}>Take Photo</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.photoBox}
-                    onPress={() => comingSoon('Photo upload')}
-                    activeOpacity={0.7}
-                  >
-                    <ImageIcon size={24} color={colors.text.tertiary} />
-                    <Text style={styles.photoBoxText}>From Library</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              {/* Action chip row */}
+              {renderChipRow()}
             </View>
           ) : (
             /* ── Full mode: scrollable ── */
@@ -700,6 +1439,29 @@ export default function LogCookSheet({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {/* Smart-detect banner */}
+              {renderSmartDetectBanner()}
+
+              {/* Phase 7G — date/time display (full mode, low-frequency override) */}
+              <TouchableOpacity
+                style={styles.dateRowFull}
+                onPress={handleDateRowPress}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.dateRowFullText,
+                    dateManuallySet && styles.dateRowButtonTextActive,
+                  ]}
+                >
+                  {formatDateLabel(cookedAt)}
+                </Text>
+                <ChevronRightIcon
+                  size={12}
+                  color={dateManuallySet ? TEAL_700 : colors.text.tertiary}
+                />
+              </TouchableOpacity>
+
               {/* Remember chips */}
               <View style={styles.rememberChipsRow}>
                 <TouchableOpacity
@@ -747,14 +1509,7 @@ export default function LogCookSheet({
                     </View>
                   )}
                 </View>
-                <View
-                  ref={starsContainerRef}
-                  onLayout={handleStarsLayout}
-                  style={styles.starsRow}
-                  {...starPanResponder.panHandlers}
-                >
-                  {[0, 1, 2, 3, 4].map((i) => renderStar(i, rating))}
-                </View>
+                <StarRating rating={rating} onRatingChange={setRating} colors={colors} />
               </View>
 
               {/* Modifications */}
@@ -813,15 +1568,8 @@ export default function LogCookSheet({
                 </View>
               </View>
 
-              {/* Tag row */}
-              <TouchableOpacity
-                style={styles.tagRow}
-                onPress={() => comingSoon('Tagging people')}
-                activeOpacity={0.7}
-              >
-                <FriendsIcon size={20} color={colors.text.secondary} />
-                <Text style={styles.tagText}>Tag who you ate with</Text>
-              </TouchableOpacity>
+              {/* Action chip row (replaces standalone tag row) */}
+              {renderChipRow()}
 
               {/* Multi-dish prompt */}
               <View style={[styles.section, { marginTop: 14 }]}>
@@ -841,10 +1589,17 @@ export default function LogCookSheet({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          )}
+          ))}
 
-          {/* Bottom CTAs (pinned) */}
+          {/* Bottom CTAs (pinned) — only in main view */}
+          {sheetView === 'main' && (
           <View style={styles.ctaArea}>
+            {/* Visibility override overlay (slides up from CTA area) */}
+            {renderVisibilityOverlay()}
+
+            {/* Visibility row */}
+            {renderVisibilityRow()}
+
             <TouchableOpacity
               style={styles.logShareButton}
               onPress={() => handleSubmit(true)}
@@ -861,6 +1616,7 @@ export default function LogCookSheet({
               <Text style={styles.justLogText}>Just log it (private)</Text>
             </TouchableOpacity>
           </View>
+          )}
         </View>
         </KeyboardAvoidingView>
       </View>
@@ -874,6 +1630,40 @@ export default function LogCookSheet({
             </TouchableOpacity>
           </View>
         </InputAccessoryView>
+      )}
+      {/* Phase 7G — date picker (nested inside main Modal so it renders above
+          the sheet). maximumDate=now locks the calendar to past-only;
+          quickSelectPreset="past" swaps Tomorrow/Next Week for Yesterday/Last Week. */}
+      <DateTimePicker
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onSelect={handleDateSelect}
+        initialDate={cookedAt}
+        maximumDate={new Date()}
+        mode="date"
+        quickSelectPreset="past"
+      />
+
+      {/* Tag modal (3.4 — nested inside main Modal for reliable display) */}
+      {currentUserId && (
+        <AddCookingPartnersModal
+          visible={showTagModal}
+          onClose={() => setShowTagModal(false)}
+          onConfirm={(selectedUsers, role) => {
+            // Modal returns the complete current selection (it was pre-populated with initialSelectedIds).
+            // Replace the stored set with the returned set.
+            setTaggedParticipants(
+              selectedUsers.map((userId: string) => ({
+                userId,
+                role: role as 'sous_chef' | 'ate_with',
+              }))
+            );
+            setShowTagModal(false);
+          }}
+          currentUserId={currentUserId}
+          defaultRole="ate_with"
+          initialSelectedIds={new Set(taggedParticipants.map(p => p.userId))}
+        />
       )}
     </Modal>
   );

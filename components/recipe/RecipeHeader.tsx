@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image, LayoutChangeEvent, Dimensions } from 'react-native';
+import { useTheme } from '../../lib/theme/ThemeContext';
+import { NoPhotoPlaceholder } from '../feedCard/sharedCardElements';
+
+const RECIPE_HERO_HEIGHT = 250;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface Recipe {
   id: string;
@@ -49,14 +54,33 @@ export default function RecipeHeader({
 }: RecipeHeaderProps) {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [fullLineCount, setFullLineCount] = useState(0);
+  // Phase 7I Checkpoint 5 / 5.2 D50: track hero image load failures so we
+  // can swap to NoPhotoPlaceholder on 404 / network failure.
+  const [imageFailed, setImageFailed] = useState(false);
+  const { colors } = useTheme();
 
   const titleText = toTitleCase(recipe.title);
 
+  // D50: show NoPhotoPlaceholder when the recipe has no image URL OR the
+  // image fails to load. Matches the hero image dimensions so layout below
+  // it doesn't shift.
+  const showPlaceholder = !recipe.image_url || imageFailed;
+
   return (
     <>
-      {recipe.image_url ? (
-        <Image source={{ uri: recipe.image_url }} style={styles.headerImage} />
-      ) : null}
+      {showPlaceholder ? (
+        <NoPhotoPlaceholder
+          width={SCREEN_WIDTH}
+          height={RECIPE_HERO_HEIGHT}
+          colors={colors}
+        />
+      ) : (
+        <Image
+          source={{ uri: recipe.image_url }}
+          style={styles.headerImage}
+          onError={() => setImageFailed(true)}
+        />
+      )}
 
       <View style={styles.header}>
         {/* Title */}

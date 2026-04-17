@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { Logo } from '../components/branding';
 import { upgradeToPremium, downgradeToFree } from '../lib/services/subscriptionService';
+import { backfillChefIds } from '../lib/services/recipeExtraction/chefService';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -26,6 +28,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   // Preferences state
   const [useMetric, setUseMetric] = useState(false);
   const [useCelsius, setUseCelsius] = useState(false);
+  const [defaultVisibility, setDefaultVisibility] = useState<string>('followers');
+  const [visibilityPickerOpen, setVisibilityPickerOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -136,15 +141,17 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
       
       if (user) {
         setEmail(user.email || '');
+        setCurrentUserId(user.id);
 
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('subscription_tier')
+          .select('subscription_tier, default_visibility')
           .eq('id', user.id)
           .single();
 
         if (profile) {
           setSubscriptionTier(profile.subscription_tier || 'free');
+          setDefaultVisibility(profile.default_visibility || 'followers');
         }
       }
     } catch (error) {
@@ -367,6 +374,25 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           </TouchableOpacity>
         </View>
 
+        {/* Visibility Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>VISIBILITY</Text>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => setVisibilityPickerOpen(true)}
+          >
+            <Text style={styles.rowTitle}>Default post visibility</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: colors.text.secondary, marginRight: 4 }}>
+                {defaultVisibility === 'everyone' ? 'Everyone'
+                  : defaultVisibility === 'followers' ? 'Followers'
+                  : 'Just me'}
+              </Text>
+              <Text style={styles.chevron}>›</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Developer Section */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>DEVELOPER</Text>
@@ -378,6 +404,36 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <View style={styles.rowLeft}>
               <Text style={styles.rowIcon}>🎨</Text>
               <Text style={styles.rowTitle}>Logo Playground</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => {
+              Alert.alert(
+                'Backfill Chef IDs',
+                'Scan recipes with missing chef_id and backfill from book authors. Continue?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Run Backfill',
+                    onPress: async () => {
+                      try {
+                        const result = await backfillChefIds();
+                        Alert.alert('Backfill Complete', `Updated ${result.updated} recipes, ${result.errors} errors.`);
+                      } catch (err) {
+                        Alert.alert('Backfill Failed', String(err));
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>👨‍🍳</Text>
+              <Text style={styles.rowTitle}>Backfill Chef IDs</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
@@ -396,6 +452,56 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           <Text style={styles.versionText}>v0.1.0</Text>
         </View>
       </ScrollView>
+
+      {/* Visibility picker modal */}
+      {visibilityPickerOpen && (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setVisibilityPickerOpen(false)}>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            onPress={() => setVisibilityPickerOpen(false)}
+          >
+            <View style={{ backgroundColor: colors.background.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 16, paddingBottom: 34 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 12, color: colors.text.primary }}>
+                Default Post Visibility
+              </Text>
+              {(['everyone', 'followers', 'private'] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt}
+                  style={{
+                    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                    paddingVertical: 14, paddingHorizontal: 20,
+                    ...(defaultVisibility === opt ? { backgroundColor: colors.background.secondary } : {}),
+                  }}
+                  onPress={async () => {
+                    setDefaultVisibility(opt);
+                    setVisibilityPickerOpen(false);
+                    console.warn(`[SettingsScreen] default visibility changed to: ${opt}`);
+                    if (currentUserId) {
+                      try {
+                        await supabase
+                          .from('user_profiles')
+                          .update({ default_visibility: opt })
+                          .eq('id', currentUserId);
+                      } catch (err) {
+                        console.warn('[SettingsScreen] visibility update error:', err);
+                      }
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16, color: defaultVisibility === opt ? colors.primary : colors.text.primary }}>
+                    {opt === 'everyone' ? 'Everyone' : opt === 'followers' ? 'Followers' : 'Just me'}
+                  </Text>
+                  {defaultVisibility === opt && (
+                    <Text style={{ color: colors.primary }}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }

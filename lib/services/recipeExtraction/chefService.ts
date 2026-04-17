@@ -157,3 +157,101 @@ export function extractWebsiteFromUrl(url: string): string {
     return url;
   }
 }
+
+/**
+ * Phase 7K: One-time backfill of chef_id on recipes that were extracted
+ * before the chef service was wired. Processes in batches of 50.
+ *
+ * Join path: recipes.book_id -> books.id, then use books.chef_id or
+ * books.author to find or create the chef.
+ */
+export async function backfillChefIds(): Promise<{ updated: number; errors: number }> {
+  let updated = 0;
+  let errors = 0;
+  const BATCH_SIZE = 50;
+  let offset = 0;
+  let hasMore = true;
+
+  console.warn('[backfillChefIds] starting backfill...');
+
+  while (hasMore) {
+    const { data: recipes, error: fetchError } = await supabase
+      .from('recipes')
+      .select('id, book_id, books(id, chef_id, author)')
+      .is('chef_id', null)
+      .not('book_id', 'is', null)
+      .range(offset, offset + BATCH_SIZE - 1);
+
+    if (fetchError) {
+      console.warn('[backfillChefIds] fetch error:', fetchError);
+      errors++;
+      break;
+    }
+
+    if (!recipes || recipes.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    for (const recipe of recipes) {
+      try {
+        const book = Array.isArray(recipe.books)
+          ? recipe.books[0]
+          : recipe.books;
+
+        if (!book) continue;
+
+        let chefId: string | null = null;
+
+        if (book.chef_id) {
+          // Book already has a chef_id — use it directly
+          chefId = book.chef_id;
+        } else if (book.author) {
+          // Book has an author name — find or create the chef
+          const chef = await getOrCreateChef(book.author);
+          if (chef) {
+            chefId = chef.id;
+            // Also set chef_id on the book
+            await supabase
+              .from('books')
+              .update({ chef_id: chef.id })
+              .eq('id', book.id);
+          }
+        } else {
+          // No chef_id and no author — skip
+          continue;
+        }
+
+        if (chefId) {
+          const { error: updateError } = await supabase
+            .from('recipes')
+            .update({ chef_id: chefId })
+            .eq('id', recipe.id);
+
+          if (updateError) {
+            console.warn(`[backfillChefIds] update error for recipe ${recipe.id}:`, updateError);
+            errors++;
+          } else {
+            updated++;
+          }
+        }
+      } catch (err) {
+        console.warn(`[backfillChefIds] error processing recipe ${recipe.id}:`, err);
+        errors++;
+      }
+    }
+
+    if ((offset + BATCH_SIZE) % 50 === 0 || recipes.length < BATCH_SIZE) {
+      console.warn(`[backfillChefIds] progress: ${updated} updated, ${errors} errors, ${offset + recipes.length} processed`);
+    }
+
+    if (recipes.length < BATCH_SIZE) {
+      hasMore = false;
+    } else {
+      offset += BATCH_SIZE;
+    }
+  }
+
+  console.warn(`[backfillChefIds] complete: ${updated} updated, ${errors} errors`);
+  return { updated, errors };
+}

@@ -1,0 +1,1559 @@
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: #1a1a1a; min-height: 100vh; background: #f6f5f0;">
+<style>
+  :root {
+    --teal-50: #E1F5EE;
+    --teal-100: #C6ECDD;
+    --teal-200: #9FE1CB;
+    --teal-400: #5DCAA5;
+    --teal-600: #1D9E75;
+    --teal-700: #0F6E56;
+    --teal-900: #04342C;
+    --bg-page: #f6f5f0;
+    --bg-card: #ffffff;
+    --bg-sunken: #f6f5f0;
+    --border-light: #ebe8df;
+    --border-medium: #d4d4d0;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --text-placeholder: #aaa;
+  }
+  * { box-sizing: border-box; }
+  body, html { margin: 0; padding: 0; }
+  .fwf-app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .fwf-nav {
+    background: #ffffff;
+    border-bottom: 0.5px solid var(--border-light);
+    padding: 8px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .fwf-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    border-right: 0.5px solid var(--border-light);
+  }
+  .fwf-nav-group:last-child { border-right: none; }
+  .fwf-nav-group-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+  .fwf-nav button {
+    background: transparent; border: none;
+    padding: 5px 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .fwf-nav button:hover { background: var(--bg-sunken); }
+  .fwf-nav button.active {
+    background: var(--teal-50);
+    color: var(--teal-900);
+  }
+  .fwf-nav button.is-new::after {
+    content: 'new';
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: var(--teal-700);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+  .fwf-stage {
+    padding: 20px 32px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg-page);
+  }
+  .fwf-stage-header {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 14px;
+  }
+  .fwf-stage-eyebrow {
+    font-size: 11px;
+    color: var(--teal-700);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 4px;
+  }
+  .fwf-stage-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+  }
+  .fwf-stage-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 28px;
+    width: 100%;
+    max-width: 720px;
+    align-items: start;
+  }
+  .stage-grid.compare-grid {
+    grid-template-columns: 1fr;
+    max-width: 1100px;
+  }
+  .stage-grid.compare-grid .compare-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(280px, 320px));
+    gap: 20px;
+    justify-content: center;
+  }
+  .stage-grid.compare-grid .compare-col { display: flex; flex-direction: column; align-items: center; }
+  .stage-grid.compare-grid .compare-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+  }
+  .stage-grid.compare-grid .compare-desc {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin: 0 0 12px;
+    text-align: center;
+    line-height: 1.4;
+    max-width: 240px;
+  }
+  .stage-grid.compare-grid .phone {
+    width: 300px;
+    height: 600px;
+    border-radius: 28px;
+  }
+  @media (max-width: 880px) {
+    .stage-grid { grid-template-columns: 1fr; }
+    .stage-grid.compare-grid .compare-row { grid-template-columns: 1fr; }
+  }
+  .phone {
+    width: 360px;
+    height: 720px;
+    background: #fff;
+    border: 0.5px solid var(--border-medium);
+    border-radius: 32px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.06);
+  }
+  .phone-status {
+    height: 28px; background: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px;
+    font-size: 11px; color: #1a1a1a; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .phone-body { flex: 1; background: var(--bg-page); overflow: hidden; position: relative; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-top-left-radius: 22px; border-top-right-radius: 22px; display: flex; flex-direction: column; }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border-medium); margin: 10px auto 6px; flex-shrink: 0; }
+  .sheet-header { padding: 4px 20px 16px; text-align: center; position: relative; flex-shrink: 0; }
+  .sheet-title { font-size: 17px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+  .sheet-recipe { font-size: 14px; color: var(--text-secondary); margin: 0; }
+  .sheet-book { font-size: 11px; color: var(--text-tertiary); margin: 2px 0 0; }
+  .sheet-close { position: absolute; right: 16px; top: 4px; width: 30px; height: 30px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
+  .sheet-body { padding: 0 20px 8px; overflow: hidden; }
+  .sheet-section { margin-bottom: 16px; }
+  .section-label { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; display: flex; align-items: center; justify-content: space-between; }
+  .section-label .opt { font-weight: 400; color: var(--text-tertiary); font-size: 12px; }
+  .stars-row { display: flex; gap: 6px; padding: 6px 0; }
+  .star { width: 32px; height: 32px; }
+  .text-input {
+    width: 100%; background: var(--bg-sunken);
+    border: 0.5px solid var(--border-light);
+    border-radius: 10px; padding: 11px 12px;
+    font-size: 14px; color: var(--text-primary);
+    box-sizing: border-box; min-height: 56px;
+  }
+  .chips-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff;
+    border: 0.5px solid var(--border-medium);
+    border-radius: 16px;
+    padding: 6px 11px;
+    font-size: 12px; color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .chip-meal-idle {
+    background: var(--teal-50);
+    border-color: var(--teal-200);
+    color: var(--teal-900);
+  }
+  .chip-meal-idle svg { color: var(--teal-700); }
+  .chip-active { background: var(--teal-100); border-color: var(--teal-700); color: var(--teal-900); font-weight: 600; }
+  .chip-active svg { color: var(--teal-700); }
+  .smart-banner {
+    background: var(--teal-50);
+    border: 0.5px solid var(--teal-400);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .smart-banner.low {
+    background: #fffbe6;
+    border-color: #f0d97d;
+  }
+  .smart-banner-icon {
+    width: 28px; height: 28px; border-radius: 14px;
+    background: var(--teal-400);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .smart-banner-icon.confirmed { background: var(--teal-700); }
+  .smart-banner-icon.low { background: #d9a811; }
+  .smart-banner-text { flex: 1; font-size: 12px; color: var(--teal-900); line-height: 1.35; }
+  .smart-banner.low .smart-banner-text { color: #6e5300; }
+  .smart-banner.low .smart-banner-text .body { color: #8a6e0a; }
+  .smart-banner-text .lead { display: block; font-weight: 600; }
+  .smart-banner-text .body { color: var(--teal-700); }
+  .smart-banner-change {
+    font-size: 12px;
+    color: var(--teal-700);
+    font-weight: 600;
+    padding: 4px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    text-decoration: underline;
+  }
+  .smart-banner.low .smart-banner-change { color: #8a6e0a; }
+  .smart-banner-actions {
+    display: flex; gap: 6px;
+    flex-shrink: 0;
+  }
+  .smart-banner-btn {
+    background: var(--teal-700);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .smart-banner-btn.ghost {
+    background: transparent;
+    color: var(--teal-700);
+    border: 0.5px solid var(--teal-700);
+  }
+  .cta-area {
+    padding: 12px 20px 24px;
+    border-top: 0.5px solid var(--border-light);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .visibility-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0 12px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .visibility-row .vis-left { display: flex; align-items: center; gap: 6px; }
+  .visibility-row svg { width: 13px; height: 13px; color: var(--text-tertiary); }
+  .vis-value { color: var(--teal-700); font-weight: 600; cursor: pointer; }
+  .btn-primary {
+    width: 100%;
+    background: var(--teal-700);
+    color: #fff; border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-secondary-text {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 10px; margin-top: 4px;
+    background: transparent; border: none;
+    font-size: 13px; color: var(--text-tertiary);
+    cursor: pointer; font-family: inherit; width: 100%;
+  }
+  .btn-secondary-text svg { width: 12px; height: 12px; }
+  .picker-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border-light);
+    cursor: pointer;
+  }
+  .picker-row:last-child { border-bottom: none; }
+  .picker-icon {
+    width: 36px; height: 36px; border-radius: 18px;
+    background: var(--bg-sunken);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--text-tertiary);
+  }
+  .picker-icon.create { background: var(--teal-50); color: var(--teal-700); }
+  .picker-content { flex: 1; min-width: 0; }
+  .picker-title { font-size: 14px; color: var(--text-primary); font-weight: 500; margin: 0 0 1px; }
+  .picker-sub { font-size: 12px; color: var(--text-tertiary); margin: 0; }
+  .picker-chev { color: var(--border-medium); }
+  .added-dish-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    border: 0.5px solid var(--border-light);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #fff;
+  }
+  .added-dish-thumb {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--border-medium); flex-shrink: 0;
+  }
+  .added-dish-content { flex: 1; min-width: 0; }
+  .added-dish-name { font-size: 13px; font-weight: 500; color: var(--text-primary); margin: 0; }
+  .added-dish-stars { display: flex; gap: 2px; margin: 4px 0 0; }
+  .mini-star { width: 12px; height: 12px; }
+  .add-dish-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-sunken);
+    margin-top: 6px;
+  }
+  .add-dish-input { flex: 1; background: transparent; border: none; font-size: 13px; color: var(--text-secondary); outline: none; }
+  .expand-btn { color: var(--teal-700); font-size: 11px; cursor: pointer; padding: 4px 6px; font-weight: 500; }
+  .expand-chev {
+    width: 16px; height: 16px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .recommend-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    background: #fff;
+    border: 0.5px dashed var(--border-medium);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .recommend-thumb {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--border-medium); flex-shrink: 0;
+  }
+  .recommend-content { flex: 1; min-width: 0; }
+  .recommend-name { font-size: 13px; font-weight: 500; color: var(--text-primary); margin: 0; }
+  .recommend-source { font-size: 11px; color: var(--text-tertiary); margin: 1px 0 0; }
+  .recommend-add {
+    width: 28px; height: 28px;
+    border-radius: 14px;
+    background: var(--teal-50);
+    color: var(--teal-700);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .recommend-add svg { width: 14px; height: 14px; }
+  .create-meal-form { padding: 0 20px 8px; }
+  .create-meal-input {
+    width: 100%; background: var(--bg-sunken);
+    border: 0.5px solid var(--border-light);
+    border-radius: 10px; padding: 12px;
+    font-size: 16px; color: var(--text-primary);
+    box-sizing: border-box; font-family: inherit;
+  }
+  .create-meal-hint { font-size: 11px; color: var(--text-tertiary); margin: 6px 2px 14px; line-height: 1.45; }
+  .create-meal-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 4px;
+    font-size: 13px; color: var(--text-secondary);
+    border-top: 0.5px solid var(--border-light);
+  }
+  .create-meal-row .row-action { color: var(--teal-700); cursor: pointer; font-weight: 500; }
+  .tag-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 4px;
+    border-top: 0.5px solid var(--border-light);
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .tag-row .tag-label { flex-shrink: 0; }
+  .tag-pills { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+  .tag-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--teal-50);
+    border: 0.5px solid var(--teal-200);
+    border-radius: 12px;
+    padding: 3px 8px 3px 3px;
+    font-size: 11px;
+    color: var(--teal-900);
+    font-weight: 500;
+  }
+  .tag-pill .tp-avatar {
+    width: 18px; height: 18px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 8px; font-weight: 600;
+  }
+  .tag-pill-add {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff;
+    border: 0.5px dashed var(--border-medium);
+    border-radius: 12px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+  .tag-pill-add svg { width: 11px; height: 11px; }
+  .tag-suggest-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 4px 4px;
+    flex-wrap: wrap;
+  }
+  .tag-suggest-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 2px;
+  }
+  .tag-suggest-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff;
+    border: 0.5px solid var(--border-light);
+    border-radius: 12px;
+    padding: 3px 8px 3px 3px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .tag-suggest-pill .tp-avatar {
+    width: 18px; height: 18px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 8px; font-weight: 600;
+  }
+  .viz-overlay {
+    position: absolute;
+    left: 0; right: 0; bottom: 100%;
+    background: #fff;
+    padding: 16px 20px 24px;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .viz-overlay-title { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+  .viz-option {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 11px;
+    border: 0.5px solid var(--border-light);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .viz-option.selected { border-color: var(--teal-700); background: var(--teal-50); }
+  .viz-option.disabled { opacity: 0.45; cursor: not-allowed; }
+  .viz-option-radio {
+    width: 18px; height: 18px; border-radius: 9px;
+    border: 1.5px solid var(--text-tertiary);
+    flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .viz-option.selected .viz-option-radio {
+    border-color: var(--teal-700);
+    background: var(--teal-700);
+    color: #fff;
+  }
+  .viz-option-content { flex: 1; }
+  .viz-option-name { font-size: 13px; font-weight: 600; margin: 0 0 2px; color: var(--text-primary); }
+  .viz-option-desc { font-size: 11px; color: var(--text-tertiary); margin: 0; line-height: 1.4; }
+  .viz-option-name .meta {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-left: 6px;
+  }
+  .feed-card { background: #fff; border-radius: 14px; margin: 10px 12px; overflow: hidden; }
+  .feed-card-header { padding: 12px 14px 8px; display: flex; align-items: center; gap: 10px; }
+  .avatar { border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; }
+  .avatar.lg { width: 32px; height: 32px; font-size: 12px; }
+  .avatar.xs { width: 18px; height: 18px; font-size: 9px; }
+  .feed-card-meta { flex: 1; min-width: 0; }
+  .feed-card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
+  .feed-card-sub { font-size: 11px; color: var(--text-tertiary); margin: 1px 0 0; }
+  .feed-photo { background: var(--border-medium); height: 180px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); font-size: 12px; }
+  .dish-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-top: 0.5px solid var(--border-light);
+    cursor: pointer;
+  }
+  .dish-thumb {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--border-medium);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); font-size: 9px;
+  }
+  .dish-row-content { flex: 1; min-width: 0; }
+  .dish-row-title { font-size: 13px; color: var(--text-primary); margin: 0; font-weight: 600; }
+  .dish-row-by { font-size: 11px; color: var(--text-tertiary); margin: 1px 0 0; display: flex; align-items: center; gap: 4px; }
+  .feed-engagement {
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 14px;
+    border-top: 0.5px solid var(--border-light);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .feed-engagement svg { width: 16px; height: 16px; }
+  .add-existing-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px;
+    background: #fff;
+    border: 0.5px dashed var(--border-medium);
+    border-radius: 10px;
+    margin: 10px 14px;
+    cursor: pointer;
+    justify-content: center;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .add-existing-btn svg { width: 14px; height: 14px; color: var(--text-tertiary); }
+  .empty-add-state {
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .detail-screen { background: var(--bg-page); height: 100%; overflow: hidden; }
+  .detail-topbar {
+    background: #fff;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .detail-back { background: transparent; border: none; padding: 4px; cursor: pointer; color: var(--text-secondary); display: flex; }
+  .detail-topbar-title { flex: 1; font-size: 14px; font-weight: 600; margin: 0; }
+  .detail-topbar-action { color: var(--text-tertiary); cursor: pointer; padding: 4px; font-size: 18px; }
+  .parent-meal-link {
+    background: var(--teal-50);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--teal-400);
+  }
+  .parent-meal-link svg { width: 14px; height: 14px; color: var(--teal-700); flex-shrink: 0; }
+  .parent-meal-link-text { font-size: 12px; color: var(--teal-900); flex: 1; }
+  .parent-meal-link-text .name { font-weight: 600; }
+  .detail-hero {
+    background: var(--border-medium);
+    height: 180px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); font-size: 13px;
+  }
+  .detail-content { padding: 14px; }
+  .detail-recipe-title { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+  .detail-byline { font-size: 12px; color: var(--text-tertiary); margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+  .detail-stats {
+    display: flex; gap: 18px;
+    padding: 10px 0;
+    border-top: 0.5px solid var(--border-light);
+    border-bottom: 0.5px solid var(--border-light);
+    font-size: 11px; color: var(--text-tertiary);
+  }
+  .detail-stat { display: flex; flex-direction: column; gap: 2px; }
+  .detail-stat .v { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .notes-block { padding: 12px 0; }
+  .notes-label { font-size: 11px; color: var(--text-tertiary); margin: 0 0 4px; font-weight: 600; }
+  .notes-text { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+  .toast-banner {
+    background: #fff;
+    padding: 8px 14px;
+    font-size: 11px; color: var(--teal-700); font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .toast-banner svg { width: 13px; height: 13px; }
+  .toast-floating {
+    position: absolute;
+    left: 14px; right: 14px;
+    bottom: 18px;
+    background: var(--teal-700);
+    color: #fff;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .toast-floating .tf-text { flex: 1; }
+  .toast-floating .tf-text strong { display: block; font-weight: 600; margin-bottom: 1px; }
+  .toast-floating .tf-text span { font-size: 11px; opacity: 0.85; }
+  .toast-floating .tf-btn {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 0.5px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .feed-screen { background: var(--bg-page); height: 100%; overflow-y: auto; }
+  .feed-screen-top {
+    background: #fff;
+    padding: 12px 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .new-post-banner {
+    background: var(--teal-50);
+    color: var(--teal-900);
+    padding: 8px 14px;
+    font-size: 11px;
+    text-align: center;
+    border-bottom: 0.5px solid var(--teal-200);
+    font-weight: 500;
+  }
+
+  .fwf-callouts { width: 100%; max-width: 320px; }
+  .fwf-callouts h4 {
+    font-size: 11px; font-weight: 600;
+    color: var(--text-tertiary);
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .callout {
+    background: #fff;
+    border: 0.5px solid var(--border-light);
+    border-left: 2px solid var(--teal-700);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.55;
+  }
+  .callout .label { font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 2px; }
+</style>
+
+<div class="fwf-app">
+  <nav class="fwf-nav">
+    <div class="fwf-nav-group">
+      <span class="fwf-nav-group-label">F1 · enrichment</span>
+      <button data-state="1a" class="active">1a no meal</button>
+      <button data-state="1b">1b smart hi</button>
+      <button data-state="1b-low" class="is-new">1b lo</button>
+      <button data-state="1c">1c picker</button>
+      <button data-state="1d" class="is-new">1d create</button>
+      <button data-state="1e">1e attached</button>
+      <button data-state="1f" class="is-new">1f visibility</button>
+      <button data-state="1f-meal" class="is-new">1f meal</button>
+    </div>
+    <div class="fwf-nav-group">
+      <span class="fwf-nav-group-label">F2 · other dishes</span>
+      <button data-state="2a">2a planned</button>
+      <button data-state="2b">2b added</button>
+      <button data-state="2c" class="is-new">2c unplanned</button>
+    </div>
+    <div class="fwf-nav-group">
+      <span class="fwf-nav-group-label">F3 · wrap</span>
+      <button data-state="3a">3a picker</button>
+      <button data-state="3b">3b dish</button>
+      <button data-state="3c-toast" class="is-new">3c · option b</button>
+      <button data-state="3c-feed" class="is-new">3c · option a</button>
+      <button data-state="3c">3c · option c</button>
+    </div>
+    <div class="fwf-nav-group">
+      <span class="fwf-nav-group-label">Q16 · expand</span>
+      <button data-state="16-compare" class="is-new">compare 3 variants</button>
+    </div>
+  </nav>
+
+  <main class="fwf-stage">
+    <div class="fwf-stage-header">
+      <p class="fwf-stage-eyebrow" id="stage-eyebrow"></p>
+      <p class="fwf-stage-title" id="stage-title"></p>
+      <p class="fwf-stage-sub" id="stage-sub"></p>
+    </div>
+    <div class="stage-grid" id="stage-grid">
+      <div class="phone" id="phone-wrapper">
+        <div class="phone-status">
+          <span>9:41</span>
+          <span>● ● ●</span>
+        </div>
+        <div class="phone-body" id="phone-body"></div>
+      </div>
+      <div class="fwf-callouts">
+        <h4>Why this state matters</h4>
+        <div id="callouts"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var ICONS = {
+    close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>',
+    friends: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    plate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    chev: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>',
+    chevDown: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>',
+    chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>',
+    back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+    sparkle: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
+    question: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    plate2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>',
+    kiss: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>'
+  };
+
+  function star(filled, half) {
+    var fill = filled ? '#0F6E56' : '#d4d4d0';
+    if (half) {
+      return '<svg class="star" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" fill="#0F6E56" fill-opacity="0.5"/></svg>';
+    }
+    return '<svg class="star" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" fill="' + fill + '"/></svg>';
+  }
+  function miniStar(filled) {
+    return '<svg class="mini-star" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" fill="' + (filled ? '#0F6E56' : '#d4d4d0') + '"/></svg>';
+  }
+  function avatarColor(seed) {
+    var palette = ['#1D9E75','#D4537E','#7F77DD','#D85A30','#378ADD','#BA7517'];
+    var h = 0;
+    for (var i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    return palette[Math.abs(h) % palette.length];
+  }
+  function avatar(initials, size) {
+    var cls = 'avatar ' + (size || 'lg');
+    return '<div class="' + cls + '" style="background:' + avatarColor(initials) + '">' + initials + '</div>';
+  }
+  function pillAvatar(initials) {
+    return '<div class="tp-avatar" style="background:' + avatarColor(initials) + '">' + initials + '</div>';
+  }
+
+  function logCookSheetHeader() {
+    return '<div class="sheet-handle"></div>' +
+      '<div class="sheet-header">' +
+        '<p class="sheet-title">Log your cook</p>' +
+        '<p class="sheet-recipe">Spaghetti alla Carbonara</p>' +
+        '<p class="sheet-book">Cook This Book · Molly Baz · p.142</p>' +
+        '<button class="sheet-close">' + ICONS.close + '</button>' +
+      '</div>';
+  }
+  function ratingSection() {
+    var stars = '';
+    for (var i = 1; i <= 5; i++) {
+      var filled = 4.5 >= i;
+      var half = !filled && 4.5 >= i - 0.5;
+      stars += star(filled, half);
+    }
+    return '<div class="sheet-section">' +
+      '<div class="section-label">Rate it <span class="opt"><span style="color:#0F6E56;font-weight:600">4.5</span> · <span style="color:#888;font-weight:400;cursor:pointer;text-decoration:underline">clear</span></span></div>' +
+      '<div class="stars-row">' + stars + '</div>' +
+    '</div>';
+  }
+  function thoughtsSection() {
+    return '<div class="sheet-section">' +
+      '<div class="text-input">Used pancetta instead of guanciale.</div>' +
+    '</div>';
+  }
+  function chipsRow(mealChip) {
+    var h = '<div class="sheet-section"><div class="chips-row">';
+    h += '<div class="chip">' + ICONS.camera + 'Photo</div>';
+    h += '<div class="chip">' + ICONS.mic + 'Voice</div>';
+    h += '<div class="chip">' + ICONS.friends + 'Tag</div>';
+    if (mealChip === 'idle') {
+      h += '<div class="chip chip-meal-idle">' + ICONS.plate + 'Add to meal</div>';
+    } else if (mealChip === 'active') {
+      h += '<div class="chip chip-active">' + ICONS.check + ' Monday Dinner</div>';
+    }
+    h += '</div></div>';
+    return h;
+  }
+  function visibilityRow(value) {
+    return '<div class="visibility-row">' +
+      '<div class="vis-left">' + ICONS.eye + 'Visible to</div>' +
+      '<div class="vis-value">' + (value || 'Followers') + ' ›</div>' +
+    '</div>';
+  }
+  function ctaArea(visValue) {
+    return '<div class="cta-area">' +
+      visibilityRow(visValue) +
+      '<button class="btn-primary">Log & share</button>' +
+      '<button class="btn-secondary-text">' + ICONS.lock + 'Just log it (private)</button>' +
+    '</div>';
+  }
+
+  function state1a() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('idle') +
+      '</div>' +
+      ctaArea('Followers') +
+    '</div>';
+  }
+  function state1b() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        '<div class="sheet-section">' +
+          '<div class="smart-banner">' +
+            '<div class="smart-banner-icon">' + ICONS.sparkle + '</div>' +
+            '<div class="smart-banner-text"><span class="lead">Attached to Monday Dinner</span><span class="body">Detected from your meal plan</span></div>' +
+            '<div class="smart-banner-change">change</div>' +
+          '</div>' +
+        '</div>' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('active') +
+      '</div>' +
+      ctaArea('Followers') +
+    '</div>';
+  }
+  function state1bLow() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        '<div class="sheet-section">' +
+          '<div class="smart-banner low">' +
+            '<div class="smart-banner-icon low">' + ICONS.question + '</div>' +
+            '<div class="smart-banner-text"><span class="lead">Part of Monday Dinner?</span><span class="body">You have a planned meal tonight</span></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">' +
+            '<button class="smart-banner-btn ghost">Not this one</button>' +
+            '<button class="smart-banner-btn">Attach</button>' +
+          '</div>' +
+        '</div>' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('idle') +
+      '</div>' +
+      ctaArea('Followers') +
+    '</div>';
+  }
+  function state1c() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body" style="padding:0 20px 16px">' +
+        '<div class="section-label" style="margin-top:8px">Add to a meal</div>' +
+        '<div class="picker-row">' +
+          '<div class="picker-icon">' + ICONS.plate + '</div>' +
+          '<div class="picker-content">' +
+            '<p class="picker-title">Monday Dinner</p>' +
+            '<p class="picker-sub">Tonight · 2 dishes planned</p>' +
+          '</div>' +
+          '<div class="picker-chev">' + ICONS.chev + '</div>' +
+        '</div>' +
+        '<div class="picker-row">' +
+          '<div class="picker-icon">' + ICONS.plate + '</div>' +
+          '<div class="picker-content">' +
+            '<p class="picker-title">Sunday potluck with Nick</p>' +
+            '<p class="picker-sub">2 days ago · 3 dishes</p>' +
+          '</div>' +
+          '<div class="picker-chev">' + ICONS.chev + '</div>' +
+        '</div>' +
+        '<div class="picker-row">' +
+          '<div class="picker-icon create">' + ICONS.plus + '</div>' +
+          '<div class="picker-content">' +
+            '<p class="picker-title" style="color:#0F6E56">Create new meal</p>' +
+            '<p class="picker-sub">Start fresh from this dish</p>' +
+          '</div>' +
+          '<div class="picker-chev">' + ICONS.chev + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cta-area" style="padding:12px 20px 24px">' +
+        '<button class="btn-secondary-text" style="color:#888">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  }
+  function state1d() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body" style="padding:0">' +
+        '<div class="create-meal-form">' +
+          '<div class="section-label" style="margin-bottom:6px">Name this meal</div>' +
+          '<input class="create-meal-input" value="Monday Dinner" />' +
+          '<p class="create-meal-hint">Pre-filled from the meal type and day. Tap to edit. Description, location, or time can be added later from the meal page.</p>' +
+          '<div class="tag-row">' +
+            '<span class="tag-label">Cooking with</span>' +
+            '<div class="tag-pills">' +
+              '<span class="tag-pill">' + pillAvatar('MK') + 'Mary</span>' +
+              '<span class="tag-pill-add">' + ICONS.plus + ' add</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="tag-suggest-row">' +
+            '<span class="tag-suggest-label">recent</span>' +
+            '<span class="tag-suggest-pill">' + pillAvatar('NP') + 'Nick</span>' +
+            '<span class="tag-suggest-pill">' + pillAvatar('AL') + 'Anthony</span>' +
+            '<span class="tag-suggest-pill">' + pillAvatar('KM') + 'Kali</span>' +
+          '</div>' +
+          '<div class="tag-row">' +
+            '<span class="tag-label">Eating with</span>' +
+            '<div class="tag-pills">' +
+              '<span class="tag-pill-add">' + ICONS.plus + ' add</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cta-area">' +
+        '<button class="btn-primary">Create & attach</button>' +
+        '<button class="btn-secondary-text">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  }
+  function state1e() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        '<div class="sheet-section">' +
+          '<div class="smart-banner">' +
+            '<div class="smart-banner-icon confirmed">' + ICONS.check + '</div>' +
+            '<div class="smart-banner-text"><span class="lead">Part of Monday Dinner</span><span class="body">Tap to view or change</span></div>' +
+            '<div class="smart-banner-change">change</div>' +
+          '</div>' +
+        '</div>' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('active') +
+      '</div>' +
+      ctaArea('Followers') +
+    '</div>';
+  }
+  function state1f() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('idle') +
+      '</div>' +
+      '<div class="cta-area" style="position:relative">' +
+        '<div class="viz-overlay">' +
+          '<p class="viz-overlay-title">Who can see this</p>' +
+          '<div class="viz-option"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">Everyone</p><p class="viz-option-desc">Anyone on Frigo can find this post.</p></div></div>' +
+          '<div class="viz-option selected"><div class="viz-option-radio">' + ICONS.check + '</div><div class="viz-option-content"><p class="viz-option-name">Followers <span class="meta">your default · change in settings</span></p><p class="viz-option-desc">Just the people who follow you.</p></div></div>' +
+          '<div class="viz-option"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">Just me</p><p class="viz-option-desc">Saves to your history but never appears on the feed.</p></div></div>' +
+          '<div class="viz-option disabled"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">People tagged in this meal <span class="meta">meal posts only</span></p><p class="viz-option-desc">Only the cooks and guests tagged in the meal.</p></div></div>' +
+        '</div>' +
+        visibilityRow('Followers') +
+        '<button class="btn-primary" style="opacity:0.4">Log & share</button>' +
+        '<button class="btn-secondary-text">' + ICONS.lock + 'Just log it (private)</button>' +
+      '</div>' +
+    '</div>';
+  }
+  function state1fMeal() {
+    return '<div class="sheet">' +
+      logCookSheetHeader() +
+      '<div class="sheet-body">' +
+        '<div class="sheet-section">' +
+          '<div class="smart-banner">' +
+            '<div class="smart-banner-icon confirmed">' + ICONS.check + '</div>' +
+            '<div class="smart-banner-text"><span class="lead">Part of Monday Dinner</span><span class="body">Tap to view or change</span></div>' +
+            '<div class="smart-banner-change">change</div>' +
+          '</div>' +
+        '</div>' +
+        ratingSection() +
+        thoughtsSection() +
+        chipsRow('active') +
+      '</div>' +
+      '<div class="cta-area" style="position:relative">' +
+        '<div class="viz-overlay">' +
+          '<p class="viz-overlay-title">Who can see this</p>' +
+          '<div class="viz-option"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">Everyone</p><p class="viz-option-desc">Anyone on Frigo can find this post.</p></div></div>' +
+          '<div class="viz-option selected"><div class="viz-option-radio">' + ICONS.check + '</div><div class="viz-option-content"><p class="viz-option-name">Followers <span class="meta">your default</span></p><p class="viz-option-desc">Just the people who follow you.</p></div></div>' +
+          '<div class="viz-option"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">People tagged in this meal</p><p class="viz-option-desc">Only the cooks and guests tagged in Monday Dinner.</p></div></div>' +
+          '<div class="viz-option"><div class="viz-option-radio"></div><div class="viz-option-content"><p class="viz-option-name">Just me</p><p class="viz-option-desc">Saves to your history but never appears on the feed.</p></div></div>' +
+        '</div>' +
+        visibilityRow('Followers') +
+        '<button class="btn-primary" style="opacity:0.4">Log & share</button>' +
+        '<button class="btn-secondary-text">' + ICONS.lock + 'Just log it (private)</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function flow2Header(title, sub) {
+    return '<div class="sheet-handle"></div>' +
+      '<div class="sheet-header">' +
+        '<p class="sheet-title">' + title + '</p>' +
+        '<p class="sheet-recipe">' + sub + '</p>' +
+        '<button class="sheet-close">' + ICONS.close + '</button>' +
+      '</div>';
+  }
+  function state2a() {
+    return '<div style="background:var(--bg-page);height:100%;overflow:hidden;display:flex;flex-direction:column">' +
+      '<div class="toast-banner">' + ICONS.check + ' Posted to Monday Dinner</div>' +
+      '<div style="flex:1;background:rgba(0,0,0,0.25)"></div>' +
+      '<div class="sheet">' +
+        flow2Header('Made other dishes too?', 'Add them to Monday Dinner') +
+        '<div class="sheet-body" style="padding:0 16px 16px">' +
+          '<div class="add-dish-row">' +
+            '<div class="picker-icon create">' + ICONS.plus + '</div>' +
+            '<input class="add-dish-input" placeholder="Pick a recipe or type a name…" />' +
+          '</div>' +
+          '<p style="font-size:11px;color:#888;margin:14px 4px 6px">Quick rate as you add. Skip what you didn\'t cook.</p>' +
+          '<div style="background:#fff;border:0.5px solid var(--border-light);border-radius:10px;padding:10px;margin-bottom:6px">' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+              '<div class="added-dish-thumb"></div>' +
+              '<div style="flex:1;min-width:0">' +
+                '<p style="font-size:13px;font-weight:500;margin:0">Crispy garlic green beans</p>' +
+                '<p style="font-size:11px;color:#888;margin:1px 0 0">Suggested · planned for tonight</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="added-dish-stars" style="margin:8px 0 0">' +
+              miniStar(false) + miniStar(false) + miniStar(false) + miniStar(false) + miniStar(false) +
+              '<span style="margin-left:8px;font-size:11px;color:#888">tap to rate</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cta-area">' +
+          '<button class="btn-primary">Done</button>' +
+          '<button class="btn-secondary-text">Skip for now</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  function state2b() {
+    return '<div style="background:var(--bg-page);height:100%;overflow:hidden;display:flex;flex-direction:column">' +
+      '<div class="toast-banner">' + ICONS.check + ' Posted to Monday Dinner</div>' +
+      '<div style="flex:1;background:rgba(0,0,0,0.25)"></div>' +
+      '<div class="sheet">' +
+        flow2Header('Made other dishes too?', 'Monday Dinner · 3 dishes') +
+        '<div class="sheet-body" style="padding:0 16px 12px">' +
+          '<div class="added-dish-row">' +
+            '<div class="added-dish-thumb"></div>' +
+            '<div class="added-dish-content">' +
+              '<p class="added-dish-name">Crispy garlic green beans</p>' +
+              '<div class="added-dish-stars">' + miniStar(true)+miniStar(true)+miniStar(true)+miniStar(true)+miniStar(false) + '</div>' +
+            '</div>' +
+            '<div class="expand-btn">expand</div>' +
+          '</div>' +
+          '<div class="added-dish-row">' +
+            '<div class="added-dish-thumb" style="background:#e8e3d0"></div>' +
+            '<div class="added-dish-content">' +
+              '<p class="added-dish-name">Rice <span style="font-weight:400;color:#888;font-size:11px">· no recipe</span></p>' +
+              '<div class="added-dish-stars">' + miniStar(false)+miniStar(false)+miniStar(false)+miniStar(false)+miniStar(false) + '</div>' +
+            '</div>' +
+            '<div class="expand-btn">expand</div>' +
+          '</div>' +
+          '<div class="add-dish-row">' +
+            '<div class="picker-icon create">' + ICONS.plus + '</div>' +
+            '<input class="add-dish-input" placeholder="Add another…" />' +
+          '</div>' +
+        '</div>' +
+        '<div class="cta-area">' +
+          '<button class="btn-primary">Done</button>' +
+          '<button class="btn-secondary-text">Skip for now</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  function state2c() {
+    return '<div style="background:var(--bg-page);height:100%;overflow:hidden;display:flex;flex-direction:column">' +
+      '<div class="toast-banner">' + ICONS.check + ' Posted to Tuesday Dinner</div>' +
+      '<div style="flex:1;background:rgba(0,0,0,0.25)"></div>' +
+      '<div class="sheet">' +
+        flow2Header('Made other dishes too?', 'Tuesday Dinner · no plan') +
+        '<div class="sheet-body" style="padding:0 16px 12px">' +
+          '<div class="add-dish-row">' +
+            '<div class="picker-icon create">' + ICONS.plus + '</div>' +
+            '<input class="add-dish-input" placeholder="Pick a recipe or type a name…" />' +
+          '</div>' +
+          '<p style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.06em;margin:14px 4px 6px;font-weight:600">You might have made</p>' +
+          '<div class="recommend-card">' +
+            '<div class="recommend-thumb"></div>' +
+            '<div class="recommend-content">' +
+              '<p class="recommend-name">Caesar salad with anchovy</p>' +
+              '<p class="recommend-source">Saved 3 days ago</p>' +
+            '</div>' +
+            '<div class="recommend-add">' + ICONS.plus + '</div>' +
+          '</div>' +
+          '<div class="recommend-card">' +
+            '<div class="recommend-thumb" style="background:#d4cfc0"></div>' +
+            '<div class="recommend-content">' +
+              '<p class="recommend-name">Roasted broccoli with lemon</p>' +
+              '<p class="recommend-source">Viewed earlier today</p>' +
+            '</div>' +
+            '<div class="recommend-add">' + ICONS.plus + '</div>' +
+          '</div>' +
+          '<div class="recommend-card">' +
+            '<div class="recommend-thumb" style="background:#ddd6c4"></div>' +
+            '<div class="recommend-content">' +
+              '<p class="recommend-name">Garlic bread</p>' +
+              '<p class="recommend-source">You\'ve cooked this 4×</p>' +
+            '</div>' +
+            '<div class="recommend-add">' + ICONS.plus + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cta-area">' +
+          '<button class="btn-primary">Done</button>' +
+          '<button class="btn-secondary-text">Skip for now</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function state3a() {
+    return '<div class="detail-screen" style="display:flex;flex-direction:column">' +
+      '<div class="detail-topbar"><button class="detail-back">' + ICONS.back + '</button><p class="detail-topbar-title">Spaghetti alla Carbonara</p></div>' +
+      '<div style="flex:1;background:rgba(0,0,0,0.25)"></div>' +
+      '<div class="sheet">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-header">' +
+          '<p class="sheet-title">Add to meal</p>' +
+          '<p class="sheet-recipe">Pick one or start fresh</p>' +
+        '</div>' +
+        '<div class="sheet-body" style="padding:0 20px 8px">' +
+          '<div class="picker-row">' +
+            '<div class="picker-icon">' + ICONS.plate + '</div>' +
+            '<div class="picker-content">' +
+              '<p class="picker-title">Friday with the Kims</p>' +
+              '<p class="picker-sub">Last week · 4 dishes</p>' +
+            '</div>' +
+            '<div class="picker-chev">' + ICONS.chev + '</div>' +
+          '</div>' +
+          '<div class="picker-row">' +
+            '<div class="picker-icon">' + ICONS.plate + '</div>' +
+            '<div class="picker-content">' +
+              '<p class="picker-title">Sunday brunch</p>' +
+              '<p class="picker-sub">Mar 30 · 2 dishes</p>' +
+            '</div>' +
+            '<div class="picker-chev">' + ICONS.chev + '</div>' +
+          '</div>' +
+          '<div class="picker-row">' +
+            '<div class="picker-icon create">' + ICONS.plus + '</div>' +
+            '<div class="picker-content">' +
+              '<p class="picker-title" style="color:#0F6E56">Create new meal from this dish</p>' +
+              '<p class="picker-sub">Wrap it in a fresh meal post</p>' +
+            '</div>' +
+            '<div class="picker-chev">' + ICONS.chev + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cta-area" style="padding:8px 20px 24px">' +
+          '<button class="btn-secondary-text" style="color:#888">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  function state3b() {
+    return '<div class="detail-screen">' +
+      '<div class="detail-topbar"><button class="detail-back">' + ICONS.back + '</button><p class="detail-topbar-title">Carbonara</p><div class="detail-topbar-action">⋯</div></div>' +
+      '<div class="parent-meal-link">' + ICONS.plate2 +
+        '<div class="parent-meal-link-text">Part of <span class="name">Monday Dinner</span> · view meal</div>' +
+        '<div style="color:#0F6E56">' + ICONS.chev + '</div>' +
+      '</div>' +
+      '<div class="detail-hero">photo</div>' +
+      '<div class="detail-content">' +
+        '<p class="detail-recipe-title">Spaghetti alla Carbonara</p>' +
+        '<p class="detail-byline">' + avatar('TM','xs') + ' Tom · 2 days ago</p>' +
+        '<div class="detail-stats">' +
+          '<div class="detail-stat"><span class="v">4.5 ★</span>your rating</div>' +
+          '<div class="detail-stat"><span class="v">12</span>chef\'s kisses</div>' +
+          '<div class="detail-stat"><span class="v">3</span>comments</div>' +
+        '</div>' +
+        '<div class="notes-block"><p class="notes-label">Modifications</p><p class="notes-text">Used pancetta instead of guanciale.</p></div>' +
+        '<div class="notes-block" style="border-top:0.5px solid var(--border-light)"><p class="notes-label">Comments on this dish</p><p class="notes-text" style="font-style:italic">"Looks amazing!" — Mary</p></div>' +
+      '</div>' +
+    '</div>';
+  }
+  function state3cToast() {
+    return '<div class="detail-screen" style="position:relative;height:100%">' +
+      '<div class="detail-topbar"><button class="detail-back">' + ICONS.back + '</button><p class="detail-topbar-title">Carbonara</p><div class="detail-topbar-action">⋯</div></div>' +
+      '<div class="parent-meal-link">' + ICONS.plate2 +
+        '<div class="parent-meal-link-text">Part of <span class="name">Monday Dinner</span> · view meal</div>' +
+        '<div style="color:#0F6E56">' + ICONS.chev + '</div>' +
+      '</div>' +
+      '<div class="detail-hero">photo</div>' +
+      '<div class="detail-content">' +
+        '<p class="detail-recipe-title">Spaghetti alla Carbonara</p>' +
+        '<p class="detail-byline">' + avatar('TM','xs') + ' Tom · 2 days ago</p>' +
+        '<div class="detail-stats">' +
+          '<div class="detail-stat"><span class="v">4.5 ★</span>your rating</div>' +
+          '<div class="detail-stat"><span class="v">12</span>chef\'s kisses</div>' +
+          '<div class="detail-stat"><span class="v">3</span>comments</div>' +
+        '</div>' +
+        '<div class="notes-block"><p class="notes-label">Modifications</p><p class="notes-text">Used pancetta instead of guanciale.</p></div>' +
+      '</div>' +
+      '<div class="toast-floating">' +
+        '<div class="tf-text"><strong>Wrapped into Monday Dinner</strong><span>This dish is now part of a meal</span></div>' +
+        '<button class="tf-btn">View meal</button>' +
+      '</div>' +
+    '</div>';
+  }
+  function state3cFeed() {
+    return '<div class="feed-screen">' +
+      '<div class="feed-screen-top">Home</div>' +
+      '<div class="new-post-banner">Your meal post is now live</div>' +
+      '<div class="feed-card">' +
+        '<div class="feed-card-header">' +
+          avatar('TM') +
+          '<div class="feed-card-meta">' +
+            '<p class="feed-card-title">Monday Dinner</p>' +
+            '<p class="feed-card-sub">just now · 1 dish · 1 cook</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="feed-photo">photo</div>' +
+        '<div class="dish-row">' +
+          '<div class="dish-thumb">photo</div>' +
+          '<div class="dish-row-content">' +
+            '<p class="dish-row-title">Spaghetti alla Carbonara</p>' +
+            '<p class="dish-row-by">' + avatar('TM','xs') + ' Tom · 4.5 ★</p>' +
+          '</div>' +
+          '<div style="color:#ccc">' + ICONS.chev + '</div>' +
+        '</div>' +
+        '<div class="feed-engagement">' +
+          '<span style="color:#0F6E56;display:flex;align-items:center;gap:5px">' + ICONS.kiss + '0</span>' +
+          '<span>0 comments</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  function state3c() {
+    return '<div class="detail-screen">' +
+      '<div class="detail-topbar"><button class="detail-back">' + ICONS.back + '</button><p class="detail-topbar-title">Monday Dinner</p><div class="detail-topbar-action">⋯</div></div>' +
+      '<div class="feed-card" style="margin:10px 12px 0">' +
+        '<div class="feed-card-header">' +
+          avatar('TM') +
+          '<div class="feed-card-meta">' +
+            '<p class="feed-card-title">Monday Dinner</p>' +
+            '<p class="feed-card-sub">just now · 1 dish · 1 cook</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="dish-row">' +
+          '<div class="dish-thumb">photo</div>' +
+          '<div class="dish-row-content">' +
+            '<p class="dish-row-title">Spaghetti alla Carbonara</p>' +
+            '<p class="dish-row-by">' + avatar('TM','xs') + ' Tom · 4.5 ★</p>' +
+          '</div>' +
+          '<div style="color:#ccc">' + ICONS.chev + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="add-existing-btn">' + ICONS.plus + ' Add another dish to this meal</div>' +
+      '<div class="empty-add-state">Wrap done. Carbonara is now part of Monday Dinner. Likes and comments stay attached to the dish.</div>' +
+    '</div>';
+  }
+
+  function compareRow(filled) {
+    var stars = '';
+    for (var i = 0; i < 4; i++) stars += miniStar(true);
+    stars += miniStar(false);
+    return stars;
+  }
+  function compareDishRowVariant(variant) {
+    var trailing = '';
+    if (variant === 'text') {
+      trailing = '<div class="expand-btn">expand</div>';
+    } else if (variant === 'chev') {
+      trailing = '<div class="expand-chev">' + ICONS.chevDown + '</div>';
+    } else if (variant === 'row') {
+      trailing = '<div style="font-size:10px;color:#bbb;text-transform:uppercase;letter-spacing:0.06em">tap row</div>';
+    }
+    return '<div class="added-dish-row" ' + (variant === 'row' ? 'style="background:#fafaf6;border-color:#d8d4c5"' : '') + '>' +
+      '<div class="added-dish-thumb"></div>' +
+      '<div class="added-dish-content">' +
+        '<p class="added-dish-name">Crispy garlic green beans</p>' +
+        '<div class="added-dish-stars">' + compareRow() + '</div>' +
+      '</div>' +
+      trailing +
+    '</div>';
+  }
+  function compareSheet(variant) {
+    return '<div style="background:var(--bg-page);height:100%;overflow:hidden;display:flex;flex-direction:column">' +
+      '<div style="flex:1;background:rgba(0,0,0,0.2)"></div>' +
+      '<div class="sheet">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-header" style="padding:4px 16px 12px">' +
+          '<p class="sheet-title" style="font-size:15px">Made other dishes too?</p>' +
+        '</div>' +
+        '<div class="sheet-body" style="padding:0 14px 12px">' +
+          compareDishRowVariant(variant) +
+          compareDishRowVariant(variant) +
+        '</div>' +
+        '<div class="cta-area" style="padding:10px 16px 18px">' +
+          '<button class="btn-primary">Done</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  var STATES = {
+    '1a': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1a · No meal context',
+      sub: 'Pattern Y baseline. Meal-attach lives as a chip with a faint teal background to differentiate it from the existing chips. Visibility default is now Followers (per retired-D25 model). Updated to apply locks 1, 2, 11.',
+      render: state1a,
+      callouts: [
+        ['Pattern Y', 'Submit equals publish. The visibility default lives inline above the primary CTA.'],
+        ['Chip differentiation (lock 2)', 'The Add-to-meal chip has a faint teal idle background to set it apart from Photo / Voice / Tag without changing its shape.'],
+        ['Default = Followers (lock 11)', 'D25 retired. Global default is Followers, configurable in user settings. The contextual rule (lunch → private) layers on top, also configurable.']
+      ]
+    },
+    '1b': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1b · Smart-detected · high confidence',
+      sub: 'D14 high-confidence path. The recipe being logged is in a planned meal\'s dish list AND happens within ±4hr of meal_time. Auto-attached. Banner is loud, sparkle icon, "change" override.',
+      render: state1b,
+      callouts: [
+        ['High-confidence only', 'Per lock 9: auto-attach only when the recipe is in meal_dish_plans for a meal happening now (±4hr). Lower-confidence cases get the recommendation flow (1b-low).'],
+        ['Tiered fallback rule (lock 8)', 'Match window is ±4hr → meal-type slot → same day. Build prompt will spell this out.'],
+        ['Two visual anchors', 'Both the banner and the chip flip to active. User cannot miss the auto-attachment.']
+      ]
+    },
+    '1b-low': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1b-low · Smart-detected · low confidence',
+      sub: 'NEW state. Lock 9 in action. There is a planned meal in the time window but the recipe being logged is not in its dish list. The system surfaces a recommendation rather than auto-attaching. User must take an action.',
+      render: state1bLow,
+      callouts: [
+        ['Recommendation, not attachment', 'Different visual register from 1b — amber/yellow banner with a question mark, two action buttons. The chip stays idle until the user accepts.'],
+        ['Two-button affordance', '"Attach" and "Not this one" make the choice explicit. Dismissing without choosing leaves the post unattached.'],
+        ['Open question', 'Could fold "Not this one" into the dismiss action. Currently shown as explicit for clarity.']
+      ]
+    },
+    '1c': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1c · Meal picker open',
+      sub: 'User tapped the meal-attach chip. Existing meals first (today\'s planned meals at the top), then "Create new meal" as the last option. Tapping a row attaches and returns to LogCookSheet.',
+      render: state1c,
+      callouts: [
+        ['Today first', 'Today\'s planned meals get top billing. Recent past meals appear below.'],
+        ['Create new = entry to 1d', 'Tapping "Create new meal" opens the lightweight in-sheet form (next state).']
+      ]
+    },
+    '1d': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1d · Create meal in-sheet (with tagging)',
+      sub: 'UPDATED. Lock 4a in action. The lightweight meal-creation form now includes inline tagging for sous-chefs and ate-with people. Recent partners surface as one-tap pills below the field. No AddCookingPartnersModal-on-top.',
+      render: state1d,
+      callouts: [
+        ['Inline picker, not modal-on-top (lock 4a)', 'The "Cooking with" and "Eating with" rows accept pills directly. Recent partners surface as one-tap "recent" suggestions.'],
+        ['Two roles, separate rows', 'Sous-chef and ate-with are separated to match the existing post_participants role enum.'],
+        ['Cross-meal dedup deferred (lock 4b)', 'Tagging Mary creates a meal_participants invitation. Detecting "Mary already has a similar meal you should join instead" is a Phase 9 feature, not 7E.'],
+        ['Still light', 'No time picker, no description, no location. Title + tags. Everything else editable later in MealDetailScreen.']
+      ]
+    },
+    '1e': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1e · Meal attached',
+      sub: 'After picking from the picker (1c) or creating new (1d), the user lands back in LogCookSheet with meal context locked in. The chip is now active with a leading check. The banner switches from sparkle to check.',
+      render: state1e,
+      callouts: [
+        ['Confirmed state', 'Different visual from 1b. Sparkle becomes a check. Lead text changes from "Attached to" to "Part of".'],
+        ['Active chip with check (lock 10)', 'The active chip reads "✓ Monday Dinner" — the leading check reinforces "this is set, not a tappable suggestion".'],
+        ['Still changeable', '"change" link still present.']
+      ]
+    },
+    '1f': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1f · Visibility override · solo dish',
+      sub: 'UPDATED. Three options + one disabled. "Followers" is the default per lock 11. The fourth option ("People tagged in this meal") is shown but disabled because this is a solo dish post with no meal context. The disabled state communicates the option exists without making it usable.',
+      render: state1f,
+      callouts: [
+        ['Solo dish · 12b in action', 'Lock 12b: four options always visible, the meal-only one disabled when there is no meal context. Reads cleaner than hiding it.'],
+        ['Followers default annotated', 'The selected row shows "your default · change in settings" so users know this is configurable.'],
+        ['Option deferred to 7L (lock 12c)', '"People tagged in this meal" is wireframed in 7E but its actual implementation ships in 7L. 7E build prompt will say so.']
+      ]
+    },
+    '1f-meal': {
+      eyebrow: 'Flow 1 — LogCookSheet enrichment',
+      title: '1f-meal · Visibility override · attached to meal',
+      sub: 'NEW state. Same overlay as 1f but the dish is attached to Monday Dinner so the fourth option is enabled. This is the only state where "People tagged in this meal" is selectable. Order: Everyone, Followers (default), People tagged, Just me.',
+      render: state1fMeal,
+      callouts: [
+        ['Meal context enables option (lock 12b)', 'Same component as 1f, just with a different enabled-state for the meal-only option.'],
+        ['Order matters', 'People tagged is between Followers and Just me — it sits "below Followers but above Just me" on the visibility ladder.']
+      ]
+    },
+    '2a': {
+      eyebrow: 'Flow 2 — Made other dishes too?',
+      title: '2a · Just-published prompt · planned meal',
+      sub: 'UPDATED. The sheet header now has an X close button per lock 18. "Skip for now" preserves the partially-filled state; X dismisses without saving any added rows. Two distinct exits.',
+      render: state2a,
+      callouts: [
+        ['Two exits (lock 18)', 'X = abandon. "Skip for now" = preserve what you\'ve typed. Different intent.'],
+        ['Suggested rows from plan', 'meal_dish_plans rows that weren\'t logged yet appear pre-populated, muted, and labeled "Suggested · planned for tonight".']
+      ]
+    },
+    '2b': {
+      eyebrow: 'Flow 2 — Made other dishes too?',
+      title: '2b · Recipe + freeform added',
+      sub: 'After the user adds a recipe row and a freeform "rice" row. Each row collapses to thumbnail + name + 5-star strip. Tap "expand" to add thoughts or photos for that dish. See 16-compare for expand-affordance variants.',
+      render: state2b,
+      callouts: [
+        ['Freeform support (D23)', 'The "rice" row has dish_name set and recipe_id null. Annotated as "no recipe" so the user knows it won\'t contribute to nutrition stats.'],
+        ['Expand affordance', 'Currently a text link. See the comparison set for chevron and whole-row alternatives.']
+      ]
+    },
+    '2c': {
+      eyebrow: 'Flow 2 — Made other dishes too?',
+      title: '2c · Unplanned meal · recommendations',
+      sub: 'NEW state. Hybrid lock 5 in action. When the meal has no planned dishes, the prompt recommends recipes based on recently-viewed, recently-saved, or frequently-cooked items. Different visual register from 2a — these are dashed-border cards, not muted rows.',
+      render: state2c,
+      callouts: [
+        ['Hybrid model (lock 5)', '2a/2b = planned-meal checklist with suggestions. 2c = unplanned-meal recommendations from recent activity.'],
+        ['Dashed border = unconfirmed', 'Recommendations look different from "Suggested · planned" rows in 2a so users can tell which signal they came from.'],
+        ['Three signal types', 'Saved recently, viewed recently, and "you\'ve cooked this N times" — drawn as different sources to show the recommendation logic has range.'],
+        ['Open: ranking', 'How many recommendations to show, ordering, freshness window — all build-time decisions for 7E.']
+      ]
+    },
+    '3a': {
+      eyebrow: 'Flow 3 — Wrap a dish into a meal',
+      title: '3a · Add to meal · picker',
+      sub: 'UPDATED. Sheet title is now "Add to meal" per lock 14 — same phrasing as the chip in 1a. Reached from RecipeDetailScreen overflow. Picker shows existing meals + "Create new meal from this dish" (the wrap entry point).',
+      render: state3a,
+      callouts: [
+        ['Consistent label (lock 14)', '"Add to meal" matches the chip text in 1a. The overflow item, the chip, and the sheet title now all read the same.'],
+        ['Two flows from one entry', 'Existing meal → just attach. New meal → triggers Option γ wrap (next state).']
+      ]
+    },
+    '3b': {
+      eyebrow: 'Flow 3 — Wrap a dish into a meal',
+      title: '3b · After wrap · dish detail · steady state',
+      sub: 'The original dish post is unchanged. Back-link banner at the top points at the parent meal. Likes and comments still belong to the dish. This is the steady state of a wrapped dish, regardless of which post-wrap landing pattern we ship.',
+      render: state3b,
+      callouts: [
+        ['Back-link banner (D26)', 'Required by D26. Tappable, lands on the parent meal detail.'],
+        ['D28 made visible (lock 7)', 'Comments labeled "Comments on this dish" so the attribution rule is unmistakable.'],
+        ['Regardless of landing pattern', '3b is the eventual state of a wrapped dish. The three 3c variants below are about where the user lands immediately after the wrap action.']
+      ]
+    },
+    '3c-toast': {
+      eyebrow: 'Flow 3 — Wrap a dish into a meal',
+      title: '3c · Option B · stay on dish detail with toast',
+      sub: 'NEW state. Lock 6 lean. After wrap, the user stays exactly where they were. A floating toast confirms the wrap and offers a one-tap "View meal" path. The back-link banner is already visible above the photo. Lowest-disorientation option.',
+      render: state3cToast,
+      callouts: [
+        ['Stay-in-place', 'No navigation. The user is still on the dish detail they were already viewing.'],
+        ['Toast as confirmation + escape hatch', 'The toast tells the user the wrap succeeded and gives them one-tap access to the new meal.'],
+        ['Back-link reinforces', 'The teal back-link banner above the photo is now visible, providing a second path to the meal.'],
+        ['Tradeoff', 'User does not see the meal post itself unless they tap "View meal". May feel like nothing happened.']
+      ]
+    },
+    '3c-feed': {
+      eyebrow: 'Flow 3 — Wrap a dish into a meal',
+      title: '3c · Option A · jump to feed',
+      sub: 'NEW state. Most "social" outcome. After wrap, the user lands on the home feed with the new meal post at the top, marked with a "Your meal post is now live" banner. They see how their meal looks from outside.',
+      render: state3cFeed,
+      callouts: [
+        ['Most discoverable', 'User immediately sees the meal post in context, exactly as their followers will see it.'],
+        ['Most disorienting', 'Leaves the dish detail entirely. User now needs to navigate back to where they were if they want to.'],
+        ['Banner is a one-time affordance', '"Your meal post is now live" appears above the new meal card and disappears on next feed load.']
+      ]
+    },
+    '3c': {
+      eyebrow: 'Flow 3 — Wrap a dish into a meal',
+      title: '3c · Option C · land on new meal detail',
+      sub: 'ORIGINAL drawing. After wrap, the user lands on the new meal detail with one dish + an empty add-more state. Most discoverable for "now add another dish" but feels like a placeholder for the deeper meal-detail UX coming in Phase 9.',
+      render: state3c,
+      callouts: [
+        ['Promotes the next action', 'The "Add another dish" CTA is the obvious next step for users who wrapped specifically to start building a meal.'],
+        ['Feels placeholder-y', 'You flagged this as a placeholder during review. The actual MealDetailScreen rebuild is Phase 9.']
+      ]
+    },
+    '16-compare': {
+      eyebrow: 'Q16 · expand affordance options',
+      title: '2b · Three expand-affordance variants',
+      sub: 'Side-by-side comparison of how the "expand for thoughts/photos" affordance could read on each added-dish row. Same content, three different trailing affordances. Pick one or mix.',
+      isCompare: true,
+      callouts: [
+        ['Variant A: text link', 'Most explicit. Reads as a verb the user can act on. Slightly heavier visually because of the colored text.'],
+        ['Variant B: chevron', 'Most familiar pattern (settings rows, accordion sections). Smallest footprint. Can flip on tap to show open state.'],
+        ['Variant C: whole-row tap', 'Most generous hit area. The row itself is the affordance — no trailing element needed. Subtle background hint signals tappability. Discoverability depends on the user trying it.']
+      ],
+      renderCompare: function () {
+        return '<div class="compare-row">' +
+          '<div class="compare-col">' +
+            '<p class="compare-label">Variant A · text link</p>' +
+            '<p class="compare-desc">"expand" appears as a teal text link on the right edge of each row.</p>' +
+            '<div class="phone"><div class="phone-status"><span>9:41</span><span>● ● ●</span></div><div class="phone-body">' + compareSheet('text') + '</div></div>' +
+          '</div>' +
+          '<div class="compare-col">' +
+            '<p class="compare-label">Variant B · chevron</p>' +
+            '<p class="compare-desc">A small down-chevron on the right edge that flips to up when expanded.</p>' +
+            '<div class="phone"><div class="phone-status"><span>9:41</span><span>● ● ●</span></div><div class="phone-body">' + compareSheet('chev') + '</div></div>' +
+          '</div>' +
+          '<div class="compare-col">' +
+            '<p class="compare-label">Variant C · whole row</p>' +
+            '<p class="compare-desc">No trailing element. The whole row is tappable. Subtle background hint signals it.</p>' +
+            '<div class="phone"><div class="phone-status"><span>9:41</span><span>● ● ●</span></div><div class="phone-body">' + compareSheet('row') + '</div></div>' +
+          '</div>' +
+        '</div>';
+      }
+    }
+  };
+
+  function setState(key) {
+    var def = STATES[key];
+    var grid = document.getElementById('stage-grid');
+    var phoneWrapper = document.getElementById('phone-wrapper');
+    if (def.isCompare) {
+      grid.classList.add('compare-grid');
+      grid.innerHTML = def.renderCompare() +
+        '<div class="fwf-callouts" style="margin:24px auto 0;max-width:720px"><h4>Why this state matters</h4>' +
+        def.callouts.map(function (c) {
+          return '<div class="callout"><span class="label">' + c[0] + '</span>' + c[1] + '</div>';
+        }).join('') + '</div>';
+    } else {
+      grid.classList.remove('compare-grid');
+      grid.innerHTML =
+        '<div class="phone" id="phone-wrapper">' +
+          '<div class="phone-status"><span>9:41</span><span>● ● ●</span></div>' +
+          '<div class="phone-body">' + def.render() + '</div>' +
+        '</div>' +
+        '<div class="fwf-callouts"><h4>Why this state matters</h4>' +
+        def.callouts.map(function (c) {
+          return '<div class="callout"><span class="label">' + c[0] + '</span>' + c[1] + '</div>';
+        }).join('') + '</div>';
+    }
+    document.getElementById('stage-eyebrow').textContent = def.eyebrow;
+    document.getElementById('stage-title').textContent = def.title;
+    document.getElementById('stage-sub').textContent = def.sub;
+    var buttons = document.querySelectorAll('.fwf-nav button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle('active', buttons[i].dataset.state === key);
+    }
+  }
+
+  var navButtons = document.querySelectorAll('.fwf-nav button');
+  for (var i = 0; i < navButtons.length; i++) {
+    (function (btn) {
+      btn.addEventListener('click', function () { setState(btn.dataset.state); });
+    })(navButtons[i]);
+  }
+  setState('1a');
+})();
+</script>
+</div>

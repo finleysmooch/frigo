@@ -189,7 +189,7 @@ export async function addPlanItem(
       .from('posts')
       .select('meal_status')
       .eq('id', mealId)
-      .eq('post_type', 'meal')
+      .eq('post_type', 'meal_event')
       .single();
 
     if (meal?.meal_status !== 'planning') {
@@ -260,7 +260,7 @@ export async function addMultiplePlanItems(
       .from('posts')
       .select('meal_status')
       .eq('id', mealId)
-      .eq('post_type', 'meal')
+      .eq('post_type', 'meal_event')
       .single();
 
     if (meal?.meal_status !== 'planning') {
@@ -1189,7 +1189,7 @@ export async function createPlanItemWithRecipe(
       .from('posts')
       .select('meal_status')
       .eq('id', mealId)
-      .eq('post_type', 'meal')
+      .eq('post_type', 'meal_event')
       .single();
 
     if (meal?.meal_status !== 'planning') {

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { supabase } from '../lib/supabase';
+import { backfillChefIds } from '../lib/services/recipeExtraction/chefService';
 import { parseIngredientString, matchToDatabase, processRecipeIngredients } from '../lib/ingredientsParser';
 import {
   searchRecipesByIngredient,
@@ -697,6 +698,32 @@ export default function AdminScreen() {
             <Text style={styles.buttonText}>Clear Results</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Chef Backfill */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Chef Attribution (7K)</Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#0d9488' }]}
+          onPress={async () => {
+            Alert.alert('Backfill Chef IDs', 'This will scan all recipes with missing chef_id and backfill from book authors. Continue?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Run Backfill',
+                onPress: async () => {
+                  try {
+                    const result = await backfillChefIds();
+                    Alert.alert('Backfill Complete', `Updated ${result.updated} recipes, ${result.errors} errors.`);
+                  } catch (err) {
+                    Alert.alert('Backfill Failed', String(err));
+                  }
+                },
+              },
+            ]);
+          }}
+        >
+          <Text style={styles.buttonText}>Backfill Chef IDs</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Loading Indicator */}

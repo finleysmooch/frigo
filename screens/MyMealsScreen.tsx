@@ -217,7 +217,7 @@ export default function MyMealsScreen({ navigation, route }: Props) {
           )
         `)
         .in('id', mealIds)
-        .eq('post_type', 'meal')
+        .eq('post_type', 'meal_event')
         .order('created_at', { ascending: false });
 
       if (mealsError) throw mealsError;

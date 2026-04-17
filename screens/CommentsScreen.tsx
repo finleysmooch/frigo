@@ -15,6 +15,7 @@ import {
   Image
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { supabase } from '../lib/supabase';
 import { MyPostsStackParamList, FeedStackParamList } from '../App';
 import { useTheme } from '../lib/theme/ThemeContext';
@@ -42,6 +43,7 @@ interface Post {
   cooking_method: string;
   created_at: string;
   user_id: string;
+  post_type?: string;
   user_name?: string;
   avatar_url?: string;
 }
@@ -77,6 +79,11 @@ const getAvatarForUser = (userId: string): string => {
 
 export default function CommentsScreen({ route, navigation }: Props) {
   const { colors, functionalColors } = useTheme();
+  // P7N-1A: offset the KeyboardAvoidingView by the actual navigation
+  // header height so the text input sits above the keyboard instead of
+  // being hidden behind it. useHeaderHeight() returns the measured
+  // header + safe-area inset, which is more reliable than hardcoding.
+  const headerHeight = useHeaderHeight();
   const { postId } = route.params;
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -323,7 +330,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
       // Load post info (without user profile join to avoid foreign key issues)
       const { data: postData, error: postError } = await supabase
         .from('posts')
-        .select('id, title, cooking_method, created_at, user_id')
+        .select('id, title, cooking_method, created_at, user_id, post_type')
         .eq('id', postId)
         .single();
 
@@ -342,8 +349,14 @@ export default function CommentsScreen({ route, navigation }: Props) {
         cooking_method: postData.cooking_method,
         created_at: postData.created_at,
         user_id: postData.user_id,
+        post_type: postData.post_type,
         user_name: userProfileData?.display_name || userProfileData?.username || 'Someone',
         avatar_url: userProfileData?.avatar_url || undefined,
+      });
+
+      // Set header title based on post type (D28 / lock 7)
+      navigation.setOptions({
+        title: postData.post_type === 'dish' ? 'Comments on this dish' : 'Comments',
       });
 
       // Load yas chefs (post likes)
@@ -682,7 +695,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
     >
       {/* Post Info */}
       <View style={styles.postInfo}>
@@ -778,7 +791,7 @@ export default function CommentsScreen({ route, navigation }: Props) {
           onChangeText={setCommentText}
           multiline
           maxLength={500}
-          returnKeyType="send"
+          returnKeyType="default"
           onSubmitEditing={submitComment}
           blurOnSubmit={false}
         />

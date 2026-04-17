@@ -34,6 +34,21 @@ interface AddCookingPartnersModalProps {
   onConfirm: (selectedUsers: string[], role: ParticipantRole) => void;
   currentUserId: string;
   defaultRole?: ParticipantRole;
+  initialSelectedIds?: Set<string>;
+  /**
+   * Phase 7I Checkpoint 5 / 5.3: when provided, the modal enters "manage
+   * mode" — pre-selects these user IDs, locks the role to `defaultRole`
+   * (hides the role selector), changes the title/copy, and ALLOWS empty
+   * confirmation (empty result means "remove all cook partners"). Without
+   * this prop the modal renders in its original "add partners" flow and
+   * blocks empty confirmations. Existing call sites (MyPostDetailsScreen,
+   * LogCookSheet) don't pass this prop and are unaffected.
+   *
+   * `onConfirm` always returns the complete new set of selected user IDs,
+   * whether or not the modal is in manage mode. The caller computes
+   * add/remove operations by diffing against the original set.
+   */
+  existingParticipantIds?: string[];
 }
 
 export default function AddCookingPartnersModal({
@@ -42,7 +57,10 @@ export default function AddCookingPartnersModal({
   onConfirm,
   currentUserId,
   defaultRole = 'ate_with',
+  initialSelectedIds,
+  existingParticipantIds,
 }: AddCookingPartnersModalProps) {
+  const isManageMode = existingParticipantIds !== undefined;
   const { colors, functionalColors } = useTheme();
   const [followedUsers, setFollowedUsers] = useState<FollowedUser[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -53,12 +71,19 @@ export default function AddCookingPartnersModal({
   useEffect(() => {
     if (visible) {
       loadFollowedUsers();
+      // Manage mode (existingParticipantIds provided) wins over
+      // initialSelectedIds. Both prop names supported for backward compat
+      // with the existing LogCookSheet call site.
+      if (isManageMode) {
+        setSelectedUserIds(new Set(existingParticipantIds || []));
+      } else {
+        setSelectedUserIds(new Set(initialSelectedIds || []));
+      }
     } else {
-      // Reset state when modal closes
-      setSelectedUserIds(new Set());
       setSearchQuery('');
       setSelectedRole(defaultRole);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const loadFollowedUsers = async () => {
@@ -108,7 +133,10 @@ export default function AddCookingPartnersModal({
   };
 
   const handleConfirm = () => {
-    if (selectedUserIds.size === 0) {
+    // Manage mode allows empty confirmation (empty = remove all existing
+    // cook partners). Non-manage ("add") mode requires at least one
+    // selection to avoid accidental empty-submits.
+    if (!isManageMode && selectedUserIds.size === 0) {
       Alert.alert('No Selection', 'Please select at least one person');
       return;
     }
@@ -320,50 +348,57 @@ export default function AddCookingPartnersModal({
             <TouchableOpacity onPress={onClose}>
               <Text style={styles.cancelButton}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>Add Cooking Partners</Text>
+            <Text style={styles.title}>
+              {isManageMode ? 'Manage Cook Partners' : 'Add Cooking Partners'}
+            </Text>
             <TouchableOpacity onPress={handleConfirm}>
               <Text style={styles.doneButton}>Done</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Role Selector */}
-          <View style={styles.roleSelector}>
-            <TouchableOpacity
-              style={[
-                styles.roleButton,
-                selectedRole === 'sous_chef' && styles.roleButtonActive,
-              ]}
-              onPress={() => setSelectedRole('sous_chef')}
-            >
-              <Text style={[
-                styles.roleButtonText,
-                selectedRole === 'sous_chef' && styles.roleButtonTextActive,
-              ]}>
-                🧑‍🍳 Cooked With
-              </Text>
-            </TouchableOpacity>
+          {/* Role Selector — hidden in manage mode (role is locked to the
+              provided defaultRole, typically 'sous_chef' for CookDetailScreen) */}
+          {!isManageMode && (
+            <View style={styles.roleSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.roleButton,
+                  selectedRole === 'sous_chef' && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedRole('sous_chef')}
+              >
+                <Text style={[
+                  styles.roleButtonText,
+                  selectedRole === 'sous_chef' && styles.roleButtonTextActive,
+                ]}>
+                  🧑‍🍳 Cooked With
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.roleButton,
-                selectedRole === 'ate_with' && styles.roleButtonActive,
-              ]}
-              onPress={() => setSelectedRole('ate_with')}
-            >
-              <Text style={[
-                styles.roleButtonText,
-                selectedRole === 'ate_with' && styles.roleButtonTextActive,
-              ]}>
-                🍽️ Ate With
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[
+                  styles.roleButton,
+                  selectedRole === 'ate_with' && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedRole('ate_with')}
+              >
+                <Text style={[
+                  styles.roleButtonText,
+                  selectedRole === 'ate_with' && styles.roleButtonTextActive,
+                ]}>
+                  🍽️ Ate With
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Description */}
           <Text style={styles.description}>
-            {selectedRole === 'sous_chef' 
-              ? 'Select people who helped cook this dish'
-              : 'Select people who ate this meal with you'
+            {isManageMode
+              ? 'Add or remove cook partners for this post. Existing partners are already selected.'
+              : selectedRole === 'sous_chef'
+                ? 'Select people who helped cook this dish'
+                : 'Select people who ate this meal with you'
             }
           </Text>
 

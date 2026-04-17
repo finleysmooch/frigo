@@ -96,6 +96,59 @@ export async function pickImage(): Promise<string | null> {
 }
 
 /**
+ * Pick multiple images from photo library (up to 10).
+ * Returns an array of local URIs, or empty array on cancel/error.
+ */
+export async function pickMultipleImages(): Promise<string[]> {
+  const hasPermission = await requestMediaLibraryPermission();
+  if (!hasPermission) return [];
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 10,
+    });
+    if (result.canceled) return [];
+    return result.assets.map(a => a.uri);
+  } catch (error) {
+    console.error('Error picking multiple images:', error);
+    Alert.alert('Error', 'Failed to select images. Please try again.');
+    return [];
+  }
+}
+
+/**
+ * Show action sheet to choose between camera or photo library (multi-select variant).
+ * Camera returns a single-element array; library allows multi-select.
+ */
+export async function chooseImageSourceMulti(): Promise<string[]> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Choose Photos',
+      'Select photos from your library or take a new one',
+      [
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            const uri = await takePicture();
+            resolve(uri ? [uri] : []);
+          },
+        },
+        {
+          text: 'Choose from Library',
+          onPress: async () => {
+            const uris = await pickMultipleImages();
+            resolve(uris);
+          },
+        },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve([]) },
+      ]
+    );
+  });
+}
+
+/**
  * Show action sheet to choose between camera or photo library
  */
 export async function chooseImageSource(): Promise<string | null> {

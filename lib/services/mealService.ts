@@ -3,6 +3,11 @@
 // Created: December 2, 2025
 
 import { supabase } from '../supabase';
+import { computeMealTypeFromHour } from '../utils/mealTypeHelpers';
+import type { MealEventContext } from '../types/feed';
+
+// Re-export for consumers that used to import the type from this file.
+export type { MealEventContext };
 
 // ============================================================================
 // TYPES
@@ -24,7 +29,13 @@ export interface Meal {
   meal_location?: string;
   photos?: any[];
   created_at: string;
-  post_type: 'meal';
+  /**
+   * Phase 7I Checkpoint 1 migration (2026-04-13): this field type shifted from
+   * 'meal' to 'meal_event'. The DB rows and interface value both changed.
+   * The legacy 'meal' value was removed from the `PostType` union in
+   * Checkpoint 7 cleanup.
+   */
+  post_type: 'meal_event';
 }
 
 export interface MealParticipant {
@@ -55,6 +66,10 @@ export interface DishInMeal {
   recipe_id?: string;
   recipe_title?: string;
   recipe_image_url?: string;
+  /** Recipe cook time in minutes — added to get_meal_dishes RPC in 7F Checkpoint 2 fix pass */
+  recipe_cook_time_min?: number | null;
+  /** Recipe times cooked counter — added to get_meal_dishes RPC in 7F Checkpoint 2 fix pass */
+  recipe_times_cooked?: number | null;
   course_type: CourseType;
   is_main_dish: boolean;
   course_order?: number;
@@ -75,6 +90,10 @@ export interface MealWithDetails extends Meal {
     display_name?: string;
     avatar_url?: string;
   };
+  /** Aggregate times_cooked across all dishes in the meal (null treated as 0) */
+  total_times_cooked?: number;
+  /** Aggregate cook_time_min across all dishes in the meal (null treated as 0) */
+  total_cook_time_min?: number;
 }
 
 export interface CreateMealInput {
@@ -90,6 +109,187 @@ export interface AddDishInput {
   course_type: CourseType;
   is_main_dish?: boolean;
   course_order?: number;
+}
+
+// ============================================================================
+// SMART-DETECT: Planned meal detection for cook logging (D33)
+// ============================================================================
+
+export interface SmartDetectResult {
+  meal: Meal;
+  confidence: 'high' | 'low';
+}
+
+/**
+ * Detect whether the user has a planned meal that matches this cook.
+ * Tiered fallback: ±4hr of now → meal-type slot today → any meal today.
+ * Confidence: high if recipe is in the meal's dish plans, low otherwise.
+ */
+export async function detectPlannedMealForCook(
+  userId: string,
+  recipeId: string
+): Promise<SmartDetectResult | null> {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Infer current meal-type slot from time of day (shared 4-band helper)
+    const currentMealSlot = computeMealTypeFromHour(now);
+
+    // Fetch all of the user's planning-status meals for today
+    const { data: todayMeals, error } = await supabase
+      .from('posts')
+      .select('id, user_id, title, description, meal_type, meal_status, meal_time, meal_location, photos, created_at, post_type')
+      .eq('user_id', userId)
+      .eq('post_type', 'meal_event')
+      .eq('meal_status', 'planning')
+      .or(`and(meal_time.gte.${todayStart.toISOString()},meal_time.lte.${todayEnd.toISOString()}),and(meal_time.is.null,created_at.gte.${todayStart.toISOString()})`)
+      .order('meal_time', { ascending: true, nullsFirst: false });
+
+    if (error || !todayMeals || todayMeals.length === 0) {
+      return null;
+    }
+
+    // Tier 1: meals within ±4hr of now
+    const fourHourMs = 4 * 60 * 60 * 1000;
+    const nearbyMeals = todayMeals.filter(m => {
+      if (!m.meal_time) return false;
+      const mealTime = new Date(m.meal_time).getTime();
+      return Math.abs(mealTime - now.getTime()) <= fourHourMs;
+    });
+
+    // Tier 2: meals matching current meal-type slot today
+    const slotMeals = todayMeals.filter(m => m.meal_type === currentMealSlot);
+
+    // Tier 3: any planned meal today (already fetched)
+
+    // Pick the best match: tier 1 first, then tier 2, then tier 3
+    let matchedMeal: any = null;
+
+    if (nearbyMeals.length > 0) {
+      // Pick the one closest in time to now
+      nearbyMeals.sort((a, b) => {
+        const aDiff = Math.abs(new Date(a.meal_time).getTime() - now.getTime());
+        const bDiff = Math.abs(new Date(b.meal_time).getTime() - now.getTime());
+        return aDiff - bDiff;
+      });
+      matchedMeal = nearbyMeals[0];
+    } else if (slotMeals.length > 0) {
+      // Pick the first slot match (closest to now if multiple)
+      matchedMeal = slotMeals[0];
+    } else if (todayMeals.length > 0) {
+      // Any meal today — pick the one closest to now
+      const withTime = todayMeals.filter(m => m.meal_time);
+      if (withTime.length > 0) {
+        withTime.sort((a, b) => {
+          const aDiff = Math.abs(new Date(a.meal_time).getTime() - now.getTime());
+          const bDiff = Math.abs(new Date(b.meal_time).getTime() - now.getTime());
+          return aDiff - bDiff;
+        });
+        matchedMeal = withTime[0];
+      } else {
+        // Meals with no time — just pick the first one
+        matchedMeal = todayMeals[0];
+      }
+    }
+
+    if (!matchedMeal) return null;
+
+    // Check confidence: does this meal's plan include the recipe being logged?
+    const { data: planItems } = await supabase
+      .from('meal_dish_plans')
+      .select('id, recipe_id')
+      .eq('meal_id', matchedMeal.id);
+
+    const hasRecipeInPlan = planItems?.some(item => item.recipe_id === recipeId) ?? false;
+
+    const meal: Meal = {
+      id: matchedMeal.id,
+      user_id: matchedMeal.user_id,
+      title: matchedMeal.title,
+      description: matchedMeal.description,
+      meal_type: matchedMeal.meal_type,
+      meal_status: matchedMeal.meal_status,
+      meal_time: matchedMeal.meal_time,
+      meal_location: matchedMeal.meal_location,
+      photos: matchedMeal.photos,
+      created_at: matchedMeal.created_at,
+      post_type: 'meal_event',
+    };
+
+    return {
+      meal,
+      confidence: hasRecipeInPlan ? 'high' : 'low',
+    };
+  } catch (error) {
+    console.error('Error in detectPlannedMealForCook:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// OPTION γ WRAP PATTERN (D26)
+// ============================================================================
+
+/**
+ * Wrap an existing dish post into a new meal post.
+ * Creates a new meal, then links the dish to it via addDishesToMeal.
+ * Non-destructive: the dish post's rating, notes, photos, likes, comments are untouched.
+ */
+export async function wrapDishIntoNewMeal(
+  dishPostId: string,
+  userId: string,
+  mealTitle: string
+): Promise<{ mealId: string; dishId: string }> {
+  // 1. Validate the dish post exists and belongs to the user
+  const { data: dishPost, error: dishError } = await supabase
+    .from('posts')
+    .select('id, user_id, parent_meal_id, post_type')
+    .eq('id', dishPostId)
+    .eq('post_type', 'dish')
+    .single();
+
+  if (dishError || !dishPost) {
+    throw new Error('Dish post not found.');
+  }
+  if (dishPost.user_id !== userId) {
+    throw new Error('You can only wrap your own dish posts.');
+  }
+
+  // 2. Validate the dish post is not already in a meal
+  if (dishPost.parent_meal_id) {
+    // Fetch the parent meal title for a helpful error message
+    const { data: parentMeal } = await supabase
+      .from('posts')
+      .select('title')
+      .eq('id', dishPost.parent_meal_id)
+      .single();
+    throw new Error(`This dish is already part of "${parentMeal?.title || 'a meal'}".`);
+  }
+
+  // 3. Create a new meal post
+  const result = await createMeal(userId, { title: mealTitle });
+  if (!result.success || !result.mealId) {
+    throw new Error(result.error || 'Failed to create meal.');
+  }
+
+  // 4. Link the dish to the new meal via addDishesToMeal
+  // This handles all 3 representations: dish_courses, parent_meal_id, post_relationships
+  const linkResult = await addDishesToMeal(result.mealId, userId, [{
+    dish_id: dishPostId,
+    course_type: 'main',
+    is_main_dish: true,
+    course_order: 0,
+  }]);
+
+  if (!linkResult.success) {
+    throw new Error(linkResult.error || 'Failed to link dish to meal.');
+  }
+
+  return { mealId: result.mealId, dishId: dishPostId };
 }
 
 // ============================================================================
@@ -117,10 +317,10 @@ export async function createMeal(
         title: input.title.trim(),
         description: input.description?.trim() || null,
         meal_type: input.meal_type || null,
-        meal_time: input.meal_time || null,
+        meal_time: input.meal_time ?? new Date().toISOString(),
         meal_location: input.meal_location?.trim() || null,
         meal_status: 'planning' as MealStatus,
-        post_type: 'meal',
+        post_type: 'meal_event',
         photos: [],
       })
       .select('id')
@@ -169,7 +369,7 @@ export async function getMeal(
         )
       `)
       .eq('id', mealId)
-      .eq('post_type', 'meal')
+      .eq('post_type', 'meal_event')
       .eq('meal_participants.role', 'host')
       .single();
 
@@ -229,7 +429,7 @@ export async function updateMeal(
         meal_location: updates.meal_location?.trim(),
       })
       .eq('id', mealId)
-      .eq('post_type', 'meal');
+      .eq('post_type', 'meal_event');
 
     if (error) throw error;
 
@@ -259,7 +459,7 @@ export async function completeMeal(
       .from('posts')
       .update({ meal_status: 'completed' as MealStatus })
       .eq('id', mealId)
-      .eq('post_type', 'meal');
+      .eq('post_type', 'meal_event');
 
     if (updateError) throw updateError;
 
@@ -303,7 +503,7 @@ export async function deleteMeal(
       .from('posts')
       .delete()
       .eq('id', mealId)
-      .eq('post_type', 'meal');
+      .eq('post_type', 'meal_event');
 
     if (error) throw error;
 
@@ -1003,8 +1203,9 @@ export async function getMealsForFeed(
           )
         )
       `)
-      .eq('post_type', 'meal')
+      .eq('post_type', 'meal_event')
       .eq('meal_status', 'completed')
+      .or('visibility.eq.everyone,visibility.eq.followers,visibility.is.null') // Gap 9 fix: exclude private/meal_tagged posts
       .in('meal_participants.user_id', followingIds)
       .eq('meal_participants.rsvp_status', 'accepted')
       .order('created_at', { ascending: false })
@@ -1023,11 +1224,8 @@ export async function getMealsForFeed(
     
     for (const meal of (data || [])) {
       if (!mealMap.has(meal.id)) {
-        // Get dish count
-        const { count: dishCount } = await supabase
-          .from('dish_courses')
-          .select('id', { count: 'exact', head: true })
-          .eq('meal_id', meal.id);
+        // Get dish data (includes recipe stats after RPC update)
+        const dishes = await getMealDishes(meal.id);
 
         // Get participant count
         const { count: participantCount } = await supabase
@@ -1039,12 +1237,25 @@ export async function getMealsForFeed(
         // Find host
         const host = (meal as any).meal_participants?.find((p: any) => p.role === 'host');
 
+        // Aggregate recipe stats across dishes.
+        // Null cook_time_min / times_cooked treated as 0 — partial aggregation
+        // is more useful than suppressing the stat entirely. Matches solo card
+        // omission behavior for unknown times.
+        const totalCookTimeMin = dishes.reduce(
+          (sum, d) => sum + (d.recipe_cook_time_min ?? 0), 0
+        );
+        const totalTimesCooked = dishes.reduce(
+          (sum, d) => sum + (d.recipe_times_cooked ?? 0), 0
+        );
+
         mealMap.set(meal.id, {
           ...meal,
-          dish_count: dishCount || 0,
+          dish_count: dishes.length,
           participant_count: participantCount || 0,
           host_id: host?.user_id,
           host_profile: host?.user_profiles,
+          total_cook_time_min: totalCookTimeMin,
+          total_times_cooked: totalTimesCooked,
         } as MealWithDetails);
       }
     }
@@ -1254,4 +1465,328 @@ export function getCourseDisplayName(course: CourseType): string {
     other: 'Other',
   };
   return names[course];
+}
+
+// ============================================================================
+// PHASE 7I CHECKPOINT 2 — MEAL EVENT CONTEXT (L4 prehead)
+// ============================================================================
+
+/**
+ * For a dish post, return the minimal meal event context needed to render
+ * the L4 prehead ("Tom's dish at Friday night crew") above a solo cook card
+ * or the L5 group header above a linked stack.
+ *
+ * Returns null if the post has no parent meal or if the parent meal row
+ * is missing (defensive — shouldn't happen after Checkpoint 1's 0 broken
+ * refs verification).
+ *
+ * Host lookup: uses `post_participants` host role first, falls back to
+ * `posts.user_id` if no explicit host participant row exists. Per Checkpoint
+ * 1 findings there's 1 meal_event row (of 363) without an explicit host
+ * participant row — the fallback covers that case.
+ */
+export async function getMealEventForCook(
+  postId: string
+): Promise<MealEventContext | null> {
+  try {
+    // 1. Fetch the cook post's parent_meal_id.
+    const { data: cookPost, error: cookErr } = await supabase
+      .from('posts')
+      .select('id, parent_meal_id')
+      .eq('id', postId)
+      .single();
+
+    if (cookErr || !cookPost || !cookPost.parent_meal_id) return null;
+
+    // 2. Fetch the meal_event row.
+    const { data: mealEvent, error: meErr } = await supabase
+      .from('posts')
+      .select('id, user_id, title, meal_time, meal_location')
+      .eq('id', cookPost.parent_meal_id)
+      .eq('post_type', 'meal_event')
+      .single();
+
+    if (meErr || !mealEvent) return null;
+
+    // 3. Resolve the host — first try an explicit host participant row,
+    //    fall back to mealEvent.user_id.
+    const { data: hostRow } = await supabase
+      .from('post_participants')
+      .select('participant_user_id')
+      .eq('post_id', mealEvent.id)
+      .eq('role', 'host')
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle();
+
+    const hostUserId: string =
+      (hostRow as any)?.participant_user_id || mealEvent.user_id;
+
+    const { data: hostProfile } = await supabase
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', hostUserId)
+      .maybeSingle();
+
+    // 4. Count distinct cook post authors for total_contributor_count.
+    const { data: contributorRows } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('parent_meal_id', mealEvent.id)
+      .eq('post_type', 'dish');
+
+    const uniqueContributors = new Set(
+      (contributorRows || []).map((r: any) => r.user_id as string)
+    );
+
+    return {
+      id: mealEvent.id,
+      title: mealEvent.title || 'Meal',
+      meal_time: mealEvent.meal_time,
+      meal_location: mealEvent.meal_location,
+      host_id: hostUserId,
+      host_username: (hostProfile as any)?.username,
+      host_display_name: (hostProfile as any)?.display_name,
+      host_avatar_url: (hostProfile as any)?.avatar_url,
+      total_contributor_count: uniqueContributors.size,
+    };
+  } catch (err) {
+    console.error('Error in getMealEventForCook:', err);
+    return null;
+  }
+}
+
+// ============================================================================
+// PHASE 7I CHECKPOINT 2 — MEAL EVENT DETAIL (L7 screen)
+// ============================================================================
+
+/**
+ * Full meal event detail payload for Checkpoint 6's MealEventDetailScreen (L7).
+ * Assembles: event metadata, host, all linked cook posts with authors and
+ * recipe refs, attendees (with D43 private eater-rating visibility), shared
+ * media from meal_photos, aggregate stats.
+ *
+ * D43 privacy: `private_rating` is only populated for an attendee entry if
+ * the viewer is the event host OR is that attendee themselves. Otherwise
+ * the field is null.
+ */
+export interface MealEventDetail {
+  event: {
+    id: string;
+    title: string;
+    description?: string;
+    meal_time?: string;
+    meal_location?: string;
+    highlight_photo?: any;
+    created_at: string;
+  };
+  host: {
+    user_id: string;
+    username: string;
+    display_name?: string;
+    avatar_url?: string | null;
+  };
+  cooks: Array<{
+    post_id: string;
+    post_title: string;
+    post_rating?: number | null;
+    user_id: string;
+    username: string;
+    display_name?: string;
+    avatar_url?: string | null;
+    recipe_id?: string | null;
+    recipe_title?: string | null;
+    photos?: any[];
+    created_at: string;
+  }>;
+  attendees: Array<{
+    user_id: string;
+    username: string;
+    display_name?: string;
+    avatar_url?: string | null;
+    private_rating?: number | null;
+  }>;
+  shared_media: Array<{
+    id: string;
+    photo_url: string;
+    caption?: string;
+    uploaded_by_user_id: string;
+    uploaded_by_username: string;
+    created_at: string;
+  }>;
+  stats: {
+    total_dishes: number;
+    unique_cooks: number;
+    total_attendees: number;
+    avg_rating?: number;
+  };
+}
+
+export async function getMealEventDetail(
+  eventId: string,
+  currentUserId: string
+): Promise<MealEventDetail | null> {
+  try {
+    // 1. Event row
+    const { data: event, error: eventErr } = await supabase
+      .from('posts')
+      .select(
+        'id, user_id, title, description, meal_time, meal_location, photos, created_at'
+      )
+      .eq('id', eventId)
+      .eq('post_type', 'meal_event')
+      .single();
+
+    if (eventErr || !event) return null;
+
+    // 2. Host lookup (explicit post_participants host row first,
+    //    fall back to event.user_id)
+    const { data: hostRow } = await supabase
+      .from('post_participants')
+      .select('participant_user_id')
+      .eq('post_id', eventId)
+      .eq('role', 'host')
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle();
+
+    const hostUserId =
+      (hostRow as any)?.participant_user_id || event.user_id;
+
+    const { data: hostProfile } = await supabase
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', hostUserId)
+      .maybeSingle();
+
+    const host = {
+      user_id: hostUserId,
+      username: (hostProfile as any)?.username || '',
+      display_name: (hostProfile as any)?.display_name,
+      avatar_url: (hostProfile as any)?.avatar_url,
+    };
+
+    // 3. Linked cook posts (dishes attached via parent_meal_id)
+    const { data: cookRows } = await supabase
+      .from('posts')
+      .select(
+        `id, user_id, title, rating, recipe_id, photos, created_at,
+         author:user_profiles!user_id ( id, username, display_name, avatar_url ),
+         recipes ( id, title )`
+      )
+      .eq('parent_meal_id', eventId)
+      .eq('post_type', 'dish')
+      .order('created_at', { ascending: true });
+
+    const cooks = (cookRows || []).map((row: any) => ({
+      post_id: row.id,
+      post_title: row.title || row.recipes?.title || 'Dish',
+      post_rating: row.rating,
+      user_id: row.user_id,
+      username: row.author?.username || '',
+      display_name: row.author?.display_name,
+      avatar_url: row.author?.avatar_url,
+      recipe_id: row.recipe_id,
+      recipe_title: row.recipes?.title,
+      photos: row.photos || [],
+      created_at: row.created_at,
+    }));
+
+    // 4. Attendees (ate_with role on the event). D43: private_rating only
+    //    visible to host or to the attendee themselves.
+    const { data: attendeeRows } = await supabase
+      .from('post_participants')
+      .select(
+        `participant_user_id, external_name,
+         participant_profile:user_profiles!participant_user_id (
+           id, username, display_name, avatar_url
+         )`
+      )
+      .eq('post_id', eventId)
+      .eq('role', 'ate_with')
+      .eq('status', 'approved');
+
+    // D43 note: eater_ratings schema isn't wired yet in the current repo.
+    // Leaving `private_rating` null for every attendee — Checkpoint 6 will
+    // wire the real query once the schema lands. The visibility rule (host
+    // or self can see their own rating) is captured here as a comment so
+    // Checkpoint 6 picks it up without rediscovering: a viewer is allowed
+    // to see an attendee's rating iff `viewer === host OR viewer === attendee`.
+    const attendees = (attendeeRows || [])
+      .filter((r: any) => r.participant_user_id || r.external_name)
+      .map((r: any) => ({
+        user_id: r.participant_user_id || '',
+        username:
+          r.participant_profile?.username ||
+          r.external_name ||
+          '',
+        display_name:
+          r.participant_profile?.display_name || r.external_name,
+        avatar_url: r.participant_profile?.avatar_url,
+        private_rating: null,
+      }));
+
+    // 5. Shared media from meal_photos
+    const { data: mediaRows } = await supabase
+      .from('meal_photos')
+      .select(
+        `id, photo_url, caption, user_id, created_at,
+         uploader:user_profiles!user_id ( username )`
+      )
+      .eq('meal_id', eventId)
+      .order('created_at', { ascending: true });
+
+    const shared_media = (mediaRows || []).map((r: any) => ({
+      id: r.id,
+      photo_url: r.photo_url,
+      caption: r.caption,
+      uploaded_by_user_id: r.user_id,
+      uploaded_by_username: r.uploader?.username || '',
+      created_at: r.created_at,
+    }));
+
+    // 6. Highlight photo — find posts.photos entry with is_highlight=true,
+    //    fall back to first photo, or undefined if no photos.
+    const eventPhotos: any[] = Array.isArray(event.photos) ? event.photos : [];
+    const highlight_photo =
+      eventPhotos.find((p: any) => p && p.is_highlight === true) ||
+      eventPhotos[0] ||
+      undefined;
+
+    // 7. Stats
+    const uniqueCookAuthors = new Set(cooks.map(c => c.user_id));
+    const ratedCooks = cooks.filter(
+      c => c.post_rating != null && c.post_rating > 0
+    );
+    const avgRating =
+      ratedCooks.length > 0
+        ? ratedCooks.reduce((s, c) => s + (c.post_rating || 0), 0) /
+          ratedCooks.length
+        : undefined;
+
+    return {
+      event: {
+        id: event.id,
+        title: event.title || 'Meal',
+        description: event.description,
+        meal_time: event.meal_time,
+        meal_location: event.meal_location,
+        highlight_photo,
+        created_at: event.created_at,
+      },
+      host,
+      cooks,
+      attendees,
+      shared_media,
+      stats: {
+        total_dishes: cooks.length,
+        unique_cooks: uniqueCookAuthors.size,
+        total_attendees: attendees.length,
+        avg_rating: avgRating,
+      },
+    };
+  } catch (err) {
+    console.error('Error in getMealEventDetail:', err);
+    return null;
+  }
 }

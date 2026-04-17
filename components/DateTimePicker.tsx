@@ -25,6 +25,13 @@ interface DateTimePickerProps {
   minimumDate?: Date;
   maximumDate?: Date;
   mode?: 'date' | 'datetime';
+  /**
+   * Phase 7G: which quick-select preset to render at the bottom of the
+   * picker. 'future' (default) renders Now / Tomorrow / Next Week — used
+   * by meal planning flows. 'past' renders Today / Yesterday / Last Week
+   * — used by the Phase 7G historical cook logging flow (LogCookSheet).
+   */
+  quickSelectPreset?: 'future' | 'past';
 }
 
 const MONTHS = [
@@ -50,6 +57,7 @@ export default function DateTimePicker({
   minimumDate,
   maximumDate,
   mode = 'datetime',
+  quickSelectPreset = 'future',
 }: DateTimePickerProps) {
   const { colors, functionalColors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
@@ -654,33 +662,53 @@ export default function DateTimePicker({
             </View>
           )}
 
-          {/* Quick Options */}
+          {/* Quick Options — labels depend on quickSelectPreset.
+              'future' (default): Now / Tomorrow / Next Week (meal planning).
+              'past' (Phase 7G):  Today / Yesterday / Last Week (historical cook logging). */}
           <View style={styles.quickOptions}>
             <Text style={styles.quickLabel}>Quick Select:</Text>
             <View style={styles.quickButtons}>
               <TouchableOpacity
                 style={styles.quickButton}
                 onPress={() => {
+                  // "Now" / "Today" — both presets land on today's date.
+                  // For 'past' preset, snap time to 18:00 like the other
+                  // past presets so the user gets a consistent "dinner-ish"
+                  // default when picking a backdated day.
                   const now = new Date();
-                  setSelectedDate(now);
-                  setCalendarMonth(now);
+                  if (quickSelectPreset === 'past' && mode === 'datetime') {
+                    now.setHours(18, 0, 0, 0);
+                  }
+                  // Respect maximumDate — if somehow today > maximumDate
+                  // (shouldn't happen for 'past' where max = today, but be
+                  // defensive), clamp to maximumDate.
+                  const target =
+                    maximumDate && now > maximumDate ? new Date(maximumDate) : now;
+                  setSelectedDate(target);
+                  setCalendarMonth(target);
                   if (mode === 'datetime') {
-                    setSelectedHour(now.getHours() % 12 || 12);
-                    setSelectedMinute(Math.floor(now.getMinutes() / 15) * 15);
-                    setSelectedAmPm(now.getHours() >= 12 ? 'PM' : 'AM');
+                    setSelectedHour(target.getHours() % 12 || 12);
+                    setSelectedMinute(Math.floor(target.getMinutes() / 15) * 15);
+                    setSelectedAmPm(target.getHours() >= 12 ? 'PM' : 'AM');
                   }
                 }}
               >
-                <Text style={styles.quickButtonText}>Now</Text>
+                <Text style={styles.quickButtonText}>
+                  {quickSelectPreset === 'past' ? 'Today' : 'Now'}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.quickButton}
                 onPress={() => {
-                  const tomorrow = new Date();
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-                  tomorrow.setHours(18, 0, 0, 0);
-                  setSelectedDate(tomorrow);
-                  setCalendarMonth(tomorrow);
+                  const target = new Date();
+                  if (quickSelectPreset === 'past') {
+                    target.setDate(target.getDate() - 1);
+                  } else {
+                    target.setDate(target.getDate() + 1);
+                  }
+                  target.setHours(18, 0, 0, 0);
+                  setSelectedDate(target);
+                  setCalendarMonth(target);
                   if (mode === 'datetime') {
                     setSelectedHour(6);
                     setSelectedMinute(0);
@@ -688,16 +716,22 @@ export default function DateTimePicker({
                   }
                 }}
               >
-                <Text style={styles.quickButtonText}>Tomorrow</Text>
+                <Text style={styles.quickButtonText}>
+                  {quickSelectPreset === 'past' ? 'Yesterday' : 'Tomorrow'}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.quickButton}
                 onPress={() => {
-                  const nextWeek = new Date();
-                  nextWeek.setDate(nextWeek.getDate() + 7);
-                  nextWeek.setHours(18, 0, 0, 0);
-                  setSelectedDate(nextWeek);
-                  setCalendarMonth(nextWeek);
+                  const target = new Date();
+                  if (quickSelectPreset === 'past') {
+                    target.setDate(target.getDate() - 7);
+                  } else {
+                    target.setDate(target.getDate() + 7);
+                  }
+                  target.setHours(18, 0, 0, 0);
+                  setSelectedDate(target);
+                  setCalendarMonth(target);
                   if (mode === 'datetime') {
                     setSelectedHour(6);
                     setSelectedMinute(0);
@@ -705,7 +739,9 @@ export default function DateTimePicker({
                   }
                 }}
               >
-                <Text style={styles.quickButtonText}>Next Week</Text>
+                <Text style={styles.quickButtonText}>
+                  {quickSelectPreset === 'past' ? 'Last Week' : 'Next Week'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

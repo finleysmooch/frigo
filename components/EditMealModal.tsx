@@ -246,7 +246,7 @@ export default function EditMealModal({
           meal_location: location.trim() || null,
         })
         .eq('id', mealId)
-        .eq('post_type', 'meal');
+        .eq('post_type', 'meal_event');
 
       if (error) throw error;
 

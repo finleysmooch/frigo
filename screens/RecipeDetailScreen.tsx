@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -47,10 +48,15 @@ import { AgainIcon, CalendarOutline, PencilIcon } from '../components/icons';
 import TimesMadeModal from '../components/TimesMadeModal';
 import LogCookSheet from '../components/LogCookSheet';
 import type { LogCookData } from '../components/LogCookSheet';
-import { createDishPost, updateTimesCooked } from '../lib/services/postService';
+import { createDishPost, updateTimesCooked, computeMealType, computeMealTypeFromHour, getMostRecentDishPost } from '../lib/services/postService';
+import { addParticipantsToPost } from '../lib/services/postParticipantsService';
+import { wrapDishIntoNewMeal, addDishesToMeal } from '../lib/services/mealService';
+import MealPicker from '../components/MealPicker';
+import MadeOtherDishesSheet from '../components/MadeOtherDishesSheet';
 import { generateSmartTitle } from '../utils/titleGenerator';
 import { addToCookSoon, removeFromCookSoon, isInCookSoon } from '../lib/services/userRecipeTagsService';
 import { deleteRecipe } from '../lib/services/recipeService';
+import { shareRecipe } from '../lib/services/shareService';
 import {
   getUserRecipeAnnotations,
   saveIngredientEdit,
@@ -237,6 +243,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [showLogCookSheet, setShowLogCookSheet] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  // Checkpoint 4: wrap flow + post-publish sheet
+  const [showAddToMealPicker, setShowAddToMealPicker] = useState(false);
+  const [showMadeOtherDishes, setShowMadeOtherDishes] = useState(false);
+  const [publishedMealId, setPublishedMealId] = useState<string | null>(null);
+  const [publishedMealTitle, setPublishedMealTitle] = useState<string | null>(null);
+  const [publishedMealType, setPublishedMealType] = useState<string | null>(null);
+  const [wrapToastVisible, setWrapToastVisible] = useState(false);
+  const [wrapToastMealTitle, setWrapToastMealTitle] = useState('');
+  const [parentMealInfo, setParentMealInfo] = useState<{ id: string; title: string } | null>(null);
+  const [hasPublishedDishPost, setHasPublishedDishPost] = useState(false);
+
   // Step notes (from cooking sessions)
   const [stepNotes, setStepNotes] = useState<StepNote[]>([]);
 
@@ -245,9 +262,26 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
   const [editingInstructionSection, setEditingInstructionSection] = useState<string | null>(null);
 
+  const checkForPublishedDishPost = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: existingDish } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('recipe_id', recipePreview.id)
+        .eq('post_type', 'dish')
+        .limit(1)
+        .maybeSingle();
+      setHasPublishedDishPost(!!existingDish);
+    } catch (_) {}
+  };
+
   useEffect(() => {
     loadRecipeDetails();
     loadPantryItems();
+    checkForPublishedDishPost();
   }, [recipePreview.id]);
 
   useEffect(() => {
@@ -681,17 +715,35 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         return;
       }
 
-      const visibility = data.wantsToShare ? 'everyone' : 'private';
-
-      await createDishPost({
+      const newPost = await createDishPost({
         userId: session.user.id,
         recipeId: recipe!.id,
         title: generateSmartTitle(),
         rating: data.rating || null,
         modifications: data.modifications || null,
         notes: data.thoughts || null,
-        visibility,
+        visibility: data.visibility,
+        parentMealId: data.mealId || null,
+        mealType: computeMealType({
+          recipe: recipe ?? undefined,
+          parentMeal: data.mealMealType ? { meal_type: data.mealMealType } : undefined,
+        }),
+        cookedAt: data.cookedAt,
       });
+
+      // Add tagged participants to the new post
+      if (data.participants && data.participants.length > 0 && newPost?.id) {
+        const sousChefs = data.participants.filter(p => p.role === 'sous_chef').map(p => p.userId);
+        const ateWith = data.participants.filter(p => p.role === 'ate_with').map(p => p.userId);
+        if (sousChefs.length > 0) {
+          await addParticipantsToPost(newPost.id, sousChefs, 'sous_chef', session.user.id);
+        }
+        if (ateWith.length > 0) {
+          await addParticipantsToPost(newPost.id, ateWith, 'ate_with', session.user.id);
+        }
+      }
+
+      setHasPublishedDishPost(true);
 
       // Increment times_cooked
       try {
@@ -702,13 +754,88 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
       setShowLogCookSheet(false);
 
-      const msg = data.wantsToShare
-        ? 'Your cook has been shared!'
-        : 'Logged privately \u2014 counts in your stats but not on the feed.';
-      Alert.alert('Logged!', msg, [{ text: 'OK' }]);
+      // Trigger "Made other dishes too?" sheet if post has meal context
+      const effectiveMealId = data.mealId || null;
+      if (effectiveMealId && data.mealTitle) {
+        setPublishedMealId(effectiveMealId);
+        setPublishedMealTitle(data.mealTitle);
+        setPublishedMealType(data.mealMealType || null);
+        setParentMealInfo({ id: effectiveMealId, title: data.mealTitle });
+        setTimeout(() => setShowMadeOtherDishes(true), 400);
+      } else {
+        const msg = data.visibility === 'private'
+          ? 'Logged privately \u2014 counts in your stats but not on the feed.'
+          : 'Your cook has been shared!';
+        Alert.alert('Logged!', msg, [{ text: 'OK' }]);
+      }
     } catch (error) {
       console.error('Error logging cook:', error);
       Alert.alert('Error', 'Failed to log cook: ' + (error as any).message);
+    }
+  };
+
+  // "Add to meal" overflow — wrap most recent dish post into a meal (4.3/4.4)
+  const handleAddToMeal = async () => {
+    setShowOverflowMenu(false);
+    setShowAddToMealPicker(true);
+  };
+
+  const handleWrapSelectMeal = async (mealId: string, mealTitle: string) => {
+    setShowAddToMealPicker(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || !recipe) return;
+      const dishPost = await getMostRecentDishPost(session.user.id, recipe.id);
+      if (!dishPost) {
+        Alert.alert('No dish post', 'You haven\'t logged this recipe yet.');
+        return;
+      }
+      if (dishPost.parent_meal_id) {
+        Alert.alert('Already in a meal', 'This dish is already part of a meal.');
+        return;
+      }
+      await addDishesToMeal(mealId, session.user.id, [{
+        dish_id: dishPost.id,
+        course_type: 'main',
+        is_main_dish: true,
+        course_order: 0,
+      }]);
+      setParentMealInfo({ id: mealId, title: mealTitle });
+      setWrapToastMealTitle(mealTitle);
+      setWrapToastVisible(true);
+      setTimeout(() => setWrapToastVisible(false), 5000);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add to meal.');
+    }
+  };
+
+  const handleWrapCreateNew = async () => {
+    setShowAddToMealPicker(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || !recipe) return;
+      const dishPost = await getMostRecentDishPost(session.user.id, recipe.id);
+      if (!dishPost) {
+        Alert.alert('No dish post', 'You haven\'t logged this recipe yet.');
+        return;
+      }
+      // Smart default title from the dish post's created_at
+      const created = new Date(dishPost.created_at);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const day = days[created.getDay()];
+      const mealTypeRaw = computeMealTypeFromHour(created);
+      const mealType = mealTypeRaw === 'late_night'
+        ? 'Late Night'
+        : mealTypeRaw.charAt(0).toUpperCase() + mealTypeRaw.slice(1);
+      const title = `${day} ${mealType}`;
+
+      const result = await wrapDishIntoNewMeal(dishPost.id, session.user.id, title);
+      setParentMealInfo({ id: result.mealId, title });
+      setWrapToastMealTitle(title);
+      setWrapToastVisible(true);
+      setTimeout(() => setWrapToastVisible(false), 5000);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to wrap dish into meal.');
     }
   };
 
@@ -861,6 +988,15 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
               <AgainIcon size={18} color="#475569" />
               <Text style={styles.menuItemRowText}>I've Made This Before</Text>
             </TouchableOpacity>
+            {hasPublishedDishPost && (
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={handleAddToMeal}
+            >
+              <CalendarOutline size={18} color="#475569" />
+              <Text style={styles.menuItemRowText}>Add to Meal</Text>
+            </TouchableOpacity>
+            )}
 
             <View style={styles.menuGroupDivider} />
 
@@ -911,10 +1047,23 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                 {isEditMode ? 'Done Editing' : 'Edit Recipe'}
               </Text>
             </TouchableOpacity>
-            <View style={[styles.menuItemRow, { opacity: 0.4 }]} pointerEvents="none">
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={async () => {
+                await shareRecipe({
+                  title: recipe.title,
+                  chef_name: recipe.chef_name,
+                  book_title: recipe.book_title,
+                  book_author: recipe.book_author,
+                  page_number: recipe.page_number,
+                });
+                setShowOverflowMenu(false);
+              }}
+              activeOpacity={0.7}
+            >
               <MenuShareIcon size={18} color="#475569" />
               <Text style={styles.menuItemRowText}>Share Recipe</Text>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.menuGroupDivider} />
 
@@ -1006,6 +1155,20 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
       >
+        {/* Parent meal link banner (4.6) */}
+        {parentMealInfo && (
+          <TouchableOpacity
+            style={styles.parentMealBanner}
+            onPress={() => navigation.navigate('MealDetail' as any, { mealId: parentMealInfo.id })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.parentMealBannerText}>
+              Part of {parentMealInfo.title} · view meal
+            </Text>
+            <Text style={styles.parentMealChevron}>{'\u203A'}</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Header: Image + Title + Chef + Book + Time + Description */}
         <RecipeHeader
           recipe={recipe}
@@ -1306,7 +1469,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         <LogCookSheet
           visible={showLogCookSheet}
           mode="compact"
-          recipe={recipe}
+          recipe={{ ...recipe, meal_type: recipe.meal_type }}
           onSubmit={handleLogCookSubmit}
           onCancel={() => setShowLogCookSheet(false)}
         />
@@ -1321,6 +1484,60 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onConfirm={handleHistoryConfirm}
           onCancel={() => setShowHistoryModal(false)}
         />
+      )}
+
+      {/* Add to meal picker (4.3) */}
+      <Modal visible={showAddToMealPicker} transparent animationType="slide" onRequestClose={() => setShowAddToMealPicker(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20, height: '60%' }}>
+            <MealPicker
+              currentMealId={null}
+              onSelectMeal={handleWrapSelectMeal}
+              onDetach={() => setShowAddToMealPicker(false)}
+              onCreateNew={handleWrapCreateNew}
+              onCancel={() => setShowAddToMealPicker(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Made other dishes too? sheet (4.1/4.2) */}
+      {publishedMealId && publishedMealTitle && currentUserId && (
+        <MadeOtherDishesSheet
+          visible={showMadeOtherDishes}
+          mealId={publishedMealId}
+          mealTitle={publishedMealTitle}
+          mealType={publishedMealType || undefined}
+          userId={currentUserId}
+          onClose={() => {
+            setShowMadeOtherDishes(false);
+            setPublishedMealId(null);
+            setPublishedMealTitle(null);
+            setPublishedMealType(null);
+          }}
+        />
+      )}
+
+      {/* After-wrap toast (4.5 / D39) */}
+      {wrapToastVisible && (
+        <View style={styles.wrapToast}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.wrapToastTitle}>Wrapped into {wrapToastMealTitle}</Text>
+            <Text style={styles.wrapToastSub}>This dish is now part of a meal</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              setWrapToastVisible(false);
+              // Navigate to MealDetailScreen if desired
+              if (parentMealInfo) {
+                navigation.navigate('MealDetail' as any, { mealId: parentMealInfo.id });
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.wrapToastAction}>View meal</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -1744,5 +1961,58 @@ const styles = StyleSheet.create({
   unitPickerCheck: {
     fontSize: 16,
     color: '#0d9488',
+  },
+  // Parent meal link banner (4.6)
+  parentMealBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E1F5EE',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  parentMealBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F6E56',
+    fontWeight: '500',
+  },
+  parentMealChevron: {
+    fontSize: 16,
+    color: '#0F6E56',
+  },
+  // Wrap toast (4.5)
+  wrapToast: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 44 : 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  wrapToastTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  wrapToastSub: {
+    fontSize: 12,
+    color: '#ccc',
+    marginTop: 2,
+  },
+  wrapToastAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F6E56',
   },
 });

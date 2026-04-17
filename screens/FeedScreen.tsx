@@ -1,9 +1,16 @@
 // screens/FeedScreen.tsx
-// Feed showing posts from people you follow
-// Updated: February 19, 2026
-// MERGED: Working theme/header base (Dec 4) + recipe query fields + navigation callbacks
+// Phase 7I Checkpoint 4 — cook-post-centric feed rewrite.
+//
+// The feed is now a list of FeedGroup objects produced by buildFeedGroups.
+// Each group renders via CookCard (solo), SharedRecipeLinkedGroup
+// (linked_shared_recipe), or NestedMealEventGroup (linked_meal_event).
+// Meal events no longer render as feed units — they only surface as
+// preheads / group headers on cook cards that link to them.
+//
+// PostCard, MealPostCard, LinkedPostsGroup are no longer imported here.
+// They stay in the repo until Checkpoint 7 deletes them.
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,38 +24,40 @@ import {
   StatusBar,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useScrollToTop, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
-import PostCard, { PostCardData } from '../components/PostCard';
-import LinkedPostsGroup from '../components/LinkedPostsGroup';
-import MealPostCard from '../components/MealPostCard';
+import CookCard from '../components/feedCard/CookCard';
+import {
+  MealEventPrehead,
+  CookPartnerPrehead,
+  SharedRecipeLinkedGroup,
+  NestedMealEventGroup,
+  LinkedCookStack,
+} from '../components/feedCard/groupingPrimitives';
 import { Logo } from '../components/branding';
 import { SearchIcon, ProfileOutline, BellOutline, Messages1Outline } from '../components/icons';
 import { FeedStackParamList } from '../App';
 import { getPostParticipants } from '../lib/services/postParticipantsService';
-import { groupPostsForFeed, FeedItem } from '../lib/services/feedGroupingService';
-import { getMealsForFeed, MealWithDetails } from '../lib/services/mealService';
+import { buildFeedGroups } from '../lib/services/feedGroupingService';
+import { getMealEventForCook } from '../lib/services/mealService';
+import { transformToCookCardData } from '../lib/services/cookCardDataService';
+import { getVibeFromTags, VibeTag } from '../lib/services/vibeService';
+import {
+  computeHighlightsForFeedBatch,
+  Highlight,
+} from '../lib/services/highlightsService';
+import type {
+  CookCardData,
+  FeedGroup,
+  MealEventContext,
+} from '../lib/types/feed';
 
 type Props = NativeStackScreenProps<FeedStackParamList, 'FeedMain'>;
 
-interface Post {
-  id: string;
-  user_id: string;
-  title: string;
-  rating: number | null;
-  cooking_method: string | null;
-  created_at: string;
-  modifications?: string | null;
-  photos?: any[];
-  recipes?: any;
-  user_profiles: {
-    id: string;
-    username: string;
-    display_name?: string;
-    avatar_url?: string | null;
-    subscription_tier?: string;
-  };
-}
+// ============================================================================
+// LOCAL STATE TYPES
+// ============================================================================
 
 interface Like {
   user_id: string;
@@ -78,23 +87,42 @@ interface PostParticipants {
   };
 }
 
-// Combined feed item type that includes meals
-type CombinedFeedItem = 
-  | FeedItem 
-  | { type: 'meal'; meal: MealWithDetails };
+// ============================================================================
+// COMPONENT
+// ============================================================================
+//
+// Phase 7I Checkpoint 5 / 5.1.0: `transformToCookCardData` was migrated out
+// of this file into `lib/services/cookCardDataService.ts` so CookDetailScreen
+// can consume the same helper. The function is imported at the top of this
+// file. See the new module for the full function + documentation.
 
 export default function FeedScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [feedItems, setFeedItems] = useState<CombinedFeedItem[]>([]);
+  const [feedGroups, setFeedGroups] = useState<FeedGroup[]>([]);
+  const [postById, setPostById] = useState<Map<string, CookCardData>>(new Map());
   const [postLikes, setPostLikes] = useState<PostLikes>({});
   const [postComments, setPostComments] = useState<PostComments>({});
   const [postParticipants, setPostParticipants] = useState<PostParticipants>({});
+  const [postHighlights, setPostHighlights] = useState<Record<string, Highlight | null>>({});
+  const [mealEventContextMap, setMealEventContextMap] = useState<
+    Map<string, MealEventContext>
+  >(new Map());
+  const [cookPartnerPreheadMap, setCookPartnerPreheadMap] = useState<
+    Map<string, { partnerName: string }>
+  >(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const flatListRef = useRef<FlatList<FeedGroup>>(null);
+
+  // Tapping the Home tab while already on the feed scrolls to top.
+  // Matches the Frigo logo tap behavior in the header. React Navigation
+  // walks up to the nearest tab navigator and fires this when the
+  // already-focused tab is pressed again.
+  useScrollToTop(flatListRef);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -110,58 +138,59 @@ export default function FeedScreen({ navigation }: Props) {
       paddingBottom: 6,
       backgroundColor: colors.background.card,
       borderBottomWidth: 1,
-      borderBottomColor: colors.border.medium,
+      borderBottomColor: colors.border.light,
+      position: 'relative',
     },
     headerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      flex: 1,
     },
     headerCenter: {
       position: 'absolute',
       left: 0,
       right: 0,
+      top: 0,
+      bottom: 0,
       alignItems: 'center',
       justifyContent: 'center',
-      pointerEvents: 'none',
+      pointerEvents: 'box-none',
     },
     headerRight: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 6,
-      flex: 1,
     },
     iconButton: {
-      padding: 4,
-    },
-    content: {
-      flex: 1,
-      backgroundColor: colors.background.secondary,
+      padding: 8,
     },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colors.background.secondary,
+      backgroundColor: colors.background.card,
+    },
+    content: {
+      flex: 1,
+      // Grey background shows through the 8px marginBottom gaps between
+      // CardWrapper instances so stacked solo cards have a visible separator
+      // instead of butting against each other on a white field.
+      backgroundColor: colors.background.primary,
     },
     listContent: {
-      padding: 15,
+      paddingBottom: 20,
     },
     emptyContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 40,
+      paddingHorizontal: 40,
     },
     emptyEmoji: {
       fontSize: 64,
       marginBottom: 16,
     },
     emptyTitle: {
-      fontSize: 20,
-      fontWeight: '700',
+      fontSize: 22,
+      fontWeight: '600',
       color: colors.text.primary,
       marginBottom: 8,
     },
@@ -181,7 +210,47 @@ export default function FeedScreen({ navigation }: Props) {
     if (currentUserId) {
       loadFeed();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
+
+  // Phase 7M: refetch feed when returning from detail screens after edits.
+  // Only refetch if the last loadFeed was more than 5 seconds ago to avoid
+  // unnecessary refetches on tab switches.
+  const lastFeedLoadRef = useRef<number>(Date.now());
+  useFocusEffect(
+    useCallback(() => {
+      const elapsed = Date.now() - lastFeedLoadRef.current;
+      if (elapsed > 5000 && currentUserId) {
+        console.warn(`[FeedScreen] useFocusEffect stale refetch (${Math.round(elapsed / 1000)}s elapsed)`);
+        loadFeed();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUserId])
+  );
+
+  // Feed cap telemetry — one-shot log per feed load (P7-44 sizing signal).
+  // Phase 7G: uses cooked_at (not created_at) because that's the new feed
+  // sort key. "Oldest post" now means "earliest cook date in the current
+  // feed window," which is the sizing signal we actually want.
+  useEffect(() => {
+    if (feedGroups.length === 0) return;
+    const allPosts = feedGroups.flatMap(g => g.posts);
+    if (allPosts.length === 0) return;
+    const dateKey = (p: CookCardData) => p.cooked_at ?? p.created_at;
+    const oldestPost = allPosts.reduce(
+      (oldest, p) =>
+        new Date(dateKey(p)).getTime() < new Date(dateKey(oldest)).getTime()
+          ? p
+          : oldest,
+      allPosts[0]
+    );
+    console.log(
+      '[FEED_CAP_TELEMETRY]',
+      'groups:', feedGroups.length,
+      'total posts:', allPosts.length,
+      'oldest post date:', dateKey(oldestPost)
+    );
+  }, [feedGroups]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -190,131 +259,234 @@ export default function FeedScreen({ navigation }: Props) {
     }
   };
 
+  // ─── Feed load ──────────────────────────────────────────────────────────
+
   const loadFeed = async () => {
+    console.time('[FeedScreen] loadFeed');
     try {
-      // Get posts from people you follow (including your own)
+      // Follows
+      console.time('[FeedScreen] loadFollows');
       const { data: followedUserIds } = await supabase
         .from('follows')
         .select('following_id')
         .eq('follower_id', currentUserId);
-
       const followedIds = followedUserIds?.map(f => f.following_id) || [];
-      const allUserIds = [...followedIds, currentUserId]; // Include own posts
-      
-      // Store following IDs for meal card privacy filtering
+      const allUserIds = [...followedIds, currentUserId]; // include own posts
       setFollowingIds(followedIds);
+      console.timeEnd('[FeedScreen] loadFollows');
 
-      // Fetch posts and meals in parallel
-      const [postsResult, mealsResult] = await Promise.all([
-        loadDishPosts(allUserIds),
-        getMealsForFeed(currentUserId, 20),
-      ]);
+      // Dish posts → CookCardData[]
+      console.time('[FeedScreen] loadDishPosts');
+      const cookCards = await loadDishPosts(allUserIds);
+      console.timeEnd('[FeedScreen] loadDishPosts');
 
-      const transformedPosts = postsResult;
-      setPosts(transformedPosts);
+      // Group via buildFeedGroups
+      console.time('[FeedScreen] buildFeedGroups');
+      const groups = await buildFeedGroups(cookCards, currentUserId, followedIds);
+      console.timeEnd('[FeedScreen] buildFeedGroups');
 
-      // Group dish posts with relationships (for linked cooking partners)
-      const groupedDishItems = await groupPostsForFeed(transformedPosts);
-
-      // Combine dishes and meals, then sort chronologically
-      const combinedItems: CombinedFeedItem[] = [
-        ...groupedDishItems,
-        ...mealsResult.map(meal => ({ type: 'meal' as const, meal })),
-      ];
-
-      // Sort all items by date (newest first)
-      combinedItems.sort((a, b) => {
-        const getDate = (item: CombinedFeedItem): Date => {
-          if (item.type === 'meal') {
-            return new Date(item.meal.created_at);
-          } else if (item.type === 'grouped') {
-            return new Date(item.mainPost.created_at);
-          } else {
-            return new Date(item.post.created_at);
-          }
-        };
-        return getDate(b).getTime() - getDate(a).getTime();
-      });
-
-      setFeedItems(combinedItems);
-
-      // Load likes, comments, and participants for dish posts
-      if (transformedPosts.length > 0) {
-        const postIds = transformedPosts.map(p => p.id);
-        await Promise.all([
-          loadLikesForPosts(postIds),
-          loadCommentsForPosts(postIds),
-          loadParticipantsForPosts(postIds),
-        ]);
+      // Build postById lookup once per load
+      const lookupMap = new Map<string, CookCardData>();
+      for (const g of groups) {
+        for (const p of g.posts) {
+          lookupMap.set(p.id, p);
+        }
       }
-    } catch (error) {
-      console.error('Error loading feed:', error);
+
+      // Hydrate engagement for the flat list of post IDs
+      console.time('[FeedScreen] hydrateEngagement');
+      const allPostIds = Array.from(lookupMap.keys());
+      await Promise.all([
+        (async () => {
+          try {
+            const { postHighlights: ph } = await computeHighlightsForFeedBatch(
+              cookCards.map(p => ({
+                id: p.id,
+                user_id: p.user_id,
+                recipe_id: p.recipe_id ?? null,
+                created_at: p.created_at,
+                times_cooked: p.recipe_times_cooked ?? null,
+              })),
+              [], // no meals in the feed anymore
+              currentUserId
+            );
+            setPostHighlights(Object.fromEntries(ph));
+          } catch (hErr) {
+            console.error('Error computing feed highlights:', hErr);
+          }
+        })(),
+        ...(allPostIds.length > 0
+          ? [
+              loadLikesForPosts(allPostIds),
+              loadCommentsForPosts(allPostIds),
+              loadParticipantsForPosts(allPostIds, lookupMap),
+            ]
+          : []),
+      ]);
+      console.timeEnd('[FeedScreen] hydrateEngagement');
+
+      // Pre-fetch prehead context
+      console.time('[FeedScreen] prefetchPreheadContext');
+      const { mealEventCtxMap, cookPartnerMap } = await prefetchPreheadContext(
+        groups,
+        cookCards
+      );
+      console.timeEnd('[FeedScreen] prefetchPreheadContext');
+
+      setPostById(lookupMap);
+      setMealEventContextMap(mealEventCtxMap);
+      setCookPartnerPreheadMap(cookPartnerMap);
+      setFeedGroups(groups);
+    } catch (err) {
+      console.error('Error loading feed:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      console.timeEnd('[FeedScreen] loadFeed');
+      lastFeedLoadRef.current = Date.now();
     }
   };
 
-  const loadDishPosts = async (userIds: string[]): Promise<Post[]> => {
-    // Get posts from followed users (dishes only, not meal posts)
+  // ─── Dish post fetch + denormalization ─────────────────────────────────
+
+  const loadDishPosts = async (userIds: string[]): Promise<CookCardData[]> => {
+    // Phase 7I Checkpoint 4: removed `.is('parent_meal_id', null)` filter.
+    // Meal-attached dishes now return to the feed as first-class items
+    // with a MealEventPrehead / MealEventGroupHeader above them.
     const { data: postsData, error } = await supabase
       .from('posts')
-      .select('id, user_id, title, rating, cooking_method, created_at, photos, recipe_id, modifications, post_type')
+      .select(
+        'id, user_id, title, rating, cooking_method, created_at, cooked_at, photos, recipe_id, modifications, description, notes, post_type, parent_meal_id'
+      )
       .in('user_id', userIds)
-      .or('post_type.eq.dish,post_type.is.null') // Only dish posts (or old posts without type)
-      .order('created_at', { ascending: false })
-      .limit(50);
+      .or('post_type.eq.dish,post_type.is.null')
+      .or('visibility.eq.everyone,visibility.eq.followers,visibility.is.null')
+      .order('cooked_at', { ascending: false })
+      .limit(200);
 
     if (error) throw error;
+    if (!postsData || postsData.length === 0) return [];
 
-    if (!postsData || postsData.length === 0) {
-      return [];
-    }
-
-    // Fetch user profiles separately
+    // Profiles lookup
     const userProfileIds = [...new Set(postsData.map(p => p.user_id))];
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('id, username, display_name, avatar_url, subscription_tier')
       .in('id', userProfileIds);
+    const profilesMap = new Map((profiles || []).map(p => [p.id, p]));
 
-    // Fetch recipes separately — NEW: include cook_time_min, prep_time_min, cuisine_types
+    // Recipes lookup
     const recipeIds = postsData
       .map(p => p.recipe_id)
       .filter((id): id is string => id !== null);
-    
     let recipesData: any[] = [];
     if (recipeIds.length > 0) {
       const { data } = await supabase
         .from('recipes')
-        .select('id, title, image_url, cook_time_min, prep_time_min, cuisine_types, chefs(name)')
+        .select(
+          'id, title, image_url, cook_time_min, prep_time_min, cuisine_types, vibe_tags, times_cooked, page_number, chefs(name)'
+        )
         .in('id', recipeIds);
       recipesData = data || [];
     }
-
-    // Create lookup maps
-    const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
     const recipesMap = new Map(recipesData.map(r => [r.id, r]));
 
-    // Transform data
-    return postsData.map((post: any) => ({
-      id: post.id,
-      user_id: post.user_id,
-      title: post.title || 'Untitled Post',
-      rating: post.rating,
-      cooking_method: post.cooking_method,
-      created_at: post.created_at,
-      photos: post.photos || [],
-      modifications: post.modifications || null,
-      recipes: post.recipe_id ? recipesMap.get(post.recipe_id) : undefined,
-      user_profiles: profilesMap.get(post.user_id) || {
-        id: post.user_id,
-        username: 'Unknown',
-        display_name: 'Unknown User',
-        avatar_url: null
-      }
-    }));
+    return transformToCookCardData(postsData, profilesMap, recipesMap);
   };
+
+  // ─── Prehead context pre-fetch ─────────────────────────────────────────
+  //
+  // Builds two maps so renderFeedItem can do a synchronous lookup:
+  //   1. mealEventCtxMap:  parent_meal_id → MealEventContext (for L4/L5 headers)
+  //   2. cookPartnerMap:   post_id → { partnerName } (for L3a preheads)
+  //
+  // L3a rule: a post qualifies for a CookPartnerPrehead when it has at least
+  // one approved sous_chef participant whose user_id is NOT the author of any
+  // other post in the current feed batch. (If the partner IS in the batch,
+  // buildFeedGroups already formed an L3b linked group or the two posts will
+  // render separately via P7-68 degradation — either way, no prehead.)
+
+  const prefetchPreheadContext = async (
+    groups: FeedGroup[],
+    allCookCards: CookCardData[]
+  ): Promise<{
+    mealEventCtxMap: Map<string, MealEventContext>;
+    cookPartnerMap: Map<string, { partnerName: string }>;
+  }> => {
+    const mealEventCtxMap = new Map<string, MealEventContext>();
+    const cookPartnerMap = new Map<string, { partnerName: string }>();
+
+    // --- Meal event contexts -----------------------------------------------
+    // Collect unique parent_meal_id values. Solo groups with a parent_meal_id
+    // need an L4 prehead; linked_meal_event groups need the header context.
+    const mealEventIdToSamplePostId = new Map<string, string>();
+    for (const g of groups) {
+      for (const p of g.posts) {
+        if (p.parent_meal_id && !mealEventIdToSamplePostId.has(p.parent_meal_id)) {
+          mealEventIdToSamplePostId.set(p.parent_meal_id, p.id);
+        }
+      }
+    }
+    // Naive parallel fetch — profiled below in SESSION_LOG telemetry.
+    if (mealEventIdToSamplePostId.size > 0) {
+      const results = await Promise.all(
+        Array.from(mealEventIdToSamplePostId.entries()).map(
+          async ([mealEventId, samplePostId]) => {
+            try {
+              const ctx = await getMealEventForCook(samplePostId);
+              return ctx ? ([mealEventId, ctx] as const) : null;
+            } catch (e) {
+              console.warn('Error fetching meal event context:', mealEventId, e);
+              return null;
+            }
+          }
+        )
+      );
+      for (const entry of results) {
+        if (entry) mealEventCtxMap.set(entry[0], entry[1]);
+      }
+    }
+
+    // --- Cook-partner prehead state ---------------------------------------
+    // Only solo groups need this — if a group is linked_shared_recipe or
+    // linked_meal_event, the partner surfaces through the linked-group render
+    // path, not through a standalone prehead.
+    const soloPostIds = groups
+      .filter(g => g.type === 'solo')
+      .map(g => g.posts[0].id);
+    if (soloPostIds.length > 0) {
+      const authorIdsInBatch = new Set(allCookCards.map(p => p.user_id));
+      const { data: susChefRows } = await supabase
+        .from('post_participants')
+        .select(
+          `post_id, participant_user_id,
+           participant_profile:user_profiles!participant_user_id (
+             id, username, display_name
+           )`
+        )
+        .in('post_id', soloPostIds)
+        .eq('role', 'sous_chef')
+        .eq('status', 'approved');
+
+      for (const row of (susChefRows || []) as any[]) {
+        const partnerUid = row.participant_user_id;
+        if (!partnerUid) continue;
+        // Skip if the partner is ALSO in the feed batch — linked group path
+        // will handle (or P7-68 degraded them both to solo cards already).
+        if (authorIdsInBatch.has(partnerUid)) continue;
+        // First matching partner wins — L3a shows one partner name
+        if (cookPartnerMap.has(row.post_id)) continue;
+        const prof = row.participant_profile;
+        const partnerName =
+          prof?.display_name || prof?.username || 'a friend';
+        cookPartnerMap.set(row.post_id, { partnerName });
+      }
+    }
+
+    return { mealEventCtxMap, cookPartnerMap };
+  };
+
+  // ─── Engagement loaders (mostly unchanged from pre-rewrite) ────────────
 
   const loadLikesForPosts = async (postIds: string[]) => {
     try {
@@ -323,21 +495,24 @@ export default function FeedScreen({ navigation }: Props) {
         .select('post_id, user_id, created_at')
         .in('post_id', postIds)
         .order('created_at', { ascending: true });
-
       if (error) throw error;
 
-      // Get unique user IDs from all likes
       const likerUserIds = [...new Set(likesData?.map(l => l.user_id) || [])];
-      
-      // Fetch user profiles for all likers
-      let likerProfiles: Map<string, { avatar_url?: string | null; subscription_tier?: string }> = new Map();
+      let likerProfiles: Map<
+        string,
+        { avatar_url?: string | null; subscription_tier?: string }
+      > = new Map();
       if (likerUserIds.length > 0) {
         const { data: profiles } = await supabase
           .from('user_profiles')
           .select('id, avatar_url, subscription_tier')
           .in('id', likerUserIds);
-
-        likerProfiles = new Map(profiles?.map(p => [p.id, { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier }]) || []);
+        likerProfiles = new Map(
+          profiles?.map(p => [
+            p.id,
+            { avatar_url: p.avatar_url, subscription_tier: p.subscription_tier },
+          ]) || []
+        );
       }
 
       const likesMap: PostLikes = {};
@@ -350,11 +525,10 @@ export default function FeedScreen({ navigation }: Props) {
             user_id: l.user_id,
             created_at: l.created_at,
             avatar_url: likerProfiles.get(l.user_id)?.avatar_url || null,
-            subscription_tier: likerProfiles.get(l.user_id)?.subscription_tier
+            subscription_tier: likerProfiles.get(l.user_id)?.subscription_tier,
           })),
         };
       });
-
       setPostLikes(likesMap);
     } catch (error) {
       console.error('Error loading likes:', error);
@@ -367,69 +541,66 @@ export default function FeedScreen({ navigation }: Props) {
         .from('post_comments')
         .select('post_id')
         .in('post_id', postIds);
-
       if (error) throw error;
 
       const commentsMap: PostComments = {};
       postIds.forEach(postId => {
-        const count = commentsData?.filter(c => c.post_id === postId).length || 0;
-        commentsMap[postId] = count;
+        commentsMap[postId] = commentsData?.filter(c => c.post_id === postId).length || 0;
       });
-
       setPostComments(commentsMap);
     } catch (error) {
       console.error('Error loading comments:', error);
     }
   };
 
-  const loadParticipantsForPosts = async (postIds: string[]) => {
+  const loadParticipantsForPosts = async (
+    postIds: string[],
+    postLookup: Map<string, CookCardData>
+  ) => {
     try {
       const participantsMap: PostParticipants = {};
-      
-      // Get user's following list for privacy filtering
+
       const { data: followingData } = await supabase
         .from('follows')
         .select('following_id')
         .eq('follower_id', currentUserId);
-      
       const followingIdsSet = new Set(followingData?.map(f => f.following_id) || []);
-      
-      // Load participants for each post
+
       await Promise.all(
-        postIds.map(async (postId) => {
+        postIds.map(async postId => {
           const participants = await getPostParticipants(postId);
-          
-          // Get the post creator ID for privacy check
-          const post = posts.find(p => p.id === postId);
+          const post = postLookup.get(postId);
           const postCreatorId = post?.user_id;
-          
-          // Filter approved participants and apply privacy rules
+
           const approvedParticipants = participants.filter(p => p.status === 'approved');
-          
+
           const visibleParticipants = approvedParticipants.filter(p => {
             const participantId = p.participant_user_id;
-            
             if (participantId === currentUserId || postCreatorId === currentUserId) {
               return true;
             }
-            
             const followsCreator = followingIdsSet.has(postCreatorId || '');
             const followsParticipant = followingIdsSet.has(participantId);
-            
             return followsCreator && followsParticipant;
           });
-          
+
           const hiddenCount = {
-            sous_chef: approvedParticipants.filter(p => 
-              p.role === 'sous_chef' && 
-              !visibleParticipants.find(vp => vp.participant_user_id === p.participant_user_id)
+            sous_chef: approvedParticipants.filter(
+              p =>
+                p.role === 'sous_chef' &&
+                !visibleParticipants.find(
+                  vp => vp.participant_user_id === p.participant_user_id
+                )
             ).length,
-            ate_with: approvedParticipants.filter(p => 
-              p.role === 'ate_with' && 
-              !visibleParticipants.find(vp => vp.participant_user_id === p.participant_user_id)
+            ate_with: approvedParticipants.filter(
+              p =>
+                p.role === 'ate_with' &&
+                !visibleParticipants.find(
+                  vp => vp.participant_user_id === p.participant_user_id
+                )
             ).length,
           };
-          
+
           participantsMap[postId] = {
             sous_chefs: visibleParticipants
               .filter(p => p.role === 'sous_chef')
@@ -452,62 +623,60 @@ export default function FeedScreen({ navigation }: Props) {
           };
         })
       );
-
       setPostParticipants(participantsMap);
     } catch (error) {
       console.error('Error loading participants:', error);
     }
   };
 
+  // ─── Like toggle ────────────────────────────────────────────────────────
+
   const toggleLike = async (postId: string) => {
     try {
       const isCurrentlyLiked = postLikes[postId]?.hasLike;
 
       if (isCurrentlyLiked) {
-        // Unlike
         await supabase
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', currentUserId);
-
         setPostLikes(prev => ({
           ...prev,
           [postId]: {
             hasLike: false,
             totalCount: Math.max(0, (prev[postId]?.totalCount || 1) - 1),
             likes: prev[postId]?.likes.filter(l => l.user_id !== currentUserId) || [],
-          }
+          },
         }));
       } else {
-        // Like
         await supabase
           .from('post_likes')
           .insert({ post_id: postId, user_id: currentUserId });
-
-        // Get current user's avatar and subscription for the like
         const { data: currentUserProfile } = await supabase
           .from('user_profiles')
           .select('avatar_url, subscription_tier')
           .eq('id', currentUserId)
           .single();
-
         setPostLikes(prev => ({
           ...prev,
           [postId]: {
             hasLike: true,
             totalCount: (prev[postId]?.totalCount || 0) + 1,
-            likes: [...(prev[postId]?.likes || []), {
-              user_id: currentUserId,
-              created_at: new Date().toISOString(),
-              avatar_url: currentUserProfile?.avatar_url || null,
-              subscription_tier: currentUserProfile?.subscription_tier
-            }],
-          }
+            likes: [
+              ...(prev[postId]?.likes || []),
+              {
+                user_id: currentUserId,
+                created_at: new Date().toISOString(),
+                avatar_url: currentUserProfile?.avatar_url || null,
+                subscription_tier: currentUserProfile?.subscription_tier,
+              },
+            ],
+          },
         }));
       }
-    } catch (error) {
-      console.error('Error toggling like:', error);
+    } catch (err) {
+      console.error('Error toggling like:', err);
       Alert.alert('Error', 'Failed to update like');
     }
   };
@@ -520,121 +689,226 @@ export default function FeedScreen({ navigation }: Props) {
   const formatLikesText = (postId: string) => {
     const likeData = postLikes[postId];
     if (!likeData || likeData.totalCount === 0) return undefined;
-
     const { hasLike, totalCount } = likeData;
-    
     if (hasLike) {
       if (totalCount === 1) {
         return 'You gave yas chef';
-      } else {
-        return `You and ${totalCount - 1} other${totalCount - 1 !== 1 ? 's' : ''} gave yas chef`;
       }
-    } else {
-      return `${totalCount} gave yas chef${totalCount !== 1 ? 's' : ''}`;
+      return `You and ${totalCount - 1} other${totalCount - 1 !== 1 ? 's' : ''} gave yas chef`;
     }
+    return `${totalCount} gave yas chef${totalCount !== 1 ? 's' : ''}`;
   };
 
-  const handleMealPress = (mealId: string) => {
-    // TODO: Add MealDetail to FeedStack for better UX
-    console.log('Meal pressed:', mealId);
-  };
+  // ─── Render helpers ────────────────────────────────────────────────────
 
-  const renderFeedItem = ({ item }: { item: CombinedFeedItem }) => {
+  const buildLikeData = useCallback(
+    (postId: string) => {
+      const likeRow = postLikes[postId];
+      const commentCount = postComments[postId] || 0;
+      const likesText = formatLikesText(postId);
+      return {
+        hasLike: likeRow?.hasLike || false,
+        likesText,
+        commentCount,
+        likes: likeRow?.likes || [],
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [postLikes, postComments]
+  );
+
+  const resolveVibeForPost = useCallback(
+    (postId: string): VibeTag | null => {
+      const p = postById.get(postId);
+      if (!p) return null;
+      return getVibeFromTags(p.recipe_vibe_tags ?? undefined);
+    },
+    [postById]
+  );
+
+  const postTitleFor = useCallback(
+    (postId: string): string => postById.get(postId)?.title || 'Post',
+    [postById]
+  );
+
+  const navigateToCookDetail = useCallback(
+    (postId: string, photoIndex?: number) => {
+      // Phase 7I Checkpoint 5 / 5.4: routes to CookDetailScreen (L6).
+      // `photoIndex` is optional — when set, CookDetailScreen's hero
+      // carousel mounts scrolled to that slide. Future D49 renderer
+      // dish-row taps will pass photoIndex; card-body taps pass undefined.
+      navigation.navigate('CookDetail', { postId, photoIndex });
+    },
+    [navigation]
+  );
+
+  const navigateToRecipeDetail = useCallback(
+    (recipeId: string) => {
+      navigation.navigate('RecipeDetail', { recipe: { id: recipeId } });
+    },
+    [navigation]
+  );
+
+  const navigateToAuthor = useCallback(
+    (chefName: string) => {
+      navigation.navigate('AuthorView', { chefName });
+    },
+    [navigation]
+  );
+
+  const navigateToComments = useCallback(
+    (postId: string) => {
+      navigation.navigate('CommentsList', { postId });
+    },
+    [navigation]
+  );
+
+  const navigateToYasChefs = useCallback(
+    (postId: string) => {
+      navigation.navigate('YasChefsList', {
+        postId,
+        postTitle: postTitleFor(postId),
+      });
+    },
+    [navigation, postTitleFor]
+  );
+
+  const navigateToMealEvent = useCallback(
+    (mealEventId: string) => {
+      navigation.navigate('MealEventDetail', { mealEventId });
+    },
+    [navigation]
+  );
+
+  const handleCardMenu = useCallback((postId: string) => {
+    // Checkpoint 5 will wire this to the real overflow menu.
+    console.log('[FeedScreen] Card menu tapped for post:', postId);
+  }, []);
+
+  const handleLogoTap = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  // ─── Render item dispatch ──────────────────────────────────────────────
+
+  const renderFeedItem = ({ item: group }: { item: FeedGroup }) => {
     try {
-      // Handle meal posts
-      if (item.type === 'meal') {
+      if (group.type === 'solo') {
+        const post = group.posts[0];
+        const mealEventCtx = post.parent_meal_id
+          ? mealEventContextMap.get(post.parent_meal_id)
+          : undefined;
+        const cookPartnerCtx = cookPartnerPreheadMap.get(post.id);
+
         return (
-          <MealPostCard
-            meal={item.meal}
+          <View>
+            {mealEventCtx && (
+              <MealEventPrehead
+                mealEvent={mealEventCtx}
+                onPress={() => navigateToMealEvent(mealEventCtx.id)}
+              />
+            )}
+            {!mealEventCtx && cookPartnerCtx && (
+              <CookPartnerPrehead partnerName={cookPartnerCtx.partnerName} />
+            )}
+            <CookCard
+              post={post}
+              currentUserId={currentUserId}
+              highlight={postHighlights[post.id] || null}
+              vibe={resolveVibeForPost(post.id)}
+              likeData={buildLikeData(post.id)}
+              onPress={() => navigateToCookDetail(post.id)}
+              onLike={() => toggleLike(post.id)}
+              onComment={() => navigateToComments(post.id)}
+              onMenu={() => handleCardMenu(post.id)}
+              onRecipePress={navigateToRecipeDetail}
+              onChefPress={navigateToAuthor}
+              onViewLikes={() => navigateToYasChefs(post.id)}
+            />
+          </View>
+        );
+      }
+
+      if (group.type === 'linked_shared_recipe') {
+        return (
+          <SharedRecipeLinkedGroup
+            posts={group.posts}
             currentUserId={currentUserId}
-            followingIds={followingIds}
-            onPress={() => handleMealPress(item.meal.id)}
-            onDishPress={(dish) => {
-              if (dish.recipe_id) {
-                navigation.navigate('RecipeDetail', { recipe: { id: dish.recipe_id } });
-              }
-            }}
-            onLike={() => {
-              console.log('Like meal:', item.meal.id);
-            }}
-            onComment={() => {
-              console.log('Comment on meal:', item.meal.id);
-            }}
+            showLinkingHeader={true}
+            getLikeDataForPost={buildLikeData}
+            getHighlightForPost={postId => postHighlights[postId] || null}
+            getVibeForPost={resolveVibeForPost}
+            onCardPress={navigateToCookDetail}
+            onRecipePress={navigateToRecipeDetail}
+            onChefPress={navigateToAuthor}
+            onCardMenu={handleCardMenu}
+            onCardLike={toggleLike}
+            onCardComment={navigateToComments}
+            onCardViewLikes={navigateToYasChefs}
           />
         );
       }
 
-      // Handle grouped dish posts (cooking partners)
-      if (item.type === 'grouped') {
-        const allPosts = [item.mainPost, ...item.linkedPosts];
-        
+      if (group.type === 'linked_meal_event') {
+        const firstPost = group.posts[0];
+        const mealEventCtx = firstPost.parent_meal_id
+          ? mealEventContextMap.get(firstPost.parent_meal_id)
+          : undefined;
+
+        if (!mealEventCtx) {
+          // Defensive fallback — should not happen after prefetch
+          console.warn(
+            '[FeedScreen] linked_meal_event group without mealEventContext',
+            group.id
+          );
+          return (
+            <LinkedCookStack
+              posts={group.posts}
+              currentUserId={currentUserId}
+              getLikeDataForPost={buildLikeData}
+              getHighlightForPost={postId => postHighlights[postId] || null}
+              getVibeForPost={resolveVibeForPost}
+              onCardPress={navigateToCookDetail}
+              onRecipePress={navigateToRecipeDetail}
+              onChefPress={navigateToAuthor}
+              onCardMenu={handleCardMenu}
+              onCardLike={toggleLike}
+              onCardComment={navigateToComments}
+              onCardViewLikes={navigateToYasChefs}
+            />
+          );
+        }
+
         return (
-          <LinkedPostsGroup
-            posts={allPosts as PostCardData[]}
+          <NestedMealEventGroup
+            mealEventContext={mealEventCtx}
+            subUnits={group.subUnits ?? [{ kind: 'solo', posts: group.posts }]}
             currentUserId={currentUserId}
-            postLikes={postLikes}
-            postComments={postComments}
-            postParticipants={postParticipants}
-            onLike={(postId) => toggleLike(postId)}
-            onComment={(postId) => navigation.navigate('CommentsList', { postId })}
-            onViewLikes={(postId) => {
-              const post = allPosts.find(p => p.id === postId);
-              if (post && formatLikesText(postId)) {
-                navigation.navigate('YasChefsList', { 
-                  postId, 
-                  postTitle: post.title || 'Post' 
-                });
-              }
-            }}
+            getLikeDataForPost={buildLikeData}
+            getHighlightForPost={postId => postHighlights[postId] || null}
+            getVibeForPost={resolveVibeForPost}
+            onCardPress={navigateToCookDetail}
+            onRecipePress={navigateToRecipeDetail}
+            onChefPress={navigateToAuthor}
+            onCardMenu={handleCardMenu}
+            onCardLike={toggleLike}
+            onCardComment={navigateToComments}
+            onCardViewLikes={navigateToYasChefs}
+            onGroupHeaderPress={() => navigateToMealEvent(mealEventCtx.id)}
           />
         );
       }
 
-      // Handle single dish post
-      const post = item.post;
-      const likeData = postLikes[post.id];
-      const commentCount = postComments[post.id] || 0;
-      const likesText = formatLikesText(post.id);
-      const participants = postParticipants[post.id];
-      
-      const avatarUrl = post.user_profiles?.avatar_url;
-      const userAvatar = avatarUrl || '👤';
-
-      return (
-        <PostCard
-          post={post as PostCardData}
-          currentUserId={currentUserId}
-          isOwnPost={post.user_id === currentUserId}
-          userInitials={userAvatar}
-          likeData={{
-            hasLike: likeData?.hasLike || false,
-            likesText,
-            commentCount,
-            likes: likeData?.likes || [],
-          }}
-          participants={participants}
-          onLike={() => toggleLike(post.id)}
-          onComment={() => navigation.navigate('CommentsList', { postId: post.id })}
-          onRecipePress={(recipeId) => {
-            navigation.navigate('RecipeDetail', { recipe: post.recipes });
-          }}
-          onChefPress={(chefName) => {
-            navigation.navigate('AuthorView', { chefName });
-          }}
-          onViewLikes={likesText ? () => {
-            navigation.navigate('YasChefsList', { 
-              postId: post.id, 
-              postTitle: post.title || 'Post' 
-            });
-          } : undefined}
-        />
-      );
+      console.warn('[FeedScreen] Unknown FeedGroup type:', (group as any).type);
+      return null;
     } catch (err) {
       console.error('❌ ERROR RENDERING FEED ITEM:', err);
       setError(`Error rendering feed item: ${err}`);
       return null;
     }
   };
+
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -650,7 +924,7 @@ export default function FeedScreen({ navigation }: Props) {
       <StatusBar backgroundColor={colors.background.card} barStyle="dark-content" />
       {/* Header */}
       <View style={styles.header}>
-        {/* Left side - Profile and Search icons */}
+        {/* Left — Profile + Search */}
         <View style={styles.headerLeft}>
           <TouchableOpacity
             style={styles.iconButton}
@@ -666,14 +940,19 @@ export default function FeedScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Center - Logo (absolutely positioned) */}
+        {/* Center — Logo (absolutely positioned). 4.6.1: tap to scroll to top.
+            Outer View uses pointerEvents='box-none' (on headerCenter style) so
+            it doesn't block taps on the profile/search/bell siblings; the
+            inner TouchableOpacity is the actual hit target for the logo. */}
         <View style={styles.headerCenter}>
-          <View style={{ transform: [{ scale: 0.75 }] }}>
-            <Logo size="small" />
-          </View>
+          <TouchableOpacity onPress={handleLogoTap} activeOpacity={0.8}>
+            <View style={{ transform: [{ scale: 0.75 }] }}>
+              <Logo size="small" />
+            </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Right side - Messages and Bell icons */}
+        {/* Right — Messages + Bell */}
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.iconButton}
@@ -694,7 +973,7 @@ export default function FeedScreen({ navigation }: Props) {
 
       {/* Content */}
       <View style={styles.content}>
-        {feedItems.length === 0 ? (
+        {feedGroups.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyEmoji}>🍽️</Text>
             <Text style={styles.emptyTitle}>No posts yet</Text>
@@ -704,12 +983,9 @@ export default function FeedScreen({ navigation }: Props) {
           </View>
         ) : (
           <FlatList
-            data={feedItems}
-            keyExtractor={(item) => {
-              if (item.type === 'meal') return `meal-${item.meal.id}`;
-              if (item.type === 'grouped') return item.id;
-              return item.post.id;
-            }}
+            ref={flatListRef}
+            data={feedGroups}
+            keyExtractor={group => group.id}
             renderItem={renderFeedItem}
             refreshControl={
               <RefreshControl
@@ -719,6 +995,7 @@ export default function FeedScreen({ navigation }: Props) {
               />
             }
             contentContainerStyle={styles.listContent}
+            initialNumToRender={5}
           />
         )}
       </View>

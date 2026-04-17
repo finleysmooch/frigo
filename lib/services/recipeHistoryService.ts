@@ -152,3 +152,65 @@ export async function getFriendsCookingInfo(
   }
   return map;
 }
+
+// ============================================================================
+// PHASE 7I CHECKPOINT 2 — COOK HISTORY FOR A SPECIFIC (USER, RECIPE)
+// ============================================================================
+
+/**
+ * A single cook-history row for the L6 CookDetailScreen's "Your history with
+ * this recipe" section. Minimum data needed to render a row: date, rating,
+ * optional photo thumbnail, optional notes preview.
+ */
+export interface CookHistoryEntry {
+  post_id: string;
+  cooked_at: string;
+  rating: number | null;
+  title?: string;
+  notes?: string;
+  /** First photo from the post, if any — used as a row thumbnail. */
+  photo_thumbnail?: any;
+}
+
+/**
+ * Return the list of prior cook posts for a given (user, recipe) pair,
+ * newest first. No pagination — L6 shows the full history for a recipe.
+ *
+ * Falls back to `created_at` when `cooked_at` is null (legacy data / future
+ * Phase 7G backdated-post compatibility).
+ */
+export async function getCookHistoryForUserRecipe(
+  userId: string,
+  recipeId: string
+): Promise<CookHistoryEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id, title, notes, rating, cooked_at, created_at, photos')
+      .eq('user_id', userId)
+      .eq('recipe_id', recipeId)
+      .eq('post_type', 'dish')
+      .order('cooked_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching cook history for user+recipe:', error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => {
+      const photos = Array.isArray(row.photos) ? row.photos : [];
+      return {
+        post_id: row.id,
+        cooked_at: row.cooked_at || row.created_at,
+        rating: row.rating,
+        title: row.title,
+        notes: row.notes,
+        photo_thumbnail: photos[0],
+      };
+    });
+  } catch (err) {
+    console.error('Error in getCookHistoryForUserRecipe:', err);
+    return [];
+  }
+}
