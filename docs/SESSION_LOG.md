@@ -1,5 +1,274 @@
 # Session Log
 
+## 2026-04-20 — Phase 7 Doc Maintenance: Absorbed PHASE_7I_MASTER_PLAN.md
+**Phase:** Phase 7 (post-completion doc maintenance)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Files touched:**
+- `docs/PHASE_7_SOCIAL_FEED.md` — modified (all four Edits applied). Line count 1,288 → 1,643 (+355 lines).
+- `docs/PHASE_7I_MASTER_PLAN.md` — **read only, NOT deleted.** Tom will delete after confirming the absorption is clean, per prompt instruction.
+
+**Diff summary (net additions to `PHASE_7_SOCIAL_FEED.md`):**
+
+- **Edit 1 — new appendix** `## Phase 7I Detailed Reference` inserted between the "Claude Code Prompts Issued" table and the "Changelog" section. Contains five sub-sections:
+  - `### Supersession Notes (per-decision detail for D47)` — D44/D41/D45/D46/D43/D42 breakdowns with `####` sub-headers (demoted from `###` in master plan)
+  - `### Pre-build Code Findings (Phase 7I)` — "Before I wrote the checkpoints below..." paragraph + all 9 numbered findings verbatim, including bold leads and **Decision:** callouts
+  - `### Detailed Checkpoint Scope (Phase 7I)` — CP1 through CP7 at `####` depth (demoted from `###` in master plan), with all sub-structure preserved (Goal / Scope / Risks / Hard-stop / "What X does NOT include" blocks)
+  - `### Ordering and Shippable Milestones` — the 8-item ordering list, "Why this ordering" paragraph, Milestones A/B/C/D, session-estimate update
+  - `### Original 7M Scope (as planned)` — lead-in paragraph (per prompt) + the master plan's 7M scope verbatim
+- **Edit 2 — deferred items sub-section** `### From Phase 7I planning (2026-04-13)` inserted between the `### Doc maintenance debt surfaced 2026-04-09` sub-section (ending with P7-43) and the `### From Phase 7I Checkpoints 4-7` sub-section. Contains:
+  - Main table with all 16 P7-44 through P7-59 rows
+  - Smaller "**Reframed in 4/13 planning (updates earlier rows):**" table with 4 rows (P7-28/29/30/31)
+- **Edit 3 — header reference + Last Updated** — replaced the "Phase 7I reference:" line in the status block with "Phase 7I detailed reference:" pointing to the new appendix, and bumped Last Updated from 2026-04-17 to 2026-04-20.
+- **Edit 4 — changelog row** — appended a new 2026-04-20 row at the end of the Changelog table describing the absorption.
+
+**Type/Priority inference for P7-44 → P7-59:**
+
+| # | Type | Priority | Reasoning |
+|---|------|----------|-----------|
+| P7-44 | 🚀 | 🟡 | New capability (pagination/infinite scroll) |
+| P7-45 | 🐛 | 🟡 | Described as a hang → bug. NEEDS REVIEW preserved. |
+| P7-46 | 🚀 | 🟡 | New UI flow (tag-accept auto-draft). NEEDS REVIEW preserved. |
+| P7-47 | 💡 | 🟡 | Open design question on duplicate detection. NEEDS REVIEW preserved. |
+| P7-48 | 💡 | 🟡 | Open design question on planned-dish flow. NEEDS REVIEW preserved. |
+| P7-49 | 💡 | 🟡 | Conceptual post-type idea, not a feature yet |
+| P7-50 | 🚀 | 🟡 | RSVP flow redesign = new feature work |
+| P7-51 | 🚀 | 🟡 | New CookDetailScreen section |
+| P7-52 | 🚀 | 🟡 | New feature (personalized chef page lens) |
+| P7-53 | 🚀 | 🟡 | New navigation capability |
+| P7-54 | 🚀 | 🟡 | New UI affordance (collage hero) |
+| P7-55 | 💡 | 🟡 | Open design question (unified thread). NEEDS REVIEW preserved with "wait for F&F feedback" context. |
+| P7-56 | 🚀 | 🟡 | New notification feature |
+| P7-57 | 🔧 | 🟡 | Infra/cleanup — eliminates layout shuffle by persisting dimensions |
+| P7-58 | 🔧 | 🟡 | Cleanup — removing deprecated type union value |
+| P7-59 | 📝 | 🟡 | Process/doc item — "accepted tradeoff," captures a policy decision rather than a build task |
+
+All reframing rows (P7-28/29/30/31 in the second table) assigned 📝 per prompt spec since they document changes to existing rows rather than new items.
+
+**Judgment calls:**
+
+- **P7-58 Type:** could have been 📝 (doc of decision to remove) or 🔧 (actual removal work). Chose 🔧 because the item describes a concrete future code change, not just a decision log entry. Flagging in case Tom prefers 📝.
+- **P7-59 Type:** chose 📝 because the text explicitly says "accepted tradeoff — rely on pre-migration snapshot" — this is a process/policy note, not a planned build. If Tom considers it more of a "🔧 infrastructure debt we're choosing not to pay," could be reclassified.
+- **Section header in master plan that's neither in the inclusion nor exclusion list:** `## Deferred Items (added 2026-04-13)` at master plan line 380. This was clearly intended for Edit 2 (the source of the P7-44..59 + reframed items) — I treated it as such. No other orphan sections surfaced.
+- **"Original 7M Scope" lead-in paragraph placement:** per prompt, I placed it at the very top of the sub-section, before the existing master plan body ("Phase 7M is not part of 7I's checkpoint structure..."). The two paragraphs read sequentially, not redundantly.
+
+**Pandoc warnings:** N/A — this task does not involve pandoc. (Note: the `PHASE_7_SOCIAL_FEED.md` file had been refreshed earlier today via a separate docx→md conversion session — no `<span class="mark">` contamination was found in it, so the text-level edits applied cleanly.)
+
+**Confirmation — no existing content modified beyond the four Edits:**
+- Line 3 header cluster: only the "Phase 7I reference" sub-phrase and "Last Updated" date changed; all other fields (Started, Status, Master Plan, Playbooks, Scoping reference) left byte-identical.
+- Decisions Log (D1–D51), Build Phases table, Work Completed sections, Testing Results, Direct DB Migrations, Current Work, all pre-existing Deferred Items sub-sections (including original P7-28 through P7-31 rows in the 7F wireframe sub-section which were left untouched — the reframings are added as a separate parallel table), Claude Code Prompts Issued table, and existing Changelog rows (through 2026-04-17) are all byte-for-byte identical to their state at session start.
+- Confirmed no accidental edits to `PHASE_7I_MASTER_PLAN.md` (read-only in this session).
+- The `### From Phase 7I Checkpoints 4-7` sub-section that follows the new insertion is intact.
+
+**Verification results:**
+1. ✅ New appendix between "Claude Code Prompts Issued" and "Changelog"
+2. ✅ All 5 sub-sections present with specified content and headers
+3. ✅ "From Phase 7I planning (2026-04-13)" sub-section sits between P7-43 sub-section and CP4-7 sub-section
+4. ✅ 16 P7-44 → P7-59 rows in main table, 4 reframing rows (P7-28/29/30/31) in smaller table
+5. ✅ Header reference replaced; Last Updated = 2026-04-20
+6. ✅ New 2026-04-20 Changelog row at end of table
+7. ✅ All `#### Checkpoint N` and `#### D4X` headers correctly demoted from master plan's `###`
+
+**Recommended next steps for Tom:**
+1. **Spot-check the appendix** for content fidelity — especially the Checkpoint 5 "Interface extension — AddCookingPartnersModal" block and the Checkpoint 6 "Cascade behavior (option b)" block, since these are the densest technical sections carried over verbatim.
+2. **Spot-check the P7-44..P7-59 Type column** — my inference choices are in the table above. Quick pass: anything that should be bumped from 🟡 to 🔴 (high-priority) or 🟢 (low)?
+3. **Upload the updated `docs/PHASE_7_SOCIAL_FEED.md`** to project knowledge, replacing the existing copy.
+4. **Upload to Drive** (Google Doc at ID `1REpu9ZuyYFo-E-pVVVvgo5F_qEvdpQgTbZSl376fIoA`) — manual overwrite.
+5. **Verify rendering in PK and Drive.** If the appendix renders correctly (tables, nested `#### `headers, inline code blocks), authorize deletion of `PHASE_7I_MASTER_PLAN.md` from PK + `docs/` via a follow-up prompt.
+6. **Consider committing** — suggested message: `docs(phase7): absorb PHASE_7I_MASTER_PLAN.md into Phase 7 appendix`. Note `PHASE_7I_MASTER_PLAN.md` already shows as `D` (deleted) in `git status` from prior working-tree changes; whether to delete in the same commit or a follow-up is Tom's call after confirming content integrity.
+
+**Surprises / Notes for Claude.ai:**
+- The master plan was restored from git (was `D` in working tree at start of the docx→md session earlier today) to support this absorption task. After Tom confirms the appendix is intact, the `D` state can be reinstated with a clean deletion commit.
+- `git diff --stat` against `origin/main` shows the file with a dramatic 1170+/484- shape, but that's because the committed `main` version is the pre-docx-conversion form. The actual net delta from this session alone is +355 lines (1,288 → 1,643), all inside the four edit regions.
+
+---
+
+## 2026-04-21 — Repo Infrastructure: Phase docs docx→md conversion + moves (v3 run)
+**Phase:** cross-cutting (doc maintenance)
+**Prompt from:** `docs/CC_START_PROMPT.md` (v3)
+
+**Pandoc version used:** `pandoc 3.9.0.2`
+- Note: pandoc was not on the git-bash `PATH` but was installed at `/c/Users/tommo/AppData/Local/Pandoc/pandoc.exe`. Invoked via full path throughout. Tom may want to add `C:\Users\tommo\AppData\Local\Pandoc` to his `PATH` for future sessions.
+
+**Source files identified** in `external_documents/` (actual list matched the plan exactly — no discrepancies, no extras, no missing):
+- `FRIGO_PHASE_1_RECIPES_EXTRACTION.docx`
+- `FRIGO_PHASE_2_SOCIAL_MEALS_SPACES.docx`
+- `FRIGO_PHASE_3_NUTRITION_BROWSE.docx`
+- `Phase_4_Cooking_Stats.md`
+- `Phase 5_ Ingredient Architecture & Critical Fixes.docx`
+- `PHASE_6_COOKING_MODE.md`
+- `PHASE_7_SOCIAL_FEED.md.docx`
+- `PHASE_RECIPE_DISCOVERY.md`
+- `svg_icon_integration_all_phases.md` — do-not-touch, confirmed still in place and unchanged
+
+**Per-file outcome:**
+
+| # | Source | Destination | Action | Result |
+|---|---|---|---|---|
+| 1 | `FRIGO_PHASE_1_RECIPES_EXTRACTION.docx` | `docs/archive/phases/PHASE_1_RECIPES_EXTRACTION.md` | Convert + rename | 185 lines. ⚠️ 93/185 lines wrapped in `<span class="mark">` with escaped markdown (e.g., `\#`, `\*\*`) — Google Docs source had "highlight" styling applied to most content. Content fully preserved but markdown is cosmetically degraded. |
+| 2 | `FRIGO_PHASE_2_SOCIAL_MEALS_SPACES.docx` | `docs/archive/phases/PHASE_2_SOCIAL_MEALS_SPACES.md` | Convert + rename | 369 lines. ⚠️ 185/369 lines in `<span class="mark">`. Same issue as Phase 1. |
+| 3 | `FRIGO_PHASE_3_NUTRITION_BROWSE.docx` | `docs/archive/phases/PHASE_3_NUTRITION_BROWSE.md` | Convert + rename | 263 lines. ⚠️ 132/263 lines in `<span class="mark">`. Same issue. |
+| 4 | `Phase_4_Cooking_Stats.md` | `docs/archive/phases/PHASE_4_COOKING_STATS.md` | Move + rename (no conversion) | 404 lines. No health check needed (already `.md`). Landed correctly. |
+| 5 | `Phase 5_ Ingredient Architecture & Critical Fixes.docx` | `docs/archive/phases/PHASE_5_INGREDIENT_ARCHITECTURE.md` | Convert + rename | 725 lines. ⚠️ 363/725 lines in `<span class="mark">`. Same issue — worst affected by absolute line count. |
+| 6 | `PHASE_6_COOKING_MODE.md` | `docs/archive/phases/PHASE_6_COOKING_MODE.md` | Move only (no conversion, no rename) | 459 lines. Landed correctly. |
+| 7 | `PHASE_7_SOCIAL_FEED.md.docx` | `docs/PHASE_7_SOCIAL_FEED.md` (**NOT archive — went to top-level `docs/`**) | Convert + rename + media extract | 1,288 lines. ✅ Clean conversion: 13 `## ` headers, 28 `### ` headers, 255 table-row lines, no `<span class="mark">` contamination. This one's source wasn't highlighted like the others. |
+| 8 | `PHASE_RECIPE_DISCOVERY.md` | `docs/archive/phases/PHASE_RECIPE_DISCOVERY.md` | Move only (no conversion, no rename) | 131 lines. Landed correctly. |
+
+**Pandoc warnings encountered:** None. All 5 conversions exited 0 with no stderr output.
+
+**Phase 7 media extraction:** The `--extract-media=docs/archive/phases/_originals/phase_7_media/` flag was passed, but pandoc did NOT create the folder — meaning no embedded media was found. The 1.4 MB size of the Phase 7 source was formatting/metadata bloat, not images. Nothing to flag or clean up.
+
+**`_originals/` folder size:** `2.2M` (5 `.docx` files, range 186 KB – 1.4 MB).
+
+**Recommendation on gitignoring `_originals/`:** At 2.2 MB total across 5 files, it's not bloat-level but also adds no permanent value to the repo once Tom confirms the conversions. Suggest **adding `docs/archive/phases/_originals/` to `.gitignore`** once Tom has spot-checked content integrity. Alternatively, commit and delete in a follow-up after the confirmation window. Not critical either way.
+
+**Health-check finding requiring Tom's attention:**
+
+The 4 `.docx` files that came from the Google Docs "highlighted" template (Phases 1, 2, 3, 5) converted with ~50% of content wrapped in `<span class="mark">` tags containing escaped markdown. Example:
+
+```
+<span class="mark">\# Phase 1: Core Recipes + AI Extraction</span>
+<span class="mark">\*\*Dates:\*\* October 2025 – February 2026</span>
+```
+
+**Impact:** Content fidelity is 100% — no information lost. Rendering impact: these will still render in most Markdown viewers (the escape chars become literal text inside a highlighted span, and the `\#` and `\*\*` still read as the original symbols). But the files no longer function as usable Markdown source — you can't easily grep for `## Goals` to navigate, and the escaping would break any automation that parses structure.
+
+**Options if Tom wants to fix:**
+1. **Leave as-is.** Archive-only reference. The prompt explicitly said formatting can be imperfect as long as content survives. Least effort.
+2. **Post-process pass** — a simple `sed` (or short Node script) that strips `<span class="mark">(.*)</span>` wrappers and un-escapes `\#` → `#`, `\*` → `*`, `\>` → `>`, `\_` → `_`, `\[` → `[` etc. This would be a separate, reviewable CC prompt.
+3. **Re-export from Google Docs** — remove the highlight styling in the source doc, re-export to docx, re-run conversion. Tom would need to do the un-highlight step.
+
+My recommendation: **Option 1 for now.** Archive docs are read rarely and the content is intact. If you find yourself actually opening them and the `<span class="mark">` gets annoying, do Option 2 as a follow-up prompt.
+
+**Confirmation:**
+- ✅ All 5 `.docx` originals preserved in `docs/archive/phases/_originals/`
+- ✅ Phase 7 went to `docs/`, NOT `docs/archive/phases/`
+- ✅ `external_documents/svg_icon_integration_all_phases.md` was not touched (verified still present, unchanged)
+- ✅ No unrecognized files were processed — `external_documents/` is now empty except for the do-not-touch file
+- ✅ No other docs in source or destination were modified beyond the plan
+
+**Recommended next steps for Tom:**
+1. **Spot-check conversions.** Open `docs/PHASE_7_SOCIAL_FEED.md` first — it converted cleanest and is the most consequential since it's live in top-level `docs/`. Then open one of the `<span class="mark">`-affected files (Phase 5 is largest) to confirm the escape artifacts are tolerable as archive reference.
+2. **Decide on the `<span class="mark">` issue** per options above.
+3. **Decide on `_originals/` gitignore.** Current state: tracked. Adding to `.gitignore` would prevent 2.2 MB of `.docx` bloat in the repo.
+4. **Commit** once content is confirmed. Suggested message: `chore(docs): convert + archive phase docs, refresh PHASE_7 in docs/`
+5. **Consider adding pandoc to `PATH`** for future CC sessions (edit Windows env vars or `.bashrc`).
+
+---
+
+## 2026-04-21 — Repo Infrastructure: Consolidate external_documents folder casing
+**Phase:** cross-cutting (repo infrastructure, not feature work)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**What was in the source folder:**
+- `External documents/svg_icon_integration_all_phases.md` — single file, 24,670 bytes, last modified 2026-02-25. No other files present. Matched Tom's expectation.
+
+**Files moved:**
+- `External documents/svg_icon_integration_all_phases.md` → `external_documents/svg_icon_integration_all_phases.md` (plain `mv` — file was gitignored and untracked, confirmed via `git ls-files` returning empty and `git check-ignore` pointing at the old `.gitignore:51` rule)
+
+**Folder deleted:** `External documents/` (removed via `rmdir` — confirmed empty first)
+
+**Folder created:** `external_documents/` did not exist yet (prior session only added the `.gitignore` entry, not the folder itself — noted in that session's log). Created via `mkdir` before the move.
+
+**`.gitignore` change:** removed the line `External documents/` (was line 51, under the `# Dev artifacts` comment block). The `# Dev artifacts` comment was left in place because it still covers the remaining entries (`assets/svg-source/`, `test-*.ps1`, `recipe_classification_*.json`). The newer lowercase `external_documents/` entry (now at line 69 under the earlier-added `# Incoming CC prompt files from Claude.ai planning sessions` comment) is intact.
+
+**DB changes:** none
+
+**Verification results:**
+1. `external_documents/` exists and contains `svg_icon_integration_all_phases.md` ✅
+2. `External documents/` no longer exists on disk ✅
+3. `.gitignore` has only the `external_documents/` entry (lowercase); `External documents/` line is gone ✅
+4. `git check-ignore` confirms new path is still ignored via `.gitignore:69` ✅
+5. `git status` does NOT show the move (expected — both old and new paths are gitignored, so git never tracked them)
+
+**Git status snapshot (new/changed by this session only):**
+```
+ M .gitignore
+```
+(All other entries in `git status` — the `D` deletions of old CC_PROMPT/PHASE/DDL/wireframe files, the `M` on `.claude/settings.local.json`, the `M` on `docs/CC_START_PROMPT.md`, and the `??` entries for `_pk_sync/` and `docs/archive/` — are pre-existing from prior sessions and were not touched here. `docs/SESSION_LOG.md` and `docs/README.md` also still show as modified from the prior session; this session added a new entry to SESSION_LOG but did not touch README.)
+
+**Confirmation:** No files outside `.gitignore`, the `External documents/` folder, and the `external_documents/` folder were modified by this session. (SESSION_LOG.md update is the standard per-session log entry.)
+
+**Recommended doc updates:**
+- ARCHITECTURE: none
+- DEFERRED_WORK: none
+- PROJECT_CONTEXT: none
+
+**Status:** Consolidation complete. Tom's next step: review and commit. Suggested message: `chore: consolidate external_documents folder to lowercase`.
+
+**Surprises / Notes for Claude.ai:**
+- The `external_documents/` folder did not actually exist before this session — the prior session only added the gitignore entry. Per Step 2 of the prompt this was anticipated and handled (mkdir before mv). Worth noting for future folder-creation prompts that adding a `.gitignore` entry alone doesn't materialize a folder.
+
+---
+
+## 2026-04-21 — Repo Infrastructure: Doc Archive Structure + _pk_sync workflow folder
+**Phase:** cross-cutting (repo infrastructure, not feature work)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Files created:**
+- `docs/archive/README.md` — explains the archive folder structure and lifecycle conventions (contents per Step 4 of prompt)
+- `docs/archive/phases/.gitkeep` — placeholder so git tracks the empty dir
+- `docs/archive/session_logs/.gitkeep` — placeholder
+- `docs/archive/design_decisions/.gitkeep` — placeholder
+- `docs/archive/wireframes/.gitkeep` — placeholder
+- `docs/archive/prompts/.gitkeep` — placeholder
+- `docs/archive/handoffs/.gitkeep` — placeholder
+- `_pk_sync/.gitkeep` — placeholder for the CC→PK upload staging folder
+
+**Files modified:**
+- `docs/README.md` — replaced entirely with the new living-docs / archive / workflow-folders layout per Step 5
+- `.gitignore` — appended the `_pk_sync/*` + `!_pk_sync/.gitkeep` negate-pattern block, and a new `external_documents/` entry. Existing `External documents/` (capital-E, space) entry left intact — it's a different path
+
+**DB changes:** none
+
+**Decisions made during execution:**
+- Added `external_documents/` (lowercase, underscore) per prompt even though `External documents/` (capital, space) was already in the file. Treated them as distinct paths since the prompt explicitly specified the lowercase/underscore form.
+
+**Deferred during execution:**
+- File moves into `docs/archive/` subfolders — per prompt constraint, Tom does these manually
+
+**Verification results:**
+1. `docs/archive/` — exists with all 6 subfolders, each has a `.gitkeep` ✅
+2. `_pk_sync/` — exists with `.gitkeep` ✅
+3. `.gitignore` — new entries appended, existing entries intact ✅
+4. `docs/archive/README.md` — created with Step 4 content ✅
+5. `docs/README.md` — replaced with Step 5 content ✅
+6. No existing docs (other than `docs/README.md` and `.gitignore`) were modified, moved, or deleted ✅
+7. `git check-ignore` confirms `_pk_sync/.gitkeep` is tracked while other files in `_pk_sync/` are ignored ✅
+
+**Git status snapshot (new/changed by this session only):**
+```
+M  .gitignore
+M  docs/README.md
+?? _pk_sync/.gitkeep
+?? docs/archive/README.md
+?? docs/archive/design_decisions/.gitkeep
+?? docs/archive/handoffs/.gitkeep
+?? docs/archive/phases/.gitkeep
+?? docs/archive/prompts/.gitkeep
+?? docs/archive/session_logs/.gitkeep
+?? docs/archive/wireframes/.gitkeep
+```
+(`git status` also shows pre-existing unrelated deletions of CC_PROMPT_7*.md, PHASE_7I_MASTER_PLAN.md, wireframe HTMLs, etc., plus modifications to `.claude/settings.local.json` and `docs/CC_START_PROMPT.md`. Those existed before this session and were not touched by it.)
+
+**Confirmation:** No existing docs were moved, deleted, or modified beyond `docs/README.md` and `.gitignore`. Pre-existing uncommitted changes in the working tree (the `D` entries for old CC_PROMPT files, wireframes, etc.) were present before this session started and are unrelated to this task.
+
+**Recommended doc updates:**
+- ARCHITECTURE: none
+- DEFERRED_WORK: none
+- PROJECT_CONTEXT: none — this is pure infrastructure
+
+**Status:** Structure ready. Tom's next steps:
+1. Review `git status` and commit — suggested message: `chore(docs): create archive structure and _pk_sync workflow folder`
+2. Manually populate `docs/archive/` subfolders with the files Claude.ai identified for archival
+3. Drop current living-doc copies (PROJECT_CONTEXT, FRIGO_ARCHITECTURE, DEFERRED_WORK, DOC_MAINTENANCE_PROCESS, FF_LAUNCH_MASTER_PLAN, PHASE_7_SOCIAL_FEED) from PK/Drive into top-level `docs/` to replace any stale repo copies
+
+**Surprises / Notes for Claude.ai:**
+- `.gitignore` already contained `External documents/` (capital-E, space) covering a sibling folder of the same semantic purpose as the new `external_documents/`. Both are now ignored. You may want to consolidate or rename the old "External documents" folder for consistency.
+- `docs/CC_START_PROMPT.md` shows as `M` in `git status` — this predates the session (the file on disk doesn't match the committed version). Not touched here; flagging in case it matters.
+
+---
+
 ### 2026-04-17 — Phase 7L — Settings + Visibility Defaults
 **Phase:** 7L (Settings + Visibility Defaults)
 **Prompt from:** `docs/CC_START_PROMPT.md`
