@@ -1,5 +1,50 @@
 # Session Log
 
+## 2026-04-21 — Repo Infrastructure: Archive absorbed docs (PHASE_7I_MASTER_PLAN + DOC_UPDATES_CONSOLIDATED)
+**Phase:** cross-cutting (repo infrastructure, doc maintenance)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Per-file tracking state + action taken:**
+
+| File | Starting state | Action |
+|---|---|---|
+| `docs/PHASE_7I_MASTER_PLAN.md` | **Not at top-level `docs/` anymore** — already moved to `docs/archive/phases/PHASE_7I_MASTER_PLAN.md` and committed earlier this session in `3bd8914` (chore(docs): archive PHASE_7I_MASTER_PLAN after absorption). | **Skipped — end state already achieved.** No action needed. The prompt author didn't know this commit already existed. |
+| `docs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md` | Untracked (`??`), 160 lines at top-level `docs/`. `git ls-files --error-unmatch` returned empty, confirming untracked. | Plain `mv` to `docs/archive/handoffs/`, then `git add` to stage the new location. |
+
+**Line counts (source vs destination):**
+
+| File | Source lines | Destination lines |
+|---|---|---|
+| `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` | 160 (pre-move at `docs/`) | 160 (post-move at `docs/archive/handoffs/`) |
+| `PHASE_7I_MASTER_PLAN.md` | N/A (already archived before this task) | 423 (`docs/archive/phases/`, unchanged from `3bd8914`) |
+
+Byte-identical for `DOC_UPDATES_CONSOLIDATED_2026-04-15.md`. No content lost.
+
+**`git status` snapshot after the move (scoped):**
+```
+A  docs/archive/handoffs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md
+?? docs/archive/handoffs/.gitkeep
+```
+
+The `.gitkeep` in `docs/archive/handoffs/` is pre-existing untracked state from the archive-structure session — not introduced by this task.
+
+**Pre-existing `M` on the already-archived `PHASE_7I_MASTER_PLAN.md`:** `git diff --stat` shows 1 changed line; `git diff` reveals it's just a trailing-newline difference (working-tree version has no final newline; committed version does). Benign, pre-existing, unrelated to this task. **Not touched.** Tom may want to fix in a follow-up commit (`echo >> docs/archive/phases/PHASE_7I_MASTER_PLAN.md` or similar) but it's not worth a dedicated commit.
+
+**Confirmation:**
+- ✅ No content modified in either file
+- ✅ No other files touched
+- ✅ PHASE_7I_MASTER_PLAN skip is correct — the prompt's goal (file at `docs/archive/phases/`) is already satisfied
+
+**Recommended next step for Tom:**
+1. Review `git status` — should show one staged add (`A docs/archive/handoffs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md`) plus unrelated pre-existing changes from prior uncommitted work.
+2. Commit. The prompt's suggested message was `chore(docs): archive PHASE_7I_MASTER_PLAN and DOC_UPDATES_CONSOLIDATED after absorption`, but since PHASE_7I_MASTER_PLAN was already archived in a prior commit, the accurate scope is just the DOC_UPDATES file. Suggest: **`chore(docs): archive DOC_UPDATES_CONSOLIDATED_2026-04-15 after absorption`**.
+3. After commit, PK copies of both PHASE_7I_MASTER_PLAN and DOC_UPDATES_CONSOLIDATED are safe to delete.
+
+**Surprises / Notes for Claude.ai:**
+- The CC_START_PROMPT was generated without visibility into commit `3bd8914` (PHASE_7I_MASTER_PLAN archive) that happened earlier in the same day's CC session. The prompt's dual-move framing is therefore half-redundant. Minor scope drift, not a functional problem. If future planning prompts are generated between CC sessions, consider including a `git log --oneline -20` snapshot or a "files last known moved" list so prompt authors can account for state that already changed on disk.
+
+---
+
 ## 2026-04-21 — Repo Infrastructure: Swap Phase 7F wireframe canonical name
 **Phase:** cross-cutting (repo infrastructure)
 **Prompt from:** `docs/CC_START_PROMPT.md`
