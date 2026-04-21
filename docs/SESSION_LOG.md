@@ -1,5 +1,47 @@
 # Session Log
 
+## 2026-04-21 — Doc Maintenance: Absorb console.warn pattern into DOC_MAINTENANCE_PROCESS.md
+**Phase:** cross-cutting (doc maintenance)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Source content location:** `docs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md`. Tom dropped the file into `docs/` mid-session after the first pass of this prompt hit the STOP-if-not-findable constraint (original search of the repo returned no matches). The target content lives in Section 7 titled `## 7. Doc maintenance process update` (line 157 of the source file). The blockquote on line 161 contains the console.warn instrumentation pattern.
+
+**Source-vs-guide discrepancy check:** No meaningful discrepancy. The source blockquote matches Step 1's guide text word-for-word:
+
+> **Console.warn instrumentation pattern (added 2026-04-15):** When CC ships editing/mutation affordances (overflow menu items, inline edits, modal-driven writes), it should add temporary `console.warn` instrumentation that logs operation name, key inputs, and success/failure result with a `[ScreenName]` prefix. This enables Tom to see what happened during on-device testing without needing to reproduce bugs from code-reading alone. Instrumentation is removed during cleanup passes (e.g., Checkpoint 7) or when 7M replaces the editing scaffolding.
+
+Used Step 2's verbatim content (bullet-list reshape + lifecycle sub-heading + attribution line) as prescribed.
+
+**Files changed:**
+- `docs/DOC_MAINTENANCE_PROCESS.md` — added new `## Patterns for CC Prompts` H2 section (with the Console.warn sub-section) immediately before `## Changelog`. Also added a new 2026-04-21 / 4.1 row at the top of the Changelog table body. Header metadata bumped: Last Updated → April 21, 2026; Version → 4.1.
+- `_pk_sync/DOC_MAINTENANCE_PROCESS.md` — new copy of the updated file for Tom to upload to PK. Verified byte-identical to repo copy via `diff -q`.
+
+**Scope confirmation:** no other edits to `DOC_MAINTENANCE_PROCESS.md` beyond the prescribed insertion, changelog row, and metadata bump. Pre-existing staleness in the body was observed but NOT touched per prompt constraint ("full rewrite is a separate upcoming session"). `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` was read only, not modified.
+
+**`git status` snapshot (scoped to this task's files):**
+```
+?? _pk_sync/DOC_MAINTENANCE_PROCESS.md        (gitignored — workflow staging, visible via ls but git doesn't track)
+?? docs/DOC_MAINTENANCE_PROCESS.md            (was already untracked before this session — never previously committed)
+?? docs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md (freshly dropped in by Tom this session — untracked)
+```
+
+Note: the prompt's Step 7 verification expected "1 modified file (`docs/DOC_MAINTENANCE_PROCESS.md`) and 1 untracked file (`_pk_sync/DOC_MAINTENANCE_PROCESS.md`)". In reality the target doc was `??` not `M` because it has never been committed to the repo (it's been living as an untracked working-tree file). The content change is real; git just classifies the file state differently than the prompt assumed.
+
+**Confirmation:** `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` was not modified. Only read.
+
+**Recommended next steps for Tom:**
+1. Review the new `## Patterns for CC Prompts` section in `docs/DOC_MAINTENANCE_PROCESS.md` (now 408 lines, was 388).
+2. If clean, commit. Suggested message: `docs: absorb console.warn instrumentation pattern into DOC_MAINTENANCE_PROCESS`. Because `DOC_MAINTENANCE_PROCESS.md` has never been committed before, this commit will also bring the full file into git for the first time. You may want to either: (a) commit the whole file as-is (easiest, acknowledges that it's been living untracked), or (b) commit the v4.0 state first as a baseline and then the v4.1 absorption delta as a second commit.
+3. Upload `_pk_sync/DOC_MAINTENANCE_PROCESS.md` to PK, replacing the existing PK copy.
+4. Clear `_pk_sync/` after upload (per the workflow folder convention — the gitignore rule keeps `.gitkeep` intact even when you delete the uploaded file).
+5. When ready, archive `docs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md` — likely via `git mv` into `docs/archive/handoffs/` matching the pattern we established for other completed change-lists. Separate commit.
+
+**Surprises / Notes for Claude.ai:**
+- `docs/DOC_MAINTENANCE_PROCESS.md` is not currently tracked in git. Same applies to `docs/DOC_UPDATES_CONSOLIDATED_2026-04-15.md` and `docs/FF_LAUNCH_MASTER_PLAN.md`. These are presumably copies pulled from PK into the repo but never committed. Worth mentioning so future sessions know these files exist-on-disk-but-not-in-git until the first commit lands them.
+- `_pk_sync/` gitignore mechanics work as designed — only `.gitkeep` is tracked; new files staged there are invisible to git. Confirmed via the current staging of `DOC_MAINTENANCE_PROCESS.md` in `_pk_sync/` being absent from `git status`.
+
+---
+
 ## 2026-04-20 — Phase 7 Doc Maintenance: Absorbed PHASE_7I_MASTER_PLAN.md
 **Phase:** Phase 7 (post-completion doc maintenance)
 **Prompt from:** `docs/CC_START_PROMPT.md`
