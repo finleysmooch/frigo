@@ -1,5 +1,96 @@
 # Session Log
 
+## 2026-04-21 — Repo Infrastructure: Swap Phase 7F wireframe canonical name
+**Phase:** cross-cutting (repo infrastructure)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Starting state:**
+- `docs/archive/wireframes/frigo_phase_7f_wireframes.html` — 4,652 lines (was labeled canonical; now relabeled)
+- `docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html` — 1,825 lines (was PK snapshot; now canonical)
+
+Both staged as `A` (adds) in the index from the earlier archive session.
+
+**Commands run:**
+1. `git mv docs/archive/wireframes/frigo_phase_7f_wireframes.html docs/archive/wireframes/frigo_phase_7f_wireframes_earlier_iteration.html` — vacated the canonical slot by renaming the larger file.
+2. `git mv docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html docs/archive/wireframes/frigo_phase_7f_wireframes.html` — moved the smaller (newer, per Tom's browser inspection) file into the canonical slot.
+
+Both `git mv` calls succeeded. No plain-`mv` fallback needed.
+
+**Final state (line counts at each filename):**
+- `docs/archive/wireframes/frigo_phase_7f_wireframes.html` — **1,825 lines** (newer/more specific version, now canonical)
+- `docs/archive/wireframes/frigo_phase_7f_wireframes_earlier_iteration.html` — **4,652 lines** (earlier iteration)
+- `docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html` — does not exist ✅
+
+**`git status -s` for `docs/archive/wireframes/`:**
+```
+A  docs/archive/wireframes/frigo_phase_7f_wireframes.html
+A  docs/archive/wireframes/frigo_phase_7f_wireframes_earlier_iteration.html
+?? docs/archive/wireframes/.gitkeep
+```
+
+Note: both files show as `A` (not `R`) because both were already staged as adds from the earlier archive session — `git mv` on a file that's staged as an add just relocates the add, it doesn't create a rename record. The net commit will be two new files at the final names, plus the rename of the old `docs/` HEAD version into `docs/archive/wireframes/frigo_phase_7f_wireframes_earlier_iteration.html` (which git should detect when the commit is formed).
+
+**Minor note:** A compound verification command had `ls` on the now-nonexistent `_pk_snapshot.html` (which the prompt specified "should FAIL"). The non-zero exit aborted the chained `wc -l`/`git status` — re-ran those separately. No impact on task outcome.
+
+**Recommended commit message for Tom:** `chore(docs): archive Phase 7F wireframes (canonical + earlier iteration)` — same commit you were about to make before the rename; scope now just reflects the corrected filenames.
+
+---
+
+## 2026-04-21 — Repo Infrastructure: Archive both versions of Phase 7F wireframes HTML
+**Phase:** cross-cutting (repo infrastructure, doc maintenance)
+**Prompt from:** `docs/CC_START_PROMPT.md`
+
+**Pre-move file sizes:**
+
+| Version | Lines | Bytes |
+|---|---|---|
+| Working tree (PK snapshot) | 1,825 | 87,279 (~85 KB) |
+| HEAD (canonical) | 4,652 | 268,496 (~262 KB) |
+
+Note: the prompt anticipated ~1,578 / ~5,982 line counts based on `git diff --stat` numbers. Those were the diff's per-line insertion/deletion counts, not the total file lengths. Actual file lengths above. The "substantial diff" confirmation the prompt was looking for still holds — the two versions are materially different (2.5× line delta, 3× byte delta).
+
+**Post-move file sizes:**
+
+| File | Lines | Bytes |
+|---|---|---|
+| `docs/archive/wireframes/frigo_phase_7f_wireframes.html` (canonical) | 4,652 | 268,496 |
+| `docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html` (PK snapshot) | 1,825 | 87,279 |
+
+Byte-for-byte match with pre-move — no content drift.
+
+**Commands run:**
+1. `mv docs/frigo_phase_7f_wireframes.html docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html` — plain mv to preserve the working-tree (PK snapshot) content under a clearly-distinct archive name.
+2. `git show HEAD:docs/frigo_phase_7f_wireframes.html > docs/archive/wireframes/frigo_phase_7f_wireframes.html` — extracts the committed canonical version from HEAD directly into the archive, without passing through the working tree or index.
+3. `git rm docs/frigo_phase_7f_wireframes.html` — stages deletion of the old tracked path.
+4. `git add docs/archive/wireframes/frigo_phase_7f_wireframes.html docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html` — stages the two archive files.
+
+Minor note: I ran a `git diff --cached` with the deleted path as an argument after the `git rm`, which errored with "ambiguous argument" because the path no longer exists in either the working tree or the index (the `git rm` already removed it). This was a diagnostic command only, not part of the task. Switched to `git status` for verification instead. No impact on the staging state.
+
+**`git status` snapshot after staging (scoped to task files):**
+```
+R  docs/frigo_phase_7f_wireframes.html -> docs/archive/wireframes/frigo_phase_7f_wireframes.html
+A  docs/archive/wireframes/frigo_phase_7f_wireframes_pk_snapshot.html
+?? docs/archive/wireframes/.gitkeep
+```
+
+Git detected the HEAD-to-archive extraction as a rename (`R`) because the destination file's content is byte-identical to the tracked HEAD version. The PK snapshot appears as a new add (`A`). The `.gitkeep` placeholder in `docs/archive/wireframes/` remains untracked — pre-existing state from the archive-structure session, unrelated to this task.
+
+**Confirmation:**
+- ✅ `docs/frigo_phase_7f_wireframes.html` no longer exists at the old location (`ls` fails with "No such file or directory")
+- ✅ Both archive files exist with clearly different sizes (4,652 vs 1,825 lines — 2.5× ratio)
+- ✅ No other files changed by this task. The rest of `git status` (pre-existing `M`/`D`/`??` on unrelated docs) is untouched.
+
+**Recommended next steps for Tom:**
+1. Open both HTML files in a browser and compare. The canonical (262 KB) is the committed 6-pass final; the PK snapshot (85 KB) is likely an earlier pass or a partial export.
+2. If the PK snapshot turns out to be meaningfully labelable (e.g., "pass 3" or "wireframe v2"), rename it with a more descriptive suffix before committing — the staged state can be amended with another `git mv`.
+3. If no renaming needed, commit with suggested message: `chore(docs): archive Phase 7F wireframes (canonical + PK snapshot)`.
+4. After commit, nothing else to do — the old location stays empty (wireframes are archive-only content).
+
+**Surprises / Notes for Claude.ai:**
+- `git diff --stat` output includes a per-line insertion/deletion count that's smaller than the actual file line counts. Future prompts that need a "size of diff" check should prefer `wc -l` on both versions rather than inferring from `git diff --stat` numbers.
+
+---
+
 ## 2026-04-21 — Doc Maintenance: Absorb console.warn pattern into DOC_MAINTENANCE_PROCESS.md
 **Phase:** cross-cutting (doc maintenance)
 **Prompt from:** `docs/CC_START_PROMPT.md`
