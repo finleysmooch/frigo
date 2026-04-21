@@ -1,389 +1,309 @@
 # Frigo — Documentation Maintenance Process
-**Last Updated:** April 21, 2026  
-**Version:** 4.1
+**Last Updated:** April 21, 2026
+**Version:** 5.0
+**Status:** Active — reflects the repo-as-canonical workflow established 2026-04-20/21 and supersedes v4.0/v4.1.
 
 ---
 
-## The System in One Paragraph
+## 1. The System in One Paragraph
 
-Claude.ai is the planning brain — it makes decisions, maintains the **active phase doc** in project knowledge, and generates prompts for Claude Code. Claude Code is the execution hands — it builds things and reports back via **SESSION_LOG** in the repo, including recommendations for doc updates. Claude.ai reads the session log, reconciles execution results into the phase doc, and updates other living docs. At **weekly sync**, everything gets brought current. When a phase completes, deferred items get **reconciled** into the master backlog and the session log gets **archived** into the phase doc.
+Claude.ai owns planning and the living docs; Claude Code (CC) executes mechanical work and reports back via `SESSION_LOG.md`. The repo's `docs/` folder is canonical — git history is the preservation mechanism. Project knowledge (PK) is a working-set cache of ~10–12 files Claude.ai needs to search during active planning sessions, not a source of truth. Living doc updates propagate **repo → `_pk_sync/` → PK**, with Tom as the human in the loop who reviews commits and manually uploads to PK. Completed work — shipped phases, consumed CC prompts, absorbed handoffs, old session logs — moves to `docs/archive/` under topic subfolders.
 
 ---
 
-## The Planning → Execution → Reconciliation Loop
+## 2. The Planning → Execution → Reconciliation Loop
+
+The day-to-day rhythm has four steps:
+
+1. **Planning session (Claude.ai + Tom).** Claude.ai searches PK for context, proposes decisions, and writes them into the active phase doc immediately as they're made — not after the session. **When a decision implies updates to other living docs — a new deferred item → `DEFERRED_WORK.md`, a schema or architectural change → `FRIGO_ARCHITECTURE.md`, a phase-level status change → `PROJECT_CONTEXT.md`, a scope adjustment → `FF_LAUNCH_MASTER_PLAN.md` — Claude.ai flags these downstream updates explicitly in chat so Tom can queue the follow-up edits.** Small living-doc edits can be applied by Tom directly in chat; larger changes or any edit that needs an authoritative file operation go through a CC prompt.
+
+2. **CC prompt generation.** When execution is needed, Claude.ai drafts a structured prompt with six sections: **Context** (why this prompt exists), **Inputs to read** (exact file paths), **Task** (numbered steps), **Constraints** (what not to do), **Verification** (how to prove it worked), and the **SESSION_LOG entry format** for CC to fill in. Prompts are named `CC_PROMPT_YYYY-MM-DD_short-description.md` and shared via the outputs folder.
+
+3. **CC execution.** CC reads the prompt, executes the numbered steps in order, writes a `SESSION_LOG.md` entry under the dated header, and reports results in chat. **CC never authors strategic content** — only mechanical file operations, text insertions, git moves, and similar. Judgment calls about what something should say originate in Claude.ai planning and arrive at CC as explicit instructions.
+
+4. **Reconciliation (Claude.ai).** Claude.ai reads the SESSION_LOG entry, reconciles the results into the relevant living docs (either directly in chat or via a follow-up CC prompt), and hands a clear commit message to Tom. Tom commits and, if the edit touched a PK-resident doc, uploads the staged copy from `_pk_sync/` to PK.
+
+Flow diagram:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  CLAUDE.AI (planning brain — owns all living docs)      │
-│                                                         │
-│  1. DECIDE — Design and architecture decisions          │
-│     → Write into active phase doc                       │
-│                                                         │
-│  2. DELEGATE — Generate Claude Code prompts             │
-│     → Include full context, constraints, decisions      │
-│                                                         │
-│  3. RECONCILE — Read SESSION_LOG after execution        │
-│     → Update phase doc with progress + new decisions    │
-│     → Act on doc update recommendations                 │
-│     → Update ARCHITECTURE, PROJECT_CONTEXT as needed    │
-│                                                         │
-└──────────────┬──────────────────────────▲───────────────┘
-               │ prompts                  │ SESSION_LOG
-               ▼                          │
-┌─────────────────────────────────────────────────────────┐
-│  CLAUDE CODE (execution hands — writes only SESSION_LOG)│
-│                                                         │
-│  4. EXECUTE — Build what was asked                      │
-│     → Read ARCHITECTURE for context                     │
-│     → Read DEFERRED_WORK only if prompt references it   │
-│     → Write SESSION_LOG: what happened, decisions,      │
-│       deferred items, recommended doc updates           │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+[Tom + Claude.ai planning]
+    ↓ writes decisions
+[Active phase doc]
+    ↓ when execution needed
+[CC prompt drafted by Claude.ai]
+    ↓ fires at
+[Claude Code]
+    ↓ executes, writes to
+[SESSION_LOG + _pk_sync/ + repo files]
+    ↓ reported back to
+[Claude.ai reconciles into living docs]
+    ↓ Tom commits, uploads to PK
 ```
 
 ---
 
-## Doc Ownership
+## 3. Claude.ai Session Types
 
-| Doc | Owner | Claude Code | Updated When |
-|-----|-------|-------------|--------------|
-| **Active phase doc** | Claude.ai | — (receives goals via prompts) | During planning + reconciliation |
-| **SESSION_LOG** | Claude Code | ✍️ Writes entries | After every execution session |
-| **FRIGO_ARCHITECTURE** | Claude.ai | 📖 Reads for context | Weekly sync (based on SESSION_LOG recommendations) |
-| **PROJECT_CONTEXT** | Claude.ai | 📖 Reads for context | Weekly sync or at phase completion |
-| **DEFERRED_WORK** | Claude.ai | 📖 Only if referenced in prompt | At phase completion (reconciliation from phase doc) |
+Claude.ai sessions that produce structured output fall into three shapes. Tom declares the type in the opening message and it scopes the work for that chat. The types enforce coherence when a session is producing new content, decisions, or structural changes — ad-hoc questions, exploration, and debugging don't require the discipline.
 
-**Key principle:** Claude Code reads ARCHITECTURE for context every session but never edits living docs. It reads DEFERRED_WORK only when the Claude.ai prompt references specific items. It flags what needs updating via SESSION_LOG recommendations. Claude.ai makes all doc edits with full context of why changes matter.
+### Phase planning session
+Deep on one phase. Proposes decisions, writes them into the active phase doc, generates CC prompts, reconciles SESSION_LOG entries. Multiple contiguous phase planning steps can share one Claude.ai instance — fresh instance spin-up is costly, and phase context benefits from continuity.
 
----
+### Cross-cutting session
+Doc maintenance, workflow changes, archive operations, PK pruning, living-doc rewrites — any work that produces new content or structural changes outside a single phase. Usually a fresh instance, because cross-cutting work benefits from perspective over recent phase context.
 
-## Where Everything Lives
+### Oversight session
+Bounded review of existing work. Reads a specific deliverable (a completed phase, a rewritten living doc, a workflow change) and produces a structured report — not new edits. Used when active verification is needed that something landed correctly. Always a fresh instance. **Read-only by discipline:** oversight observes and reports; recommended edits flow back to Tom for approval and to a follow-up phase planning or cross-cutting session for execution.
 
-### Claude.ai Project Knowledge — Planning home (Claude.ai reads and writes)
-| File | Purpose | Updated |
-|------|---------|---------|
-| **Active phase doc** | Current phase: goals, decisions, progress, deferred items | During planning + after reconciliation |
-| `PROJECT_CONTEXT.md` | Onboarding: what Frigo is, what works, what's next | Weekly sync or at phase completion |
-| `FRIGO_ARCHITECTURE.md` | Codebase map, data model, patterns (copy from repo) | Weekly sync |
-| `DEFERRED_WORK.md` | Master backlog (copy from repo) | At phase completion |
-| `DOC_MAINTENANCE_PROCESS.md` | This document | When process changes |
-| Feature specs | MEALS_*, SHARED_PANTRIES_*, etc. | Rarely |
-| Active plan docs | NUTRITION_UI_PROJECT_PLAN, etc. | Per phase |
-| Code files (.tsx, .ts) | Latest source copies | After significant changes |
-| DB schema CSVs | Supabase snapshots | After migrations |
-| Archived session logs | `_SESSION_LOG_PHASE{N}.md` — historical reference | At phase completion |
+### Session opening pattern
 
-### Repo (`docs/`) — Execution home (Claude Code reads; writes only SESSION_LOG)
-| File | Purpose | Updated |
-|------|---------|---------|
-| `_SESSION_LOG.md` | Current phase execution reports | After every Claude Code session |
-| `_SESSION_LOG_PHASE{N}.md` | Archived session logs from completed phases | At phase completion (renamed from active log) |
-| `FRIGO_ARCHITECTURE.md` | Codebase map (canonical copy) | By Tom after Claude.ai produces updates |
-| `DEFERRED_WORK.md` | Master backlog (canonical copy) | By Tom after phase completion reconciliation |
-| `README.md` | Index of docs/ | When files added |
-| `doc-ecosystem.html` | Visual doc map (for Tom) | Occasionally |
-| `CLAUDE.md` (repo root) | Claude Code instructions | When conventions change |
+Tom opens each new chat with a one-line declaration:
 
-**Repo → Project Knowledge sync:** Tom pushes Claude.ai's updates to the repo copies of ARCHITECTURE and DEFERRED_WORK. These are the canonical copies; project knowledge has duplicates for Claude.ai access.
+> Frigo project. **Session type:** [phase planning / cross-cutting / oversight]. **Scope:** [specific goal].
 
-### External (Google / Notion)
-| Tool | Purpose | Updated |
-|------|---------|---------|
-| **Notion** | Product roadmap, feature priorities | When starting/completing phases |
-| **FRIGO_TRACKER** (Sheets) | Shipped code log | After commits / weekly sync |
-| **Claude Shared Reference** (Docs) | Annotated DB schema | After migrations |
+Examples:
+- *Frigo project. Session type: phase planning. Scope: Phase 8A pantry UX overhaul — scope it, propose sub-checkpoints, draft first CC prompt.*
+- *Frigo project. Session type: cross-cutting. Scope: refresh `FRIGO_ARCHITECTURE.md` to reflect Phase 7 shipped state.*
+- *Frigo project. Session type: oversight. Scope: audit `DOC_MAINTENANCE_PROCESS` v5.0 for internal consistency and cross-reference accuracy. Structured report only; do not re-author.*
 
-### Should NOT be in project knowledge
-- Multiple versions of the same doc (only keep current)
-- Old code file versions (only keep latest)
-- Superseded handoff docs (already distilled)
+The instance adopts that scope for the duration. If the session drifts into non-scope territory, either re-scope explicitly or spin up a new instance.
 
----
+### Chat title convention
 
-## During Sessions
+Each chat's title should be prefixed with the session type in square brackets:
 
-### Claude.ai Planning Sessions
-1. **Read** the active phase doc and relevant context (ARCHITECTURE, specs, code files)
-2. **Make decisions** → write them into the phase doc immediately
-3. **Generate Claude Code prompts** when execution is needed (see Prompt Format below)
-4. **After Claude Code runs**, read SESSION_LOG and reconcile:
-   - Update phase doc with execution results
-   - Act on recommended doc updates (ARCHITECTURE, etc.)
-   - Capture new deferred items in phase doc
-   - Update goal status
+- `[phase planning] Phase 8A pantry UX scoping`
+- `[cross-cutting] FRIGO_ARCHITECTURE refresh`
+- `[oversight] DOC_MAINTENANCE v5.0 audit`
 
-### Claude Code Execution Sessions
-1. **Read** `CLAUDE.md`, `docs/FRIGO_ARCHITECTURE.md`, and the prompt from Claude.ai
-2. **Read** `docs/DEFERRED_WORK.md` only if the prompt references specific items from it
-3. **Execute** the work
-4. **Write a detailed SESSION_LOG entry** (see format below — this is the critical handoff)
-5. **Do not edit** ARCHITECTURE, DEFERRED_WORK, or other living docs
+Keeps the chat list scannable by type when multiple threads are in flight. When the instance confirms the session type, it suggests a title in this format for Tom to apply. Ad-hoc chats without a declared type don't need the bracketed prefix — a regular descriptive title is fine.
+
+### When the session type isn't declared
+
+If Tom opens with freehand text that doesn't explicitly declare a session type, Claude.ai proposes the framing that best fits the opening. For structured work, that's one of the three types:
+
+> Quick check: this reads as a **[proposed type]** session — [one-line reason from the opening]. Confirm, or should I treat it as a different type?
+
+For ad-hoc work (quick questions, exploration, debugging, ideation), Claude.ai flags that no type fits and proceeds:
+
+> Quick note: this reads as an ad-hoc / exploratory chat rather than a structured session, so I'll proceed without a formal type. Say if you want me to treat it more formally.
+
+Committing to a reading — typed or not — rather than asking open-ended forces the instance to frame the request; Tom confirms, overrides, or accepts the no-type framing with one word. If the scope is also unclear, include a scope clarification in the same message so Tom only has to respond once.
+
+### Recommended oversight cadences
+
+- **Phase-boundary oversight.** At the end of each phase, review the completed phase doc, updated living docs, and the last ~10 SESSION_LOG entries. Report alignment between decisions and execution, cross-cutting concerns that were missed, and recommended focus for the next phase.
+- **Major doc rewrite audit.** After any full rewrite of a living doc, audit for internal consistency and cross-reference accuracy before the doc is considered settled.
+- **Mid-phase drift check (on demand).** If a phase planning session is re-deriving settled decisions or hitting context limits, an oversight pass can diagnose whether the phase doc needs consolidation.
+
+### What makes an oversight session work
+
+- **Explicit scope AND explicit non-scope.** "Audit X for internal consistency" paired with "do not re-author, do not start new work."
+- **Structured deliverable.** The output is a report: "Alignment: [findings] / Drift: [findings] / Missing: [findings] / Recommendations: [findings]." Not rambling prose.
+- **Read-only orientation.** Any change needed flows back to Tom for approval, then to a follow-up phase planning or cross-cutting session for execution.
 
 ---
 
-## SESSION_LOG Entry Format
+## 4. Where Everything Lives — PK vs Repo vs Drive
 
-The session log is the contract between Claude Code and Claude.ai. Entries must be detailed enough for Claude.ai to update all living docs without guessing.
+This is the single most important rule in v5.0: **the repo is canonical, PK is a cache, Drive is optional.** Internalize this before anything else.
+
+### Layer 1 — Repo (`docs/`): CANONICAL
+
+Every living doc, every committed wireframe, every archived phase doc. Git history is the preservation mechanism. The repo is the source of truth.
+
+**What lives here:**
+- Living docs: `PROJECT_CONTEXT.md`, `FRIGO_ARCHITECTURE.md`, `FF_LAUNCH_MASTER_PLAN.md`, `DEFERRED_WORK.md`, `DOC_MAINTENANCE_PROCESS.md`, `PROCESS_WATCHPOINTS.md`, and the active phase doc (all in `docs/`); `CLAUDE.md` at repo root
+- Archived phase docs: `docs/archive/phases/`
+- Archived CC prompts: `docs/archive/prompts/`
+- Archived handoffs: `docs/archive/handoffs/`
+- Archived session logs: `docs/archive/session_logs/`
+- Archived design decisions: `docs/archive/design_decisions/`
+- Archived wireframes: `docs/archive/wireframes/`
+- The `_pk_sync/` workflow folder at repo root (staging only, most contents gitignored)
+
+### Layer 2 — Project Knowledge (PK): WORKING SET
+
+A cache of ~12–14 files that Claude.ai searches during active planning sessions. **PK is not canonical** — it's a search index over the subset of docs that benefit from being searchable in-session.
+
+**Current essentials in PK (9):**
+- `PROJECT_CONTEXT.md`
+- `FRIGO_ARCHITECTURE.md`
+- `FF_LAUNCH_MASTER_PLAN.md`
+- `DEFERRED_WORK.md`
+- `DOC_MAINTENANCE_PROCESS.md`
+- `PROCESS_WATCHPOINTS.md` — retrospective working doc. In PK so Claude.ai can review open watchpoints during oversight passes and when introducing new process mechanics.
+- The active phase doc
+- The warm previous phase doc (per the warm-one-phase rule in Section 6)
+- `CLAUDE.md` — the CC-facing entry point. Lives in PK so Claude.ai can audit it for drift against `DOC_MAINTENANCE_PROCESS.md` without needing a CC read cycle.
+
+**Strongly recommended in PK (5):**
+- Schema CSV (`Supabase_Snippet_Supabase_Frigo_DB_Structure_Query_22.csv`)
+- Product Feature Roadmap CSV
+- `CONCEPT_FLEXIBLE_MEAL_PLANNING.md` (or whichever phase-adjacent feature spec is currently in play)
+- `SHARED_PANTRIES_FEATURE_SPEC.md` (or current equivalent)
+- `Frigo_Wireframes_Companion.pdf`
+
+**What does NOT belong in PK:**
+- Code files. The old "mirror code in PK" convention is retired — code lives in the working tree; CC reads it directly.
+- Icon components
+- Completed CC prompts
+- Old handoff docs
+- Archived phase docs (Phases 1–6 and similar — they're in the repo archive)
+- Wireframe HTMLs
+- Recipe extraction reference JSONLs unless that work is imminent
+
+**The rule: if Claude.ai doesn't need to search a file during a current-phase planning session, it doesn't belong in PK.** When in doubt, cut from PK — it's cheap to re-add.
+
+### Layer 3 — Google Drive: OPTIONAL
+
+Drive's role is interactive-viewing convenience for artifacts the repo can't render well. Today that's essentially nothing — HTML wireframes render fine from local files, and PDFs render from repo downloads.
+
+**What belongs in Drive:** TBD. No active use case currently. Leave as an option for future — e.g., sharing a wireframe HTML via URL with a non-technical collaborator.
+
+**What doesn't belong in Drive:** living docs (canonical in repo), PK content (cached in PK), code (in repo).
+
+### The Propagation Pattern
+
+When a living doc is updated:
+
+1. CC edits the file in its canonical repo location (usually `docs/`; CLAUDE.md lives at repo root) and updates its `Last Updated` header to today's date
+2. CC drops an identical copy in `_pk_sync/FILE_YYYY-MM-DD.md` using that same date
+3. Tom reviews and commits the repo change
+4. Tom manually uploads `_pk_sync/FILE_YYYY-MM-DD.md` to PK and deletes the previously dated copy from PK
+5. Tom deletes the file from `_pk_sync/` (keeping `.gitkeep`)
+
+This keeps PK in lockstep with the repo without requiring Claude.ai or CC to have write access to PK. The date stamp on the PK filename makes staleness visible at a glance — if PK shows `PROJECT_CONTEXT_2026-04-21.md` but the repo header reads `April 25, 2026`, PK is behind.
+
+---
+
+## 5. The `_pk_sync/` Workflow Folder
+
+**Location:** repo root (`_pk_sync/`), gitignored except for `.gitkeep`.
+
+**Purpose:** CC drops updated living docs here. Tom uploads them to PK. Tom empties the folder after upload.
+
+**Rules:**
+- **Only living docs go here.** Not phase docs that are staying in the repo, not archived content, not reference CSVs — just the files in active PK that have been updated in the repo and need their PK copies replaced.
+- **Filenames include a date stamp.** `_pk_sync/PROJECT_CONTEXT_2026-04-21.md` — the date matches the `Last Updated` header in the file. Repo filenames stay canonical (`docs/PROJECT_CONTEXT.md`); only the `_pk_sync/` copy and the PK copy carry the suffix. Surfaces PK staleness at a glance: if PK shows a date that doesn't match the repo header, PK is behind.
+- **If a file sits in `_pk_sync/` for more than a day,** that's a signal to Tom to either complete the upload or flag that the upload isn't happening.
+- **Tom clears `_pk_sync/` after each successful PK upload.** Empty + `.gitkeep` is the idle state.
+
+**Not in scope for this folder:**
+- Staging for Drive (no Drive use case yet)
+- Staging for repo commits — CC commits the repo copy directly to `docs/`, not via `_pk_sync/`
+
+---
+
+## 6. Archive Structure and Lifecycle
+
+The archive went live on 2026-04-21. Its job is active preservation of consumed artifacts, not historical completeness.
+
+### Subfolders under `docs/archive/`
+
+- **`phases/`** — completed phase docs (Phases 1–6, `PHASE_7I_MASTER_PLAN` after absorption, `PHASE_RECIPE_DISCOVERY`; `PHASE_7` moves here when Phase 8 ships)
+- **`handoffs/`** — completed handoff docs and consolidated change lists
+- **`prompts/`** — consumed CC prompts (going forward; not backfilled)
+- **`session_logs/`** — archived session logs at phase boundaries (going forward)
+- **`design_decisions/`** — design-decision docs (e.g., `PHASE_7F_DESIGN_DECISIONS.md` if recovered)
+- **`wireframes/`** — wireframe HTMLs (currently holds the 7F canonical plus an earlier iteration)
+
+### Lifecycle Rules
+
+**Warm-one-phase rule:** the most recently completed phase doc stays at top-level `docs/` until the next phase ships (and remains in PK per Section 4's working set). Recent phase decisions are usually still active references during the early work on the next phase. When Phase N+1 ships, Phase N is removed from both layers in one transition — archived to `docs/archive/phases/` in the repo and deleted from PK.
+
+**Clean-break rule (new in v5.0):** the archive is populated from 2026-04-21 forward. **Historical artifacts consumed before that date — old CC prompts, old handoffs, early session logs — were not backfilled from PK.** The clean break keeps the archive focused on active preservation rather than becoming a digital attic of everything that ever existed.
+
+**When to archive:**
+- A phase ships → the phase doc moves to `phases/` at the next phase boundary (per warm-one rule)
+- A CC prompt is consumed and its outcomes are absorbed into the relevant phase doc → prompt moves to `prompts/` in a separate commit from the absorption
+- A handoff doc is absorbed into living docs → moves to `handoffs/`
+- A session log rolls over at a phase boundary → the old log is archived, a fresh one starts
+
+**When NOT to archive:**
+- Don't archive something that's still actively referenced in a current phase doc. Wait until the references are cleaned up or the containing phase ships.
+- Don't archive a CC prompt before its SESSION_LOG entry has been reconciled into the relevant phase doc.
+
+**Deleting from PK after archiving:** once the archive move is committed in the repo, the PK copy of that file is safe to delete. The archive is the preservation; PK just stops needing it.
+
+### Naming Conventions Inside the Archive
+
+- Phase docs: preserve the original filename (`PHASE_N_DOMAIN.md`)
+- Handoffs: preserve original filename with date (`DOC_UPDATES_CONSOLIDATED_YYYY-MM-DD.md`)
+- CC prompts: preserve original filename (`CC_PROMPT_YYYY-MM-DD_short-description.md`)
+- Wireframes: when there are multiple versions, use a suffix — `_canonical`, `_earlier_iteration`, `_passN`, or a descriptive label
+
+---
+
+## 7. Living Docs Ownership
+
+| Doc | Owner | Edited by |
+|---|---|---|
+| `PROJECT_CONTEXT.md` | Claude.ai | Claude.ai directly, or via targeted CC prompts |
+| `FRIGO_ARCHITECTURE.md` | Claude.ai | Claude.ai via CC prompts (requires reading current code) |
+| `FF_LAUNCH_MASTER_PLAN.md` | Claude.ai | Claude.ai directly, or via targeted CC prompts |
+| `DEFERRED_WORK.md` | Claude.ai | Claude.ai at phase-completion reconciliations |
+| `DOC_MAINTENANCE_PROCESS.md` | Claude.ai | Claude.ai directly |
+| `PROCESS_WATCHPOINTS.md` | Claude.ai | Claude.ai directly, typically at oversight passes or when introducing new process mechanics |
+| `CLAUDE.md` (repo root) | Claude.ai | Claude.ai via CC prompts; CC-facing mirror (Claude.ai uses `DOC_MAINTENANCE_PROCESS.md` directly as the canonical source) |
+| Active phase doc | Claude.ai | Claude.ai every planning session |
+| `SESSION_LOG.md` | Claude Code | CC writes; no one else writes |
+
+**CC never authors strategic content.** CC can apply specific edits — add this row to this table, insert this section before that one, update this header's metadata — but it does not decide *what* the edits should say. Strategic content originates in Claude.ai planning and flows to CC as explicit instructions.
+
+Reference specs (e.g., `CONCEPT_FLEXIBLE_MEAL_PLANNING.md`, `SHARED_PANTRIES_FEATURE_SPEC.md`) are Claude.ai-owned but updated only when their relevant phase becomes active. They're not in the table above because they don't get touched during normal operation — they sit as frozen design references until we're building them.
+
+**CC-facing files promoted to PK** (currently `CLAUDE.md`) must include audience framing so Claude.ai instances reading them from PK don't mistake CC-directed rules for their own. Required elements:
+
+- A top-of-file italic block identifying the intended reader and directing non-CC readers to the canonical source
+- An audience-scope reminder at the top of any mirrored rules section, restating that the rules apply to CC only
+
+`CLAUDE.md` is the current exemplar — see its top-of-file block and the opener to its Standing Rules section. Apply the same pattern to any future CC-facing file promoted to PK.
+
+---
+
+## 8. SESSION_LOG Conventions
+
+**Location:** `docs/SESSION_LOG.md`
+**Owner:** Claude Code. Claude.ai reads; Claude.ai does not write.
+**Archival:** at phase completion, the current log is renamed to `docs/archive/session_logs/_SESSION_LOG_PHASE{N}.md` and a fresh `SESSION_LOG.md` starts.
+
+**Entry format:**
 
 ```markdown
-### YYYY-MM-DD — [Brief Title]
-**Phase:** [which phase, or "cross-cutting"]
-**Prompt from:** [brief description of what Claude.ai asked for]
+## YYYY-MM-DD — [Phase/area] [Short description]
+**Phase:** [phase identifier, or "cross-cutting"]
+**Prompt from:** [CC_PROMPT filename, or "Claude.ai direct"]
 
-**Files created:**
-- [file] — [purpose and key design choices]
-
-**Files modified:**
-- [file] — [what changed and why]
-
-**DB changes:** [migrations, schema changes, or "none"]
-
-**Decisions made during execution:**
-- [Decision]: [Why — especially anything not specified in the prompt]
-
-**Deferred during execution:**
-- [Item]: [Why deferred, what would be needed]
+[Body: what was done, files touched, verification results, surprises/notes]
 
 **Recommended doc updates:**
-- ARCHITECTURE: [what to add/change and why it matters]
-- DEFERRED_WORK: [any items that should be tracked]
-- PROJECT_CONTEXT: [any changes to "what works" or known issues]
+- `FRIGO_ARCHITECTURE.md`: [specific update needed, or "none"]
+- `DEFERRED_WORK.md`: [specific update needed, or "none"]
+- `PROJECT_CONTEXT.md`: [specific update needed, or "none"]
+- `FF_LAUNCH_MASTER_PLAN.md`: [specific update needed, or "none"]
 
-**Status:** [What's working, what needs testing, blockers]
+**Recommended next steps for Tom:**
+[...]
 
 **Surprises / Notes for Claude.ai:**
-- [Anything unexpected that affects planning]
+[...]
 ```
 
-The **"Recommended doc updates"** section is where Claude Code flags what it knows from the implementation that Claude.ai should incorporate. Claude Code has the implementation detail; Claude.ai has the big-picture context to write the update well.
+**Key rules:**
+- **One entry per prompt execution, not per commit.** A prompt that produces three commits gets one SESSION_LOG entry that lists all three.
+- **Include the `git status` snapshot for any non-trivial file operation.** Especially renames, moves into archive, and `_pk_sync/` staging.
+- **Include verification results explicitly.** "Done" is not verification. "`git ls-files docs/archive/phases/PHASE_6_COOKING_MODE.md` returns the path" is verification.
+- **Flag discrepancies between prompt assumptions and actual state.** If the prompt says "the file is at X" and it's actually at Y, stop and note it rather than improvising.
+- **Always include the "Recommended doc updates" block.** List each living doc explicitly, even if "none." Forces active consideration rather than implicit skipping; makes doc-cascade misses visible to Claude.ai during reconciliation.
 
 ---
 
-## Active Phase Doc Template
+## 9. Patterns for CC Prompts
 
-Lives in Claude.ai project knowledge. One active at a time.
+The following patterns have accumulated in recent work. New patterns get added here as they're established.
 
-```markdown
-# Phase N: [Name]
-**Notion features:** #XX, #YY
-**Started:** [date]
-**Status:** 🔨 Active
-
----
-
-## Goals
-[What this phase is trying to accomplish — success criteria]
-
-## Features Delivered (Roadmap Mapping)
-Map completed work to Product Feature Roadmap entries at phase completion.
-| Roadmap # | Feature | Status Before | Status After | Notes |
-
-## Plan
-[Approach, components needed, dependencies. Updated as decisions are made.]
-
-## Decisions Log
-| Decision | Rationale | Date | Origin |
-|----------|-----------|------|--------|
-| [decision] | [why] | [date] | Planning / Execution |
-
-Origin tracks whether the decision was made during planning (Claude.ai) or
-surfaced during execution (Claude Code via SESSION_LOG).
-
-## Progress
-Updated after each Claude Code session via reconciliation.
-
-### [Date] — [Brief title]
-**What was done:** [summary from SESSION_LOG]
-**SESSION_LOG ref:** [date and title of entry]
-**Deviations from plan:** [anything that went differently]
-**Status:** [what works, what needs testing]
-
-## Deferred Items
-Items punted during this phase. Reviewed and reconciled into
-DEFERRED_WORK.md at phase completion.
-
-| Item | Type | Origin | Notes |
-|------|------|--------|-------|
-| [description] | 🐛/💡/🔧/🚀 | [session date] | [context] |
-
-## Files Changed (cumulative)
-**New:** [file — purpose]
-**Modified:** [file — what changed]
-**DB/Supabase:** [migrations, schema changes]
-
-## Session Log Archive
-[Added at phase completion]
-All session log entries archived in `docs/_SESSION_LOG_PHASE{N}.md`.
-
-## Claude Code Prompts Issued
-Optional — summarize key prompts for traceability.
-```
-
----
-
-## How Claude.ai Generates Claude Code Prompts
-
-When Claude.ai needs execution, produce a prompt with:
-
-1. **Context:** What phase, what's been decided, relevant constraints
-2. **Task:** Specific build instructions
-3. **Constraints:** Decisions already made — don't re-decide these
-4. **Watch for:** Known risks or edge cases to flag in SESSION_LOG
-5. **SESSION_LOG reminder:** "Write a detailed SESSION_LOG entry including decisions made, anything deferred, and recommended doc updates."
-
-Example:
-```
-## Context
-Phase 4 (Cooking Stats Dashboard). We've decided on weekly aggregation
-for streak calculation using ISO week numbers.
-
-## Task
-Create statsService.ts with:
-- getCookingFrequency(userId, dateRange) → weekly counts
-- getCookingStreak(userId) → current and longest streak
-
-## Constraints
-- Use ISO weeks (Monday start), not calendar weeks
-- Query posts table directly, no new aggregation table
-- Follow existing service patterns (see pantryService.ts)
-
-## Watch for
-- Month boundary edge cases — note specifics in SESSION_LOG
-- Performance with 1,740 test posts — flag if queries > 500ms
-
-## After completion
-Write a detailed SESSION_LOG entry. Include decisions you made,
-anything deferred, and recommended updates to ARCHITECTURE or
-other docs.
-```
-
----
-
-## Weekly Sync (30 min)
-
-Start a Claude.ai session with:
-
-```
-Weekly sync time. Please:
-1. Here are SESSION_LOG entries since last sync: [paste]
-2. Read the active phase doc and PROJECT_CONTEXT
-3. Reconcile any unprocessed SESSION_LOG entries into the phase doc
-4. Act on any recommended doc updates (ARCHITECTURE, etc.)
-5. Update PROJECT_CONTEXT if what works / known issues / metrics changed
-6. Flag anything in project knowledge to remove
-```
-
-### Checklist
-
-**1. Gather inputs** (5 min)
-- Copy unprocessed SESSION_LOG entries from repo
-- Note any Claude.ai sessions since last sync
-
-**2. Reconcile into phase doc** (10 min)
-- Incorporate SESSION_LOG entries not yet reflected
-- Update progress, decisions, deferred items
-
-**3. Update living docs** (10 min)
-- **ARCHITECTURE** — act on Claude Code's recommended updates
-- **PROJECT_CONTEXT** — "What Works", "Known Issues", "What's Next", metrics
-
-**4. Sync** (5 min)
-- Upload updated docs to project knowledge
-- Upload new/modified code files
-- Push ARCHITECTURE updates to repo
-- Remove outdated files from project knowledge
-
-**5. Tracking + git** (5 min)
-- Update FRIGO_TRACKER
-- Clear processed SESSION_LOG entries
-
----
-
-## Phase Completion
-
-### 1. Finalize the phase doc
-- Add final progress entry, mark ✅ Complete with date
-- Add "Features Delivered (Roadmap Mapping)" section — map completed work to Product Feature Roadmap entries
-
-### 2. Reconcile deferred items
-Review the phase doc's "Deferred Items":
-- **Resolved?** → Remove
-- **Still relevant?** → Move to `docs/DEFERRED_WORK.md` under "From: Phase N"
-- **Not worth tracking?** → Drop
-
-Push updated DEFERRED_WORK.md to repo. Upload copy to project knowledge.
-
-### 3. Archive session log
-- Rename `docs/_SESSION_LOG.md` → `docs/_SESSION_LOG_PHASE{N}.md`
-- If the log spans multiple phases, note this in the archive file header
-- Create fresh `docs/_SESSION_LOG.md` with just the header template
-- Add archive reference in the completed phase doc ("Session log archived in `docs/_SESSION_LOG_PHASE{N}.md`")
-- Upload archived log to Claude.ai project knowledge alongside the phase doc
-
-### 4. Update FRIGO_ARCHITECTURE
-- Add new services, screens, components, patterns from this phase
-- Push to repo
-
-### 5. Update PROJECT_CONTEXT
-- Phase → ✅ Complete in Project Vision table
-- Update "What Works", "Known Issues", "What's Next", metrics
-
-### 6. External tools
-- **Notion:** Mark features shipped, add new ideas
-- **FRIGO_TRACKER:** Ensure all code logged
-
-### 7. Start next phase
-- Create new active phase doc from template
-- Seed with goals from plan docs + Notion
-- Upload to project knowledge
-
----
-
-## Naming Conventions
-
-- **Living docs (no date):** `FRIGO_ARCHITECTURE.md` — overwrite in place
-- **Active phase doc:** `PHASE_4_COOKING_STATS.md` — descriptive name
-- **Dated snapshots:** `PROJECT_CONTEXT_02MAR26.md` — date when replacing in project knowledge
-- **Session log (active):** `_SESSION_LOG.md` — single rolling file, newest entries at top
-- **Session log (archived):** `_SESSION_LOG_PHASE4.md` — archived at phase completion, may span multiple phases if logged together
-- **Code files in project knowledge:** Repo filename, latest version only
-
----
-
-## Information Flow Summary
-
-```
-PLANNING (Claude.ai):
-  Decisions → active phase doc
-  Execution needs → Claude Code prompts (with full context)
-
-EXECUTION (Claude Code):
-  Reads: ARCHITECTURE, CLAUDE.md, prompt (+ DEFERRED_WORK only if prompt references it)
-  Writes: SESSION_LOG only (with doc update recommendations)
-
-RECONCILIATION (Claude.ai, after execution):
-  SESSION_LOG → phase doc (progress, decisions, deferred)
-  SESSION_LOG recommendations → ARCHITECTURE, CONTEXT, etc.
-
-WEEKLY SYNC (Claude.ai):
-  Unprocessed SESSION_LOG + phase doc → all living docs current
-  Updated docs → project knowledge + repo
-
-PHASE COMPLETION (Claude.ai):
-  Phase doc finalized (features delivered, deferred reconciled)
-  Session log archived → _SESSION_LOG_PHASE{N}.md
-  Phase doc deferred items → DEFERRED_WORK (reconciled)
-  Phase summary → PROJECT_CONTEXT
-  New patterns → ARCHITECTURE
-  Shipped features → Notion
-```
-
----
-
-## Patterns for CC Prompts
-
-### Console.warn instrumentation (added 2026-04-15)
+### Console.warn instrumentation (established 2026-04-15)
 
 When CC ships editing or mutation affordances (overflow menu items, inline edits, modal-driven writes), the prompt should instruct CC to add temporary `console.warn` instrumentation that logs:
 
@@ -397,7 +317,84 @@ This enables Tom to see what happened during on-device testing without needing t
 
 **Lifecycle:** instrumentation is temporary. It gets removed during the cleanup pass at the end of a sub-phase, or when a later sub-phase replaces the editing scaffolding. CC should not leave console.warn calls behind after the feature ships to F&F.
 
-*(Absorbed 2026-04-21 from `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` Section 7. Preserved here pending the full DOC_MAINTENANCE_PROCESS rewrite.)*
+### `_pk_sync/` staging for living-doc edits (established 2026-04-21)
+
+When a CC prompt edits a living doc, the prompt should also instruct CC to drop a copy in `_pk_sync/FILENAME.md` so Tom can upload to PK after reviewing the repo commit. Skipping the `_pk_sync/` step means PK drifts from the repo until someone notices.
+
+### File-state verification before git operations (established 2026-04-21)
+
+When a prompt is about to `git mv` a file, it should first check the file's tracking state:
+
+```bash
+git ls-files --error-unmatch path/to/file
+```
+
+If tracked → `git mv`. If untracked or in a deleted state → plain `mv` + `git add`. **Never assume tracking state from filename heuristics.** CC has been burned by this: a file that "looks tracked" may have been untracked since an earlier rename, and `git mv` on an untracked file fails silently in some shells.
+
+### STOP-if-not-findable constraints (established 2026-04-21)
+
+When a prompt depends on external source content — a file Tom dropped in, a PK upload, a specific artifact in `_pk_sync/` — the prompt should explicitly say:
+
+> If the source is missing, STOP and report. Do not improvise.
+
+This prevents silent data loss when an assumption doesn't hold. CC's default tendency is to keep going and produce *something*; the explicit STOP instruction overrides that.
+
+### Do-not-decide constraints on mechanical prompts (established 2026-04-21)
+
+When the prompt is mechanical — move these files, rename these columns, splice this block — explicitly forbid CC from making judgment calls about content. Example language:
+
+> Do not attempt to decide which version is better or rename them based on content. Use the filenames specified in this prompt.
+
+Tom or Claude.ai makes content judgments separately. CC's job on a mechanical prompt is to execute exactly as specified.
+
+---
+
+## 10. Phase Completion Checklist
+
+When a phase ships, run this checklist in order. Steps 1–6 update living docs; 7–9 archive; 10–13 commit, upload, and prepare the next phase; 14 is a recommended oversight closeout.
+
+1. Mark the phase status **✅ Complete** in the phase doc header.
+2. Reconcile deferred items: resolved items dropped, remaining items moved to `DEFERRED_WORK.md` under a new "From: Phase N" section.
+3. Update `DEFERRED_WORK.md` changelog with the version bump.
+4. Update `PROJECT_CONTEXT.md`: flip phase status to ✅ Complete in the Project Vision table, add a "What Works" subsection describing the shipped capability, add a Changelog row.
+5. Update `FF_LAUNCH_MASTER_PLAN.md`: mark the phase complete in the phase table, add a Changelog row.
+6. Update `FRIGO_ARCHITECTURE.md`: add a Recent Breaking Changes entry if any architectural changes landed, update file references, add a Changelog row.
+7. **Archive the previous warm phase doc** — the one that was sitting at top-level `docs/` before this one shipped — by moving it to `docs/archive/phases/`.
+8. **Archive `SESSION_LOG.md`** — rename the current log to `docs/archive/session_logs/_SESSION_LOG_PHASE{N}.md` and start a fresh `SESSION_LOG.md`.
+9. Archive any consumed CC prompts that were specific to this phase (`docs/archive/prompts/`).
+10. Commit all of the above — split across multiple commits for clarity if the changes are large.
+11. Upload updated living docs via `_pk_sync/` to PK, replacing the stale copies.
+12. Update the project custom instructions if the active phase pointer needs to change (e.g., "Phase 8" → "Phase 9").
+13. Create the next phase doc scaffold, or confirm it already exists, before the next planning session.
+14. **Recommended: schedule a phase-boundary oversight pass.** A fresh Claude.ai instance, declared as an oversight session, reviews the completed phase doc, updated living docs, and the last ~10 SESSION_LOG entries. Reports alignment between decisions and execution, cross-cutting concerns that were missed, and recommended focus for the next phase. Review the report before Phase N+1 kickoff when scope warrants — not a hard gate.
+
+---
+
+## 11. Weekly Sync
+
+Light-touch weekly review. Check that the active phase doc's progress matches the actually-shipped work, scan `DEFERRED_WORK.md` for items that have become irrelevant, and confirm `SESSION_LOG.md` is being written cleanly. No changes from v4.1.
+
+---
+
+## 12. Feature Playbook Convention
+
+When a feature accumulates **≥2 design iterations** or significant testing feedback, create or update a playbook in `docs/playbooks/`. Playbooks capture distilled design decisions for a single feature in one place — useful when the feature's design history is scattered across multiple phase docs or session logs. No changes from v4.1.
+
+---
+
+## 13. Naming Conventions
+
+Consolidated here in v5.0. Individual sections above repeat the relevant subset; this section is the authoritative reference.
+
+- **CC prompts:** `CC_PROMPT_YYYY-MM-DD_short-description.md`
+- **Phase docs:** `PHASE_N_DOMAIN.md` where N is the phase number and DOMAIN is 2–4 words in `SNAKE_UPPER` (e.g., `PHASE_8_PANTRY_INTELLIGENCE.md`)
+- **Sub-phase letters:** when a phase splits into sub-phases, use lowercase letters — `7A`, `7B`, ..., `7M`, `7N`
+- **Archive files:** preserve original names; do not re-stamp with the archive date
+- **Session logs:** live as `docs/SESSION_LOG.md`; archived as `docs/archive/session_logs/_SESSION_LOG_PHASE{N}.md`
+- **Design decision docs:** `PHASE_{phase-id}_DESIGN_DECISIONS.md` (e.g., `PHASE_7F_DESIGN_DECISIONS.md`)
+- **Wireframe HTMLs:** `frigo_phase_{phase-id}_wireframes[_optional-suffix].html`
+- **Living docs in repo:** canonical name, no suffix (`docs/PROJECT_CONTEXT.md`)
+- **Living docs in `_pk_sync/` and PK:** canonical name + ISO date stamp matching the file's `Last Updated` header (`PROJECT_CONTEXT_2026-04-21.md`)
 
 ---
 
@@ -405,6 +402,7 @@ This enables Tom to see what happened during on-device testing without needing t
 
 | Date | Version | Change |
 |------|---------|--------|
-| 2026-04-21 | 4.1 | Absorbed console.warn instrumentation pattern note from DOC_UPDATES_CONSOLIDATED_2026-04-15.md Section 7 into a new Patterns for CC Prompts section. Pending full rewrite. |
+| 2026-04-21 | 5.0 | **Full rewrite for repo-as-canonical workflow.** New sections: Claude.ai Session Types (phase planning / cross-cutting / oversight, with session-opening declaration, chat title convention, instance-proposed clarification when type isn't declared, and explicit allowance for untyped ad-hoc chats), Where Everything Lives (PK vs Repo vs Drive), `_pk_sync/` Workflow Folder (dated filenames in `_pk_sync/` and PK matching each file's `Last Updated` header so stale PK copies are visible at a glance), Archive Structure + Lifecycle, Naming Conventions, expanded Patterns for CC Prompts. Updated sections: Planning → Execution → Reconciliation Loop (adds downstream doc-update flagging), SESSION_LOG Conventions (adds "Recommended doc updates" block to entry format), Phase Completion Checklist (adds archive steps, `_pk_sync/` uploads, custom instructions update, recommended phase-boundary oversight pass). `CLAUDE.md` promoted to living-doc status and PK-resident so Claude.ai can audit it against this doc for drift; CC-facing audience framing pattern codified in Section 7. `PROCESS_WATCHPOINTS.md` introduced as a retrospective working doc for monitoring whether the v5.0 process is doing what we hoped. Retired guidance assuming PK is canonical. |
+| 2026-04-21 | 4.1 | Absorbed console.warn instrumentation pattern note from `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` Section 7 into a new Patterns for CC Prompts section. Pending full rewrite. |
 | 2026-03-05 | 4.0 | **Session log archival protocol.** At phase completion, session log is renamed to `_SESSION_LOG_PHASE{N}.md` and a fresh log is created. Phase doc template gains "Features Delivered (Roadmap Mapping)" and "Session Log Archive" sections. Phase Completion checklist updated with archival step (was step 5 "Archive phase doc", now step 3 "Archive session log" — phase doc stays in project knowledge with archive reference). Naming conventions updated. |
 | 2026-03-02 | 3.2 | Initial version in project knowledge. Established planning/execution/reconciliation loop, doc ownership table, SESSION_LOG format, phase doc template, weekly sync checklist. |

@@ -1,5 +1,250 @@
 # Session Log
 
+## 2026-04-21 — Audit: CLAUDE.md alignment with DOC_MAINTENANCE_PROCESS v5.0
+**Phase:** cross-cutting
+**Prompt from:** CC_PROMPT_2026-04-21_CLAUDE_MD_audit.md
+
+Read-only audit of CLAUDE.md against v5.0 workflow rules. No edits applied.
+
+### Current CLAUDE.md structure
+
+CLAUDE.md is 144 lines, plain H2 layout with two sub-levels of H3 under Documentation System. Sections in order:
+
+| # | Header | Level | One-line purpose |
+|---|---|---|---|
+| 1 | `# Frigo - Project Context for Claude Code` | H1 | Doc title |
+| 2 | `## What is Frigo?` | H2 | One-sentence app description |
+| 3 | `## Tech Stack` | H2 | Frontend / Backend / AI / State bullets (matches PROJECT_CONTEXT v10) |
+| 4 | `## Documentation System` | H2 | Workflow guidance for CC — what to read, what to write, what NOT to edit, SESSION_LOG format, and key principles |
+| 4a | `### What to read every session` | H3 | CLAUDE.md + FRIGO_ARCHITECTURE.md |
+| 4b | `### What to read only when referenced in the prompt` | H3 | DEFERRED_WORK.md |
+| 4c | `### What to write` | H3 | SESSION_LOG.md |
+| 4d | `### What NOT to edit` | H3 | "Do not edit FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or any other living docs. Flag recommended changes in your SESSION_LOG entry — Claude.ai will make the edits." |
+| 4e | `### SESSION_LOG Entry Format` | H3 | Template with H3 dated header, 3 living-doc rows under Recommended doc updates |
+| 4f | `### Key principles` | H3 | Three bullets — follow Claude.ai decisions, be detailed, flag uncertainty |
+| 5 | `## Project Structure` | H2 | ASCII tree of repo layout |
+| 6 | `## 8 Domains` | H2 | Domain table (Recipe, Cooking, Planning, Social, Pantry, Grocery, Discovery, Platform) |
+| 7 | `## Code Conventions` | H2 | 6 bullets on services pattern, TypeScript discipline, RN learning context |
+| 8 | `## Key Features (Built)` | H2 | Checklist of shipped features (as of Phase 4, now stale but out of audit scope) |
+| 9 | `## Commands` | H2 | Expo start commands |
+| 10 | `## Tracker Row Generation` | H2 | Pointer to `docs/TRACKER_SPEC.md` |
+
+### Section-by-section classification
+
+| Section | Classification | Rationale |
+|---|---|---|
+| `What is Frigo?` | Keep as-is | Stable product description; no v5.0 conflict |
+| `Tech Stack` | Keep as-is | Matches PROJECT_CONTEXT v10 tech stack |
+| `Documentation System` (umbrella H2) | Keep as-is (wrapper) | The umbrella header itself is fine; the child H3s carry the issues |
+| `Documentation System > What to read every session` | **Update needed** | Lists only CLAUDE.md + FRIGO_ARCHITECTURE.md. v5.0 establishes DOC_MAINTENANCE_PROCESS.md as a canonical workflow doc and PROJECT_CONTEXT.md as the first-read orientation. Should add a pointer to DOC_MAINTENANCE_PROCESS.md for workflow/Standing-Rule resolution, even if it doesn't need end-to-end reading every session. |
+| `Documentation System > What to read only when referenced` | Keep as-is | The "only when referenced" framing still applies |
+| `Documentation System > What to write` | **Update needed** | Says "Write a detailed entry after every session (format below)" — the "format below" template is stale (see 4e) |
+| `Documentation System > What NOT to edit` | **Update needed (material conflict with v5.0)** | Says "Do not edit FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or any other living docs. Flag recommended changes in your SESSION_LOG entry — Claude.ai will make the edits." This directly contradicts v5.0 Section 7 + Section 4's propagation pattern, which explicitly permits CC to edit living docs when prompted, as long as it (a) updates `Last Updated` header and (b) stages a dated copy to `_pk_sync/`. The blanket "never edit" rule needs softening to a conditional "edit only when the prompt explicitly requests it, and when you do, follow the propagation pattern." |
+| `Documentation System > SESSION_LOG Entry Format` | **Redundant + update needed** | The template is now duplicated content — canonically owned by `DOC_MAINTENANCE_PROCESS.md` Section 8. The CLAUDE.md copy also drifts from v5.0: (i) H3 header `### YYYY-MM-DD` vs v5.0's H2 `## YYYY-MM-DD`; (ii) `Recommended doc updates` block lists 3 living docs (ARCHITECTURE, DEFERRED_WORK, PROJECT_CONTEXT) with short labels, vs v5.0's 4 docs (adds FF_LAUNCH_MASTER_PLAN, uses full filenames with `.md`); (iii) does not mandate explicit "none" per doc; (iv) missing the `Recommended next steps for Tom` block that v5.0 treats as standard. Best fix: collapse this H3 to a one-line pointer at DOC_MAINTENANCE_PROCESS Section 8. |
+| `Documentation System > Key principles` | Keep as-is | Three bullets are directionally consistent with v5.0. "Follow decisions/constraints from Claude.ai prompts" gestures at Rule D but doesn't make the strategic-content boundary explicit — covered in the proposed Standing Rules section rather than by editing this block |
+| `Project Structure` | Keep as-is | Layout is still accurate |
+| `8 Domains` | Keep as-is | Stable taxonomy |
+| `Code Conventions` | Keep as-is | Stable — services-layer discipline carries over |
+| `Key Features (Built)` | Keep as-is (out of audit scope) | Stale (pre-Phase-5), but staleness is a separate maintenance concern, not a v5.0 workflow alignment issue. Flagged in Surprises. |
+| `Commands` | Keep as-is | Stable |
+| `Tracker Row Generation` | Keep as-is | Unrelated to v5.0 workflow |
+
+### Standing Rules gap analysis
+
+- **Rule A (living doc propagation with dating):** **NOT COVERED — actively contradicted.** CLAUDE.md's `What NOT to edit` H3 flatly forbids CC from editing living docs, which is the opposite of v5.0's permissioned-edit-with-propagation model. v5.0 is the newer rule; CLAUDE.md must be updated to reflect the conditional-edit pattern + `_pk_sync/FILENAME_YYYY-MM-DD.md` date stamp + `Last Updated` header refresh.
+- **Rule B (SESSION_LOG with Recommended doc updates):** **PARTIAL.** CLAUDE.md Section 4e has the concept but three drifts: header level (H3 vs H2), 3 living-doc rows instead of 4 (missing FF_LAUNCH_MASTER_PLAN), and no explicit "list each doc even if none" discipline. The body of the template also lacks the "Recommended next steps for Tom" block that v5.0 treats as standard. Best fix is to point at DOC_MAINTENANCE_PROCESS Section 8 rather than maintain a parallel template.
+- **Rule C (`git ls-files --error-unmatch` pre-check before `git mv`):** **NOT COVERED.** No mention of file-state verification anywhere in CLAUDE.md. This rule doesn't have a natural existing home; belongs in a new Standing Rules section.
+- **Rule D (no strategic content authorship):** **PARTIAL.** The `Key principles` bullet "Follow decisions/constraints from Claude.ai prompts — don't re-decide things that have already been decided" gestures at this but doesn't go far enough. v5.0 Section 7 explicitly says "CC never authors strategic content" and Section 9 documents do-not-decide + STOP-if-not-findable constraint patterns. CLAUDE.md should have an explicit Standing Rule that names the STOP-and-report behavior when a prompt would require judgment calls about content.
+
+### Proposed changes
+
+```
+PROPOSED CHANGE — Section "Documentation System > What to read every session"
+
+Before:
+### What to read every session
+1. **This file** (CLAUDE.md) — conventions, instructions, tracker format
+2. **docs/FRIGO_ARCHITECTURE.md** — codebase map, services, patterns, domain boundaries
+
+After:
+### What to read every session
+1. **This file** (CLAUDE.md) — conventions, instructions, Standing Rules, tracker format
+2. **docs/FRIGO_ARCHITECTURE.md** — codebase map, services, patterns, domain boundaries
+3. **docs/DOC_MAINTENANCE_PROCESS.md** — workflow reference. Not front-to-back every session, but the authoritative source for Standing Rule details, SESSION_LOG format, and propagation patterns. Consult whenever a prompt touches living docs, archive moves, or `_pk_sync/`.
+
+Rationale:
+DOC_MAINTENANCE_PROCESS.md is the v5.0 canonical workflow doc. CLAUDE.md's Standing Rules will reference it, so CC needs to know it exists and where it lives.
+```
+
+```
+PROPOSED CHANGE — Section "Documentation System > What NOT to edit"
+
+Before:
+### What NOT to edit
+- Do not edit FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or any other living docs
+- Flag recommended changes in your SESSION_LOG entry — Claude.ai will make the edits
+
+After:
+### Editing living docs
+- **Default: don't edit living docs.** Flag recommended changes in your SESSION_LOG entry under "Recommended doc updates" — Claude.ai will reconcile.
+- **Exception: when a prompt explicitly instructs you to edit a living doc** (e.g., "apply this PROJECT_CONTEXT update spec"), follow the propagation pattern in DOC_MAINTENANCE_PROCESS.md Section 4:
+  1. Edit the file in `docs/` and update its `**Last Updated:**` header to today's date
+  2. Stage a dated copy at `_pk_sync/FILENAME_YYYY-MM-DD.md` so Tom can upload to PK after reviewing
+- **Living docs for this purpose:** `PROJECT_CONTEXT.md`, `FRIGO_ARCHITECTURE.md`, `FF_LAUNCH_MASTER_PLAN.md`, `DEFERRED_WORK.md`, `DOC_MAINTENANCE_PROCESS.md`, and the active phase doc.
+- **Never edit a living doc on CC's own initiative** — only when the prompt explicitly authorizes it.
+
+Rationale:
+The existing blanket "never edit" rule predates v5.0 and conflicts with the new repo-as-canonical workflow where CC applies living-doc edits on behalf of Claude.ai. The rewrite makes the default explicit (still don't edit by default) and spells out the propagation pattern for the exception case.
+```
+
+```
+PROPOSED CHANGE — Section "Documentation System > SESSION_LOG Entry Format"
+
+Before:
+### SESSION_LOG Entry Format
+
+The session log is the contract between Claude Code and Claude.ai. Entries must be detailed enough for Claude.ai to update all living docs without guessing. Add new entries at the TOP of the file.
+
+```markdown
+### YYYY-MM-DD — [Brief Title]
+**Phase:** [which phase, or "cross-cutting"]
+**Prompt from:** [brief description of what Claude.ai asked for]
+
+**Files created:**
+- [file] — [purpose and key design choices]
+
+**Files modified:**
+- [file] — [what changed and why]
+
+**DB changes:** [migrations, schema changes, or "none"]
+
+**Decisions made during execution:**
+- [Decision]: [Why — especially anything not specified in the prompt]
+
+**Deferred during execution:**
+- [Item]: [Why deferred, what would be needed]
+
+**Recommended doc updates:**
+- ARCHITECTURE: [what to add/change and why it matters]
+- DEFERRED_WORK: [any items that should be tracked]
+- PROJECT_CONTEXT: [any changes to "what works" or known issues]
+
+**Status:** [What's working, what needs testing, blockers]
+
+**Surprises / Notes for Claude.ai:**
+- [Anything unexpected that affects planning]
+```
+
+After:
+### SESSION_LOG Entry Format
+
+See `docs/DOC_MAINTENANCE_PROCESS.md` Section 8 for the canonical entry format, header level (H2 `## YYYY-MM-DD`), mandatory "Recommended doc updates" block (list all 4 living docs explicitly, even when "none"), "Recommended next steps for Tom" block, and key rules (one entry per prompt execution, include `git status` for non-trivial file operations, verify rather than assert).
+
+Rationale:
+The template is now canonically owned by DOC_MAINTENANCE_PROCESS.md Section 8. Duplicating it in CLAUDE.md creates drift (already observed: H3 vs H2 headers, 3 doc rows vs 4, missing next-steps block). Point at the canonical source instead.
+```
+
+```
+PROPOSED CHANGE — New section after "Documentation System" (before "Project Structure")
+
+Before:
+(new section)
+
+After:
+## Standing Rules
+
+These four rules apply to every CC session. Full detail for each lives in the referenced section of `docs/DOC_MAINTENANCE_PROCESS.md`.
+
+- **Rule A — Living doc propagation with dating.** When a prompt authorizes editing a living doc, update the `**Last Updated:**` header and stage a dated copy at `_pk_sync/FILENAME_YYYY-MM-DD.md`. Never edit living docs on your own initiative. Detail: DOC_MAINTENANCE_PROCESS Section 4 ("The Propagation Pattern") and Section 5.
+- **Rule B — SESSION_LOG with Recommended doc updates.** Every session ends with a SESSION_LOG entry per the format in DOC_MAINTENANCE_PROCESS Section 8, including the "Recommended doc updates" block listing all four living docs (`FRIGO_ARCHITECTURE.md`, `DEFERRED_WORK.md`, `PROJECT_CONTEXT.md`, `FF_LAUNCH_MASTER_PLAN.md`) explicitly — write "none" when nothing applies rather than omitting the doc. Detail: Section 8.
+- **Rule C — Verify tracking state before `git mv`.** Run `git ls-files --error-unmatch <path>` before any `git mv`. If tracked, proceed with `git mv`; if untracked or deleted, use plain `mv` + `git add`. Never infer tracking state from filename heuristics. Detail: Section 9 ("File-state verification before git operations").
+- **Rule D — No strategic content authorship.** CC applies the edits specified in the prompt; CC does not decide what content should say. When a prompt requires a judgment call about content (filenames, structure, wording, what to preserve vs drop), STOP and report rather than improvising. Detail: Section 7 ("Living Docs Ownership") and Section 9 (STOP-if-not-findable + do-not-decide patterns).
+
+Rationale:
+Consolidates the four v5.0 Standing Rules into one authoritative location at the top of CLAUDE.md's body, where CC will hit them on every session read. Each rule is a one-line behavioral trigger with a pointer to the canonical detail in DOC_MAINTENANCE_PROCESS. Follows the "propose references, not reproduction" constraint from the audit prompt.
+```
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none
+- `DEFERRED_WORK.md`: none
+- `PROJECT_CONTEXT.md`: none
+- `FF_LAUNCH_MASTER_PLAN.md`: none
+
+**Recommended next steps for Tom:**
+- Review the four PROPOSED CHANGE blocks above with Claude.ai
+- If approved in whole or part, Claude.ai will generate a follow-up CC prompt to apply them (the follow-up prompt would be a mechanical edit task — not an oversight session — and should explicitly authorize editing `CLAUDE.md`)
+- Consider whether `Key Features (Built)` should also be refreshed to Phase 7 state (see Surprises below) — that's a separate, optional task
+
+**Surprises / Notes for Claude.ai:**
+- **Stale `Key Features (Built)` list.** The bullets end at Phase 4 Stats Dashboard with no mention of Phase 5 (Ingredient Architecture), Phase 6 (Cooking Mode v2), or Phase 7 (13-sub-phase social/feed work). This is outside audit scope (drift, not v5.0 alignment) but is the most obviously out-of-date block in CLAUDE.md. PROJECT_CONTEXT.md v10 has the current list under its "What Works" section — if a refresh is desired, the CLAUDE.md list could either be rewritten from that source or collapsed to a pointer at PROJECT_CONTEXT.
+- **Potential fifth Standing Rule worth flagging (not adding to the proposal per prompt constraint):** STOP-if-not-findable (DOC_MAINTENANCE_PROCESS Section 9). This overlaps with Rule D conceptually — both are about CC not improvising when the prompt's premise doesn't hold — but the STOP-if-not-findable pattern has a narrower, more specific trigger (an external source file the prompt expects but that's missing from disk). If Tom wants this promoted to a Standing Rule, it could be Rule E with a single-line phrasing like "When a prompt depends on an external source file that turns out to be missing, STOP and report rather than proceeding with fallback content."
+- **"Prompt from" label nuance:** the current CLAUDE.md template says `**Prompt from:** [brief description of what Claude.ai asked for]`; v5.0 Section 8 says `**Prompt from:** [CC_PROMPT filename, or "Claude.ai direct"]`. v5.0's stricter version is better for traceability and is already the pattern newer SESSION_LOG entries have been following. The proposed redirect to Section 8 inherits this fix automatically.
+- **Umbrella "Documentation System" H2 becomes slightly thin** after the proposed edits (only three H3s remain: read-every-session, read-when-referenced, editing living docs — plus the H3-becomes-one-line SESSION_LOG pointer). Consider flattening it or renaming to "Workflow" in a follow-up pass, but not load-bearing for v5.0 alignment.
+
+---
+
+## 2026-04-21 — Doc Maintenance: Apply PROJECT_CONTEXT v10.0 update spec
+**Phase:** cross-cutting (doc maintenance)
+**Prompt from:** `docs/PROJECT_CONTEXT_v10_updates.md` (delta spec authored by Claude.ai)
+
+**Approach:** applied the delta spec section-by-section to the existing `docs/PROJECT_CONTEXT.md` v9.4 (April 13, 2026) in-place. Did NOT fetch v9.4 from PK (Claude Code doesn't have PK access) — the repo copy is v9.4 and was used as the starting point. All "no changes" sections preserved verbatim.
+
+**Sections changed:**
+
+| Section | Action |
+|---|---|
+| Header block (title + Last Updated + Version + Status) | Replaced entirely (v9.4 → v10.0, April 13 → April 21) |
+| About This Project | Carried over unchanged |
+| Tracking | Carried over unchanged |
+| Documentation System + Key Documentation | Full section body replaced (expanded living-docs list, added Repo-as-canonical + Archive lifecycle paragraphs, extended Key Documentation list from 6 to 7 items) |
+| Tech Stack | Carried over unchanged |
+| App Structure — Tabs & Screens | Carried over unchanged |
+| What Works | Appended new "Social Feed & Posts (Phase 7, completed 2026-04-17)" subsection at the end; existing subsections (Recipe System, Social & Feed, Meals & Planning, Pantry & Grocery, Nutrition & Stats) all carried over unchanged |
+| Known Issues | Replaced entirely. Title changed from `## ⚠️ Known Issues (as of April 6, 2026)` to `## 🐛 Known Issues & Limitations`; body reduced from the old Critical/Medium split to a lean 3-category "Data quality / Infrastructure / Deprecated but not yet deleted" structure pointing at DEFERRED_WORK.md |
+| What's Next | Replaced entirely. Title changed from `## 🚧 What's Next` to `## 🎯 What's Next`; the Phase 5–12 matrix removed in favor of a compact Immediate-Phase-8 + Post-F&F structure |
+| Data Metrics | Table rows left untouched (Tom didn't supply updated counts); added the spec's footnote paragraph marking metrics as April 6 snapshot pending Phase 8 refresh |
+| Project Vision | Only the Phase 7 and Phase 8 rows replaced; Phases 1-6, 9-12, F&F Launch, and Beyond rows left byte-identical |
+| Related Documentation | Replaced entirely. New structure: Strategic Planning / Living Docs / Archived Phase Docs / Feature Specs / Reference Data (in PK) / Archive Structure |
+| For Future Claude Sessions | Items 3 and 5 updated (active phase doc → PHASE_8; item 5 now also points at DOC_MAINTENANCE_PROCESS.md); items 1, 2, 4, 6-10 carried over unchanged |
+| Changelog | New 2026-04-21 / 10.0 row prepended at top of table body; all existing rows (9.4 through 6.0) untouched |
+
+**Files changed:**
+- `docs/PROJECT_CONTEXT.md` — v9.4 → v10.0. Line count 323 → 343 (+20 net).
+- `_pk_sync/PROJECT_CONTEXT.md` — new copy for PK upload. `diff -q` confirms byte-identical to repo copy.
+
+**Source-vs-spec drift:** none material. The v9.4 structure matched the spec's assumptions cleanly:
+- "For Future Claude Sessions" had the expected 10 items
+- The Phase 7 and Phase 8 rows in the Project Vision table existed with the exact wording the spec keyed off
+- The Documentation System section had both `### Documentation System` and `### Key Documentation` H3s as expected
+- The Known Issues section had the v9.4 `## ⚠️ Known Issues (as of April 6, 2026)` header exactly
+
+No discrepancies that required flagging or silent correction.
+
+**Confirmation:**
+- ✅ No sections flagged "no changes" were modified
+- ✅ No new sections added beyond those specified in the spec
+- ✅ Header structure and table formatting preserved (all H2 anchors intact: Quick Start for Claude, Tech Stack, App Structure, What Works, Known Issues & Limitations, What's Next, Data Metrics, Project Vision, Related Documentation, For Future Claude Sessions, Changelog)
+- ✅ `_pk_sync/PROJECT_CONTEXT.md` byte-identical to repo copy
+
+**`git status` snapshot after changes (scoped):**
+```
+ M docs/PROJECT_CONTEXT.md
+```
+(`_pk_sync/PROJECT_CONTEXT.md` is gitignored per the `_pk_sync/*` rule with `!_pk_sync/.gitkeep` exception — not surfaced by git status, which is correct behavior for the workflow folder.)
+
+**Recommended next steps for Tom:**
+1. Review `docs/PROJECT_CONTEXT.md` — especially the new "Social Feed & Posts" subsection under What Works and the new Known Issues body, since those were material content rewrites rather than drop-in replacements.
+2. Commit. Suggested message: `docs: PROJECT_CONTEXT v10.0 — Phase 7 complete, Phase 8 planning, workflow overhaul`.
+3. Upload `_pk_sync/PROJECT_CONTEXT.md` to PK, replacing the existing v9.4 copy.
+4. Clear `_pk_sync/` after PK upload (delete the uploaded file; `.gitkeep` stays).
+5. When ready, the `docs/PROJECT_CONTEXT_v10_updates.md` delta spec itself is consumed — likely archive target is `docs/archive/handoffs/` alongside `DOC_UPDATES_CONSOLIDATED_2026-04-15.md`. Separate follow-up.
+
+**Surprises / Notes for Claude.ai:**
+- The delta-spec approach worked cleanly — zero content ambiguity, every edit was a surgical find-and-replace against exact v9.4 anchors. No judgment calls required. Recommend this format for future PROJECT_CONTEXT-style refreshes.
+- One potential future-proofing: the spec assumed v9.4 matched a specific shape. If a future PROJECT_CONTEXT refresh happens after the repo copy has drifted from the spec's assumed baseline, the find-and-replace anchors will break. Worth noting in the DOC_MAINTENANCE_PROCESS rewrite that spec-based updates implicitly version-lock on a known baseline.
+
+---
+
 ## 2026-04-21 — Repo Infrastructure: Archive absorbed docs (PHASE_7I_MASTER_PLAN + DOC_UPDATES_CONSOLIDATED)
 **Phase:** cross-cutting (repo infrastructure, doc maintenance)
 **Prompt from:** `docs/CC_START_PROMPT.md`

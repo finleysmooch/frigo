@@ -1,4 +1,7 @@
 # Frigo - Project Context for Claude Code
+**Last Updated:** April 21, 2026
+
+*Entry point for Claude Code sessions. Read by CC at the start of every session. If you are a Claude.ai instance reading this from PK, you're reading it to audit for drift against `DOC_MAINTENANCE_PROCESS.md` — the rules inside are for CC, not for you. Claude.ai follows `DOC_MAINTENANCE_PROCESS.md` directly as the canonical source.*
 
 ## What is Frigo?
 Frigo is a "Strava for cooking" mobile app - users track their cooking, manage pantries, discover recipes, and share with friends.
@@ -14,7 +17,7 @@ Frigo is a "Strava for cooking" mobile app - users track their cooking, manage p
 ## Documentation System
 
 ### What to read every session
-1. **This file** (CLAUDE.md) — conventions, instructions, tracker format
+1. **This file** (CLAUDE.md) — conventions, instructions, Standing Rules, tracker format
 2. **docs/FRIGO_ARCHITECTURE.md** — codebase map, services, patterns, domain boundaries
 
 ### What to read only when referenced in the prompt
@@ -23,48 +26,33 @@ Frigo is a "Strava for cooking" mobile app - users track their cooking, manage p
 ### What to write
 4. **docs/SESSION_LOG.md** — Write a detailed entry after every session (format below)
 
-### What NOT to edit
-- Do not edit FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or any other living docs
-- Flag recommended changes in your SESSION_LOG entry — Claude.ai will make the edits
+### Editing living docs
+- **Default: don't edit living docs.** Flag recommended changes in your SESSION_LOG entry under "Recommended doc updates" — Claude.ai will reconcile.
+- **Exception: when a prompt explicitly instructs you to edit a living doc** (e.g., "apply this PROJECT_CONTEXT update spec"), follow the propagation pattern in `docs/DOC_MAINTENANCE_PROCESS.md` Section 4:
+  1. Edit the file in `docs/` and update its `**Last Updated:**` header to today's date
+  2. Stage a dated copy at `_pk_sync/FILENAME_YYYY-MM-DD.md` so Tom can upload to PK after reviewing
+- **Living docs for this purpose:** `PROJECT_CONTEXT.md`, `FRIGO_ARCHITECTURE.md`, `FF_LAUNCH_MASTER_PLAN.md`, `DEFERRED_WORK.md`, `DOC_MAINTENANCE_PROCESS.md`, the active phase doc, and **this file (`CLAUDE.md`)** — CLAUDE.md lives at repo root (not `docs/`) but follows the same propagation rules so Claude.ai can audit it for drift against `DOC_MAINTENANCE_PROCESS.md`.
+- **Never edit a living doc on CC's own initiative** — only when the prompt explicitly authorizes it.
 
 ### SESSION_LOG Entry Format
 
-The session log is the contract between Claude Code and Claude.ai. Entries must be detailed enough for Claude.ai to update all living docs without guessing. Add new entries at the TOP of the file.
-
-```markdown
-### YYYY-MM-DD — [Brief Title]
-**Phase:** [which phase, or "cross-cutting"]
-**Prompt from:** [brief description of what Claude.ai asked for]
-
-**Files created:**
-- [file] — [purpose and key design choices]
-
-**Files modified:**
-- [file] — [what changed and why]
-
-**DB changes:** [migrations, schema changes, or "none"]
-
-**Decisions made during execution:**
-- [Decision]: [Why — especially anything not specified in the prompt]
-
-**Deferred during execution:**
-- [Item]: [Why deferred, what would be needed]
-
-**Recommended doc updates:**
-- ARCHITECTURE: [what to add/change and why it matters]
-- DEFERRED_WORK: [any items that should be tracked]
-- PROJECT_CONTEXT: [any changes to "what works" or known issues]
-
-**Status:** [What's working, what needs testing, blockers]
-
-**Surprises / Notes for Claude.ai:**
-- [Anything unexpected that affects planning]
-```
+See `docs/DOC_MAINTENANCE_PROCESS.md` Section 8 for the canonical entry format — header level (H2 `## YYYY-MM-DD`), mandatory "Recommended doc updates" block (list all four living docs explicitly, using "none" when nothing applies rather than omitting a doc), "Recommended next steps for Tom" block, and key rules (one entry per prompt execution, include `git status` for non-trivial file operations, verify rather than assert). Add new entries at the TOP of `docs/SESSION_LOG.md`.
 
 ### Key principles
 - **Follow decisions/constraints from Claude.ai prompts** — don't re-decide things that have already been decided
 - **Be detailed in SESSION_LOG** — Claude.ai depends on these entries to maintain all project documentation
 - **When in doubt, flag it** — use "Recommended doc updates" and "Surprises" to surface anything Claude.ai should know
+
+---
+
+## Standing Rules
+
+**These four rules apply to CC only.** Claude.ai instances reading this from PK should consult `docs/DOC_MAINTENANCE_PROCESS.md` directly rather than inferring behavior from this mirror. The Standing Rules below mirror DOC_MAINTENANCE_PROCESS Sections 4, 5, 7, 8, and 9 — update both places together when a rule changes; don't let them drift.
+
+- **Rule A — Living doc propagation with dating.** When a prompt authorizes editing a living doc, update the `**Last Updated:**` header and stage a dated copy at `_pk_sync/FILENAME_YYYY-MM-DD.md`. Never edit living docs on your own initiative. Detail: DOC_MAINTENANCE_PROCESS Section 4 ("The Propagation Pattern") and Section 5.
+- **Rule B — SESSION_LOG with Recommended doc updates.** Every session ends with a SESSION_LOG entry per the format in DOC_MAINTENANCE_PROCESS Section 8, including the "Recommended doc updates" block listing all four living docs (`FRIGO_ARCHITECTURE.md`, `DEFERRED_WORK.md`, `PROJECT_CONTEXT.md`, `FF_LAUNCH_MASTER_PLAN.md`) explicitly — write "none" when nothing applies rather than omitting the doc. Detail: Section 8.
+- **Rule C — Verify tracking state before `git mv`.** Run `git ls-files --error-unmatch <path>` before any `git mv`. If tracked, proceed with `git mv`; if untracked or deleted, use plain `mv` + `git add`. Never infer tracking state from filename heuristics. Detail: Section 9 ("File-state verification before git operations").
+- **Rule D — No strategic content authorship.** CC applies the edits specified in the prompt; CC does not decide what content should say. When a prompt requires a judgment call about content (filenames, structure, wording, what to preserve vs drop), STOP and report rather than improvising. Detail: Section 7 ("Living Docs Ownership") and Section 9 (STOP-if-not-findable + do-not-decide patterns).
 
 ---
 
