@@ -1,6 +1,6 @@
 # Frigo — Architecture & Codebase Map
-**Last Updated:** April 15, 2026 (Phase 7I Checkpoint 7 closeout)
-**Version:** 3.2
+**Last Updated:** April 21, 2026
+**Version:** 4.0
 
 ---
 
@@ -158,17 +158,30 @@ frigo/
 │   │   ├── nutritionGoalsService.ts ← Nutrition goal CRUD (Phase 4)
 │   │   ├── recipeService.ts         ← Top-level recipe CRUD (Phase 7B-Rev — currently just deleteRecipe)
 │   │   ├── postService.ts           ← Post creation, cook tracking (createDishPost, getTimesCooked, updateTimesCooked)
-│   │   ├── recipeExtraction/        ← Extraction-specific services (own recipeService.ts inside)
+│   │   ├── recipeExtraction/        ← Extraction + cookbook pipeline services
+│   │   │   ├── index.ts                   ← Barrel export
+│   │   │   ├── claudeVisionAPI.ts         ← Claude API calls for photo extraction
+│   │   │   ├── imageProcessor.ts          ← Image preprocessing
+│   │   │   ├── webExtractor.ts            ← Web URL recipe scraping
+│   │   │   ├── unifiedParser.ts           ← Parse extraction results
+│   │   │   ├── ingredientMatcher.ts       ← Instruction text ingredient highlighting
+│   │   │   ├── recipeService.ts           ← saveRecipe (distinct from top-level recipeService.ts)
+│   │   │   ├── chefService.ts             ← getChef, getChefRecipes, getOrCreateChef, backfillChefIds (Phase 7K — location is historical, not extraction-internal. Relocation tracked in DEFERRED_WORK as a cross-cutting item.)
+│   │   │   └── bookService.ts             ← Cookbook CRUD supporting the extraction + review pipeline
 │   │   └── [20+ service files]
 │   ├── types/                       ← TypeScript type definitions
 │   ├── theme/                       ← ThemeContext, schemes, typography
+│   ├── utils/
+│   │   ├── mealTypeHelpers.ts       ← computeMealType + computeMealTypeFromHour (extracted from postService, Phase 7E Fix Pass 1)
+│   │   └── timerDetection.ts        ← detectTimersInText + formatTime (Phase 6 cooking-mode text parsing — documented in v4.0)
 │   └── supabase.ts                  ← Supabase client config
 ├── contexts/
 │   ├── SpaceContext.tsx              ← Shared pantry spaces
 │   └── LogoConfigContext.tsx         ← Logo configuration
 ├── constants/
 │   ├── pantry.ts                    ← Dual emoji/component icon system + INGREDIENT_TYPE_ALIASES
-│   └── vibeIcons.ts                 ← Vibe tag → icon component mapping
+│   ├── vibeIcons.ts                 ← Vibe tag → icon component mapping
+│   └── cookingMethods.ts            ← 16-value canonical list matching DB CHECK on posts.cooking_method (Phase 7M)
 ├── scripts/                         ← Python scripts for data operations
 │   ├── recipe_classification_test.py      ← Haiku vs Sonnet comparison
 │   ├── recipe_classification_backfill.py  ← Classify all recipes (roles, tags, etc.)
@@ -209,17 +222,18 @@ frigo/
 | **nutritionGoalsService.ts** | Nutrition goal CRUD | getNutritionGoals, upsertNutritionGoals, deleteNutritionGoal. Table: user_nutrition_goals. |
 | **recipeService.ts** | Top-level recipe CRUD (Phase 7B-Rev) | deleteRecipe. Created in 7B-Rev to extract inline supabase delete from RecipeDetailScreen. Will absorb other recipe CRUD operations over time. |
 | **recipeExtraction/recipeService.ts** | Recipe save from extraction pipeline | saveRecipe (saves Phase 3A fields: hero_ingredients, vibe_tags, serving_temp, course_type, make_ahead_score, cooking_concept + per-ingredient classification/flavor_tags) |
-| **postService.ts** | Post creation, cook tracking, narrow-scope edits | createDishPost (accepts visibility, optional makeAgain, nullable rating), getTimesCooked, updateTimesCooked, **updatePost (Checkpoint 5/6)** — accepts `UpdatePostPatch` with `title?`, `description?`, `parent_meal_id?`, `meal_time?`, `meal_location?`; thin `.update(patch)` passthrough, **deletePost** (Checkpoint 5). |
+| **postService.ts** | Post creation, cook tracking, post edits | createDishPost (accepts visibility, optional makeAgain, nullable rating, explicit `cookedAt` since 7G), getTimesCooked, updateTimesCooked, **updatePost** — accepts extended `UpdatePostPatch` covering CP5/CP6 fields (`title?`, `description?`, `parent_meal_id?`, `meal_time?`, `meal_location?`) **plus Phase 7M additions** (`rating?`, `cooking_method?`, `modifications?`, `notes?`, `visibility?`, `cooked_at?`); thin `.update(patch)` passthrough, **deletePost** (trusts FK cascade for `post_likes`/`post_comments`/`post_participants`/`dish_courses`). Also re-exports `computeMealType` and `computeMealTypeFromHour` from `lib/utils/mealTypeHelpers.ts` (moved in 7E Fix Pass 1) so legacy import sites keep working. Exports `PostVisibility` type, `DEFAULT_VISIBILITY` constant (`'followers'`), and `computeDefaultVisibility` which reads `userDefault` from `user_profiles.default_visibility` when set (7L wiring). |
 | **nutritionService.ts** | Nutrition queries, batch fetch | getRecipeNutrition, getRecipeNutritionBatch, getCompactNutrition, getRecipeNutritionBreakdown, aggregateMealNutrition |
 | **recipeHistoryService.ts** | Cooking history for browse modes | getCookingHistory → Map<recipe_id, CookingHistory>, getFriendsCookingInfo, **getCookHistoryForUserRecipe** (Checkpoint 5 — CookDetailScreen Block 11) |
 | **mealService.ts** | Meal CRUD, participants, dishes + **meal event detail** | createMeal, addDish, inviteParticipant, **getMealEventForCook** (Checkpoint 2 — L4 prehead context), **getMealEventDetail** (Checkpoint 2/6 — L7 screen payload: event + host + cooks + attendees + shared_media + stats + highlight_photo). MealParticipant includes subscription_tier. |
 | **mealPlanService.ts** | Meal plan items, calendar | getPlanItems, claimItem |
 | **feedGroupingService.ts** | Feed post grouping logic | **buildFeedGroups** (Checkpoint 4 rewrite) — classifies dish posts into four `FeedGroup` types (`solo`, `linked_meal_event`, `linked_shared_recipe`, legacy fall-through) with per-recipe bucketing for D48 shared-recipe merge. |
-| **cookCardDataService.ts** | **NEW Checkpoint 5** — shared post→CookCardData transform | **transformToCookCardData** (migrated from FeedScreen), **fetchSingleCookCardData(postId)** (CookDetailScreen hydration), **fetchCookCardDataBatch(postIds)** (batch hydration, preserves input order). Single source of truth for FeedScreen + CookDetailScreen + future MealEventDetailScreen dish-row hydration. |
+| **cookCardDataService.ts** | Shared post→CookCardData transform (Phase 7I Checkpoint 5) | **transformToCookCardData** (6 denormalization invariants — see inline comment), **fetchSingleCookCardData(postId)** (CookDetailScreen hydration), **fetchCookCardDataBatch(postIds)** (batch hydration, preserves input order). Single source of truth for FeedScreen + CookDetailScreen + MealEventDetailScreen dish-row hydration (CP6). Internal constants `POST_SELECT_COLUMNS` / `RECIPE_SELECT_COLUMNS` / `PROFILE_SELECT_COLUMNS` are the authoritative SELECT-column lists — any surface that hydrates posts for the CookCardData path reuses these rather than duplicating the column list. |
 | **eaterRatingsService.ts** | **NEW Checkpoint 6** — D43 private per-eater dish ratings | **getEaterRatingsForMeal(mealEventId, viewerUserId)** → Map<postId, rating>; **upsertEaterRating(postId, raterUserId, rating \| null)** — upsert or delete. Trusts `eater_ratings` table RLS for visibility (rater + post author only). |
 | **commentsService.ts** | Post comments hydration | getCommentsForPost (CookDetailScreen Block 13, MealEventDetailScreen Block 8), getCommentsForMeal, getCommentCountsForPosts |
 | **highlightsService.ts** | Per-post highlights pill data | computeHighlightsForFeedBatch (feed + CookDetailScreen Block 9) |
 | **postParticipantsService.ts** | Cooking partners + attendees on posts | getPostParticipants, invitePartner. `PostType` union = `'dish' \| 'meal_event'` (legacy `'meal'` removed in Checkpoint 7). |
+| **shareService.ts** | **NEW Phase 7J** — native share sheet wrappers | **shareRecipe** (builds attribution string incl. chef/book/page), **sharePost** (author + dish name). Both currently produce plain-text messages; TODO markers in source note deep-link URL migration when that ships. |
 | **spaceService.ts** | Shared pantry spaces | getSpaces, createSpace, inviteMember |
 | **pantryService.ts** | Pantry item CRUD (space-aware) | getItems, addItem, updateItem |
 | **groceryService.ts** | Grocery items | addItem, checkOff |
@@ -232,12 +246,12 @@ frigo/
 | **recipeAnnotationsService.ts** | Recipe annotation tracking | getAnnotations, saveAnnotation |
 | **userRecipeTagsService.ts** | Cook Soon tags | tagRecipe, getTaggedRecipes |
 | **bookViewService.ts** | Cookbook browsing | getBookRecipes |
-| **chefService.ts** | Chef data | getChef, getChefRecipes |
 | **imageStorageService.ts** | Photo upload/retrieval | uploadImage, getImageUrl |
 | **subscriptionService.ts** | User subscription tiers | getSubscription |
 | **annotationService.ts** | Recipe edit annotations | — |
 | **cookingService.ts** | Cooking session state, step notes | upsertStepNote, getStepNotes (table: recipe_step_notes) |
 | **unitConverter.ts** | Metric/imperial conversion | convert |
+| **vibeService.ts** | **Phase 7F** — vibe tag formatting + aggregation | **getRecipeVibe**(recipeId), **getVibeFromTags**(tags) — pre-fetched variant to avoid extra query, **computeMealVibe**(mealId) — aggregates dish vibes with most-common-wins + alphabetical tiebreak. Exports `VibeTag` interface (`{emoji, label}`). Internal: `VIBE_EMOJI_MAP` (14 known tags → emoji, `✨` fallback) and `VIBE_LABEL_OVERRIDES` (punctuation/capitalization). |
 
 ### statsService.ts Key Patterns
 
@@ -262,12 +276,15 @@ getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
 ### Extraction Services (lib/services/recipeExtraction/)
 | Service | Purpose |
 |---------|---------|
+| **index.ts** | Barrel export for the module |
 | **claudeVisionAPI.ts** | Claude API calls for photo extraction |
 | **imageProcessor.ts** | Image preprocessing |
 | **webExtractor.ts** | Web URL recipe scraping |
 | **unifiedParser.ts** | Parse extraction results |
 | **ingredientMatcher.ts** | Instruction text ingredient highlighting (NOT DB matching) |
-| **recipeService.ts** | Recipe save from extraction (saveRecipe — not the same as the top-level recipeService.ts) |
+| **recipeService.ts** | Recipe save from extraction (saveRecipe — distinct from the top-level recipeService.ts) |
+| **chefService.ts** | Chef CRUD + attribution. **getChef**, **getChefRecipes**, **getOrCreateChef** (used during extraction save), **backfillChefIds** (Phase 7K — one-time admin function triggered from SettingsScreen; joins books.author → chef, updated 147 recipes + books). Location is historical — chef operations are no longer extraction-internal; the relocation is tracked as a cross-cutting deferred item in `DEFERRED_WORK.md` (see the `lib/services/recipeExtraction/` reorganization entry). |
+| **bookService.ts** | Cookbook CRUD supporting the extraction + review pipeline. 10 exports total; top-4 by UI surface area: `createUserBookOwnership` (record ownership claim), `createBook` (insert new book row), `uploadBookCover` (Supabase Storage upload), `getUserBooks` (my-books listing). |
 
 ---
 
@@ -275,16 +292,17 @@ getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
 
 | Screen | Notes |
 |--------|-------|
-| **StatsScreen.tsx** | Main stats container. Cooking Stats/My Posts toggle (Strava underline). Sub-tabs: Overview/Cooking/Nutrition/Insights. Sticky bar with descriptive subtitle on non-Overview tabs. ControlStrip at top of content for Cooking/Nutrition/Insights. My Posts inline with .map() (no FlatList). Contains ActivityCard and ControlStrip inline components. |
+| **StatsScreen.tsx** | Main stats container. Cooking Stats/My Posts toggle (Strava underline). Sub-tabs: Overview/Cooking/Nutrition/Insights. Sticky bar with descriptive subtitle on non-Overview tabs. ControlStrip at top of content for Cooking/Nutrition/Insights. My Posts inline with .map() (no FlatList). Contains ActivityCard and ControlStrip inline components. **Phase 7H:** My Posts nav target switched from `RecipeDetail` to `CookDetail` (L6); sort/display switched to `cooked_at`; `CookDetail` route registered in StatsStack; freeform dishes (no `recipe_id`) now tappable as cook-post cards. |
 | **DrillDownScreen.tsx** | Reusable drill-down for cuisine/concept/method/ingredient. Stats, most cooked, ingredients, chefs, explore CTA. Cross-stack nav to RecipeList with filters. |
 | **ChefDetailScreen.tsx** | Chef stats: hero stats, nutrition comparison, most cooked, concepts, signature ingredients, stock up, books. |
 | **BookDetailScreen.tsx** | Book stats: progress bar, completion%, most cooked, highest rated, key ingredients, cuisines, methods. |
 | **UserPostsScreen.tsx** | Read-only Strava-style activity cards for other users' posts. |
 | **RecipeDetailScreen.tsx** | Largest screen. RecipeNutritionPanel integrated. Static StyleSheet (dynamic theming removed). Phase 7B/7B-Rev: Primary "Log This Cook" CTA opens LogCookSheet (compact mode). Secondary "Cook in Step-by-Step Mode" text link. Grouped overflow menu with view mode subheader, edit mode toggle (PencilIcon with filled state), delete via recipeService. Edit mode banner with Exit button below sticky bar. Step notes display in "Your Private Notes" section. |
 | RecipeListScreen.tsx | Phase 3A overhaul. Expandable cards, 3 browse modes (All/Cook Again/Try New), 8 sort options, quick filter chips with SVG icons. Accepts initial filter params from stats drill-downs (cuisine, concept, dietary, sortBy). |
-| FeedScreen.tsx | **Phase 7I Checkpoint 4 rewrite — cook-post-centric feed.** Queries `posts` where `post_type='dish'`, hydrates via `cookCardDataService.transformToCookCardData`, groups via `feedGroupingService.buildFeedGroups` into four `FeedGroup` types (`solo`, `linked_meal_event`, `linked_shared_recipe`, legacy fall-through), dispatches to `CookCard` / `NestedMealEventGroup` / `SharedRecipeLinkedGroup` / `LinkedCookStack`. Meal events are surfaced only as L4 preheads or L5 group headers — never as their own feed cards. Tapping a cook card → `CookDetail`; tapping a meal event prehead/header → `MealEventDetail`. Feed header has no flask debug button as of Checkpoint 7 cleanup. |
-| **CookDetailScreen.tsx** | **Phase 7I Checkpoint 5 — L6 detail screen** for a single cook post. Reached from every CookCard tap. 14 content blocks (header, hero carousel, author block, title, description, recipe line, cooked-with row, stats grid, highlights pill, mods/notes, cook history, photo gallery, comments preview, sticky engagement bar). Narrow-scope editing via a 6-item overflow menu (Add photos, Edit title, Edit description, Manage cook partners, Change meal event, Delete post) — scaffolding for the unified 7M EditPostScreen. Inline title/description editing, `AddCookingPartnersModal` manage mode, inline meal-event picker, `post_likes` toggle, `CommentsList` tap-through. Uses `fetchSingleCookCardData` + `getCommentsForPost` + `computeHighlightsForFeedBatch` + `getCookHistoryForUserRecipe`. |
+| FeedScreen.tsx | **Phase 7I Checkpoint 4 rewrite — cook-post-centric feed.** Queries `posts` where `post_type='dish'`, hydrates via `cookCardDataService.transformToCookCardData`, groups via `feedGroupingService.buildFeedGroups` into four `FeedGroup` types (`solo`, `linked_meal_event`, `linked_shared_recipe`, legacy fall-through), dispatches to `CookCard` / `NestedMealEventGroup` / `SharedRecipeLinkedGroup` / `LinkedCookStack`. Meal events surface only as L4 preheads or L5 group headers — never as their own feed cards. Tapping a cook card → `CookDetail`; tapping a meal event prehead/header → `MealEventDetail`. **Phase 7G:** sort key switched from `created_at` to `cooked_at` across feed + grouping service. **Phase 7M Fix Pass 1:** stale-data refetch on focus (5s threshold via `useFocusEffect`) so edits made in `EditPostScreen` surface immediately on return. Feed header has no flask debug button as of CP7 cleanup. |
+| **CookDetailScreen.tsx** | **Phase 7I Checkpoint 5 — L6 detail screen** for a single cook post. Reached from every CookCard tap. 14 content blocks (header, hero carousel, author block, title, description, recipe line, cooked-with row, stats grid, highlights pill, mods/notes, cook history, photo gallery, comments preview, sticky engagement bar). **Phase 7M cleanup:** overflow menu collapsed from 6 narrow-scope items to 2 (`Edit post` → `EditPostScreen`, `Delete post` with confirmation); ~508 lines removed (down to ~1527). **Phase 7N polish:** header title promoted into nav bar (P7-90), rating label ternary for own vs. other's post (P7-96 half), inline (non-sticky) engagement bar (P7-98), meal picker enhanced with dates + chronological sort + "Create new meal event" row (P7-91). Uses `fetchSingleCookCardData` + `getCommentsForPost` + `computeHighlightsForFeedBatch` + `getCookHistoryForUserRecipe`. 7M Fix Pass 1 added `useFocusEffect` with `focusCountRef` for stale-data refresh. |
 | **MealEventDetailScreen.tsx** | **Phase 7I Checkpoint 6 — L7 detail screen** for a meal event. Reached from L4 preheads (solo cook + meal event) and L5 group headers (nested meal event). 8 content blocks (header, hero, metadata, stats grid, "what everyone brought" dish rows, "at the table" attendees, shared media grid, "about the evening" comments) + sticky engagement bar. Private per-eater rating pill per dish (D43) via `eaterRatingsService`. Host overflow menu (6 items: Edit title, Edit date/time, Edit location, Edit highlight photo, Manage attendees, Delete event) and attendee overflow menu (3 items: Add photo to shared media, Add event comment, Leave event). Uses `getMealEventDetail` + `getEaterRatingsForMeal` + `getCommentsForPost` + existing `post_likes` (D51). Rating pill text + 5-star picker active state use `colors.primary` (teal). |
+| **EditPostScreen.tsx** | **Phase 7M** — unified Strava-style "Edit Activity" screen for cook posts (~1,178 lines). Single form handles all editable fields: title, description, recipe link, rating (via extracted `StarRating` component), cooking method (dropdown from `constants/cookingMethods.ts`), date cooked, modifications, notes, visibility, meal event attachment, cook partners, photos. Dirty state detection via `initialValues` ref; back-nav guard with unsaved-changes confirmation; delete-post footer action navigates back to `FeedMain`. Save handler diffs cook-partner list and calls `postParticipantsService` add/remove accordingly. Registered in both FeedStack and StatsStack so it's reachable from any tap-through path. |
 | MyPostDetailsScreen.tsx | RecipeNutritionPanel replaces old star ratings. Uses UserAvatar component. Legacy surface inside the You tab — still references `MealDetail` for its in-tab meal detail flow. |
 | BookViewScreen.tsx | Static styling. User auth check — filters recipes by user_id (security fix). |
 | MealDetailScreen.tsx | **DEPRECATED for feed navigation as of Phase 7I Checkpoint 6.** Still active inside the Meals tab (`MyMealsScreen`, `MyPostsScreen`, `MyPostDetailsScreen`, `RecipeDetailScreen` all route here for their own meal-detail flows). Remove after the You/Meals tab migrates to `MealEventDetailScreen`. |
@@ -334,20 +352,22 @@ ClassicView.tsx, SectionCard.tsx, StepIngredients.tsx (per-step ingredient displ
 ### Cards & Display
 **Phase 7I Checkpoint 7:** `PostCard.tsx`, `MealPostCard.tsx`, and `LinkedPostsGroup.tsx` were deleted. Their roles are now served by the `components/feedCard/` module (see Phase 7I Feed Card Components below). `PostActionMenu.tsx` is still used by legacy `MyPostDetailsScreen` and `MyPostsScreen` inside the You/Meals tabs — kept in place until those screens migrate to the new detail screens.
 
+**StarRating.tsx (Phase 7M extraction)** — Reusable half-star slide-to-rate component extracted from LogCookSheet's PanResponder implementation. Props: `rating: number | null`, `onRatingChange: (rating: number | null) => void`, `colors`. Exports as default. Used by LogCookSheet and EditPostScreen. Per-star hit-testing with gap-awareness, slide-left-to-clear, brand-teal fill.
+
 RecipeNutritionPanel.tsx (collapsible: calories+PCF collapsed, full macro breakdown expanded, quality confidence indicator), DietaryBadgeRow.tsx (color-coded dietary flags, compact/default sizes, overflow +N), UserAvatar.tsx (handles emoji strings, URLs, and null via regex `/^[\p{Emoji}\u200D\uFE0F]+$/u`; emoji font size 0.75x), NutritionGoalsModal.tsx (6 nutrients, stepper inputs, daily/per-meal toggle, MEALS_PER_DAY=2.5), PostActionMenu.tsx (legacy — see above), CategoryHeader.tsx (SVG family icons, chip-style type breakdown), TypeHeader.tsx (SVG type icons with emoji fallback), PantryItemRow.tsx (SVG stock status: NoneIcon/WarningIcon/LowFuelIcon), GroceryListItem.tsx, MealInvitationsCard.tsx, PendingSpaceInvitations.tsx, MarkupText.tsx
 
 ### Phase 7I Feed Card Components (components/feedCard/)
 
 Phase 7I's cook-post-centric feed model (D47) consolidated every feed surface into three files inside `components/feedCard/`. No other components in this subtree.
 
-- **`CookCard.tsx`** — outer `CookCard` wraps a single cook post with its `CardWrapper` and full card chrome; `CookCardInner` is the wrapper-less variant reused by linked groups so a group can render its members under a single outer wrapper with hairline dividers (no gray gaps). Both consume `CookCardData` from `cookCardDataService`.
+- **`CookCard.tsx`** — outer `CookCard` wraps a single cook post with its `CardWrapper` and full card chrome; `CookCardInner` is the wrapper-less variant reused by linked groups so a group can render its members under a single outer wrapper with hairline dividers (no gray gaps). Both consume `CookCardData` from `cookCardDataService`. **Phase 7N CP2 three-zone Pressable split:** card body is split into (1) top Pressable covering header + title + description + recipe line, (2) bare `PhotoCarousel` NOT wrapped in a Pressable so horizontal swipes go to its FlatList uncontested, (3) bottom Pressable covering stats + vibe + engagement + actions. Per-photo tap-to-navigate routes through `PhotoCarousel`'s `onPhotoPress` prop. Inner touchables (RecipeLine, overflow menu, like/comment icons) still win via innermost-touchable-wins and never propagate. `photosOverride` prop (`CarouselPhoto[] | null | undefined`) lets `SharedRecipeLinkedGroup` suppress or substitute the default photo derivation.
 - **`groupingPrimitives.tsx`** — preheads and grouped-card renderers. `MealEventPrehead` (L4 context line above a solo cook card), `CookPartnerPrehead` (cook-partner context when no meal event), `MealEventGroupHeader` (L5 group header above a nested meal event), `LinkedCookStack` (multi-author linked group), `SharedRecipeLinkedGroup` (D48 — multiple cooks cooking the same recipe, shared hero + per-cook sub-sections), `NestedMealEventGroup` (D47 — meal event group header + per-sub-unit rendering).
-- **`sharedCardElements.tsx`** — shared visual primitives consumed by every surface above plus `CookDetailScreen` and `MealEventDetailScreen`: `CardWrapper`, `CardHeader`, `PhotoCarousel` (with per-slide `failedIndices` via `onError` and optional `scrollToIndex` / `onScrollToIndexComplete` props), `NoPhotoPlaceholder` (D50 — light grey backdrop + `BookIcon` + "No photo yet" text), `RecipeLine`, `DescriptionLine`, `StatsRow`, `VibePillRow`, `EngagementRow`, `ActionRow`, `HighlightsPill`, `optimizeStorageUrl` helper (rewrites Supabase public URLs to the `/render/image/` endpoint with size + quality params).
+- **`sharedCardElements.tsx`** — shared visual primitives consumed by every surface above plus `CookDetailScreen` and `MealEventDetailScreen`: `CardWrapper`, `CardHeader`, `PhotoCarousel` (Phase 7N CP2: added `onPhotoPress` prop so tap-to-navigate is handled per-slide rather than by an outer Pressable — see "Three-zone gesture pattern" below; also retains per-slide `failedIndices` via `onError` and optional `scrollToIndex` / `onScrollToIndexComplete`), `NoPhotoPlaceholder` (D50 — light grey backdrop + `BookIcon` + "No photo yet" text), `RecipeLine`, `DescriptionLine`, `StatsRow`, `VibePillRow`, `EngagementRow`, `ActionRow`, `HighlightsPill`, `optimizeStorageUrl` helper (rewrites Supabase public URLs to the `/render/image/` endpoint with size + quality params).
 
 Feed data flow: `FeedScreen.loadDishPosts()` → `transformToCookCardData` → `buildFeedGroups` → `renderFeedItem` dispatch on `FeedGroup.type` → `CookCard` (solo) / `SharedRecipeLinkedGroup` (linked_shared_recipe) / `NestedMealEventGroup` (linked_meal_event). Navigation from feed: cook card tap → `CookDetail`; meal event prehead or group header tap → `MealEventDetail`.
 
 ### Phase 7 Components
-- **LogCookSheet.tsx** — Unified bottom sheet for logging cooks. `mode` prop ('compact' | 'full') switches layout density. Compact (~65% height) opens from RecipeDetailScreen primary CTA. Full (~90%) opens from CookingScreen "Done cooking". Half-star slide-to-rate via PanResponder (per-star position mapping with gap awareness, slide-left-to-clear, teal). Keyboard handling: KeyboardAvoidingView `behavior="position"`, InputAccessoryView Done button on TextInputs, tap-outside-to-dismiss via onTouchStart on container. Photo placeholders, voice memo placeholder, helper chips, modifications field (full mode only). Submit calls `createDishPost` with visibility flag.
+- **LogCookSheet.tsx** — Unified bottom sheet for logging cooks. `mode` prop ('compact' | 'full') switches layout density. Compact (~65% height) opens from RecipeDetailScreen primary CTA. Full (~90%) opens from CookingScreen "Done cooking". Rating UI now delegates to the extracted `StarRating` component (Phase 7M). Keyboard handling: KeyboardAvoidingView `behavior="position"`, InputAccessoryView Done button on TextInputs, tap-outside-to-dismiss via onTouchStart on container. Photo placeholders, voice memo placeholder, helper chips, modifications field (full mode only). **Phase 7G:** date picker (reuses `DateTimePicker` with new `quickSelectPreset='past'` prop) available in both modes for historical cook logging. Submit calls `createDishPost` with explicit `cookedAt` + `visibility`. `computeDefaultVisibility` reads `user_profiles.default_visibility` (Phase 7L wiring).
 - **TimesMadeModal.tsx** — Stepper modal for "I've Made This Before" history backfill. Shows additions delta (default 1, min 1) with live preview "Update total to **X** times logged". `onConfirm` passes the new total. Repurposed in 7B-Rev from earlier "I Made This" use.
 
 ### Modals
@@ -389,6 +409,8 @@ type StatsStackParamList = {
   BookDetail: { bookId: string };
   UserPosts: { userId: string; displayName: string };
   RecipeDetail: { recipe: { id: string; title: string } };
+  CookDetail: { postId: string; photoIndex?: number };         // L6 — Phase 7H
+  EditPost: { postId: string };                                 // Phase 7M
   Profile: undefined;
   Settings: undefined;
   EditProfile: undefined;
@@ -413,8 +435,9 @@ type FeedStackParamList = {
   RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
   AuthorView: { chefName: string };
   MealDetail: { mealId: string; currentUserId: string };       // legacy, kept for Meals tab callers
-  CookDetail: { postId: string; photoIndex?: number };          // L6 — Checkpoint 5
-  MealEventDetail: { mealEventId: string };                     // L7 — Checkpoint 6
+  CookDetail: { postId: string; photoIndex?: number };          // L6 — 7I Checkpoint 5
+  MealEventDetail: { mealEventId: string };                     // L7 — 7I Checkpoint 6
+  EditPost: { postId: string };                                 // Phase 7M
   EditMedia: { postId: string; existingPhotos: PostPhoto[] };
 };
 ```
@@ -425,6 +448,8 @@ type FeedStackParamList = {
 - **Feed → MealEventDetail:** meal event preheads (L4) and nested meal event group headers (L5) both call `navigateToMealEvent(mealEventId)` → `MealEventDetail` with `{ mealEventId }`.
 - **CookDetail → RecipeDetail:** tapping the recipe line when the post is recipe-backed.
 - **CookDetail → EditMedia:** overflow menu "Add photos" item. `EditMedia` is registered in the FeedStack so it's reachable without cross-stack jumps.
+- **CookDetail → EditPost:** overflow menu "Edit post" item (Phase 7M — replaces the 6 narrow-scope inline edits from 7I Checkpoint 5).
+- **StatsStack My Posts → CookDetail:** cross-stack-consistent Phase 7H wiring (previously routed to `RecipeDetail`).
 - **CookDetail → CommentsList:** Block 13 comment tap-through or sticky bar comment icon.
 - **MealEventDetail → CookDetail:** Block 5 dish row tap — each row routes to `CookDetail` for that specific cook post (L7→L6 drill).
 - **MealEventDetail → CommentsList:** Block 8 "About the evening" tap-through or sticky bar comment icon. Uses the meal_event post's ID as the target (D51 — engagement via existing `post_likes` / `post_comments` infrastructure).
@@ -532,7 +557,7 @@ posts → post_photos, post_participants, post_likes (yas_chefs), comments
 ├── rating: numeric(3,1) nullable                                  ← Phase 7B-Rev (was integer)
 ├── visibility: 'everyone'|'followers'|'private', default 'everyone' ← Phase 7A
 ├── make_again: text (DEPRECATED in 7B-Rev, column kept)           ← Phase 7A
-└── cooked_at (PLANNED for 7G — currently NULL, defaults to created_at)
+└── cooked_at (Phase 7G — explicitly populated on every createDishPost insert; feed + CookCard + feedGroupingService + StatsScreen My Posts all sort by this column)
 
 recipe_step_notes (Phase 6 — separate from annotations)
 ├── recipe_id, user_id, step_id, content
@@ -608,7 +633,7 @@ user_nutrition_goals                                       ← Phase 4
 | 🥫 Pantry | pantry_items, spaces, space_members, space_settings, user_active_space, user_pantry_preferences |
 | 🛒 Grocery | grocery_lists, grocery_list_items, regular_grocery_items, stores |
 | 🔍 Discovery | ingredients, ingredient_suggestions, or_pattern_decisions |
-| ⚙️ Platform | user_profiles, user_ingredient_preferences, user_recipe_preferences, user_ingredient_choices |
+| ⚙️ Platform | user_profiles (incl. `default_visibility` column — Phase 7L global visibility preference read by `computeDefaultVisibility`), user_ingredient_preferences, user_recipe_preferences, user_ingredient_choices |
 
 ### Extraction Tables (semi-independent subproject)
 
@@ -848,9 +873,45 @@ For bottom sheets with text inputs that must remain visible when the keyboard ap
 
 This combination (position behavior + InputAccessoryView Done button + tap-outside-to-dismiss) avoids the resize glitches and unreachable input issues that come from `behavior="padding"` or `TouchableWithoutFeedback` wrappers.
 
+### Three-zone gesture pattern (Phase 7N CP2, CookCard)
+
+When a feed card needs to (a) navigate-on-tap across most of its surface AND (b) support horizontal photo-carousel swipe without gesture conflict, split the card body into three zones:
+
+1. **Top Pressable** — header + title + description + recipe line
+2. **Bare `PhotoCarousel`** (NOT wrapped in a Pressable) — swipes go to its FlatList uncontested; per-photo taps are handled by `PhotoCarousel`'s `onPhotoPress` prop
+3. **Bottom Pressable** — stats + vibe + engagement + actions
+
+Inner touchables (recipe line, overflow menu, like/comment buttons) still win via "innermost touchable wins" and don't propagate. This supersedes the single-outer-Pressable pattern PostCard used before Phase 7I; direct port of that pattern to CookCard caused swipe flakiness that multiple fix passes couldn't resolve — restructure was the definitive fix.
+
+**When to use:** any card that combines tap-to-navigate with horizontal-swipe media. Don't use for cards without horizontal gestures (single Pressable is simpler).
+
 ---
 
 ## Recent Breaking Changes
+
+### Phase 7 post-CP7 — Historical Logging, My Posts, Polish, Edit Cook, Sharing, Chef Backfill, Visibility Settings (April 15 – April 17, 2026)
+
+Seven sub-phases shipped in three days closing out Phase 7 before F&F freeze.
+
+| Date | Change | Impact |
+|------|--------|--------|
+| 2026-04-15 | **7G:** `posts.cooked_at` explicitly written on every `createDishPost` insert (was default-null). `DateTimePicker` gained `quickSelectPreset='past'` prop. Feed + CookCard + CookDetailScreen + feedGroupingService all switched from `created_at` to `cooked_at` as the sort key. | Historical cook logging is live. Any service that queries posts for display ordering should use `cooked_at` — `created_at` still exists but no longer drives feed/stats ordering. |
+| 2026-04-15 | **7H:** StatsScreen My Posts nav target switched from `RecipeDetail` to `CookDetail` (L6). `CookDetail` route registered in StatsStack. Freeform dishes (no `recipe_id`) now tappable. | Any code that assumed My Posts routes to RecipeDetail needs updating. |
+| 2026-04-15/17 | **7N:** `PhotoCarousel` gained `onPhotoPress` prop; `CookCard` restructured into the three-zone gesture pattern (see Common Patterns). `CommentsScreen` gained `useHeaderHeight`-based keyboard avoidance (P7-85). Photo carousel peek (88% width + "N/M" count pill — P7-87). `CookDetailScreen` title promoted into nav header bar (P7-90). Rating label ternary for own vs. other's post (P7-96 label half). Star picker stay-open with full-screen tap-outside dismiss (P7-97). Inline (non-sticky) engagement bar on both detail screens (P7-98). Multi-photo library select via `pickMultipleImages`/`chooseImageSourceMulti` (P7-88). Back button global `tintColor` set to brand teal via `headerTintColor` on all 7 stack navigators. | Feed card tap reliability is fixed. Any custom-header screens should audit their `headerTintColor` against the new global. |
+| 2026-04-17 | **7M:** `screens/EditPostScreen.tsx` added (~1,178 lines) — unified Strava-style Edit Activity screen. `components/StarRating.tsx` extracted as a reusable component (used by LogCookSheet + EditPostScreen). `constants/cookingMethods.ts` created (16 values, matching DB CHECK on `posts.cooking_method`). `UpdatePostPatch` extended with `rating?`, `cooking_method?`, `modifications?`, `notes?`, `visibility?`, `cooked_at?`. CookDetailScreen overflow collapsed from 6 narrow-scope items to 2 (`Edit post` + `Delete post`), ~508 lines removed. Meal picker on CookDetailScreen enhanced with dates + chronological sort + "Create new meal event" row (P7-91). Eating partners stub row on CookDetailScreen. | The 6-item narrow-scope overflow menu from 7I Checkpoint 5 is retired — editing now flows through `EditPostScreen`. Any external deep-link or feature that opened the old inline edit affordances must be rewired to `navigation.navigate('EditPost', { postId })`. |
+| 2026-04-17 | **7J:** `lib/services/shareService.ts` created. Exports `shareRecipe` and `sharePost` wrapping React Native's built-in `Share.share`. Wired to RecipeDetailScreen overflow, CookDetailScreen header, MealEventDetailScreen header. Messages are currently plain-text; deep-link URL migration is flagged in source TODO. | No schema impact. Deep-link URL swap is a single-file change in shareService when the URL scheme ships. |
+| 2026-04-17 | **7K:** `backfillChefIds` added to `lib/services/recipeExtraction/chefService.ts` — one-time admin function triggered from SettingsScreen. Updated 147 recipes + books with `chef_id` via `books.author` → `getOrCreateChef` join. `cookCardDataService` already had the `chefs(name)` join so the chef name now appears on feed cards immediately. | Historic recipes without `chef_id` are now attributed. The function is idempotent and safe to re-run; it no-ops on already-linked rows. The chefService/bookService location under `recipeExtraction/` is historical and tracked for relocation in DEFERRED_WORK as a cross-cutting item. |
+| 2026-04-17 | **7L:** `user_profiles.default_visibility` column added (text, nullable — NULL means "use hardcoded default"). SettingsScreen gained a visibility picker (three options; `meal_tagged` intentionally excluded as per-post only per D34). `computeDefaultVisibility` reads the stored preference via a new `userDefault` param. LogCookSheet wired to read this on mount. | User visibility preference is now persisted. `computeDefaultVisibility` callers should pass `userDefault` when the user is known; absence is backward-compatible. |
+
+**Key decision references:** D34 (visibility model + global default), D43 (eater ratings — carried over from 7I), D47 (cook-post-centric feed — carried over from 7I), P7-100/P7-102 (deprecated-but-alive screens still gated on Meals-tab migration).
+
+**Deprecated-but-extant screens/components** (carried forward from 7I, still in the repo as of 2026-04-17):
+- `MealDetailScreen.tsx` — referenced by MyMealsScreen, MyPostDetailsScreen, MyPostsScreen, RecipeDetailScreen (P7-100)
+- `MyPostDetailsScreen.tsx` / `MyPostsScreen.tsx` — legacy You-tab surfaces (P7H-2, P7-102)
+- `PostActionMenu.tsx` — referenced by the two legacy screens above (P7-102)
+- Legacy `feedGroupingService` exports (`groupPostsForFeed`, `GroupedPost`, `SinglePost`, `FeedItem`) — P7G-2
+
+**console.warn instrumentation status:** Phase 7's narrow-scope-edit instrumentation on CookDetailScreen + MealEventDetailScreen was NOT removed during 7M CP3 cleanup — both screens still carry it. `grep -c 'console\.warn(' screens/CookDetailScreen.tsx` returns 11; `screens/MealEventDetailScreen.tsx` returns 42. (Grep scope excludes `CookingScreen.tsx` and `LogCookSheet.tsx` which carry intentional instrumentation from Phase 6 / 7B-Rev for unrelated reasons.) Clean-up is outstanding — flag as a small deferred item for a future housekeeping pass.
 
 ### Phase 7I — Cook-Post-Centric Feed Rebuild (April 13 – April 15, 2026)
 
@@ -974,6 +1035,7 @@ sugar (parent, base_ingredient_id = NULL)
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-04-21 | 4.0 | **Phase 7 completion reconciliation.** All 13 Phase 7 sub-phases documented (7A through 7N + 7M). Added `Phase 7 post-CP7` Breaking Changes subsection covering 7G (cooked_at wiring), 7H (My Posts → CookDetail), 7N (photo carousel restructure + polish), 7M (EditPostScreen, StarRating extraction, cookingMethods.ts, UpdatePostPatch extended, CookDetailScreen overflow collapsed), 7J (shareService), 7K (chef backfill), 7L (default_visibility). Added `EditPostScreen.tsx` to Screens. Added `StarRating.tsx` to Components. Added `vibeService.ts` and `shareService.ts` to Core Services. Relocated `chefService.ts` from Core Services to Extraction Services and expanded its function list with `getOrCreateChef` + `backfillChefIds`. Added `bookService.ts` and `index.ts` to Extraction Services. Added `lib/utils/` subtree to Directory Structure (`mealTypeHelpers.ts` + `timerDetection.ts` — the latter a Phase 6 backfill). Added `constants/cookingMethods.ts` to Directory Structure. Extended `postService.ts` row (UpdatePostPatch now covers 11 fields; `computeDefaultVisibility` reads user preference; re-exports mealTypeHelpers). Extended `cookCardDataService.ts` row with the SELECT-column SSoT pattern. Updated `FeedScreen.tsx` (cooked_at sort + stale-data refocus refetch) and `StatsScreen.tsx` (My Posts nav target) rows. Updated `CookDetailScreen.tsx` row (overflow collapse + 7N polish). Updated `LogCookSheet.tsx` row (7G date picker + 7M StarRating delegation + 7L default_visibility). Updated FeedStack + StatsStack route tables with `EditPost` + StatsStack `CookDetail`. Updated `posts.cooked_at` data-model bullet from "PLANNED" to "explicitly populated." Added `user_profiles.default_visibility` note to Platform domain. Added "Three-zone gesture pattern" to Common Patterns. No structural changes to Feature Domains, StatsScreen Architecture, FilterDrawer State, Nutrition Architecture, Extraction Pipeline, Ingredient Matching, or Icon System. |
 | 2026-04-06 | 3.1 | **Phase 7A/7B/7B-Rev reconciliation.** Added new top-level `lib/services/recipeService.ts` (deleteRecipe, distinct from recipeExtraction one). Added `postService.ts` to services table. Added `cookingService.ts` to services table (recipe_step_notes CRUD). Added `LogCookSheet.tsx` and `TimesMadeModal.tsx` to components with full descriptions. Marked `PostCookFlow.tsx` as DEPRECATED in 7B-Rev. Marked `PostCreationModal.tsx` as partially deprecated for cook logging. Added `PencilIcon` to recipe icons (built from noun-pencil SVGs, supports filled prop). Added `recipe_step_notes` table to data model and domain table. Added `posts.make_again`, `recipes.times_cooked`, `posts.visibility`, half-star numeric rating to data model. Updated RecipeDetailScreen and CookingScreen entries to reflect 7B-Rev changes (LogCookSheet primary CTA, edit mode banner, step notes display, "Done cooking" → LogCookSheet directly). Added Mode-variant components and Keyboard Avoidance patterns to Common Patterns. Added Recent Breaking Changes section for 7A/7B/7B-Rev. Added playbooks/ folder reference to directory structure. |
 | 2026-03-05 | 3.0 | **Phase 4 complete.** Added statsService.ts (38 functions) and nutritionGoalsService.ts to services. Added components/stats/ directory (~30 components) to directory structure. Added 5 new screens (StatsScreen, DrillDown, ChefDetail, BookDetail, UserPosts). Added Navigation section with StatsStack routes and cross-stack nav pattern. Added StatsScreen Architecture section (layout, control placement, scroll subtitle, data flow). Added posts.photos JSONB pattern, anchored popup pattern, avatar handling pattern, independent section loading pattern to Common Patterns. Updated data model with user_nutrition_goals table and photos jsonb note. Updated bottom tab bar (6 tabs, You tab far right). Added Phase 4/I breaking changes. |
 | 2026-03-02 | 2.1 | Added domain scope boundaries from Product Architecture, cross-domain integration map. |
