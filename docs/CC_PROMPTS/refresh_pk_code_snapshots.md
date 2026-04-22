@@ -88,9 +88,11 @@ For every file in scope:
     */
    ```
    where `YYYY-MM-DD` is today's date
-5. Write the stamped file to `_pk_sync/code/<original-path>` preserving the directory structure
-   - Example: `lib/services/postService.ts` → `_pk_sync/code/lib/services/postService.ts`
-   - Example: `screens/FeedScreen.tsx` → `_pk_sync/code/screens/FeedScreen.tsx`
+5. Write the stamped file to `_pk_sync/code/<path-with-slashes-replaced-by-double-underscore>` — flat layout, no subdirectories. PK upload is per-file and doesn't accept folders, so staging must be flat. The `__` separator preserves path context in the filename so pattern-finding still works and basename collisions (two `recipeService.ts` files, etc.) stay distinguishable.
+   - Example: `lib/services/postService.ts` → `_pk_sync/code/lib__services__postService.ts`
+   - Example: `screens/FeedScreen.tsx` → `_pk_sync/code/screens__FeedScreen.tsx`
+   - Example: `App.tsx` (no directory prefix) → `_pk_sync/code/App.tsx`
+   - Collision example: `lib/services/recipeService.ts` → `lib__services__recipeService.ts` and `lib/services/recipeExtraction/recipeService.ts` → `lib__services__recipeExtraction__recipeService.ts` — both survive as distinct files.
 
 ### Step 4 — Update `docs/PK_CODE_SNAPSHOTS.md`
 
@@ -133,7 +135,7 @@ Summary in chat:
 - **Don't modify the source files in the repo.** Only read them.
 - **Refresh atomicity — do not edit any tier-listed file during a refresh execution.** The refresh reads tier-listed files, stamps snapshots, resets Staleness Risk columns, and writes tracking-doc updates. If any tier-listed file is also edited in this execution, the snapshot and tracking-doc state become inconsistent (snapshot captures time T₀, Staleness Risk reset to Low claims currency as of T₁ where T₁ > T₀ and includes an edit at T₀.₅). If Tom's opening line implies editing tier-listed files as part of the refresh, STOP and report — the refresh and the edits must be separate executions.
 - **Don't commit.** Tom reviews `_pk_sync/code/` contents, uploads, and commits `PK_CODE_SNAPSHOTS.md` separately if it changed.
-- **Preserve the mirrored directory structure** in `_pk_sync/code/`. Flat filenames break pattern-finding when two services have similar names.
+- **Stage files flat with `__` path separators** in `_pk_sync/code/`. PK upload is per-file and doesn't accept folders, so mirrored subdirectories would be stripped at upload time anyway. The `__` convention (e.g., `lib__services__postService.ts`) preserves path context in the filename so pattern-finding still works and basename collisions (e.g., the two `recipeService.ts` files) stay distinguishable. Do NOT create subdirectories under `_pk_sync/code/`.
 - If a file listed in `PK_CODE_SNAPSHOTS.md` doesn't exist in the repo, STOP that file and flag in SESSION_LOG — don't silently skip, don't guess.
 
 ---
@@ -144,12 +146,15 @@ Before finishing:
 
 ```bash
 # 1. Every file in _pk_sync/code/ has the snapshot header
-grep -L "PK SNAPSHOT" _pk_sync/code/**/*.ts _pk_sync/code/**/*.tsx
-# Expect: empty (no files missing the header)
+grep -L "PK SNAPSHOT" _pk_sync/code/*.ts _pk_sync/code/*.tsx
+# Expect: empty (no files missing the header). Flat layout — single-level glob, no recursion needed.
 
-# 2. Mirrored directory structure is intact
-ls -R _pk_sync/code/
-# Expect: lib/services/, lib/utils/, constants/, screens/, components/, etc.
+# 2. Flat layout intact — no subdirectories
+find _pk_sync/code -mindepth 1 -type d | wc -l
+# Expect: 0. Any subdirectories mean a file wasn't flattened via the __ separator rule.
+# Also sanity-check the naming pattern:
+ls _pk_sync/code/ | head -10
+# Expect: files like App.tsx, lib__services__postService.ts, screens__FeedScreen.tsx, etc.
 
 # 3. PK_CODE_SNAPSHOTS.md snapshot dates updated
 grep "$(date +%Y-%m-%d)" docs/PK_CODE_SNAPSHOTS.md | head -5

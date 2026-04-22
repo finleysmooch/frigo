@@ -1,5 +1,696 @@
 # Session Log
 
+## 2026-04-22 — [PK refresh — follow-up] Flatten `_pk_sync/code/` for PK upload constraint
+**Phase:** cross-cutting (follow-up to the initial PK refresh)
+**Prompt from:** Tom's direct instruction — "i can't upload folders — the files have to all be flat. can you update?"
+
+Context: Tom reported that Claude.ai's project knowledge doesn't accept folder uploads — files must be individually uploaded at a flat level. The prior refresh (commit `2060a0c`) staged the 156 stamped files in a mirrored directory structure (`_pk_sync/code/lib/services/postService.ts`, etc.) per the refresh prompt's explicit guidance. Tom's constraint invalidates that guidance for the actual PK upload mechanism.
+
+**What changed:**
+- All 156 files in `_pk_sync/code/` renamed from mirrored paths to flat `__`-separated names. Example: `_pk_sync/code/lib/services/postService.ts` → `_pk_sync/code/lib__services__postService.ts`.
+- All empty subdirectories under `_pk_sync/code/` removed. The directory is now flat: 156 files at the top level, zero subdirectories.
+- **Two basename collisions resolved via the path-prefix convention:**
+  - `lib/services/recipeService.ts` → `lib__services__recipeService.ts`
+  - `lib/services/recipeExtraction/recipeService.ts` → `lib__services__recipeExtraction__recipeService.ts`
+  - `constants/pantry.ts` → `constants__pantry.ts`
+  - `lib/types/pantry.ts` → `lib__types__pantry.ts`
+- Snapshot headers (`/** PK SNAPSHOT — 2026-04-22 */`) preserved on every file — the flatten used `mv` rather than re-stamping.
+
+**Nothing committed.** `_pk_sync/code/*` is gitignored. This follow-up doesn't alter the tracking doc, the refresh prompt, or any other committed file. Tom uploads the 156 flat files to PK directly.
+
+**Rule E check:** no tier-listed files edited (only `_pk_sync/code/` staging area touched, which is gitignored workflow folder). Rule E does not trigger.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Refresh prompt updated to match PK upload mechanics (follow-up to Tom's "update the wording directly" instruction):**
+
+After Tom explicitly authorized editing the prompt, three surgical updates applied to `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` so future refreshes stage flat from the start:
+
+1. **Step 3 item 5** — replaced "Write the stamped file to `_pk_sync/code/<original-path>` preserving the directory structure" (with mirrored-path examples) with "Write the stamped file to `_pk_sync/code/<path-with-slashes-replaced-by-double-underscore>` — flat layout, no subdirectories. PK upload is per-file and doesn't accept folders, so staging must be flat." + 4 examples including collision handling.
+
+2. **Constraints bullet** — replaced "Preserve the mirrored directory structure in `_pk_sync/code/`. Flat filenames break pattern-finding when two services have similar names." with "Stage files flat with `__` path separators in `_pk_sync/code/`. ... The `__` convention preserves path context in the filename so pattern-finding still works and basename collisions (e.g., the two `recipeService.ts` files) stay distinguishable. Do NOT create subdirectories under `_pk_sync/code/`."
+
+3. **Verification block** — replaced the recursive-glob grep `_pk_sync/code/**/*.ts _pk_sync/code/**/*.tsx` with a single-level glob `_pk_sync/code/*.ts _pk_sync/code/*.tsx`; replaced "ls -R" with a no-subdir sanity check (`find _pk_sync/code -mindepth 1 -type d | wc -l` expecting 0) plus a sample `ls` on the flat folder.
+
+All 3 edits verified via grep: new phrasing present, old phrasing ("preserving the directory structure", "mirrored directory structure", `**/*.ts _pk_sync/code/**/*.tsx`) has 0 matches. Next refresh execution will stage flat from the start — no manual flattening follow-up needed.
+
+**Rule E check (for this prompt update):** `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` is a repo-only standing prompt, not a tier-listed code file. Rule E does not trigger.
+
+**No `_pk_sync/` staging** for this prompt update — it's a repo-only doc, not PK-resident.
+
+**Recommended next steps for Tom:**
+1. Upload the 156 flat files from `_pk_sync/code/` to PK (bulk — but per-file; they're all at the top level now so the upload UI should accept them as a batch).
+2. After successful upload, clear `_pk_sync/code/*` (the `_pk_sync/code/` directory can stay — it's gitignored).
+3. Consider firing a small Claude.ai prompt to update `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` per the suggested wording above, so future refreshes stage flat from the start. Otherwise every refresh triggers this manual-flatten follow-up.
+
+**Surprises / Notes for Claude.ai:**
+- **Flat staging was already the established convention elsewhere** — earlier this session, the `claude_project_upload/` folder (and the v4 `_claudeai_context/` folder for tier-inventory staging) both used the `__` separator flat convention. The refresh prompt is an outlier that assumed a mirrored structure would work.
+- **Only two basename collisions in 156 files** — `recipeService.ts` (lib/services vs recipeExtraction) and `pantry.ts` (constants vs lib/types). Both resolve cleanly under the `__` convention. Worth noting: if future code growth adds more collisions, the `__` convention scales naturally.
+- **Snapshot headers survived `mv` intact** — the stamp is content, not metadata, so renaming doesn't disturb it. Good property of this design.
+
+---
+
+## 2026-04-22 — [PK refresh] Initial population — 156 files stamped + tracking doc commit (2060a0c)
+**Phase:** cross-cutting (first PK code-snapshot refresh)
+**Prompt from:** Tom's direct instruction — "Commit the PK_CODE_SNAPSHOTS.md update (snapshot dates + history row): chore(pk): refresh code snapshots 2026-04-22 — initial population." Interpreted as "run the standing refresh prompt `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` and commit the tracking-doc update with that message."
+
+This is the first real execution of the refresh prompt since v5.1 infrastructure landed. Executed full-tier refresh across all 156 tracked files.
+
+**Files refreshed per tier:**
+- Tier 1: **57 files** (services, recipeExtraction, utils, constants, types, lib-root services)
+- Tier 2: **64 files** (screens, feedCard, stats coordinators, cooking surfaces, LogCookSheet)
+- Tier 3: **35 files** (App.tsx, contexts, cooking supporting, components top-level)
+- **Total: 156 files.** All stamped with `/** PK SNAPSHOT — 2026-04-22 */` header at line 1 and written to `_pk_sync/code/<mirrored-path>`.
+
+**Discovery pass results:** **0 newly-discovered files. 0 stale tracking rows.** Expected outcome for the first refresh after a fresh same-day tier inventory. Details:
+- Tier 1 actual vs tracked: 57 = 57, no additions or deletions.
+- Tier 2 strict rule (screens + feedCard + LogCookSheet): 45 actual = 45 tracked, no additions.
+- Tier 2 ambiguous rule (stats + cooking subset): 15 stats-primitive files and 1 deprecated (PostCookFlow) surfaced via rule but are all in the "Explicitly excluded" section of the tracking doc (listed by bare filename rather than full path — discovery correctly cross-referenced and excluded them). Zero remaining as newly-discovered.
+
+**Files changed:**
+- `docs/PK_CODE_SNAPSHOTS.md` — Snapshot Date column populated (2026-04-22) and Staleness Risk column reset to Low across all 156 rows in Tier 1/2/3 tables. Refresh history table gained a new "Initial population" row. Net diff: 157 insertions / 156 deletions.
+- `_pk_sync/code/**` — 156 stamped files staged (gitignored, not in the commit). Mirrored directory structure:
+  - `_pk_sync/code/lib/services/*.ts` (+ `recipeExtraction/`)
+  - `_pk_sync/code/lib/utils/*.ts`
+  - `_pk_sync/code/lib/types/*.ts`
+  - `_pk_sync/code/lib/*.ts` (5 stray services + ingredientsParser)
+  - `_pk_sync/code/constants/*.ts`
+  - `_pk_sync/code/screens/*.tsx`
+  - `_pk_sync/code/components/feedCard/*.tsx`
+  - `_pk_sync/code/components/stats/*.tsx` (15 Tier 2 coordinators)
+  - `_pk_sync/code/components/cooking/*.tsx` (11: 4 Tier 2 + 7 Tier 3)
+  - `_pk_sync/code/components/*.tsx` (25: 1 LogCookSheet from T2 + 24 from T3)
+  - `_pk_sync/code/contexts/*.tsx`
+  - `_pk_sync/code/App.tsx`
+
+**Rule E check:** refresh prompt only READS tier-listed files — no tier-listed file is edited. Rule E does not trigger for this execution. Matches spec's Note on Rule E.
+
+**Commit:** `2060a0c` — `chore(pk): refresh code snapshots 2026-04-22 — initial population`. One file (`docs/PK_CODE_SNAPSHOTS.md`). `_pk_sync/code/` is gitignored (per v5.1 `_pk_sync/*` rule with negates) so it's correctly absent from the commit — Tom uploads its contents to PK manually.
+
+**Spec's 4-item verification results:**
+
+| # | Check | Expected | Actual |
+|---|---|---|---|
+| 1 | Every stamped file has the snapshot header at line 1 | 0 files missing | 0 ✅ |
+| 2 | Mirrored directory structure in `_pk_sync/code/` | lib/services/, lib/utils/, constants/, screens/, components/, etc. | All 6 top-level dirs present + App.tsx ✅ |
+| 3 | Tracking doc snapshot dates populated with today's date | ≥5 matches | 163 matches (156 rows + header + refresh-history refs + changelog) ✅ |
+| 4 | Zero HIGH staleness entries after full refresh | 0 | 0 ✅ |
+
+**Decisions made during execution:**
+- **Last Touched By column left blank on previously-blank rows.** Tom's opening line didn't specify the current phase, so per the refresh prompt's Step 4 rule ("If Tom's opening doesn't specify the current phase, skip updating Last Touched By"), I didn't populate blank entries. Rows that already had a phase attribution (from the v1.1 tier-refinement landing) kept their existing value.
+- **sed regex for column updates — first attempt missed empty-cell rows.** Initial pattern `\| \|` expected two spaces between pipes; empty rows used single-space `| |`. Corrected to `\|[^|]*\|` which handles both. Restored from backup and re-ran cleanly. Flagging because future refresh runs may face similar edge cases as the tracking doc evolves.
+- **Discovery pass cross-reference against Excluded list.** The tracking doc's "Explicitly excluded" section lists stats primitives by bare filename (e.g., `CompactBarRow`) rather than full path. My initial diff against Tier 2/Tier 3 tables flagged 15 false-positive "newly-discovered" files. Secondary check against the Excluded section by bare filename match confirmed all 15 are intentionally excluded. Net discovery result: 0 new. Worth formalizing this bare-filename-in-Excluded pattern in the refresh prompt's Step 1b if future discovery passes face the same mismatch.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none for this refresh. Consider a small PROCESS_WATCHPOINTS observation about bare-filename-vs-full-path matching in the Excluded list (flagged below).
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+1. Upload `_pk_sync/code/` contents to PK (bulk — 156 files) — this is the first time PK gains the curated code snapshot set.
+2. Clear `_pk_sync/code/*` after upload (keep the `_pk_sync/code/` directory structure via `.gitkeep` if desired, or let it stay empty — gitignored either way).
+3. **Sub-phase/phase boundary trigger:** the next time a sub-phase closes, fire the refresh prompt with `Refresh PK code snapshots. All tiers.` (or scoped to the phase's touched tiers) to keep PK in sync.
+4. **Rule E will start firing from now on:** any subsequent CC session that edits a tier-listed file will auto-flag in SESSION_LOG + bump the file's row to HIGH in `PK_CODE_SNAPSHOTS.md`. This is the first time that mechanism is "armed" — worth watching the next 3–5 sessions per W5's concern to verify the standing rule triggers without prompt-level reminders.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Excluded-list bare-filename matching:** the discovery pass cross-references against the tracking doc's "Explicitly excluded" section, which lists stats primitives by bare filename (`CompactBarRow`) rather than full path. A naive path-match diff flagged 15 false positives. The fix was a secondary bare-filename match. Worth considering whether the refresh prompt's Step 1b should explicitly call out the two matching modes (path vs bare filename), OR whether the Excluded section should be normalized to full paths. Either change tightens discovery; currently it works but requires the executor to notice the bare-filename convention. Small W5 / W6 observation candidate.
+
+2. **No leading directives in any of the 156 files.** My stamping loop checked for shebang / triple-slash / JSX pragma / `"use ..."` directives on line 1 and inserted the snapshot header AFTER them if present. Zero files had directives (expected for RN/Expo TS/TSX). The defensive check cost nothing but was unnecessary in this codebase. Future-proofing remains useful.
+
+3. **First real Rule E arming.** As of this refresh, all 156 tier-listed files have Snapshot Date = 2026-04-22 and Staleness Risk = Low. The next CC session that edits any tier-listed file should automatically flag and bump per Rule E. Watching for that in W5.
+
+4. **Uncommitted working-tree drift unchanged.** The prior session's "40+ pre-existing uncommitted changes" still exist — no action taken on them this session beyond what the refresh and commit required. Flagging as ongoing housekeeping backlog.
+
+---
+
+## 2026-04-22 — [cross-cutting] Commit v5.1 landing bundle (commit 9259980)
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (short commit-the-6-files instruction)
+
+Executed the reset + scoped-add + commit flow per explicit instruction. The prior session's STOP-and-report resolved here: Tom replaced CC_START_PROMPT.md with a clear "commit these 6 files as a single unit" script. Proceeded.
+
+**Commit landed:** `9259980` — `docs: code snapshots in PK — DOC_MAINTENANCE_PROCESS v5.1 + tracking doc v1.1 (evidence-based tier refinement) + refresh prompt with discovery pass + CLAUDE.md Rule E + DEFERRED_WORK T4-T7 + PROCESS_WATCHPOINTS W5/W6 observations`. 6 files, 784 insertions, 200 deletions.
+
+**Files in the commit:**
+- `CLAUDE.md` — Rule E added; preamble "four" → "five"
+- `docs/DOC_MAINTENANCE_PROCESS.md` — v5.0 → v5.1 (Code Snapshots section, dual staleness signaling, Section 8 Key Rules bullet, Phase Completion Checklist step 1a)
+- `docs/PK_CODE_SNAPSHOTS.md` — new file (v1.0 → v1.1 tier refinement; 57/64/35 tier counts; 156 named files)
+- `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` — new standing prompt with discovery pass in Step 1
+- `docs/DEFERRED_WORK.md` — v5.0 → v5.1 (T4 relocate stray services, T5 delete PostCookFlow, T6 review oldTheme, T7 resolve @ts-nocheck)
+- `docs/PROCESS_WATCHPOINTS.md` — v1.0 → v1.1 (W6 observation about categorical-rule failure modes; W5 observation about Rule D triggering during the discovery-pass-v2 spec mismatch)
+
+**Rule E check:** None of the 6 files is a tier-listed code file (they're all living docs or repo-only standing prompts). Rule E does not trigger.
+
+**`_pk_sync/` dated copies awaiting PK upload — 6 files, not the 4 the prompt expected:**
+- `_pk_sync/CLAUDE_2026-04-22.md`
+- `_pk_sync/DOC_MAINTENANCE_PROCESS_2026-04-22.md`
+- `_pk_sync/DEFERRED_WORK_2026-04-22.md`
+- `_pk_sync/PROCESS_WATCHPOINTS_2026-04-22.md` (contains both W6 and W5 observations)
+- `_pk_sync/FRIGO_ARCHITECTURE_2026-04-21.md` (carried over from 4/21 session; matches the doc's `Last Updated: April 21, 2026` header)
+- `_pk_sync/PROJECT_CONTEXT_2026-04-21.md` (carried over from the v10 update; renamed earlier today from an undated file to add the date stamp per DMP §5)
+
+All 6 are byte-identical to their repo sources (verified earlier this session). The 4 new-this-cohort copies are the ones the prompt expected; the 2 carry-overs are from prior PK-upload workflows that haven't been cleared yet.
+
+**Verification results:**
+- `git log -1 --stat`: 6 files changed, 784 / 200 ✅
+- `git diff --cached --name-only`: 6 paths matched exactly ✅
+- `ls _pk_sync/*.md`: 6 dated copies present ✅
+- `git status --short` after commit: working tree is NOT clean (spec expected clean) — pre-existing uncommitted drift from prior sessions remains. See "Surprises" below.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none (though the file itself is pre-existing uncommitted — separate reconciliation).
+- `DEFERRED_WORK.md`: none for this landing.
+- `PROJECT_CONTEXT.md`: none for this landing.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+1. Upload all 6 `_pk_sync/*.md` dated copies to PK, replacing prior copies.
+2. Clear `_pk_sync/*.md` after upload (keep `.gitkeep`).
+3. **Next action:** fire `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` with opening line `Refresh PK code snapshots. All tiers.` — first real code-snapshot batch upload. Discovery pass should report zero newly-discovered files since tracking doc was populated from fresh inventory earlier today.
+4. **Consider a follow-up housekeeping commit** for the pre-existing uncommitted drift (detailed below), or let it continue to accumulate until a natural flush point.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Working tree is NOT clean after commit.** The spec expected clean; reality has significant pre-existing uncommitted drift from prior sessions today and earlier. Summary:
+   - **Modified but unstaged (9 files):** `.claude/settings.local.json`, `.gitignore`, `docs/CC_START_PROMPT.md`, `docs/FRIGO_ARCHITECTURE.md`, `docs/PROJECT_CONTEXT.md`, `docs/README.md`, `docs/SESSION_LOG.md` (about to be modified again by this entry), `docs/archive/phases/PHASE_7I_MASTER_PLAN.md`
+   - **Deletions not staged (20+ files):** old `docs/CC_PROMPT_7*.md`, `docs/PHASE_7F_DESIGN_DECISIONS.md`, `docs/DDL_CHECKPOINT_6_EATER_RATINGS.sql`, wireframe HTMLs
+   - **Untracked (10+ items):** `_claudeai_context/`, `docs/FF_LAUNCH_MASTER_PLAN.md`, archive subdirectories and phase docs, `docs/archive/README.md`, `docs/archive/*/.gitkeep` files
+   - None of this drift is from THIS commit's scope. The reset+narrow-add pattern correctly confined the commit to exactly the 6 target files.
+
+2. **`_pk_sync/` has 6 dated copies, not the 4 the prompt listed.** The prompt's list was:
+   - `DOC_MAINTENANCE_PROCESS_2026-04-21.md` — actually landed as `_2026-04-22.md` (matches the doc's `Last Updated: April 22, 2026`)
+   - `CLAUDE_2026-04-21.md (or _2026-04-22.md)` — `_2026-04-22.md` landed
+   - `DEFERRED_WORK_2026-04-22.md` — matches
+   - `PROCESS_WATCHPOINTS_2026-04-22.md` — matches
+   
+   Plus 2 extras from prior PK-upload cycles that haven't been cleared yet: `FRIGO_ARCHITECTURE_2026-04-21.md` and `PROJECT_CONTEXT_2026-04-21.md`. Both have current content matching their respective repo sources (byte-identical). Tom should upload these too — they're part of the PK working set even if outside this commit's scope.
+
+3. **Pattern confirmed for this workflow:** `git reset HEAD` + narrow `git add` + commit is the durable solution when the pre-staged cohort doesn't match the target commit scope. Previous turn's STOP was appropriate given the ambiguity; this turn's execution shows the clean resolution.
+
+---
+
+## 2026-04-22 — [cross-cutting] W5 observation on Rule D + (STOPPED before commit — state mismatch)
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (PROCESS_WATCHPOINTS W5 observation + commit outstanding work)
+
+Applied the doc edits (Steps 1, 3, 4) successfully. **Stopped at Step 5 (commit)** because `git status` state does not match the prompt's anticipated "exactly three modified/new paths" condition — the prompt's explicit STOP rule fires.
+
+**Files changed (this session):**
+- `docs/PROCESS_WATCHPOINTS.md` — W5 "Observations" appended (`None yet.` → 2026-04-22 observation about Rule D triggering on the discovery-pass-v2 spec mismatch); v1.1 changelog row extended to mention the W5 observation alongside the earlier W6 observation.
+- `_pk_sync/PROCESS_WATCHPOINTS_2026-04-22.md` — overwritten with the updated PROCESS_WATCHPOINTS content. Byte-identical to the repo copy (verified via `diff -q`).
+
+**Rule E check:** neither PROCESS_WATCHPOINTS.md nor refresh_pk_code_snapshots.md is tier-listed. Rule E does not trigger.
+
+**Verification results (steps that completed):**
+
+| Check | Expected | Actual |
+|---|---|---|
+| W5 observation present | `grep -c "2026-04-22 (discovery-pass patch v2 landing)"` = 1 | 1 ✅ |
+| Extended v1.1 changelog row | `grep -c "W5 observation (added later same day)"` = 1 | 1 ✅ |
+| `_pk_sync/` dated copy exists | path present | present ✅ |
+| Disambiguation: correct `None yet.` replaced | W5's line (92) updated, W1 (50) + W4 (78) untouched | ✅ — used surrounding context ("prompt-level reminders") to target W5 uniquely |
+
+**Why I stopped at Step 5:**
+
+The prompt's Step 5 says:
+> "Expected output — exactly three modified/new paths:  `M docs/PROCESS_WATCHPOINTS.md`, `M docs/CC_PROMPTS/refresh_pk_code_snapshots.md`, `?? _pk_sync/PROCESS_WATCHPOINTS_2026-04-22.md`. If `git status` shows more or fewer changes than this, STOP and report."
+
+Actual `git status` has **far more** than three paths. Specifically, the entire v5.1 landing bundle is staged (from Tom's earlier `git add` command):
+
+**Staged (7 paths):**
+- `M  CLAUDE.md` (Rule E)
+- `A  _pk_sync/.gitkeep`
+- `A  docs/CC_PROMPTS/refresh_pk_code_snapshots.md` (staged at pre-discovery-pass content)
+- `M  docs/DEFERRED_WORK.md` (T4-T7 additions, v5.1)
+- `M  docs/DOC_MAINTENANCE_PROCESS.md` (v5.0 → v5.1)
+- `A  docs/PK_CODE_SNAPSHOTS.md` (v1.1 tier refinement)
+- `M  docs/PROCESS_WATCHPOINTS.md` (v1.1 W6 observation, staged before this session's W5 observation)
+
+**Unstaged working-tree changes that would need staging for a complete commit:**
+- `M docs/CC_PROMPTS/refresh_pk_code_snapshots.md` — discovery-pass-v2 patch (unstaged post-initial-`git add`)
+- `M docs/PROCESS_WATCHPOINTS.md` — this session's W5 observation + changelog extension
+
+**Other pre-existing uncommitted changes (not part of this cohort, carried over from prior sessions):**
+- `.claude/settings.local.json`, `.gitignore`, `docs/CC_START_PROMPT.md`, `docs/FRIGO_ARCHITECTURE.md`, `docs/PROJECT_CONTEXT.md`, `docs/README.md`, `docs/SESSION_LOG.md`, `docs/archive/phases/PHASE_7I_MASTER_PLAN.md`, many `D` entries for old CC_PROMPT files, and untracked archive subdirectories / phase docs.
+
+**Root cause of the state mismatch:** the prompt was authored assuming the discovery-pass-v2 patch was a solo uncommitted change (its sole prior session didn't commit). In reality, Tom ran a `git add` earlier today that staged the entire v5.1 landing cohort as a single future commit. The prompt's narrow "discovery-pass + W5" commit message doesn't match the broader staged set, AND unstaging most of it to match the narrow commit would undo Tom's earlier staging intent.
+
+**Judgment call deferred per Rule D:** several reasonable paths forward — none of which I should pick unilaterally.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom — choose one:**
+
+1. **Commit the full v5.1 landing cohort** with Tom's earlier suggested message. Run `git add docs/PROCESS_WATCHPOINTS.md docs/CC_PROMPTS/refresh_pk_code_snapshots.md` to add the just-modified files to the already-staged cohort, then commit with: `docs: code snapshots in PK — DOC_MAINTENANCE_PROCESS v5.1 + tracking doc v1.1 (evidence-based tier refinement) + refresh prompt + CLAUDE.md Rule E + discovery pass v2 + PROCESS_WATCHPOINTS W5 observation`. **This is what I'd pick** — the v5.1 landing is semantically one coherent unit and the PROCESS_WATCHPOINTS additions are tracking the same landing.
+
+2. **Split into two commits.** Commit #1: everything currently staged minus the refresh_pk_code_snapshots.md + PROCESS_WATCHPOINTS.md deltas this prompt produced (roughly the "v5.1 landing" Tom intended earlier). Commit #2: the discovery-pass-v2 patch + W5 observation, matching this prompt's narrower message. Technically cleaner history but requires re-staging.
+
+3. **Commit per the prompt's literal instruction.** Would require unstaging all 7 currently-staged paths except `refresh_pk_code_snapshots.md` + `PROCESS_WATCHPOINTS.md`, then re-adding the two working-tree deltas, then committing with the prompt's suggested message. This would undo Tom's earlier staging intent and leave the rest of the v5.1 landing dangling uncommitted.
+
+Tell me which path you want and I'll execute. (For option 1, I also need to confirm the `AM` state on `docs/CC_PROMPTS/refresh_pk_code_snapshots.md`: the staged version is the pre-patch v1.0 content; the working tree has the discovery-pass v2 patch. A `git add` refreshes the staged version to include the patch, so one final `git add` will pick it up.)
+
+**Surprises / Notes for Claude.ai:**
+
+1. **The prompt's anticipated git state is out of date.** It expected the discovery-pass-v2 patch uncommitted solo. Reality: Tom staged the full v5.1 cohort earlier today via a direct `git add` command, which is the intended commit unit per the broader v5.1 landing narrative Tom set out.
+
+2. **`docs/CC_PROMPTS/refresh_pk_code_snapshots.md` has `AM` state.** Git staged the initial file creation (`A` — new file landed via v4 scaffolding), then the discovery-pass-v2 patch modified it (`M`) after staging. The commit needs `git add` on this file before commit to capture the patch content in the commit.
+
+3. **Same-day changelog extension pattern worked cleanly.** The W6 observation landed earlier today at v1.1; this session extended that row rather than creating a new version bump. Matches the prompt's guidance. Reasonable pattern for multi-observation same-day work.
+
+4. **Disambiguation of `None yet.` worked on first try** by including the preceding line about "prompt-level reminders" as context — unique to W5. Flagging in case future prompts need similar patterns for multi-occurrence find-strings.
+
+---
+
+## 2026-04-22 — [cross-cutting] Refresh-prompt discovery pass patch (v2)
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (Refresh-prompt Discovery Pass Patch v2)
+
+Single-file patch: 4 edits applied to `docs/CC_PROMPTS/refresh_pk_code_snapshots.md`. Discovery pass added to Step 1 with Tier 1 + Tier 2 rules aligned to v1.1 tier state; opening-line examples extended with `Auto-add newly-discovered files`; Step 6 gains "Newly-discovered files" and "Stale tracking rows" subsection requirements; verification block extended with two new checks.
+
+**Preflight:**
+- Target file exists ✅
+- PK_CODE_SNAPSHOTS.md at v1.1 ✅ (Last Full Refresh 2026-04-22)
+- All 4 grep-first anchors hit on first try (opening-line block, Step 1 header, Step 6 header, Staleness Risk verification check line) ✅
+
+**Files changed:**
+- `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` — 4 edits. Net line count grew ~60 lines (discovery rules + subsection specs + 2 verification checks).
+
+**Rule E check:** `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` is a repo-only standing prompt, not a tier-listed code file. Rule E does not trigger for this execution.
+
+**Verification results (spec's 7-item block):**
+
+| # | Check | Expected | Actual |
+|---|---|---|---|
+| 1 | "Discovery pass" present | ≥1 | 1 ✅ |
+| 2 | "Auto-add newly-discovered files" present | ≥1 | 2 ✅ (once in opening-line examples, once in Step 1c) |
+| 3 | "Newly-discovered files" + "Stale tracking rows" | 1 each | 3 / 4 ✅ (spec expected "one match each" but both phrases appear in Step 6 content AND in the verification block's comment text — all appearances are intended) |
+| 4 | "Discovery-pass summary reported in SESSION_LOG" + "Stale tracking rows subsection" | 1 each | 1 / 1 ✅ |
+| 5 | "Tier 3 discovery: SKIPPED" | 1 | 0 ❌ — spec-internal inconsistency (see below) |
+| 6 | "supabase.ts" + "oldTheme.ts" | ≥1 each | present (found in the Tier 1 exclusion line) ✅ |
+| 7 | "LogoPlaygroundScreen" | ≥1 | 1 ✅ |
+
+**Check #5 explanation (non-functional failure):** The spec's Edit 2 content was `**Tier 3 discovery:** SKIPPED.` (with markdown bold on "Tier 3 discovery:"). I landed that verbatim. The spec's Verification check #5 greps for the plain substring `Tier 3 discovery: SKIPPED` without accounting for the `**` bold markers between the colon and SKIPPED, so the grep doesn't match. **Content is correct and semantically complete** — a relaxed grep `grep -c "Tier 3 discovery"` returns 1, and `grep -F '**Tier 3 discovery:** SKIPPED'` finds the full sentence. This is a spec-internal mismatch between Edit 2's content format and Verification #5's grep pattern, not a content failure in my execution. Per Rule D (no strategic content authorship), I did NOT modify Edit 2's content to satisfy the grep — flagging the mismatch here is the right surface.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+- Review and commit. Suggested message: `docs(pk): add discovery pass to refresh_pk_code_snapshots prompt (v2 — aligned to v1.1 tier state)`.
+- The next time the refresh prompt runs (sub-phase boundary, phase completion, or ad-hoc), it will include the discovery pass automatically.
+- **No upload to PK needed** — the refresh prompt is repo-only infrastructure.
+- **Next action:** fire the refresh prompt for the first real code-snapshot batch upload. Discovery should report zero newly-discovered files on first run (tracking doc was populated from fresh inventory on 2026-04-22), which is a useful sanity check that discovery is wired correctly.
+
+**Surprises / Notes for Claude.ai:**
+- **Spec-internal inconsistency in Verification #5** (markdown bold vs plain grep). The content lands correctly; only the grep pattern in the spec's verification block is out of alignment. If this patch is re-authored for another doc later, consider tightening the grep pattern to `Tier 3 discovery.*SKIPPED` (or using `grep -F '**Tier 3 discovery:** SKIPPED'`) so verification matches the content.
+- **Discovery pass is intentionally asymmetric by tier.** Tier 1 is rule-defined so discovery can enumerate systematically. Tier 2 is half rule-defined (`screens/`, `feedCard/`, named `LogCookSheet`) and half partially-curated (`stats/`, `cooking/` where only some files are Tier 2 and the rest are Tier 3/4). Tier 3 is fully curated so discovery is skipped. This matches the v1.1 tier refinement's design — the refresh prompt now enforces it in code.
+- **`DEFERRED_WORK.md` T5 is referenced** in the new Step 6 "Stale tracking rows" subsection spec ("if the file was obviously deleted in a known phase, based on DEFERRED_WORK T5 status for PostCookFlow"). Forward reference — when T5 actually lands and `components/cooking/PostCookFlow.tsx` gets deleted, the refresh prompt's stale-rows flow will handle it automatically. Worth verifying on that refresh run that the flow works as designed.
+- **No `_pk_sync/` staging for this patch.** `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` is a repo-only standing prompt; Claude.ai doesn't consult it from PK. Matches the spec's explicit note.
+
+---
+
+## 2026-04-22 — [cross-cutting] PK_CODE_SNAPSHOTS tier refinement v1.1 (evidence-based)
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (PK_CODE_SNAPSHOTS Tier Refinement Patch v2)
+
+Applied the evidence-based tier-refinement patch to v4's scaffolding (pre-commit, per prompt constraint). All 156 named files in Step 1 verified present in repo — zero file-existence anomalies. PK_CODE_SNAPSHOTS.md v1.0 → v1.1; DEFERRED_WORK.md 5.0 → 5.1 with T4–T7 added; PROCESS_WATCHPOINTS.md 1.0 → 1.1 with W6 observation appended.
+
+**Files changed:**
+- `docs/PK_CODE_SNAPSHOTS.md` — v1.0 → v1.1. Full rewrite of Tier 1/2/3 tables with explicit named file lists (57/64/35 counts). Added Tier 3 calibration note after Tier 3 table. Added "Files explicitly excluded despite superficially matching tier rules" subsection inside Excluded section. Appended v1.1 row to Refresh history. Prepended v1.1 row to Changelog.
+- `docs/DEFERRED_WORK.md` — v5.0 → v5.1. Appended T4 (relocate stray `lib/` services), T5 (delete deprecated PostCookFlow), T6 (review `oldTheme.ts`), T7 (resolve `QuickAddSection.tsx` `@ts-nocheck`) to Cross-Cutting Technical Debt table. Bumped Last Updated to April 22, 2026. Prepended v5.1 changelog row.
+- `docs/PROCESS_WATCHPOINTS.md` — v1.0 → v1.1. W6 "Observations" section: replaced `None yet.` with a 2026-04-22 observation (three classes of rule failure: under-inclusion / over-inclusion / structural drift). Bumped header to v1.1 / April 22, 2026. Prepended v1.1 changelog row. Status stays Open per prompt.
+- `_pk_sync/DEFERRED_WORK_2026-04-22.md` — staged, byte-identical to repo copy.
+- `_pk_sync/PROCESS_WATCHPOINTS_2026-04-22.md` — staged, byte-identical to repo copy.
+
+**Rule E check:** `PK_CODE_SNAPSHOTS.md` edits its own tier rows extensively in this patch, but the file itself is NOT in Tier 1–3 (it's a tracking doc). `DEFERRED_WORK.md` and `PROCESS_WATCHPOINTS.md` are living docs, not tier-listed code files. Rule E does not trigger for this execution. Confirmed by re-reading `docs/PK_CODE_SNAPSHOTS.md` tier tables after the rewrite — no match on any of the files edited this session.
+
+**Verification results (spec's 8-item block):**
+
+| # | Check | Expected | Actual |
+|---|---|---|---|
+| 1 | `head -5 docs/PK_CODE_SNAPSHOTS.md` → Version: 1.1 | Version: 1.1 | ✅ v1.1 + Last Full Refresh 2026-04-22 |
+| 2a | Tier 1 row count | 57 | 57 ✅ |
+| 2b | Tier 2 row count | 64 | 64 ✅ |
+| 2c | Tier 3 row count | 35 | 35 ✅ |
+| 3 | "Tier 3 calibration (v1.1" present | 1 | 1 ✅ |
+| 4 | "Surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory" in DEFERRED_WORK | 4 | 4 ✅ |
+| 5 | "v5.1 first tier populate + refinement" in PROCESS_WATCHPOINTS | 1 | 1 ✅ |
+| 6 | Both `_pk_sync/` staged copies exist | both | both ✅ |
+| 7 | "Currently at lib/ root; should relocate" in PK_CODE_SNAPSHOTS (5 stray services) | 5 | 5 ✅ |
+| 8 | T4-T7 with expected subjects | 4 | 4 ✅ |
+
+**File existence anomalies:** none. All 156 files in the Step 1 named lists verified present in the repo before tier-table regeneration. (Bulk existence check via a temp file list: `156 listed, 156 existing, 0 missing`.) This is the outcome expected since the lists were derived from the fresh 2026-04-22 tier inventory — no drift possible between inventory and patch application in the same day.
+
+**Flag resolution summary:**
+
+| Flag from v4 | Resolution |
+|--------------|------------|
+| Flag 1 (72-file Tier 3) | Narrowed to 35 named files via evidence-based review of full inventory. |
+| Flag 2 (`lib/types/` missed) | Added 9 files to Tier 1. `env.d.ts` excluded as TS infra. |
+| Flag 3 (`lib/` root services) | Confirmed: 5 services + `ingredientsParser.ts` at `lib/` root. Added to Tier 1 with flagged Notes. DEFERRED_WORK entry T4 tracks relocation. FRIGO_ARCHITECTURE.md Directory Structure drift flagged below. |
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: ⚠️ Directory Structure shows all services under `lib/services/`, but 5 services currently live at `lib/` root (`groceryListsService.ts`, `groceryService.ts`, `pantryService.ts`, `searchService.ts`, `storeService.ts`) plus `ingredientsParser.ts` at `lib/` root. Either the doc updates to reflect reality, or DEFERRED_WORK T4 resolves via file moves — Claude.ai decides. NOT auto-applying in this patch.
+- `DEFERRED_WORK.md`: 4 entries added this patch (T4 through T7). Done.
+- `PROJECT_CONTEXT.md`: none (tier-refinement is internal infrastructure).
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+- Review the patch's diff, particularly the three new tier tables (57/64/35), the 4 DEFERRED_WORK entries (T4-T7), and the W6 observation.
+- Commit v4 + this patch together as a single coherent v5.1 landing. Suggested message: `docs: code snapshots in PK — DOC_MAINTENANCE_PROCESS v5.1 + tracking doc v1.1 (evidence-based tier refinement) + refresh prompt + CLAUDE.md Rule E`
+- Upload 4 `_pk_sync/` dated copies to PK, replacing prior copies: `DOC_MAINTENANCE_PROCESS_2026-04-22.md`, `CLAUDE_2026-04-22.md`, `DEFERRED_WORK_2026-04-22.md`, `PROCESS_WATCHPOINTS_2026-04-22.md`. (Note: the v4 copies were already renamed from `_2026-04-21.md` → `_2026-04-22.md` in the prior session's date reconciliation; those files are still current.)
+- Clear `_pk_sync/*.md` after successful upload (keep `.gitkeep`).
+- Clear `_claudeai_context/tier_inventory_2026-04-22.md` after commit — the inventory served its purpose; ephemeral.
+- **Next action:** fire `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` in a new CC session for the first real code-snapshot batch upload.
+
+**Surprises / Notes for Claude.ai:**
+- **Zero file-existence anomalies** — all 156 Step 1 files present. Same-day inventory → patch was the cleanest possible path.
+- **DEFERRED_WORK item T4 is potentially large.** `pantryService.ts` at 1,246 lines has many imports across the codebase. The 45-minute estimate may be optimistic if the import graph is wider than expected. Flagged the FRIGO_ARCHITECTURE.md Directory Structure update as co-dependent.
+- **T7 (`QuickAddSection.tsx` `@ts-nocheck`) is a known unknown** — error count depends on how much type drift the pragma has been hiding. Could be 10 errors; could be 100.
+- **The prompt's Step 2d anticipated `TBD` values** in the Refresh history row (spec assumed v4 left them as TBD). Reality: v4 execution populated them with 42/46/72 on first write. So Step 2d in practice was just "append the v1.1 row" — no TBD→42/46/72 replacement needed.
+- **The prompt references a follow-up "discovery-pass patch" (`CC_PROMPT_2026-04-21_refresh-discovery-pass-patch.md`) in the "Recommended next steps" section.** That prompt hasn't arrived yet in `CC_START_PROMPT.md`. Flagging so Claude.ai can decide whether to issue that next or go straight to the first real refresh.
+- **Total Tiers 1-3 dropped 160 → 156.** Sum: 57 + 64 + 35 = 156. v4's total was 42 + 46 + 72 = 160. Net change: -4 files overall (net of additions and exclusions). Still feels like a large working set; worth a PROCESS_WATCHPOINTS review at Phase 9 boundary (already flagged in the Tier 3 calibration note).
+
+---
+
+## 2026-04-22 — [cross-cutting] Codebase tier inventory (reconnaissance)
+**Phase:** cross-cutting
+**Prompt from:** `CC_PROMPT_2026-04-21_tier-inventory.md` (prompt dated 4/21, executed 4/22)
+
+Produced `_claudeai_context/tier_inventory_2026-04-22.md` for Claude.ai review. No living docs edited. No commits.
+
+**Date note:** prompt specified `tier_inventory_2026-04-21.md` as the filename and `Generated: 2026-04-21`; I used `2026-04-22` to match actual execution date, following the pattern established in the prior session's 4/21→4/22 reconciliation. If Claude.ai's downstream prompt references the 4/21 filename, a rename is trivial — just flagging.
+
+**Counts by region:**
+- Tier 1 candidate: **61 files** (28 services + 9 recipeExtraction + 2 utils + 3 constants + 10 types + 9 lib/ root)
+- Tier 2 candidate: **85 files** (41 screens + 3 feedCard + 29 stats + 12 cooking)
+- Tier 3 candidate: **75 files** (1 App.tsx + 3 contexts + 71 components/ flat)
+- Tier 4 (summarized): 94 icons + 7 branding + ~19 edge-function subdirs (+ import_map.json) + 10 scripts
+
+Grand total in Tier 1/2/3 candidate regions: **221 files inventoried.**
+
+**Flag 3 outcome — CONFIRMED:** `lib/` root contains 9 `.ts` files beyond `supabase.ts`. Real structural drift from FRIGO_ARCHITECTURE v4.0. Specifics in the inventory file's "Notes for Claude.ai" section, but summary:
+- **5 service files that should relocate to `lib/services/`:** `groceryListsService.ts`, `groceryService.ts`, `pantryService.ts` (heaviest at 1,246 lines), `searchService.ts`, `storeService.ts`
+- **3 utility/parser/legacy files** where relocation call is less clear: `ingredientsParser.ts` (755 lines), `oldTheme.ts` (151 lines), `testParser.ts` (28 lines)
+
+**Ambiguous files flagged:** 0. Every file extracted a clear purpose on first pass.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: **potential follow-up** — Flag 3 is now confirmed with specifics; a small update to the Directory Structure section noting `lib/` root service files could land, OR the cleaner path is to relocate the files and keep FRIGO_ARCHITECTURE accurate. Decision for Claude.ai.
+- `DEFERRED_WORK.md`: **needs update** — add a cross-cutting item for relocating `lib/*Service.ts` files into `lib/services/` plus updating all imports. Estimated 30-60 min. Not F&F-blocking.
+- `PROJECT_CONTEXT.md`: none (reconnaissance only).
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+- Drag-drop `_claudeai_context/tier_inventory_2026-04-22.md` into the Claude.ai chat driving the tier-refinement work.
+- Do NOT clear `_claudeai_context/` yet — the inventory is input to the next patch.
+- After Claude.ai finalizes the tier refinement patch, the first real `refresh_pk_code_snapshots` run follows.
+
+**Surprises / Notes for Claude.ai:**
+1. **`components/stats/*.tsx` adds 29 new candidate files** that were NOT in v4's Tier 3 seed. These weren't enumerated in v4's tier rules (`components/*.tsx` flat, not subdirs). Some are large and interaction-heavy (`StatsRecipes.tsx` 1,009 lines, `StatsNutrition.tsx` 906, `WeeklyChart.tsx` 661) — probably Tier 2. Others are small primitives (`CompactBarRow`, `StreakDots`, `PeriodToggle`) — more Tier 3.
+2. **`components/cooking/*.tsx` adds 12 new candidate files** similarly absent from v4. Most are interaction components; `PostCookFlow.tsx` is explicitly deprecated (221 lines, "merged into LogCookSheet 'full' mode in April 2026") — candidate for deletion rather than any tier.
+3. **`lib/types/` exists with 10 files.** v4 flagged "types not found" because it literally checked for `types.ts` / `database.types.ts` flat filenames. The directory form `lib/types/*.ts` is substantive and worth Tier 1 inclusion (probably excluding `env.d.ts` which is a 2-line ambient declaration).
+4. **`components/QuickAddSection.tsx` carries a `@ts-nocheck` pragma.** Not a tier issue, but a code-quality flag Claude.ai may want to note.
+5. **`components/branding/Logo.tsx` sits at `branding/` top level, not `branding/icons/`.** Easy to miss in a directory-scoped rule. Listed in the Tier 4 summary for completeness.
+6. **No `⚠️` flags across 221 files.** Every file's top-of-file comment block or export signature was clear enough for a one-line purpose. If Claude.ai review surfaces a tier-ambiguous file, a follow-up CC recon prompt can go deeper.
+7. **Tier refinement scope question for Claude.ai:** v4's Tier 3 captured 72 files (71 components/ + 1 App.tsx + … wait, v4 had only 1 `App.tsx` + 3 contexts + 68 components = 72; my current count is 75 because I listed all 71 flat components plus 1 App + 3 contexts). Either way, this inventory surfaces an additional 41 files (29 stats + 12 cooking) that weren't in any v4 tier. **The "72-files-seems-high" concern that motivated this inventory was real but understated — the actual candidate pool is ~160 (v4 seed) or ~221 (with stats + cooking).** Definitely want a narrower rule than "all components/*.tsx."
+
+---
+
+## 2026-04-22 — [cross-cutting] Codify code snapshots in PK (DOC_MAINTENANCE_PROCESS v5.1 + PK_CODE_SNAPSHOTS + refresh prompt + CLAUDE.md Rule E)
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (v4 of the PK-code-snapshot landing prompt)
+
+Four-part landing executed in order: Part A (8 edits to DOC_MAINTENANCE_PROCESS v5.0 → v5.1), Part B (new `docs/PK_CODE_SNAPSHOTS.md`), Part C (new `docs/CC_PROMPTS/refresh_pk_code_snapshots.md`), Part D (CLAUDE.md Rule E + preamble update).
+
+**Preflight results:**
+- DOC_MAINTENANCE_PROCESS v5.0 header confirmed ✅
+- CLAUDE.md Standing Rules ends at Rule D ✅
+- `docs/CC_PROMPTS/` did not exist — created in Part C
+- All four grep-first anchors hit on first try (CLAUDE E2 preamble, CLAUDE Last Updated line, DMP A2 first bullet, DMP A4 cache-count sentence) ✅
+
+**Files changed:**
+
+- `docs/DOC_MAINTENANCE_PROCESS.md` — v5.0 → v5.1. Edits A1 (header block), A2 (Section 4 "does NOT belong in PK" first bullet), A3 (new "### Code Snapshots in PK" subsection between Layer 3 and The Propagation Pattern — includes Tiers, Staleness discipline, Dual staleness signaling, Signal precedence, Rule of thumb for Claude.ai, Refresh cadence), A4 (cache essentials count updated to mention code-snapshot set), A5 (Section 5 `_pk_sync/code/` exception bullet added), A6 (Section 8 "Flag PK snapshot staleness" rule appended to Key rules list), A7 (Phase Completion Checklist step 1a inserted), A8 (v5.1 Changelog row prepended).
+- `docs/PK_CODE_SNAPSHOTS.md` — new file, v1.0. All three Tier tables populated from repo scan. Refresh history seeded with the initial-seed row. Changelog seeded with v1.0 row. Excluded categories list carried verbatim from spec.
+- `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` — new file, content per spec verbatim.
+- `CLAUDE.md` — Rule E appended (E1), preamble "four" → "five" (E2). Last Updated (E3) already at April 21, 2026 — no change needed. No `**Version:**` line present, so nothing to bump.
+- `_pk_sync/DOC_MAINTENANCE_PROCESS_2026-04-22.md` — staged, byte-identical to repo copy (verified via `diff -q`). (Originally staged as `_2026-04-21.md`; renamed to `_2026-04-22.md` when Tom confirmed actual execution date is 4/22 — `_pk_sync/` filename tracks the `Last Updated` header per DMP §5.)
+- `_pk_sync/CLAUDE_2026-04-22.md` — staged, byte-identical. (Same rename from `_2026-04-21.md`.)
+
+**No Rule E trigger for this execution** — none of the files edited are listed in `PK_CODE_SNAPSHOTS.md` (they're all living docs or new infrastructure).
+
+**Tier populations (initial seed from repo scan):**
+
+- **Tier 1 — Services, utilities, constants, type contracts: 42 files**
+  - `lib/services/*.ts` (direct children, excluding subdirs): 28 files
+  - `lib/services/recipeExtraction/*.ts`: 9 files
+  - `lib/utils/*.ts`: 2 files (`mealTypeHelpers`, `timerDetection`)
+  - `constants/*.ts`: 3 files (`cookingMethods`, `pantry`, `vibeIcons`)
+  - `types.ts` / `database.types.ts` at repo root or `lib/`: **0 matches** — see Surprises for the related `lib/types/` directory finding
+- **Tier 2 — Screens and key interaction components: 46 files**
+  - `screens/*.tsx`: 41 files
+  - `components/feedCard/*`: 3 files (`CookCard.tsx`, `groupingPrimitives.tsx`, `sharedCardElements.tsx`)
+  - Top-level key components: 2 files (`LogCookSheet.tsx`, `StarRating.tsx`)
+  - Confirmed absent (per spec exclusion list): `PostCard.tsx`, `MealPostCard.tsx`, `LinkedPostsGroup.tsx` (deleted in 7I CP7), `components/CookCard.tsx` (lives at `components/feedCard/CookCard.tsx`)
+- **Tier 3 — Supporting components and navigation: 72 files**
+  - `App.tsx` at repo root: 1 file
+  - `contexts/*.tsx`: 3 files (`CookingTimerContext`, `LogoConfigContext`, `SpaceContext`)
+  - `components/*.tsx` minus Tier 2 key components: 68 files
+
+**Total: 160 files.** This exceeds the spec's stated typical range of "40–70 files." See Surprises for context.
+
+**Verification results (spec's 8-item block):**
+
+| # | Check | Result |
+|---|---|---|
+| 1 | DMP header shows `Version: 5.1` | ✅ (header block printed in output — matches) |
+| 2 | `^### Code Snapshots in PK` present + `Signal precedence` present | ✅ 1 match each |
+| 3 | "Flag PK snapshot staleness" in Section 8 | ✅ 1 match |
+| 4 | CLAUDE.md Rule E present | ✅ 1 match |
+| 5 | Preamble "These five rules apply to CC only" | ✅ 1 match |
+| 6 | `docs/PK_CODE_SNAPSHOTS.md` + `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` exist | ✅ both present |
+| 7 | PK_CODE_SNAPSHOTS.md has populated Tier tables | ✅ 174 `|`-starting lines (well above >10 threshold) |
+| 8 | Both `_pk_sync/` staged copies exist | ✅ present, byte-identical to sources |
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none (the code-snapshot process is new infrastructure, not a tracked work item).
+- `PROJECT_CONTEXT.md`: **optional** — could add a one-line note to "Documentation System" section referencing the new snapshot pattern alongside the existing `_pk_sync/` mention. Not urgent; fold into next real PROJECT_CONTEXT edit.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+1. Review and commit. Suggested message: `docs: add code snapshots in PK — DOC_MAINTENANCE_PROCESS v5.1 + tracking doc + refresh prompt + CLAUDE.md Rule E`.
+2. Upload `_pk_sync/DOC_MAINTENANCE_PROCESS_2026-04-22.md` to PK, replacing the v5.0 copy. Upload `_pk_sync/CLAUDE_2026-04-22.md` to PK, replacing the prior copy. Then delete both from `_pk_sync/` (keeping `.gitkeep`).
+3. **Before firing the initial refresh, decide on three items flagged below under Surprises** (types inclusion, lib/*Service.ts drift, scale of 160 files). Updating `PK_CODE_SNAPSHOTS.md`'s tier tables ahead of the first refresh is cleaner than doing it after the fact.
+4. **Next action:** fire `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` in a new CC session with opening `Refresh PK code snapshots. All tiers.` to do the initial Tier 1–3 batch upload. That's the actual first populating of code snapshots in PK — this prompt just lands the scaffolding.
+5. After the initial refresh, decide on cadence (full refresh at every sub-phase boundary, or scoped to active work).
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Scale concern — total tier size is ~160 files, vs the spec's "typically 40–70 files" estimate.** Breakdown: 42 + 46 + 72. Tier 3 is the outsized bucket (72 supporting components); Tier 2 screens also runs higher than expected (41 screens, since Frigo has a large screen graph post-Phase 7). Decide whether to:
+   - (a) Accept the 160 as the seed and refresh all of it at every sub-phase boundary (expensive uploads for Tom, but maximally useful in PK),
+   - (b) Narrow Tier 3 to a curated subset (e.g., just modals or just pickers) and drop the rest out of snapshot scope,
+   - (c) Promote the hard rule "Tier 3 refreshes only at phase completion, not sub-phase" and treat sub-phase refreshes as Tier 1+2 only.
+   My preference leans (c) — Tier 3 is low-value-per-file and slow-to-change; a sub-phase cadence for it burns Tom's upload budget without much Claude.ai benefit. Raising as a design question rather than deciding on my own per Rule D.
+
+2. **`types.ts` / `database.types.ts` not found — but `lib/types/` directory exists with 5+ files.** The spec literally says to include `types.ts` or `database.types.ts` "at repo root or in `lib/`" (singular filenames). Neither exact filename exists. But `lib/types/` contains `cooking.ts`, `env.d.ts`, `feed.ts`, `grocery.ts`, `pantry.ts`, plus likely more — per-domain type contracts. Per Rule D I didn't silently include them. Claude.ai should decide whether to:
+   - (a) Broaden Tier 1 to cover `lib/types/*.ts` (probably excluding `env.d.ts`) in a deliberate tier-table edit,
+   - (b) Add them as a separate Tier or sub-category,
+   - (c) Leave them out — they're type contracts read from the working tree when needed, not pattern-finding surface.
+
+3. **Service files at `lib/` root level, not in `lib/services/`.** Scan surfaced `lib/groceryListsService.ts`, `lib/groceryService.ts`, `lib/ingredientsParser.ts`, `lib/oldTheme.ts`, `lib/pantryService.ts` at the `lib/` top level. These look like services that should live at `lib/services/` per project convention (FRIGO_ARCHITECTURE v4.0 already documents `lib/services/` as the services home). Two separate issues:
+   - **Tier 1 scope drift:** per spec's literal Tier 1 definition (`lib/services/`, `lib/utils/`, `constants/`), these files are out of scope and I did not include them. Flag for Claude.ai to decide whether to relocate them in the repo (probably correct) or broaden Tier 1 scope to include `lib/*.ts` root files (workaround).
+   - **Repo cleanup item:** this is a separate structural-drift finding that probably warrants a DEFERRED_WORK entry. Deferred for Claude.ai to reconcile.
+
+4. **Execution timing vs prompt dates — resolved.** The prompt was authored on 2026-04-21; execution ran on 2026-04-22. Initial landing followed the spec verbatim (all 4/21 dates). On Tom's confirmation, post-landing reconciliation updated the actionable dates to 4/22: `Last Updated` headers in DOC_MAINTENANCE_PROCESS.md + CLAUDE.md; `Last Full Refresh` in PK_CODE_SNAPSHOTS.md; v5.1 changelog row in DMP; v1.0 changelog row + Refresh history row in PK_CODE_SNAPSHOTS; SESSION_LOG header for this entry; `_pk_sync/` filenames renamed from `_2026-04-21.md` → `_2026-04-22.md` (both the CLAUDE and DMP copies; `FRIGO_ARCHITECTURE_2026-04-21.md` untouched since that doc's `Last Updated` header is still 4/21). **Historical references kept at 4/21:** the "archive went live on 2026-04-21" note, the `(established 2026-04-21)` Pattern section tags, the v5.0 and v4.1 Changelog rows, and illustrative `PROJECT_CONTEXT_2026-04-21.md` filename examples inside prose — these describe events that actually happened on 4/21 or are illustrative rather than dated. Process question surfaced: the spec-dated-vs-execution-dated gap is a recurring pattern in this workflow (prompt is generated 1-2 days before CC execution). Worth a PROCESS_WATCHPOINTS entry asking whether spec prompts should use a `{{TODAY}}` placeholder that CC resolves at execution time, or whether post-landing reconciliation (as done here) is the preferred fix.
+
+5. **DOC_MAINTENANCE_PROCESS.md was modified mid-session** (per a system-reminder on the first A1 edit attempt — probably a linter tweak to the user-facing date or a concurrent edit elsewhere). No content conflict; I re-read line 1-10 and the edit still applied cleanly against the expected anchor text. Noting so Claude.ai knows there wasn't a content merge.
+
+6. **Rule E wording.** The Rule E bullet I appended is verbatim from the spec. On re-reading it, the "read the tracking doc fresh — do not work from memory" phrase is notable — it's the core anti-drift mechanism. Future CC sessions should take it literally: `docs/PK_CODE_SNAPSHOTS.md` is re-read per session. If the tracking doc itself drifts (e.g., Tier tables not kept current), Rule E's reliability degrades. Claude.ai may want to add a PROCESS_WATCHPOINTS entry tracking whether this holds in practice.
+
+7. **Minor formatting choice in PK_CODE_SNAPSHOTS.md.** The spec's seed placeholder was `[CC: populate...]` block text. I replaced those with actual populated rows (per spec instruction). The "Last Touched By" column I populated best-guess from FRIGO_ARCHITECTURE v4.0 knowledge for files where the attribution was clear (e.g., `shareService.ts` → "Phase 7J"); left blank for files where attribution is ambiguous or would just say "—" (e.g., `AddDishToMealModal.tsx`). This matches the spec's "best-guess ... or leave blank if unclear" guidance.
+
+---
+
+## 2026-04-21 — [cross-cutting] Apply FRIGO_ARCHITECTURE v4.0 update spec
+**Phase:** cross-cutting
+**Prompt from:** `docs/CC_START_PROMPT.md` (FRIGO_ARCHITECTURE v4.0 delta spec)
+
+Applied the delta spec section-by-section to `docs/FRIGO_ARCHITECTURE.md` v3.2 → v4.0. Line count 980 → 1042 (+62 net). All unchanged sections preserved verbatim.
+
+**Preflight results:**
+- **STOP check (v3.2 header):** ✅ passed (`**Version:** 3.2` confirmed).
+- **9-file existence sanity check:** ✅ all present (`lib/utils/timerDetection.ts`, `lib/utils/mealTypeHelpers.ts`, `constants/cookingMethods.ts`, `components/StarRating.tsx`, `lib/services/shareService.ts`, `lib/services/vibeService.ts`, `lib/services/recipeExtraction/bookService.ts`, `lib/services/recipeExtraction/index.ts`, `screens/EditPostScreen.tsx`).
+
+**[CC to verify] resolutions:**
+
+1. **EditPostScreen line count.** Spec said `~893`; actual `wc -l screens/EditPostScreen.tsx` returned **1,178 lines** — delta is 285, well over the 50-line threshold. Per spec I used the actual count in the v4.0 EditPostScreen row and the Phase 7 post-CP7 Breaking Changes row. Suggests the screen grew ~30% after the initial CP1 scaffold, likely during CP2/CP3 and the two fix passes.
+
+2. **bookService.ts exports.** The file has 10 exported functions (listed full in SESSION_LOG appendix below for record). Ranked them by UI-surface-area via `grep -rE 'fnName\(' screens/ components/ 2>/dev/null | wc -l`. Top 4 by UI callers: `createUserBookOwnership` (2 UI refs), `createBook` / `uploadBookCover` / `updateBookCoverUrl` / `getUserBooks` (1 UI ref each — picked the first three plus `getUserBooks` as my top-4 to include a pure read-surface). Populated the bookService.ts row: `createUserBookOwnership`, `createBook`, `uploadBookCover`, `getUserBooks`.
+
+3. **console.warn instrumentation status.** Grep restricted to `screens/CookDetailScreen.tsx` + `screens/MealEventDetailScreen.tsx` (explicitly excluded `CookingScreen.tsx` and `LogCookSheet.tsx` per prompt). Result: **CookDetailScreen = 11 `console.warn(` calls, MealEventDetailScreen = 42**. Instrumentation was NOT removed during 7M CP3 cleanup. Replaced the placeholder note with explicit counts + a callout flagging clean-up as an outstanding item for a future housekeeping pass. (The Phase 7 doc implied 7M would remove these; it didn't. Worth confirming with Claude.ai whether to add a dedicated deferred item.)
+
+**Sections changed in `FRIGO_ARCHITECTURE.md`:**
+
+| Section | Action |
+|---|---|
+| Header block (title + Last Updated + Version) | Replaced entirely (v3.2 / April 15 → v4.0 / April 21). "(Phase 7I Checkpoint 7 closeout)" suffix removed. |
+| Architecture Overview | Carried over unchanged |
+| Feature Domains | Carried over unchanged |
+| Directory Structure | 3 targeted in-tree updates: `constants/` adds `cookingMethods.ts`; new `lib/utils/` subtree between `theme/` and `supabase.ts`; `lib/services/recipeExtraction/` expanded from single-line to full 8-file subtree |
+| Services (lib/services/) — Core Services table | Removed `chefService.ts` row (moved to Extraction); added `shareService.ts` + `vibeService.ts` rows; replaced `postService.ts` row (UpdatePostPatch extended with 7M fields + re-export mealTypeHelpers + 7L `computeDefaultVisibility`); replaced `cookCardDataService.ts` row (SELECT-column SSoT pattern note). All other rows carried over |
+| Extraction Services table | Full replacement — added `index.ts`, expanded `chefService.ts` (function list + Phase 7K backfill), added `bookService.ts` (top-4 UI exports from verification). 9 rows total, up from 6 |
+| Screens (screens/) | Inserted new `EditPostScreen.tsx` row between `MealEventDetailScreen.tsx` and `MyPostDetailsScreen.tsx` (used actual line count 1,178); replaced `CookDetailScreen.tsx` row (overflow collapse + 7N polish); replaced `FeedScreen.tsx` row (cooked_at sort + 7M focus refetch); replaced `StatsScreen.tsx` row (7H wiring). Other screens untouched |
+| Components (components/) | Inserted `StarRating.tsx (Phase 7M extraction)` paragraph in "Cards & Display" before `RecipeNutritionPanel.tsx`; replaced the `sharedCardElements.tsx` bullet (onPhotoPress prop, 7N CP2 note); replaced the `CookCard.tsx` bullet (three-zone gesture pattern + photosOverride prop); replaced the `LogCookSheet.tsx` bullet (StarRating delegation, 7G date picker, 7L default_visibility) |
+| Navigation (App.tsx) — StatsStack ParamList | Added `CookDetail` + `EditPost` routes |
+| Navigation (App.tsx) — FeedStack ParamList | Added `EditPost` route |
+| Navigation (App.tsx) — Key feed nav flows | Added `CookDetail → EditPost` and `StatsStack My Posts → CookDetail` bullets after the existing `CookDetail → EditMedia` line |
+| StatsScreen Architecture | Carried over unchanged (per spec) |
+| FilterDrawer State | Carried over unchanged |
+| Data Model — Key Relationships | `posts.cooked_at` bullet updated from "PLANNED for 7G" to "explicitly populated"; ⚙️ Platform domain row updated to note `user_profiles.default_visibility` (Phase 7L) |
+| Recipes Have TWO Instruction Formats | Carried over unchanged |
+| Icon System | Carried over unchanged |
+| Nutrition Architecture | Carried over unchanged |
+| Extraction Pipeline | Carried over unchanged |
+| Common Patterns | Appended new "Three-zone gesture pattern (Phase 7N CP2, CookCard)" subsection after "Keyboard Avoidance Pattern" |
+| Recent Breaking Changes | Prepended new `### Phase 7 post-CP7` subsection above the existing `### Phase 7I` block. Contains the 7-row date table covering 7G/7H/7N/7M/7J/7K/7L + key decision references + deprecated-but-extant list + the resolved console.warn instrumentation status |
+| Development Setup | Carried over unchanged |
+| Ingredient Matching Pipeline | Carried over unchanged |
+| Changelog | Prepended new 2026-04-21 / 4.0 row at top of table body; existing rows (3.1 / 3.0 / 2.1 / 2.0) untouched |
+
+**Source-vs-spec drift flagged (not silently corrected):**
+- **v3.2 row is missing from the Changelog table.** The committed doc header says `**Version:** 3.2` but the Changelog table jumps from v3.1 (2026-04-06) directly to v3.0 (2026-03-05) with no 3.2 row. The v3.2 content was shipped (evidenced by all the Phase 7I references throughout the v3.2 body and the header "Phase 7I Checkpoint 7 closeout" subtitle), just never recorded in the Changelog. Per spec constraint ("do NOT silently correct drift — flag"), I did NOT backfill a v3.2 row. Claude.ai may want to either backfill it in a follow-up PROCESS_WATCHPOINTS-style reconciliation or note it in v4.0's own entry as an explicit skip.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: the refresh itself just landed (this session).
+- `DEFERRED_WORK.md`: **needs update** — add a cross-cutting item: "Reorganize `lib/services/recipeExtraction/` — `chefService.ts` and `bookService.ts` are no longer extraction-internal. Relocate to top-level `lib/services/` and update imports. ~30 min." (ID per current convention, likely `T{N}`.) Additionally, consider a small `T{N}` item for "Remove Phase 7 console.warn instrumentation from CookDetailScreen (11 calls) + MealEventDetailScreen (42 calls) — was supposed to happen in 7M CP3 cleanup but didn't." Not F&F-blocking; housekeeping.
+- `PROJECT_CONTEXT.md`: small — add a Changelog row noting the v4.0 refresh landed. Low priority; fold into the next real PROJECT_CONTEXT edit rather than bumping for one line.
+- `FF_LAUNCH_MASTER_PLAN.md`: none (architecture doc refresh, not a scope change).
+
+**Files touched:**
+- `docs/FRIGO_ARCHITECTURE.md` — replaced v3.2 → v4.0 in-place. Byte-identical copy staged at `_pk_sync/FRIGO_ARCHITECTURE_2026-04-21.md` (dated filename per DOC_MAINTENANCE_PROCESS §4 + §5 + §13).
+- `docs/SESSION_LOG.md` — this entry.
+
+**Verification results:**
+- `diff -q docs/FRIGO_ARCHITECTURE.md _pk_sync/FRIGO_ARCHITECTURE_2026-04-21.md` → no output (byte-identical).
+- `head -4 docs/FRIGO_ARCHITECTURE.md` → correct v4.0 + April 21 header.
+- `wc -l docs/FRIGO_ARCHITECTURE.md` → 1042 (from 980).
+- All three `[CC to verify]` items resolved with real values, not placeholders.
+- All 9 files in the sanity-check list exist at documented paths.
+
+**Recommended next steps for Tom:**
+1. Review `docs/FRIGO_ARCHITECTURE.md` — especially the new Phase 7 post-CP7 Breaking Changes block (densest new content) and the Extraction Services table expansion.
+2. Commit. Suggested message: `docs: FRIGO_ARCHITECTURE v4.0 — Phase 7 post-CP7 reconciliation`.
+3. Upload `_pk_sync/FRIGO_ARCHITECTURE_2026-04-21.md` to PK, delete the prior-dated copy there, then clear `_pk_sync/FRIGO_ARCHITECTURE_2026-04-21.md` from the staging folder.
+4. Clear the `_claudeai_context/` staging folder from the earlier v4.0 audit session (`rm _claudeai_context/*.tsx _claudeai_context/*.ts _claudeai_context/*.txt`) — the v4.0 doc is now landed, so the staged snapshots are no longer needed.
+5. Queue the DEFERRED_WORK updates (reorg item + optional instrumentation cleanup item) for the next time Claude.ai edits that doc.
+6. Decide whether to backfill the missing v3.2 Changelog row in a housekeeping pass or let it go.
+
+**Surprises / Notes for Claude.ai:**
+- **console.warn cleanup gap.** The 7M CP3 work was supposed to remove narrow-scope-edit instrumentation per earlier phase docs, but 53 `console.warn(` calls still exist across the two detail screens (11 + 42). Either the expectation was wrong or the cleanup was missed. Given 7M CP3 primarily focused on collapsing the 6-item overflow menu to 2 items, the instrumentation removal may have been implicitly scoped out. Worth a quick Claude.ai decision: either add a deferred item for a future cleanup pass, or remove the "removes with 7M" expectation from the source doc. I wrote the v4.0 entry to describe reality (both screens still carry instrumentation) rather than the expectation.
+- **EditPostScreen size drift.** The spec estimated 893 lines; actual is 1,178. The gap is big enough to matter if Claude.ai is reasoning about the screen's complexity or planning follow-on work. Also potentially surfaces a deferred item: if 7M scaffolding was supposed to be ~900 lines and it's actually ~1,200, there's ~30% "growth" worth understanding.
+- **bookService top-4 selection was judgment-adjacent.** 4 functions tied at 1 UI caller each; I picked `createUserBookOwnership` (2 refs — clearly #1), `createBook`, `uploadBookCover`, `getUserBooks`. `updateBookCoverUrl` also had 1 UI ref but I deprioritized it in favor of `getUserBooks` to include one pure read-surface function rather than three writes. Low-stakes tiebreak — can be rewritten if Claude.ai prefers a different framing.
+- **v3.2 Changelog row drift** (flagged above in detail). Represents a real process gap: v3.2 landed without an associated Changelog entry. Probably want to either build a "version-bumps-require-Changelog-row" check into the DOC_MAINTENANCE_PROCESS propagation rules or fix it opportunistically.
+- **bookService.ts 10 exports (for future reference):** `findBook`, `createBook`, `checkUserOwnership`, `createUserBookOwnership`, `uploadBookCover`, `updateBookCoverUrl`, `getOrCreateBook`, `findSimilarBooks`, `getUserBooks`, `getBookRecipes`.
+
+---
+
+## 2026-04-21 — [cross-cutting] Establish _claudeai_context/ + stage files for FRIGO_ARCHITECTURE v4.0 audit
+**Phase:** cross-cutting
+**Prompt from:** CC_PROMPT_2026-04-21_architecture-v4-context-staging.md
+
+**What was done:**
+- Confirmed `docs/FRIGO_ARCHITECTURE.md` header reads `**Version:** 3.2` before proceeding (STOP check passed).
+- Created `_claudeai_context/` folder with `.gitkeep` and `README.md` (verbatim content from prompt Step 1).
+- Added gitignore block for `_claudeai_context/*` contents with `!_claudeai_context/.gitkeep` and `!_claudeai_context/README.md` negate rules. Pre-existing gitignore did NOT contain any `_claudeai_context` reference.
+- Staged 15 of 16 source files into `_claudeai_context/` via plain `cp` (flattened, no subdirectories).
+- Generated `_listing_services.txt` (29 entries from `lib/services/`) and `_listing_constants_utils.txt` (3 entries from `constants/` + 2 entries from `lib/utils/` — the latter DOES exist, contrary to the prompt's "may not exist" hedge).
+
+**Missing files:**
+- `lib/services/chefService.ts` — does not exist at the listed path. Also checked for near-matches (`grep -i 'chef\|author' lib/services/`) — no chef-related service file exists anywhere in `lib/services/`. If the planning instance needs chef-related code for the v4.0 audit, it likely lives inline in one of the screens (e.g., `ChefDetailScreen.tsx`) or in `AuthorView`-flavored components rather than as a service module. Flag for the planning instance to decide if a follow-up staging pass is needed to pull that code.
+
+All other 15 files staged successfully.
+
+**Verification results:**
+
+`ls -1a _claudeai_context/`:
+```
+.
+..
+.gitkeep
+_listing_constants_utils.txt
+_listing_services.txt
+App.tsx
+CookCard.tsx
+cookCardDataService.ts
+CookDetailScreen.tsx
+cookingMethods.ts
+EditPostScreen.tsx
+FeedScreen.tsx
+groupingPrimitives.tsx
+LogCookSheet.tsx
+MealEventDetailScreen.tsx
+postService.ts
+README.md
+sharedCardElements.tsx
+shareService.ts
+StarRating.tsx
+StatsScreen.tsx
+```
+Count: `.gitkeep` + `README.md` + 15 staged source files + 2 `.txt` listings = **19 entries** (prompt expected 20; delta of 1 is exactly the missing `chefService.ts`).
+
+`git status --short --untracked-files=all _claudeai_context/ .gitignore`:
+```
+ M .gitignore
+?? _claudeai_context/.gitkeep
+?? _claudeai_context/README.md
+```
+Only `.gitkeep` and `README.md` visible from `_claudeai_context/`; the 15 staged code files + 2 listings are correctly hidden by gitignore. ✅
+
+`git check-ignore _claudeai_context/EditPostScreen.tsx`:
+```
+_claudeai_context/EditPostScreen.tsx
+```
+Exit code 0 → file is gitignored as expected. ✅
+
+Additional checks:
+- `git check-ignore _claudeai_context/README.md` → exit code 1 (not ignored). ✅
+- `git check-ignore _claudeai_context/.gitkeep` → exit code 1 (not ignored). ✅
+
+**Recommended doc updates:**
+- `DOC_MAINTENANCE_PROCESS.md`: **needs update** — add new subsection formalizing the `_claudeai_context/` convention (purpose: session-scoped code snapshots for Claude.ai drag-drop ingestion; gitignored; lifecycle: staged at session start, cleared at session end via manual rm; contrast with `_pk_sync/` which is for durable PK replacement of living docs). Claude.ai will draft the language in a follow-up edit.
+- `PROJECT_CONTEXT.md`: **needs update** — one-sentence pointer to `_claudeai_context/` alongside the existing `_pk_sync/` mention in the "Documentation System" section (likely in the "Workflow folders" area or as a new bullet under the repo-as-canonical paragraph). Claude.ai will queue for next PROJECT_CONTEXT edit.
+- `FRIGO_ARCHITECTURE.md`: none for this prompt — the v4.0 refresh itself is a separate, downstream prompt that will consume the staged files.
+- `DEFERRED_WORK.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+1. Drag-drop all files from `_claudeai_context/` (except `.gitkeep` and `README.md`) into the active Claude.ai chat for the v4.0 audit session. That's 15 code files + 2 listing `.txt` files = 17 attachments.
+2. Commit the `.gitignore`, `_claudeai_context/.gitkeep`, and `_claudeai_context/README.md` changes with message: `chore: establish _claudeai_context/ workflow folder for session-scoped code snapshots`.
+3. After the v4.0 session closes, clear the staging area: `rm _claudeai_context/*.tsx _claudeai_context/*.ts _claudeai_context/*.txt`. (`.gitkeep` and `README.md` stay.)
+4. If the v4.0 audit instance flags that `chefService.ts` content is actually needed, do a follow-up pass pulling chef-related code from wherever it actually lives (likely inside `ChefDetailScreen.tsx`, `AuthorView`-related components, or another service module).
+
+**Surprises / Notes for Claude.ai:**
+- `lib/services/chefService.ts` does not exist. The prompt's list assumed it did; my guess is that chef attribution logic either lives inline in screens/components (e.g., `ChefDetailScreen.tsx`) or is deferred to Phase 7K (chef attribution backfill) which hasn't shipped yet. Worth confirming which before the v4.0 refresh draws architectural conclusions about the services layer.
+- `lib/utils/` exists and contains two files (`mealTypeHelpers.ts`, `timerDetection.ts`). The prompt's "may not exist; note the absence" branch wasn't needed — both got listed.
+- The prompt title says "15 files" but the list has 16 (with the parenthetical acknowledging this). After factoring out the missing `chefService.ts`, the actual stage count is 15 — back to matching the title coincidentally, though not for the reason the prompt intended.
+- Suggested filename convention going forward: the two listing files use a leading underscore (`_listing_*.txt`) to sort them ahead of code files alphabetically. Low-stakes, just noting it for any future staging prompts Claude.ai drafts so the pattern can be standardized or discarded as preferred.
+
+---
+
 ## 2026-04-21 — Audit: CLAUDE.md alignment with DOC_MAINTENANCE_PROCESS v5.0
 **Phase:** cross-cutting
 **Prompt from:** CC_PROMPT_2026-04-21_CLAUDE_MD_audit.md
