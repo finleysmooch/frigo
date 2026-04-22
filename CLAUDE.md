@@ -1,5 +1,5 @@
 # Frigo - Project Context for Claude Code
-**Last Updated:** April 21, 2026
+**Last Updated:** April 22, 2026
 
 *Entry point for Claude Code sessions. Read by CC at the start of every session. If you are a Claude.ai instance reading this from PK, you're reading it to audit for drift against `DOC_MAINTENANCE_PROCESS.md` — the rules inside are for CC, not for you. Claude.ai follows `DOC_MAINTENANCE_PROCESS.md` directly as the canonical source.*
 
@@ -47,12 +47,13 @@ See `docs/DOC_MAINTENANCE_PROCESS.md` Section 8 for the canonical entry format �
 
 ## Standing Rules
 
-**These four rules apply to CC only.** Claude.ai instances reading this from PK should consult `docs/DOC_MAINTENANCE_PROCESS.md` directly rather than inferring behavior from this mirror. The Standing Rules below mirror DOC_MAINTENANCE_PROCESS Sections 4, 5, 7, 8, and 9 — update both places together when a rule changes; don't let them drift.
+**These five rules apply to CC only.** Claude.ai instances reading this from PK should consult `docs/DOC_MAINTENANCE_PROCESS.md` directly rather than inferring behavior from this mirror. The Standing Rules below mirror DOC_MAINTENANCE_PROCESS Sections 4, 5, 7, 8, and 9 — update both places together when a rule changes; don't let them drift.
 
 - **Rule A — Living doc propagation with dating.** When a prompt authorizes editing a living doc, update the `**Last Updated:**` header and stage a dated copy at `_pk_sync/FILENAME_YYYY-MM-DD.md`. Never edit living docs on your own initiative. Detail: DOC_MAINTENANCE_PROCESS Section 4 ("The Propagation Pattern") and Section 5.
 - **Rule B — SESSION_LOG with Recommended doc updates.** Every session ends with a SESSION_LOG entry per the format in DOC_MAINTENANCE_PROCESS Section 8, including the "Recommended doc updates" block listing all four living docs (`FRIGO_ARCHITECTURE.md`, `DEFERRED_WORK.md`, `PROJECT_CONTEXT.md`, `FF_LAUNCH_MASTER_PLAN.md`) explicitly — write "none" when nothing applies rather than omitting the doc. Detail: Section 8.
 - **Rule C — Verify tracking state before `git mv`.** Run `git ls-files --error-unmatch <path>` before any `git mv`. If tracked, proceed with `git mv`; if untracked or deleted, use plain `mv` + `git add`. Never infer tracking state from filename heuristics. Detail: Section 9 ("File-state verification before git operations").
 - **Rule D — No strategic content authorship.** CC applies the edits specified in the prompt; CC does not decide what content should say. When a prompt requires a judgment call about content (filenames, structure, wording, what to preserve vs drop), STOP and report rather than improvising. Detail: Section 7 ("Living Docs Ownership") and Section 9 (STOP-if-not-findable + do-not-decide patterns).
+- **Rule E — PK code-snapshot staleness flagging.** If this session edited any code files, before writing the SESSION_LOG entry: open `docs/PK_CODE_SNAPSHOTS.md` and check each edited file against its Tier 1–3 tables. For each match: (a) append `⚠️ PK snapshot now stale (was YYYY-MM-DD)` to that file's line in the SESSION_LOG entry's "Files modified" section, using the Snapshot Date column from the tracking doc; (b) update that file's row in `PK_CODE_SNAPSHOTS.md`, setting the Staleness Risk column to HIGH. If no edited files match, no action needed. Read the tracking doc fresh — do not work from memory of its contents. Exception: the standing refresh prompt at `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` reads tier-listed files but does not edit them, so it does not trigger Rule E. Detail: DOC_MAINTENANCE_PROCESS Section 4 ("Code Snapshots in PK") and Section 8 (staleness-flag bullet in Key rules).
 
 ---
 

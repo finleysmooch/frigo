@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** April 9, 2026  
-**Version:** 4.3  
+**Last Updated:** April 22, 2026  
+**Version:** 5.1  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -18,64 +18,189 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 ---
 
+## From: Phase 7 — Social & Feed Polish (Mar 24 – Apr 17, 2026)
+
+**Context:** Phase 7 shipped 78 items across 13 sub-phases, transforming Frigo into a social cooking app. 42 items deferred during execution. Items reconciled below from `PHASE_7_SOCIAL_FEED.md` deferred items sections. Resolved items dropped, still-relevant items preserved with updated context.
+
+### Infrastructure / cleanup
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P7-2 | `posts.make_again` column cleanup | 🔧 | 🟢 | Column exists but unused after 7B-Rev. Drop when convenient. |
+| P7-3 | `PostCookFlow.tsx` file deletion | 🔧 | 🟢 | Deprecated in 7B-Rev, no longer rendered. Delete in cleanup. |
+| P7-4 | `LogCookSheet` inline SVG extraction | 🔧 | 🟢 | 7 SVG icons inline. Extract to `components/icons/` if reused. |
+| P7-23 | Set up `supabase/migrations/` tracking | 🔧 | 🟡 | At least 8+ direct-in-Supabase migrations run without tracking. DB state non-reproducible for new environments. |
+| P7-24 | Silent error swallowing audit | 🔧 | 🟢 | Audit `lib/services/*.ts` for `try/catch { continue }` patterns. Replace with collect-and-report. |
+| P7-25 | `addDishesToMeal` 3-representation audit | 🔧 | 🟡 | Three parallel meal↔dish representations (`parent_meal_id`, `dish_courses`, `post_relationships`). Assess whether `post_relationships` can be dropped. |
+| P7-72 | Recipe image filename normalization | 🔧 | 🟡 | ~347 storage files with uppercase/double-extension filenames. Rename + update `recipes.image_url`. |
+| P7-73 | `posts.photos` jsonb shape normalization | 🔧 | 🟡 | Mix of string-array and object-array forms. CookCardInner handles defensively but data should be normalized. |
+| P7-79 | Storage/DB reference integrity audit | 🔧 | 🟡 | 173 recipes with potentially broken URL patterns. Need HEAD-check script. |
+| P7-100 | Migrate Meals-tab callers to MealEventDetailScreen | 🔧 | 🟡 | 4 screens still route to legacy `MealDetail`. Once migrated, `MealDetailScreen.tsx` can be deleted. |
+| P7-102 | `PostActionMenu.tsx` cleanup | 🔧 | 🟢 | Still referenced by legacy MyPostDetailsScreen + MyPostsScreen. Delete after P7-100. |
+| P7G-1 | Cook partner temporal window → cooked_at | 🔧 | 🟡 | `getLinkedCookPartnersForPosts` uses `created_at` — backdated cooks won't match. |
+| P7G-2 | Legacy `groupPostsForFeed` dead code | 🔧 | 🟢 | Still has `created_at` sorting. Delete. |
+| P7H-1 | CookDetailScreen cross-stack nav audit | 🔧 | 🟡 | StatsStack vs FeedStack internal navigation edge cases. |
+| P7H-2 | Legacy MyPostDetailsScreen/MyPostsScreen route cleanup | 🔧 | 🟡 | Orphaned from Stats tab. Cleanup with P7-100/P7-102. |
+| P7M-1 | Extract cook partner diff to `postParticipantsService` | 🔧 | 🟢 | Currently inline in EditPostScreen. Was also in CookDetailScreen (removed in 7M CP3). |
+| P7M-2 | StarRating PanResponder / ScrollView gesture conflict | 🐛 | 🟡 | On EditPostScreen, touching star rating can accidentally scroll the page. Needs `onMoveShouldSetPanResponder` threshold or `scrollEnabled` toggling. |
+| P7-43 | 2026-04-08 doc maintenance backfill | 📝 | 🟢 | Phase 7D/7E Checkpoint 5 closeout was drafted but never fully applied. Phase 7 complete now — lower priority. |
+
+### Detail screen polish
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P7-80 | Cook/prep time split on stats grid | 🚀 | 🟢 | CookDetailScreen Block 8. Requires extending CookCardData. |
+| P7-81 | Highlights descriptive paragraph | 🚀 | 🟢 | Extend Highlight data model with longText. |
+| P7-82 | Author location line on Block 3 | 🚀 | 🟡 | Needs geo info on posts. |
+| P7-83 | CommentsScreen extraction for inline rendering | 🔧 | 🟢 | Extract ~400 lines to reusable `<CommentList>`. |
+| P7-84 | Pending cook partner visibility | 🚀 | 🟡 | Author can't see pending sous_chef invitations on their post. |
+| P7-86 | EditMedia Strava-style redesign | 🚀 | 🟡 | Drag-to-reorder with hamburger handles, per-photo menu. Current grid layout. |
+| P7-89 | CookDetailScreen inline photos layout | 🚀 | 🟢 | Remove separate Block 12, render thumbnails inline after highlights. |
+| P7-91 | "Create event" in CookDetail meal picker | 🚀 | 🟢 | Now available on EditPostScreen (7M), but not on CookDetail's now-removed inline picker. Low priority. |
+| P7-93 | Half-star eater ratings | 🚀 | 🟢 | DDL alter on eater_ratings.rating. Currently integer only. |
+| P7-94 | Eater rating privacy label | 🚀 | 🟢 | "Your rating" with eye-slash icon explaining D43 private-per-eater rule. |
+| P7-95 | Shared media thumbnail tap-through | 🚀 | 🟢 | Full-screen viewer for Block 7 shared media thumbnails. |
+| P7-96b | Eater rating affordance on CookDetail | 🚀 | 🟡 | For viewers tagged as ate_with. P7-96a (label fix) shipped in 7N. |
+| P7-99 | Highlight picker section headers | 🚀 | 🟢 | Split dual-pool grid into "From shared media" / "From dishes" groups. |
+
+### Feed performance
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P7-44 | Feed infinite scroll (pagination) | 🚀 | 🔴 | Hard-capped at 200 dishes. Needs onEndReached pagination. |
+| P7-45 | Pull-to-refresh investigation | 🐛 | 🔴 | 15s hang. May have been fixed by 7I FeedScreen rewrite + 7M 5s stale threshold — needs verification. |
+| P7-74 | hydrateEngagement perf | 🔧 | 🟡 | ~1.0s steady-state. Likely N+1 pattern. |
+| P7-75 | Batched getMealEventsByIds | 🔧 | 🟢 | N×4 round trips → 2-3 batched. |
+
+### Future sub-phases (post-launch)
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P7-7 | Voice memo on LogCookSheet | 🚀 | 🟡 | Placeholder chip exists. Needs recording + transcription. |
+| P7-8 | Photo upload on LogCookSheet | 🚀 | 🟡 | Placeholder buttons exist. Needs image picker wiring. |
+| P7-17 | Retroactive external participant claim | 🚀 | 🟢 | Schema supports it. UI is post-launch. |
+| P7-21 | User-configurable contextual privacy rules | 🚀 | 🟢 | Hardcoded in v1. Making configurable needs rules-engine UI. |
+| P7-32 | `post_participants` schema migration for eater ratings | 🔧 | 🟡 | Add `rating numeric(3,1)` and `notes text` columns. Per D43. |
+| P7-33 | Eater rating service + privacy enforcement | 🚀 | 🟡 | Ratings must never surface to the cook. Per D43 ζ. |
+| P7-34 | Eater rating UI in meal detail | 🚀 | 🟡 | Per-dish rating with educational banner. Per D43. |
+| P7-35 | "Things I've eaten" history in profile | 🚀 | 🟢 | Personal-only. Linked from meal detail eater rating. |
+| P7-36 | @-mention parsing in comments | 🚀 | 🟡 | Tokenize, validate, render styled span. Per D42. |
+| P7-37 | Comment thread subscriptions | 🔧 | 🟡 | Implicit subscribe on first comment. Mute option. Per D42. |
+| P7-38 | Notification batching for meal comments | 🚀 | 🟡 | Aggregate within time window. Per D42. |
+| P7-39 | Per-photo dish tag toggle in LogCookSheet | 🚀 | 🟢 | Required for full D46 implementation. |
+| P7-40 | Viewer-taste-profile model | 🚀 | 🟢 | Phase 11 territory. Computed from cook history + ratings. |
+| P7-41 | Vibe pill personalized selection | 🚀 | 🟢 | Depends on P7-40. Currently static. |
+| P7-42 | Flip-card recipe affordance | 💡 | 🟢 | Parked concept from wireframes. |
+| P7-46 | Strava-style tag-accept auto-draft flow | 🚀 | 🟡 | Tag cook partner → notification → draft post for them. |
+| P7-47 | Duplicate meal event detection | 🐛 | 🟡 | Trust users for F&F. Later: detect + merge. |
+| P7-48 | Planned-dish entry flow on MealEventDetail | 💡 | 🟡 | "Add planned dish" for host before attendee posts. |
+| P7-49 | "Host recap" post type | 💡 | 🟡 | Host posts about an evening without specific dishes. |
+| P7-50 | RSVP flow redesign under meal event model | 🚀 | 🟡 | Move from old MealDetailScreen to MealEventDetailScreen. |
+| P7-51 | "Related cooks from friends" on CookDetail | 🚀 | 🟢 | "Mary also cooked this recipe" social hook. |
+| P7-52 | Personalized chef page lens | 🚀 | 🟢 | Chef page filtered through user's cook history. |
+| P7-53 | Cookbook page number deep-linking | 🚀 | 🟢 | Tap page number → cookbook detail scrolled to section. |
+| P7-54 | Collage hero photo for meal event | 🚀 | 🟢 | One photo from each contributor. |
+| P7-55 | Per-cook + per-event comments unification | 💡 | 🟢 | May feel artificial — wait for F&F feedback. |
+| P7-56 | Shared media notifications | 🚀 | 🟢 | Who gets notified when attendee adds photo. |
+| P7-57 | Photo dimensions at upload time | 🔧 | 🟢 | Eliminate aspect ratio flash on first load. |
+| P7-63 | Feed card overflow menu (edit/delete from feed) | 🚀 | 🟢 | Deferred from 7M. Only entry point is CookDetail → Edit post. |
+
+### Resolved during Phase 7 (dropped from backlog)
+
+- **P5-4** (Chef name backfill) — Done in 7K. 147 recipes updated.
+- **P6-4** (PostCookFlow makeAgain/thoughts data gap) — Fixed in 7A.
+- **P6-5** (notes/modifications duplication) — Fixed in 7A.
+- **S1** (Visual linking for linked posts) — Superseded by 7I cook-post-centric feed.
+- **S2** (Feed grouping for meals) — Superseded by 7I feedGroupingService rewrite.
+- **P7-9** (Partner tagging on LogCookSheet) — Done in 7E Checkpoint 3.
+- **P7-15** (CreateMealModal entry point audit) — Done in 7D Checkpoint 1.
+- **P7-16** (Verify meal post visibility filter) — Done in 7D Checkpoint 2a.
+- **P7-29** (GroupedMealCard) — Retired. Replaced by CookCard + CookLinkedGroup.
+- **P7-58** (Remove 'meal' from PostType) — Done in 7I Checkpoint 7.
+- **P7-60** (AddCookingPartnersModal interface extension) — Done in 7I Checkpoint 5.
+- **P7-62** (Derived-stat recalculation on recipe_id change) — Deferred by design. Recipe link is non-editable on EditPostScreen (7M decision).
+- **P7-64** (Unsaved-changes pattern) — Done in 7M Checkpoint 2. isDirty + confirmation dialog.
+- **P7-65** (Book/friends icon fallback) — Emoji fallback accepted.
+- **P7-66** (eater_ratings schema) — Partially addressed. eater_ratings via post_participants exists. Full schema is P7-32.
+- **P7-67** (Phase 7I test harness) — Deleted in 7I Checkpoint 7 cleanup.
+- **D3** (Cooking method architecture) — Partially addressed. `constants/cookingMethods.ts` created in 7M with canonical list matching DB CHECK constraint. Per-step technique tagging remains as P5-6.
+- **P7-88** (Multi-photo select) — Done in 7N Checkpoint 2.
+- **P7-85** (CommentsScreen keyboard) — Done in 7N Checkpoint 1.
+- **P7-87** (Photo carousel peek) — Done in 7N Checkpoint 1.
+- **P7-90** (CookDetail header title) — Done in 7N Checkpoint 1.
+- **P7-97** (Star picker stay-open) — Done in 7N Checkpoint 2.
+- **P7-98** (Inline engagement bar) — Done in 7N Checkpoint 2.
+- **Feed card swipe reliability** — Done in 7N Checkpoint 2 (3-zone Pressable restructure).
+
+---
+
+## From: Phase 7F Fix Passes 7-9 + Phase 7I Planning Session (Apr 13, 2026)
+
+**Note:** Most items from this section have been reconciled into the "From: Phase 7" section above. Remaining items that weren't covered by Phase 7 execution:
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P7-59 | Migration rollback path | 🔧 | ⚪ | Forward-only by design. Accepted tradeoff. |
+| P7-61 | Leave event cascade behavior | 💡 | 🟡 | When user leaves meal event, should linked cook posts keep parent_meal_id? Currently yes. Revisit with F&F feedback. |
+
+---
+
 ## From: Phase 6 — Cooking Mode v2 (Mar 19-24, 2026)
 
 ### High Priority (F&F blockers or near-term)
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P6-1 | **Cooking time data backfill** | 📊 | 🔴 | Only 60/475 recipes have `prep_time_min`/`cook_time_min` data. RecipeDetailScreen correctly shows data when available but most recipes show nothing. Need AI-assisted backfill or extraction pipeline update to populate. |
-| P6-2 | **CookingScreen simplification** | 🚀 | 🟡 | On-device testing showed section-card layout is too busy (NOW badges, section dots, header bars, per-step ingredients, timer buttons all at once). Consider: strip to essentials, ClassicView as default, tabs (INGREDIENTS/PREPARATION) like NYT's "Start Cooking". Fix double header (nav header + custom header). May want to hide "Start Cooking" button until simplified. |
-| P6-3 | **Multi-recipe cooking** | 🚀 | 🟡 | Cook dinner = protein + side + salad simultaneously. Shared timers across recipes, interleaved steps. CookingTimerContext architecture is extensible. High-impact for real cooking. Relates to P6-9 (multi-recipe meal dashboard). |
-| P6-4 | **PostCookFlow makeAgain/thoughts data gap** | 🐛 | 🟡 | PostCookFlow collects `makeAgain` (Yes/Maybe/No) and `thoughts` but PostCreationModal's PostData interface has no fields for them. Data gathered then dropped. Wire up before F&F — extend PostData or save via cookingService. |
-| P6-5 | **notes/modifications duplication bug** | 🐛 | 🟡 | `createDishPost` in postService.ts sets `notes: postData.modifications` (preserved from original code). Duplicates modifications into notes field. Should be `notes: postData.notes` or handled separately. |
+| P6-1 | **Cooking time data backfill** | 📊 | 🔴 | Only 60/475 recipes have `prep_time_min`/`cook_time_min` data. Need AI-assisted backfill. |
+| P6-2 | **CookingScreen simplification** | 🚀 | 🟡 | Too busy. Consider stripping to essentials, ClassicView as default. |
+| P6-3 | **Multi-recipe cooking** | 🚀 | 🟡 | Cook dinner = protein + side + salad simultaneously. High-impact. |
 
-### Medium Priority (polish + UX improvements)
+### Medium Priority (polish + UX)
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P6-6 | Rethink pantry fraction next to INGREDIENTS title | 💡 | 🟡 | "4/14 in pantry" may confuse users. Consider: move to bottom near grocery links, plain text "4 items in pantry", or remove entirely. |
-| P6-7 | Rethink "Add missing to Grocery List" button | 💡 | 🟡 | Current bordered box with 🛒 may not be the right treatment. Consider integrating with grocery flow more naturally. |
-| P6-8 | Add timer options to step focus mode | 💡 | 🟡 | When a step is focused on RecipeDetailScreen, show timer auto-detection buttons (like CookingScreen has). Let users start timers without entering cooking mode. |
-| P6-10 | Ingredient tap-to-see-steps in IngredientsSection | 💡 | 🟡 | D6-18. Tapping ingredient in ingredients list shows: which steps use it, pantry status, notes. Would need mapIngredientsToSteps imported into IngredientsSection + onPress handlers. |
-| P6-11 | Dedicated "Add a Note" modal for RecipeDetailScreen | 💡 | 🟡 | Notes section shows existing notes and empty state but has no dedicated "Add a Note" button/modal. Currently annotation edit mode is the only way. A simple text area modal (like NYT's) would be cleaner. |
-| P6-12 | Read More inline fade effect | 💡 | 🟢 | NYT has "Read More" inline at end of truncated text with left-side fade. Current implementation puts "Read More" on its own line. Works fine, just not as polished. |
-| P6-13 | Bold variance on ingredient names | 🔧 | 🟢 | Text-structural approach bolds everything between quantity+unit and first comma. "good-quality risotto rice" all bold vs just "onion" bold. Hard to fix perfectly without AI-level parsing. Low visual impact. |
-| P6-14 | ⋮ overflow menu feel | 💡 | 🟢 | Anchored popover implemented but may need more polish. Consider native ActionSheet on iOS for more native feel. |
+| P6-6 | Rethink pantry fraction next to INGREDIENTS | 💡 | 🟡 | "4/14 in pantry" may confuse users. |
+| P6-7 | Rethink "Add missing to Grocery List" button | 💡 | 🟡 | Current treatment may not be right. |
+| P6-8 | Add timer options to step focus mode | 💡 | 🟡 | Start timers without entering cooking mode. |
+| P6-10 | Ingredient tap-to-see-steps | 💡 | 🟡 | Show which steps use an ingredient. |
+| P6-11 | Dedicated "Add a Note" modal | 💡 | 🟡 | Simple text area, NYT-style. |
+| P6-12 | Read More inline fade effect | 💡 | 🟢 | NYT left-side fade. Current works fine. |
+| P6-13 | Bold variance on ingredient names | 🔧 | 🟢 | Hard to fix perfectly. Low impact. |
+| P6-14 | ⋮ overflow menu feel | 💡 | 🟢 | Consider native ActionSheet on iOS. |
 
 ### Lower Priority (v2 features)
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P6-9 | Multi-recipe meal dashboard | 🚀 | 🟢 | Wireframed (screen 12). Timers unified across recipes. Related to P6-3. v2. |
-| P6-15 | Wearable companion (WatchOS) | 🚀 | 🟢 | Wireframed (screens 10-11). Needs react-native-watch-connectivity. v2. |
-| P6-16 | Interleaved AI timeline | 💡 | 🟢 | AI merges steps across recipes. v3 moonshot. |
-| P6-17 | Serving size adjuster | 🚀 | 🟢 | Proportional ingredient recalc. Non-linear baking edge cases. Strong v2 candidate. |
-| P6-18 | Voice commands | 💡 | 🟢 | "Next step" / "Start timer". Post-F&F. |
+| P6-9 | Multi-recipe meal dashboard | 🚀 | 🟢 | Timers unified across recipes. |
+| P6-15 | Wearable companion (WatchOS) | 🚀 | 🟢 | react-native-watch-connectivity. |
+| P6-16 | Interleaved AI timeline | 💡 | 🟢 | AI merges steps across recipes. Moonshot. |
+| P6-17 | Serving size adjuster | 🚀 | 🟢 | Non-linear baking edge cases. |
+| P6-18 | Voice commands | 💡 | 🟢 | "Next step" / "Start timer". |
 | P6-19 | Offline cooking | 💡 | 🟢 | Cache recipe locally. Significant scope. |
-| P6-20 | Ingredient alternatives | 💡 | 🟢 | "Try X instead of Y" in ingredient detail popup. Needs data source. v2. |
-| P6-21 | Voice note transcription | 💡 | 🟢 | Voice recording button placeholder exists in notes UI. Actual transcription is v2. |
-| P6-22 | Timeline overview view mode | 🚀 | 🟢 | CookingScreen ViewModeMenu only has step-by-step and classic. Timeline (3rd option — vertical railroad with section groupings) deferred. |
-| P6-23 | Post-cook photo upload | 🚀 | 🟢 | PostCookFlow has placeholder button. Needs image picker integration. |
-| P6-24 | Post-cook voice memo | 💡 | 🟢 | Placeholder button in PostCookFlow. Needs recording + transcription. |
-| P6-25 | Post-cook partner tagging | 🚀 | 🟢 | Placeholder in PostCookFlow. Should connect to existing AddCookingPartnersModal. |
-| P6-26 | "Mark as Cooked" + Rate row on RecipeDetailScreen | 💡 | 🟢 | NYT has this between description and ingredients. Log a cook without entering cooking mode. |
-| P6-27 | Clickable page references in step text | 💡 | 🟢 | Some recipes reference other pages (e.g., "see page 116"). Could detect via regex and link to book view. Technically complex for minor UX gain. |
-| P6-28 | Yield/servings display enhancement | 💡 | 🟢 | Currently shows servings when data exists. Could add yield text from recipe description. |
-| P6-29 | Step quantities scale in instruction text | 🔧 | 🟢 | Quantities mentioned in step prose don't update at 2x/3x. Deep — would need in-text number detection and replacement. |
-| P6-30 | RecipeDetailScreen tab toggle (INGREDIENTS/PREPARATION) | 💡 | 🟢 | Initially planned for main page, but NYT only uses tabs in cooking mode. Defer to CookingScreen simplification (P6-2). |
-| P6-31 | Ingredient alternatives popup | 💡 | 🟢 | Show alternative ingredients when tapping on Ingredients section. Needs data source. v2. |
+| P6-20 | Ingredient alternatives | 💡 | 🟢 | "Try X instead of Y". Needs data source. |
+| P6-21 | Voice note transcription | 💡 | 🟢 | Placeholder exists. Actual transcription v2. |
+| P6-22 | Timeline overview view mode | 🚀 | 🟢 | 3rd CookingScreen view option. |
+| P6-23 | Post-cook photo upload | 🚀 | 🟢 | Placeholder button. Needs image picker. |
+| P6-24 | Post-cook voice memo | 💡 | 🟢 | Placeholder button. Needs recording. |
+| P6-25 | Post-cook partner tagging | 🚀 | 🟢 | Should connect to AddCookingPartnersModal. |
+| P6-26 | "Mark as Cooked" + Rate on RecipeDetail | 💡 | 🟢 | NYT pattern. Log without cooking mode. |
+| P6-27 | Clickable page references in step text | 💡 | 🟢 | Detect "see page 116" via regex. |
+| P6-28 | Yield/servings display enhancement | 💡 | 🟢 | Add yield text from description. |
+| P6-29 | Step quantities scale in instruction text | 🔧 | 🟢 | Quantities in prose don't update at 2x/3x. |
+| P6-30 | RecipeDetail tab toggle | 💡 | 🟢 | INGREDIENTS/PREPARATION tabs. |
+| P6-31 | Ingredient alternatives popup | 💡 | 🟢 | Needs data source. |
 
 ### Phase 6 Tech Debt
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P6-T1 | PanResponder → gesture handler upgrade | 🔧 | 🟡 | CookingScreen swipe nav uses PanResponder (no gesture handler installed). May feel janky or conflict with vertical scroll within long section cards. Upgrade to react-native-gesture-handler if issues on-device. |
-| P6-T2 | Table-only recipes missing step text | 🔧 | 🟡 | 8 recipes have `instructions=[]` with text only in `instruction_steps` table. `normalizeInstructions` (sync) returns empty for these. Section headers render but step text may be blank. Fix: pre-fetch step text for these 8 at screen load. |
-| P6-T3 | Android notification channel config | 🔧 | 🟢 | expo-notifications installed but Android notification channel not configured in app.json. Required for Android production builds. Not blocking iOS F&F. |
-| P6-T4 | Blueberry Cornflake Crisp "Main" section name | 📊 | 🟢 | Extraction pipeline stored section as "Main" instead of descriptive name. Data quality issue from Step 3 batch job. |
-| P6-T5 | instruction_sections table redundancy | 🔧 | 🟢 | DB tables (`instruction_sections` + `instruction_steps`) still exist but redundant for cooking mode since `recipes.instruction_sections` JSONB is now canonical. Decide whether to keep for extraction pipeline or migrate fully to JSONB. |
-| P6-T6 | "Error getting pending count" toast | 🐛 | 🟢 | Error toast visible on RecipeDetailScreen. Not from Phase 6 — likely a notification or badge count query failing elsewhere. Investigate separately. |
+| P6-T1 | PanResponder → gesture handler upgrade | 🔧 | 🟡 | CookingScreen swipe. May conflict with scroll. |
+| P6-T2 | Table-only recipes missing step text | 🔧 | 🟡 | 8 recipes with instructions=[] but text in instruction_steps. |
+| P6-T3 | Android notification channel config | 🔧 | 🟢 | Not blocking iOS F&F. |
+| P6-T4 | Blueberry Cornflake Crisp section name | 📊 | 🟢 | "Main" instead of descriptive. |
+| P6-T5 | instruction_sections table redundancy | 🔧 | 🟢 | DB tables vs JSONB canonical. |
+| P6-T6 | "Error getting pending count" toast | 🐛 | 🟢 | Not from Phase 6. Investigate separately. |
 
 ---
 
@@ -83,76 +208,67 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P5-1 | `base_ingredient_id` wiring | 🔧 | 🟡 | Protein cuts (chicken thigh → chicken), cheese dupes (pecorino romano → pecorino), salt variants (kosher salt → salt). Haiku batch surfaced many variants. Better to do all linking in one systematic pass. Deferred to post-Phase 5 or separate session. Relates to I7, N3. |
-| P5-2 | Gardening data (planting/growing months) | 📊 | 🟢 | `ingredient_seasons` table has columns for planting/growing months but they're not populated. 1,169 entries across 7 regions have harvest months. Post-F&F — columns exist, populate later. |
-| P5-3 | Recipe markup/editing review | 🔧 | 🟡 | Tom flagged RecipeDetailScreen editing as "clunky". Was deferred from Phase 5 → Phase 6. Phase 6 modularized the annotation system into sub-components but didn't redesign the UX. Still clunky. |
-| P5-4 | Chef name backfill + auto-association (B4) | 📊 | 🟡 | Most recipes lack chef_id. Auto-associate on new recipes by matching source_author to existing chefs. Deferred to Phase 7 (Social). |
-| P5-5 | Difficulty score backfill | 📊 | 🟢 | Only 11 recipes have ai_difficulty_score. Could batch-classify via Haiku. Nice-to-have. |
-| P5-6 | Technique tagging (B15) | 🚀 | 🟢 | Tag each instruction step with technique(s): roast, sauté, blanch, reduce, emulsify. ~2,400 steps. Haiku backfill ~$1-2. Schema: add `techniques` text[] to instruction_sections. Need technique vocabulary first. Post-F&F. |
+| P5-1 | `base_ingredient_id` wiring | 🔧 | 🟡 | Protein cuts, cheese dupes, salt variants. Systematic pass needed. |
+| P5-2 | Gardening data (planting/growing months) | 📊 | 🟢 | Columns exist, populate later. |
+| P5-3 | Recipe markup/editing review | 🔧 | 🟡 | Still clunky after Phase 6 modularization. |
+| P5-5 | Difficulty score backfill | 📊 | 🟢 | Only 11 recipes scored. Haiku batch. |
+| P5-6 | Technique tagging (B15) | 🚀 | 🟢 | Per-step technique tags. ~2,400 steps. |
 
 ---
 
 ## From: Phase 4 / Phase I — Cooking Stats Dashboard (Mar 2026)
 
-### Operations (Do First)
-
-| # | Item | Type | Priority | Notes |
-|---|------|------|----------|-------|
-| DI-5 | ~~Run nutrition_goals DB migration~~ | 🔧 | ✅ | **RESOLVED Phase 5A-1.** |
-| DI-4 | ~~Remove debug console.logs~~ | 🔧 | ✅ | **RESOLVED Phase 5A-3.** |
-
 ### Data Gaps
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| D4-1 | getMicronutrientLevels stubbed | 📊 | 🟡 | Needs USDA vitamin/mineral data import on ingredients table. Relates to N2. |
-| D4-2 | getTopNutrientSources for fiber/sugar/sodium | 📊 | 🟡 | recipe_ingredient_nutrition view lacks these columns |
-| D4-3 | totalTimeHours in getOverviewStats | 📊 | 🟡 | posts table has no cook_time; needs join to recipes.total_time. **Relates to P6-1** — cooking time data largely missing. |
-| D4-8 | Sparse ai_difficulty_score data | 📊 | 🟢 | Only 11 recipes scored. Relates to P5-5. |
-| D4-4 | Cookbook recipe_count mismatch | 📊 | 🟢 | "Plenty" shows >100% completion. Fix: use MAX(recipe_count, actual_count). |
+| D4-1 | getMicronutrientLevels stubbed | 📊 | 🟡 | Needs USDA data import. |
+| D4-2 | getTopNutrientSources for fiber/sugar/sodium | 📊 | 🟡 | Missing view columns. |
+| D4-3 | totalTimeHours in getOverviewStats | 📊 | 🟡 | Needs recipe time join. Relates to P6-1. |
+| D4-8 | Sparse ai_difficulty_score | 📊 | 🟢 | Only 11 scored. Relates to P5-5. |
+| D4-4 | Cookbook recipe_count mismatch | 📊 | 🟢 | "Plenty" shows >100%. |
 
 ### Feature Gaps
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| D4-26 | Frontier suggestions v2 | 🚀 | 🟡 | Add: partner-popular items, seasonal relevance, ingredient overlap. Current v1 uses 3 simple rules. |
-| D4-12 | Seasonal pattern tile taps | 🚀 | 🟢 | Tap → RecipeListScreen filtered by season |
-| D4-13 | Diversity breakdown taps | 🚀 | 🟢 | Tap count → navigate to relevant sub-section |
-| D4-14 | initialChefId filtering in RecipeListScreen | 🚀 | 🟢 | Param declared but not consumed — needs chef's recipe IDs fetch |
-| D4-15 | initialBookId filtering | 🚀 | 🟢 | Param declared but not consumed |
-| D4-16 | Ingredient drill-down Browse filter | 🚀 | 🟢 | Needs recipe_ingredients join |
-| D4-17 | initialCookingMethod param | 🚀 | 🟢 | Maps to concept (imprecise) |
-| D4-18 | StockUpCard grocery integration | 🚀 | 🟢 | Logs tap, needs groceryService wiring |
-| D4-39 | Friends' stats comparison | 🚀 | 🟢 | Privacy + social design needed. Compare cooking stats with friends. |
-| DI-2 | My Posts pagination | 🚀 | 🟢 | Currently limited to 30 posts. Infinite scroll deferred. |
-| DI-3 | ActivityCard menu button wiring | 🚀 | 🟢 | ··· dots have no onPress handler |
-| DI-6 | Chart swipe for time navigation | 🚀 | 🟢 | More intuitive than arrow buttons for time offset |
+| D4-26 | Frontier suggestions v2 | 🚀 | 🟡 | Partner-popular, seasonal, ingredient overlap. |
+| D4-12 | Seasonal pattern tile taps | 🚀 | 🟢 | Tap → filtered RecipeList. |
+| D4-13 | Diversity breakdown taps | 🚀 | 🟢 | Tap count → sub-section. |
+| D4-14 | initialChefId filtering | 🚀 | 🟢 | Param declared, not consumed. |
+| D4-15 | initialBookId filtering | 🚀 | 🟢 | Param declared, not consumed. |
+| D4-16 | Ingredient drill-down filter | 🚀 | 🟢 | Needs recipe_ingredients join. |
+| D4-17 | initialCookingMethod param | 🚀 | 🟢 | Maps to concept (imprecise). |
+| D4-18 | StockUpCard grocery integration | 🚀 | 🟢 | Needs groceryService wiring. |
+| D4-39 | Friends' stats comparison | 🚀 | 🟢 | Privacy + social design needed. |
+| DI-2 | My Posts pagination | 🚀 | 🟢 | Limited to 30. Infinite scroll. |
+| DI-3 | ActivityCard menu button wiring | 🚀 | 🟢 | No onPress handler. |
+| DI-6 | Chart swipe for time navigation | 🚀 | 🟢 | More intuitive than arrow buttons. |
 
 ### Tech Debt
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| D4-10 | Accessibility labels on stats components | 🔧 | 🟡 | Should be added across all ~30 stats components |
-| D4-11 | Legacy MyPostsStackParamList cleanup | 🔧 | 🟢 | Type export kept for 4 screens (YasChef, Comments, EditMedia, MyPostDetails) |
-| D4-21 | Entity name in ChefStats/BookStats | 🔧 | 🟢 | Both detail screens query name separately. Add to return type. |
-| D4-31 | ~~Export getMondayOfWeek from statsService~~ | 🔧 | ✅ | **RESOLVED Phase 5A-3.** |
-| D4-37 | colors.text.quaternary theme fallback | 🔧 | 🟢 | GatewayCard uses tertiary as fallback |
-| DI-1 | Extract ActivityCard to shared component | 🔧 | 🟢 | Duplicated in StatsScreen + UserPostsScreen |
-| DI-7 | Avatar URL onError fallback | 🔧 | 🟢 | If avatarUrl is truthy but URL fails to load, Image renders transparent |
+| D4-10 | Accessibility labels on stats | 🔧 | 🟡 | ~30 components. |
+| D4-11 | Legacy MyPostsStackParamList cleanup | 🔧 | 🟢 | Type kept for 4 screens. |
+| D4-21 | Entity name in ChefStats/BookStats | 🔧 | 🟢 | Both query name separately. |
+| D4-37 | colors.text.quaternary fallback | 🔧 | 🟢 | GatewayCard uses tertiary. |
+| DI-1 | Extract ActivityCard to shared component | 🔧 | 🟢 | Duplicated in 2 screens. |
+| DI-7 | Avatar URL onError fallback | 🔧 | 🟢 | Transparent on fail. |
 
 ### Polish
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| D4-25 | Gateway card sparklines | 💡 | 🟢 | Faint trendlines in card bottom-right. Data available from enriched WeeklyFrequency. |
-| D4-27 | Podium recipe images | 💡 | 🟢 | Replace emoji thumbnails with actual recipe photos when photo system is ready |
-| D4-28 | ConceptBubbleMap manual layout | 💡 | 🟢 | If flexWrap layout has gaps on device, implement row-based circle packing |
-| D4-29 | CookingPersonalityCard gradient | 💡 | 🟢 | Replace solid #0b6b60 with LinearGradient when expo-linear-gradient installed |
-| D4-30 | Animated chart↔calendar transitions | 💡 | 🟢 | Smooth animation when selecting weeks, switching chart modes |
-| D4-33 | Chart↔calendar scroll-into-view | 💡 | 🟢 | When calendar navigates to off-screen chart week |
-| D4-35 | Podium cooking_concept emoji lookup | 💡 | 🟢 | Currently uses static emojis per rank. Could use recipe's actual concept. |
-| D4-36 | Expand CONCEPT_EMOJI_MAP coverage | 💡 | 🟢 | Only covers 22 of 78 concepts. Expand as new concepts appear. |
-| D4-38 | Personality card loading skeleton | 💡 | 🟢 | Uses generic CardShell. Could get dark-bg-specific skeleton. |
+| D4-25 | Gateway card sparklines | 💡 | 🟢 | |
+| D4-27 | Podium recipe images | 💡 | 🟢 | |
+| D4-28 | ConceptBubbleMap manual layout | 💡 | 🟢 | |
+| D4-29 | CookingPersonalityCard gradient | 💡 | 🟢 | |
+| D4-30 | Animated chart transitions | 💡 | 🟢 | |
+| D4-33 | Chart↔calendar scroll-into-view | 💡 | 🟢 | |
+| D4-35 | Podium cooking_concept emoji | 💡 | 🟢 | |
+| D4-36 | Expand CONCEPT_EMOJI_MAP | 💡 | 🟢 | |
+| D4-38 | Personality card loading skeleton | 💡 | 🟢 | |
 
 ---
 
@@ -162,40 +278,36 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| N1 | ~~Integrate subproject services into codebase~~ | 🔧 | ⚪ | **Phase 5A-3 audit resolved.** Existing `ingredientsParser.ts` is the active pipeline. Subproject services not needed. |
-| N2 | Import vitamins & minerals from USDA | 📊 | 🟡 | Only 7 macros imported so far. Vitamin A/C/D/E/K, B vitamins, calcium, iron, magnesium, potassium, zinc, selenium all available in same SR Legacy file. Needed for recommendations ("High in vitamin C"). Relates to D4-1. |
-| N3 | Fill 10 unmapped USDA ingredients | 📊 | 🟢 | Gochujang, harissa, mirin, pomegranate molasses, za'atar, sumac, urfa pepper, aleppo pepper, silan (date syrup), barberries. Try Foundation Foods dataset or fill manually. |
-| N4 | Tag ~70 "for serving/garnish" ingredient rows | 📊 | 🟢 | ingredient_role = 'garnish' with nutrition_multiplier = 0. Low caloric impact. Schema and frying oil fixes already done. |
-| N5 | Update extraction pipeline to output ingredient_role | 🔧 | 🟡 | New recipes should have role tagging (core/frying_medium/garnish/marinade/brine) from extraction. See idea_I9_unconsumed_ingredients.md in subproject. |
-| N6 | ~~Delete 9 duplicate recipe shells~~ | 📊 | ✅ | **RESOLVED Phase 5A-1.** |
-| N7 | Fix `form` column data quality | 📊 | 🟢 | "Black pepper" marked as "fresh", defaults are unreliable. Don't use for matching logic until cleaned. |
-| N8 | ~~Clean casing inconsistencies in ingredients~~ | 📊 | ✅ | **RESOLVED Phase 5B.** All family/type values normalized to canonical taxonomy. |
-| N9 | ~~Validate remaining 489 unmatched ingredient rows~~ | 📊 | ✅ | **RESOLVED Phase 5D.** Haiku batch resolved 482/485 unmatched. Match rate: 90.8% → 99.9%. Only 3 remaining (too vague to classify). |
+| N1 | ~~Integrate subproject services into codebase~~ | 🔧 | ⚪ | **Phase 5A-3 audit resolved.** Existing `ingredientsParser.ts` is the active pipeline. |
+| N2 | Import vitamins & minerals from USDA | 📊 | 🟡 | Only 7 macros imported. Full vitamin/mineral data available. Relates to D4-1. |
+| N3 | Fill 10 unmapped USDA ingredients | 📊 | 🟢 | Gochujang, harissa, mirin, pomegranate molasses, za'atar, sumac, urfa pepper, aleppo pepper, silan, barberries. |
+| N4 | Tag ~70 "for serving/garnish" ingredient rows | 📊 | 🟢 | ingredient_role = 'garnish' with nutrition_multiplier = 0. |
+| N5 | Update extraction pipeline to output ingredient_role | 🔧 | 🟡 | New recipes should have role tagging from extraction. |
+| N7 | Fix `form` column data quality | 📊 | 🟢 | "Black pepper" marked as "fresh", defaults unreliable. |
 
 ### Known Gaps (Accepted)
 
 | # | Gap | Impact | Priority | Notes |
 |---|-----|--------|----------|-------|
-| NG1 | Canned goods use gross weight, not drained | ~20 rows overstated by ~60% | 🟡 | Need `drained_weight_ratio` on ingredients. See Idea I1. |
-| NG2 | Raw vs cooked nutrition | Grains/legumes/pasta ~2.5× overstatement | 🔴 | Interim fix: `cooked_ratio` column applied. Real fix: extraction captures raw/cooked intent. See Idea I6. |
+| NG1 | Canned goods use gross weight, not drained | ~20 rows overstated by ~60% | 🟡 | Need `drained_weight_ratio`. See Idea I1. |
+| NG2 | Raw vs cooked nutrition | Grains/legumes/pasta ~2.5× overstatement | 🔴 | Interim fix: `cooked_ratio` applied. Real fix: extraction captures raw/cooked intent. See I6. |
 | NG3 | "Plus more for dusting" quantities | Negligible calories missed | ⚪ | By design — uncapturable, nutritionally negligible. |
-| NG4 | Size-range primary selection arbitrary | "5 small or 2 large" picks first option | 🟢 | Could use weight-equivalent midpoint instead. |
-| NG5 | Thick/thin cut weight variance | Same g_per_whole for thick-cut vs regular bacon | 🟢 | Prep text has "thick"/"thin" but not used in gram estimation. |
-| NG6 | Materialized view requires manual refresh | Data not reflected until `SELECT refresh_recipe_nutrition()` | ⚪ | By design (D17). Tradeoff for query performance. Data changes are infrequent batch ops. |
+| NG4 | Size-range primary selection arbitrary | "5 small or 2 large" picks first option | 🟢 | Could use weight-equivalent midpoint. |
+| NG5 | Thick/thin cut weight variance | Same g_per_whole for thick vs regular bacon | 🟢 | Prep text has "thick"/"thin" but not used in estimation. |
+| NG6 | Materialized view requires manual refresh | Data not reflected until `SELECT refresh_recipe_nutrition()` | ⚪ | By design (D17). Tradeoff for query performance. |
 
 ### Idea Shelf
 
 | # | Idea | Priority | Context |
 |---|------|----------|---------|
-| I1 | **Canned goods drained weight** — add `drained_weight_ratio` to ingredients. Typical: ~0.60 for beans/legumes. Use "drained" USDA entry for nutrition-per-100g. | 🟡 | Affects ~20 rows. Not blocking. |
-| I2 | **Nutrition ranges for users** — show "350–420 cal/serving" instead of single number. Variance data already captured in quantity_parse_metadata jsonb. | 🟢 | Would need downstream variance propagation. Nice for honesty. |
-| I3 | **Cooking-method nutrition adjustments** — frying adds fat, boiling leaches nutrients. Multipliers in calc layer. | 🟢 | Significant research needed for accurate factors. ingredient_role/nutrition_multiplier infrastructure already exists. |
-| I4 | **Competing nutrition estimates** — "USDA says X, Nutritionix says Y" side by side. Architecture supports this (store raw, compute derived). | 🟢 | Needs second data source. |
-| I5 | **Dual-source embedded metric merge** — embedded grams from quantity normalizer vs unit normalizer. Use COALESCE(quantity, unit). | 🟢 | Resolves itself when pipeline is built. |
-| I6 | **Raw vs cooked intent from extraction** — add `ingredient_state` field (raw/cooked/canned/dried/fresh) to extraction schema. Infer from ingredient text + instructions. | 🔴 | Single largest systematic calorie error source. Affects ~30% of recipes. See NG2. |
-| I7 | **Salt variant normalization** — "kosher salt", "Maldon sea salt", "flaked sea salt" → all nutritionally identical. Match to single parent or ensure base_ingredient_id links them. | 🟡 | Affects 200+ rows. Relates to P5-1 (base_ingredient_id). |
-| I8 | ~~**Null ingredient names**~~ | ✅ | **RESOLVED Phase 5D.** Haiku batch handled null names during classification. |
-| I9 | **USDA match validation layer** — sanity checks after USDA matching: produce with >150 cal/100g? Same fdc_id for 3+ ingredients? Flag for review. | 🟡 | Would have caught all 17 bad matches from Session 4. Add before any future re-matching runs. |
+| I1 | **Canned goods drained weight** — add `drained_weight_ratio` to ingredients. Typical: ~0.60 for beans/legumes. | 🟡 | Affects ~20 rows. Not blocking. |
+| I2 | **Nutrition ranges for users** — show "350–420 cal/serving" instead of single number. Variance data already captured. | 🟢 | Would need downstream variance propagation. |
+| I3 | **Cooking-method nutrition adjustments** — frying adds fat, boiling leaches nutrients. | 🟢 | Significant research needed for accurate factors. |
+| I4 | **Competing nutrition estimates** — "USDA says X, Nutritionix says Y" side by side. | 🟢 | Needs second data source. |
+| I5 | **Dual-source embedded metric merge** — embedded grams from quantity normalizer vs unit normalizer. | 🟢 | Resolves itself when pipeline is built. |
+| I6 | **Raw vs cooked intent from extraction** — add `ingredient_state` field. | 🔴 | Single largest systematic calorie error source. ~30% of recipes. See NG2. |
+| I7 | **Salt variant normalization** — "kosher salt" etc. → all nutritionally identical. | 🟡 | Affects 200+ rows. Relates to P5-1. |
+| I9 | **USDA match validation layer** — sanity checks after matching. | 🟡 | Would have caught all 17 bad matches from Session 4. |
 
 ---
 
@@ -203,8 +315,8 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| E1 | Extraction pipeline upgrade to v10+ | 🔧 | 🟡 | v10-2 deployed with Phase 3A fields. Existing `ingredientsParser.ts` handles matching. Future upgrades should improve existing pipeline. |
-| E2 | Gold standard expansion beyond Plenty | 📊 | 🟢 | All 16 verified recipes are Ottolenghi/Plenty. Verify against other books. |
+| E1 | Extraction pipeline upgrade to v10+ | 🔧 | 🟡 | v10-2 deployed. Future upgrades should improve existing pipeline. |
+| E2 | Gold standard expansion beyond Plenty | 📊 | 🟢 | All 16 verified recipes are Ottolenghi. Verify against other books. |
 
 ---
 
@@ -214,36 +326,32 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| B19 | ~~Verify save flow for Phase 3A fields~~ | 🧪 | ✅ | **RESOLVED Phase 5A-3.** |
-| B14 | ~~Fix vegetarian defaults (proper fix)~~ | 🐛 | ✅ | **RESOLVED Phase 5C.** Inherited dietary properties system with 10 category rules. Counts recovered: 338 vegetarian, 109 vegan, 306 GF. |
-| B1 | Flavor profile system (recipe-level aggregation) | 🚀 | 🟡 | Ingredient-level flavor_tags exist, need recipe-level weighted aggregation. Enables B10. See B1 Detail section below. **Deferred to post-F&F (Tom confirmed).** |
-| B13 | Recipe rating UX | 🚀 | 🟡 | Without ratings from real usage, smart sections and "highest rated" sort are empty. Need prominent rating input in post creation flow. |
+| B1 | Flavor profile system (recipe-level aggregation) | 🚀 | 🟡 | Ingredient-level flavor_tags exist, need recipe-level weighted aggregation. Deferred post-F&F. |
+| B13 | Recipe rating UX | 🚀 | 🟡 | Without ratings, smart sections empty. Need prominent rating input. |
 
 ### Tier 2: Polish & Enhancement
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| B10 | Flavor profile display | 🚀 | 🟡 | Depends on B1. Radar chart on expanded cards. **Deferred to post-F&F with B1.** |
-| B5 | "Unknown Chef" cleanup | 🔧 | 🟢 | May already be handled. Relates to P5-4 (chef backfill). |
-| B8 | Click-to-see-friends modal | 🚀 | 🟢 | FriendsIcon now SVG. Needs query: given recipe_id, get posts from followed users with profile info. |
+| B10 | Flavor profile display | 🚀 | 🟡 | Depends on B1. Radar chart. Deferred post-F&F. |
+| B5 | "Unknown Chef" cleanup | 🔧 | 🟢 | May be resolved by 7K backfill. Verify. |
+| B8 | Click-to-see-friends modal | 🚀 | 🟢 | Needs query: given recipe_id, get posts from followed users. |
 | — | Chevron tap target fix | 🐛 | 🟢 | UX issue flagged by Tom. |
 
 ### Tier 3: Larger Features
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| B15 | ~~Instruction-level technique tagging~~ | — | — | Moved to P5-6 (same item, renumbered). |
-| B3 | Visual grid browse mode | 🚀 | 🟢 | Photo-first recipe browsing (Instagram/Pinterest style). Requires recipe images to be populated. |
-| B4 | ~~Chef dedup & auto-association~~ | — | — | Moved to P5-4 (same item, renumbered). |
-| B2 | Personalized/learned recipe tags | 🚀 | 🟡 | Tags that adapt to user over time. "Tom cooks comfort food on Sundays." Foundation: objective tags. Layer: learned preferences. Natural fit for Cooking Assistant V2/V3. |
+| B3 | Visual grid browse mode | 🚀 | 🟢 | Photo-first recipe browsing. Requires recipe images. |
+| B2 | Personalized/learned recipe tags | 🚀 | 🟡 | Tags that adapt to user over time. Phase 11 territory. |
 
 ### Low Priority Data Quality
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| B16 | Cuisine types quality improvement | 📊 | 🟢 | 35 recipes still have empty cuisine_types. "European" vague, "American" overrepresented at 91. |
-| B17 | Normalize cooking_methods values | 📊 | 🟢 | Some non-technique entries like "mixing" (26), "tossing" (10). "frying" vs "pan-frying" inconsistency. |
-| B18 | Cuisine authenticity / fusion tagging | 🚀 | 🟢 | Structured cuisine tags with authenticity field. Low priority — current array works. |
+| B16 | Cuisine types quality improvement | 📊 | 🟢 | 35 recipes with empty cuisine_types. |
+| B17 | Normalize cooking_methods values | 📊 | 🟢 | "mixing", "tossing" non-technique entries. |
+| B18 | Cuisine authenticity / fusion tagging | 🚀 | 🟢 | Structured tags. Low priority. |
 
 ### B1 Detail: Flavor Profile System
 
@@ -251,50 +359,33 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 #### 7 Flavor Categories
 
-**SWEET**
-Granulated Sugar, Brown Sugar, Molasses, Honey, Maple Syrup, Apples, Pears, Dried Fruits, Cooked Onions, Stone Fruit, Berries, Bananas, Sweet Potatoes, Tropical Fruits, Carrots, Oranges, Ketchup, Hoisin Sauce, Jam or Jelly, Cooked Tomatoes, Winter Squash
+**SWEET** — Granulated Sugar, Brown Sugar, Molasses, Honey, Maple Syrup, Apples, Pears, Dried Fruits, Cooked Onions, Stone Fruit, Berries, Bananas, Sweet Potatoes, Tropical Fruits, Carrots, Oranges, Ketchup, Hoisin Sauce, Jam or Jelly, Cooked Tomatoes, Winter Squash
 
-**SALTY**
-Salt, Anchovies, Olives, Capers, Fish Sauce, Soy Sauce, Miso Paste, Bacon, Parmesan Cheese, Pecorino Cheese, Feta Cheese, Cured Meats, Smoked Salmon, Clam
+**SALTY** — Salt, Anchovies, Olives, Capers, Fish Sauce, Soy Sauce, Miso Paste, Bacon, Parmesan Cheese, Pecorino Cheese, Feta Cheese, Cured Meats, Smoked Salmon, Clam
 
-**BITTER**
-Citrus Zest, Chocolate, Coffee, Amaro, Beer, Mustard Greens, Radicchio, Broccoli Rabe, Dandelion Greens
+**BITTER** — Citrus Zest, Chocolate, Coffee, Amaro, Beer, Mustard Greens, Radicchio, Broccoli Rabe, Dandelion Greens
 
-**UMAMI**
-Parmesan Cheese, Piave Cheese, Cheddar Cheese, Walnuts, Fish Sauce, Mushrooms, Anchovies, MSG, Kimchi, Sardines, Oysters, Miso Paste, Cured Meats, Soy Sauce, Chicken Broth
+**UMAMI** — Parmesan Cheese, Piave Cheese, Cheddar Cheese, Walnuts, Fish Sauce, Mushrooms, Anchovies, MSG, Kimchi, Sardines, Oysters, Miso Paste, Cured Meats, Soy Sauce, Chicken Broth
 
-**FATTY**
-Heavy Cream, Crème Fraîche, Sour Cream, Cream Cheese, Butter, Nuts, Seeds, Avocado, Mortadella, Sausage, Cheese, Tahini, Olive Oil, Neutral Oil (vegetable, canola, grapeseed, safflower), Sesame Oil, Coconut Oil, Coconut Milk, Mayonnaise, Bacon, Lard, Yogurt, Schmaltz
+**FATTY** — Heavy Cream, Crème Fraîche, Sour Cream, Cream Cheese, Butter, Nuts, Seeds, Avocado, Mortadella, Sausage, Cheese, Tahini, Olive Oil, Neutral Oil, Sesame Oil, Coconut Oil, Coconut Milk, Mayonnaise, Bacon, Lard, Yogurt, Schmaltz
 
-**SPICY**
-Fresh Chile Peppers, Ground Dried Chiles, Black Peppercorns, Szechuan Peppercorns, Fresh Ginger, Mustard, Mustard Seeds, Harissa Paste, Gochujang, Sambal Oelek, Chile Oil, Chile Crisp, Sriracha, Horseradish, Hot Sauce, Wasabi
+**SPICY** — Fresh Chile Peppers, Ground Dried Chiles, Black Peppercorns, Szechuan Peppercorns, Fresh Ginger, Mustard, Mustard Seeds, Harissa Paste, Gochujang, Sambal Oelek, Chile Oil, Chile Crisp, Sriracha, Horseradish, Hot Sauce, Wasabi
 
-**SOUR**
-Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pickles, Cornichons, Pickled Onions, Tomato, Sauerkraut, Kimchi
+**SOUR** — Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pickles, Cornichons, Pickled Onions, Tomato, Sauerkraut, Kimchi
 
 #### Key Design Notes
-
-- **Ingredients can have multiple flavor tags.** Parmesan = salty + umami. Kimchi = umami + sour. Yogurt = fatty + sour. Bacon = salty + fatty. This is essential — flavors overlap.
-- **Recipe flavor profile = aggregation of ingredient flavors**, weighted by role:
-  - Hero ingredients contribute most to the profile
-  - Supporting ingredients contribute moderately
-  - Garnishes/staples contribute minimally
-- **Profile could be expressed as a simple radar chart** or as dominant flavors: "This recipe is primarily umami + sour with spicy notes"
-- **Use cases:**
-  - Browse: "Show me recipes with a sour/bright profile"
-  - Pairing: "This rich, fatty dish pairs well with something acidic — here are options"
-  - Balance: "This recipe is heavy on umami — consider adding something acidic" (Cooking Assistant V2)
-  - Substitution: "Instead of anchovies (salty + umami), try miso paste (also salty + umami)"
+- Ingredients can have multiple flavor tags. Parmesan = salty + umami. Kimchi = umami + sour.
+- Recipe flavor profile = aggregation of ingredient flavors, weighted by role (hero/supporting/garnish).
+- Use cases: Browse by flavor, pairing suggestions, balance analysis, substitution guidance.
 
 #### Implementation Path
+1. Add `flavor_tags` column to `ingredients` table
+2. AI-tag ~480 ingredients with 1-3 flavor categories
+3. Compute recipe flavor profile (materialized view or query-time)
+4. Add to recipe display (radar chart + filter dimension)
+5. Extend Cooking Assistant
 
-1. **Add `flavor_tags` column to `ingredients` table** — text array (e.g., `['salty', 'umami']` for Parmesan)
-2. **AI-tag ~480 ingredients** with 1-3 flavor categories from the 7-category set. Use the Molly Baz list as seed data, extend for ingredients not on her list.
-3. **Compute recipe flavor profile** — Aggregate ingredient flavors, weight by hero/supporting/garnish role. Could be a materialized view column or computed at query time.
-4. **Add `flavor_profile` to recipe display** — Radar chart on RecipeDetailScreen, filter dimension on RecipeListScreen.
-5. **Extend Cooking Assistant** — "I want something bright" → filter by sour profile. "What pairs well with this?" → suggest complementary flavor profiles.
-
-**Estimated effort:** 2 sessions (ingredient tagging + recipe computation + UI)
+**Estimated effort:** 2 sessions
 
 ---
 
@@ -303,7 +394,7 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
 | B20 | Counter storage location needs SVG icon | 🔧 | 🟢 | Still uses 🪴 emoji fallback. |
-| B21 | Clean up old emoji icon constants | 🔧 | 🟢 | Dual system in constants/pantry.ts. Old emoji functions can be removed once all consumers verified. |
+| B21 | Clean up old emoji icon constants | 🔧 | 🟢 | Dual system in constants/pantry.ts. |
 
 ---
 
@@ -311,18 +402,13 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| D1 | ~~auth.users trigger overwrites user_profiles on insert~~ | 🐛 | ✅ | **RESOLVED Phase 5A-2.** |
-| D2 | ~~Drop stray `emoji` column from user_profiles~~ | 🔧 | ✅ | **RESOLVED Phase 5A-1.** |
-| D3 | Cooking method/occasion/technique architecture | 🚀 | 🟡 | **Phase 5A-3 audit revealed fundamental misalignment.** Three distinct concepts tangled in one field: (1) meal occasion/activity (breakfast, snack, eating out), (2) primary cooking method (bake, roast, grill), (3) per-step techniques (sauté, blanch, deglaze). Only `bake` and `slow_cook` overlap between UI and DB constraint. Need product decision: separate fields or unified taxonomy. Tom decision: support all three. **Not addressed in Phase 6.** Target: Phase 7 (Social/Post Creation) or standalone session. |
+| D3 | Cooking method/occasion/technique architecture | 🚀 | 🟡 | **Partially addressed in Phase 7M.** `constants/cookingMethods.ts` created with canonical list matching DB CHECK constraint. Per-post cooking method editing works. Per-step technique tagging (P5-6) and meal occasion vs method distinction still open. |
 
 ---
 
 ## From: Social / Meals Features (Nov-Dec 2025)
 
-| # | Item | Type | Priority | Notes |
-|---|------|------|----------|-------|
-| S1 | Visual linking (Strava-style) for linked posts | 🚀 | 🟡 | Groups linked posts on feed. `LinkedPostsGroup.tsx` exists but unwired. **Now scheduled as Phase 7I** (renumbered from old 7G). Note: this is for the "same recipe cooked by different friends" case, NOT multi-dish meals — multi-dish meals are handled by Phase 7D-7F via the existing meal model. |
-| S2 | Feed grouping for meals | 🚀 | 🟡 | `feedGroupingService.ts` exists but unwired. Same status as S1 — Phase 7I. |
+*(S1 and S2 resolved — see Phase 7 resolved items above)*
 
 ---
 
@@ -330,15 +416,14 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| R1 | User dietary preferences table + settings UI | 🚀 | 🟡 | `user_dietary_preferences` table. Needed for stats dashboard compliance % and recipe recommendations. Can be built independently. |
-| R2 | Ingredient source tracking | 🚀 | 🟢 | "From garden" / "farmers market" / "organic" on posts. Feeds "% from garden" stat. Roadmap #5. |
-| ~~R3~~ | ~~Non-nutrition activity stats service~~ | — | — | ✅ **Delivered in Phase 4.** |
-| R4 | Wearable integration research | 💡 | 🟢 | Apple Health / Fitbit APIs. Correlate meals with health data. Future. |
-| R5 | Recipe cost per serving | 🚀 | 🟢 | 229 ingredients already have cost data. Need cost computation in nutrition view. |
-| R6 | **Personal daily eating log / leftovers tracking** | 🚀 | 🟡 | Surfaced during Phase 7D scoping (April 7). Tom's framing: "having some personal feed thing that helps identify everything they ate in a day would be valuable — and easily adding things like leftovers of things they normally eat each day would be great." Distinct from the social feed: a private, personal log of what you ate (not what you cooked) that feeds nutrition stats but isn't socially posted by default. Use case: cook dinner Monday → log socially as a meal post; eat the leftovers Tuesday lunch → log privately to your personal feed for nutrition tracking, no social post. Sketch: `personal_eating_events` table or repurpose `posts` with a new `post_type='private_log'`. **Post-F&F.** Relates to Phase 10 (Nutrition Depth) and the broader "what is Frigo for" question — Tom is firm that Frigo is *not* about making people post every meal. **Updated 2026-04-09 — see `PHASE_7F_DESIGN_DECISIONS.md` D43.** The eater rating model partially overlaps with this item: D43's "Things I've eaten" history page in profile (P7-35) is a related but distinct surface (it tracks ratings of things you ate at social meals, while R6 is the broader private nutrition log). Worth revisiting whether the two should converge when R6 is scheduled. |
-| R7 | **Recipe discovery feature** (see `PHASE_RECIPE_DISCOVERY.md` stub) | 🚀 | 🟡 | Surfaced during Phase 7D scoping (April 7) from Tom's Q21 answer about dish-tap behavior. Discovery preview: tap a dish in MealPostCard → opens a recipe-discovery preview showing high-level info (dietary flags, hero ingredients, nutrition headlines, "Tom and Mary have cooked it 12 times") without exposing the full recipe to non-owners. Hides recipe steps for users who don't own the cookbook; surfaces enough metadata to make the recipe feel discoverable. Could become its own phase. Stub doc created at `PHASE_RECIPE_DISCOVERY.md`. **Unscheduled — likely post-F&F or its own dedicated phase.** **Updated 2026-04-09 — see `PHASE_7F_DESIGN_DECISIONS.md`.** 7F ships basic tappable dish navigation only (per the 7F build prompt); the discovery preview surface is still the deferred R7 work. The 7F wireframes confirm the tap target exists on K-family cards. |
-| R8 | **External participant retroactive claim path** | 🚀 | 🟢 | Surfaced during Phase 7D scoping (D27). When an externally-tagged participant later joins Frigo, they should be able to claim past attribution rows (set `participant_user_id` to their user, null out `external_name`). Schema added in 7D supports it; UI is post-launch. Onboarding-time prompt: "We found 3 dishes you were tagged in. Claim them?" **Updated 2026-04-09 — see `PHASE_7F_DESIGN_DECISIONS.md` D45.** D45's cooked-vs-ate byline split applies post-claim: if a claimed external participant had `role='ate_with'`, they appear in the sub-line text on existing cards, not the avatar stack. The retroactive claim flow doesn't need to backfill any new rendering — it just nulls out `external_name` and sets `participant_user_id`, and the existing 7F render rules pick up the change automatically. |
-| R9 | **Concept cooking inline suggestions for freeform dishes** | 💡 | 🟢 | Surfaced during Phase 7D scoping (D23, P7-19). When a user types a freeform dish name like "rice", surface concept matches inline as suggestions. Depends on Phase 11 concept cooking landing first. |
+| R1 | User dietary preferences table + settings UI | 🚀 | 🟡 | Needed for stats compliance % and recommendations. |
+| R2 | Ingredient source tracking | 🚀 | 🟢 | "From garden" / "farmers market". Feeds stats. |
+| R4 | Wearable integration research | 💡 | 🟢 | Apple Health / Fitbit. Future. |
+| R5 | Recipe cost per serving | 🚀 | 🟢 | 229 ingredients have cost data. |
+| R6 | Personal daily eating log / leftovers | 🚀 | 🟡 | Distinct from social feed. Post-F&F. |
+| R7 | Recipe discovery feature | 🚀 | 🟡 | See `PHASE_RECIPE_DISCOVERY.md`. Post-F&F. |
+| R8 | External participant retroactive claim | 🚀 | 🟢 | Schema supports it. Onboarding flow. |
+| R9 | Concept cooking inline suggestions | 💡 | 🟢 | Phase 11 dependency. |
 
 ---
 
@@ -346,9 +431,11 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| T1 | ~~Old ingredientsParser.ts to be replaced~~ | 🔧 | ⚪ | **Phase 5A-3 audit:** `ingredientsParser.ts` IS the active pipeline. Not stale. |
-| T2 | ~~ingredientMatcher.ts naming confusion~~ | 🔧 | ✅ | **RESOLVED by audit.** Both files documented — different purposes. |
-| T3 | **Schema change propagation discipline** | 🔧 | 🟡 | **Surfaced during Phase 7 Checkpoint 4.** Three separate drift bugs traced back to Phase 7B-Rev's `ALTER TABLE posts ALTER COLUMN rating TYPE numeric(3,1)` migration: (a) `detectPlannedMealForCook` in `mealService.ts` had duplicate inline time-band logic that wasn't updated when `computeMealType` was tightened to 4 bands, causing smart-detect to miss planned dinners during afternoon hours for 3 checkpoints before being caught; (b) `get_meal_dishes` and `get_meal_plan_items` RPCs had `dish_rating integer` hardcoded in their `RETURNS TABLE` signatures and threw runtime errors after the type change; (c) `createDishPost` writes `parent_meal_id` directly without writing the corresponding `dish_courses` + `post_relationships` rows that `addDishesToMeal` writes together, leaving dishes invisible to `getMealDishes` and future feed-grouping logic. All three fixed during Checkpoint 4 fix passes. **Rule going forward:** any `ALTER TABLE` on `posts`, `recipes`, or other frequently-joined tables must be followed by a grep sweep for (1) RPCs with `RETURNS TABLE(...)` signatures that select from the changed column, (2) duplicate inline type logic in service layer code, (3) TypeScript interfaces that mirror DB schema, (4) other service functions that write to the same joined-relationship (meal↔dish) that should be writing the same set of rows atomically. Schema changes that don't propagate are the most expensive bugs — they fail silently for weeks. |
+| T3 | Schema change propagation discipline | 🔧 | 🟡 | Rule: ALTER TABLE on joined tables → grep sweep for RPCs, inline type logic, TS interfaces, related write paths. |
+| T4 | **Relocate stray service files from `lib/` root into `lib/services/`.** FRIGO_ARCHITECTURE v4.0 documents all services under `lib/services/`, but 5 service files currently live at `lib/` root: `groceryListsService.ts` (461 lines), `groceryService.ts` (155), `pantryService.ts` (1,246), `searchService.ts` (455), `storeService.ts` (480). Move them to `lib/services/`, update all imports, confirm no other references. Also review `lib/ingredientsParser.ts` (755 lines) during the same pass — it may warrant a `lib/parsers/` or `lib/matching/` home rather than staying at `lib/` root. ~45 min. Surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory 2026-04-22. | 🔧 | 🟢 | Low urgency. Affects consistency and FRIGO_ARCHITECTURE accuracy; no runtime impact. Also: update `FRIGO_ARCHITECTURE.md` Directory Structure when files move. |
+| T5 | **Delete deprecated `components/cooking/PostCookFlow.tsx`.** 221-line file explicitly marked DEPRECATED (merged into `LogCookSheet` 'full' mode April 2026). Still in repo. Confirm no remaining imports, delete file, commit. ~10 min. Surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory 2026-04-22. | 🔧 | 🟢 | Low urgency. Housekeeping only. |
+| T6 | **Review `lib/oldTheme.ts` for deletion.** 151-line legacy theme constants file, "largely superseded by `lib/theme/`" per its own description but still referenced per the inventory note. Audit import graph; if fully dead, delete. If still referenced, migrate references to `lib/theme/` and then delete. ~20–30 min depending on reference count. Surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory 2026-04-22. | 🔧 | 🟢 | Low urgency. Code hygiene. |
+| T7 | **Resolve `@ts-nocheck` pragma on `components/QuickAddSection.tsx`.** 546-line component carries `@ts-nocheck` at top, suppressing TypeScript errors. Disable the pragma, fix the surfaced type errors, re-enable strict checking. Unknown error count without running the check. Surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory 2026-04-22. | 🔧 | 🟡 | Type-safety gap. Medium priority — pragma masks real bugs; worth fixing before F&F. |
 
 ---
 
@@ -356,15 +443,12 @@ Vinegar, Lime, Lemon, Grapefruit, Buttermilk, Cottage Cheese, Yogurt, Wine, Pick
 
 | Date | Version | Change |
 |------|---------|--------|
-| 2026-04-09 | 4.3 | **Phase 7F wireframe session cross-references added.** R6 (personal eating log), R7 (recipe discovery), and R8 (external participant retroactive claim) updated with forward references to `PHASE_7F_DESIGN_DECISIONS.md` decisions D43 and D45. Existing item content unchanged; cross-reference notes appended. The 14 new Phase 7F deferred items (P7-28 through P7-42) live in `PHASE_7_SOCIAL_FEED.md` as Phase-7-internal items per project convention until Phase 7 closes — they will be reconciled into DEFERRED_WORK.md at that point. R9 (concept cooking inline suggestions) was not updated this round despite being touched by the design session because the relationship is already documented in its existing notes via P7-19. |
-| 2026-04-07 | 4.2 | **Cross-cutting T3 added** — schema change propagation discipline. Surfaced during Phase 7 Checkpoint 4 from three separate drift bugs (time band logic in `detectPlannedMealForCook`, RPC return types on `get_meal_dishes`/`get_meal_plan_items`, and `createDishPost` not writing `dish_courses`) that all traced back to Phase 7B-Rev's rating column migration not fully propagating. Captures the rule for future schema changes. |
-| 2026-04-07 | 4.1 | **Phase 7D scoping additions.** Added R6 (personal daily eating log / leftovers — surfaced from Tom's Q14 answer about nutrition tracking distinct from social posting), R7 (recipe discovery feature — surfaced from dish-tap behavior in Q21, see new `PHASE_RECIPE_DISCOVERY.md` stub), R8 (external participant retroactive claim path — surfaced from D27), R9 (concept cooking inline suggestions for freeform dishes — surfaced from D23). Updated S1/S2 to note they're now scheduled as Phase 7I (renumbered from old 7G) and clarified they're for the "same-recipe-different-cooks" case, NOT multi-dish meals. Note: 7D-internal items (P7-14 through P7-20) live in PHASE_7_SOCIAL_FEED.md until Phase 7 completes. |
-| 2026-03-24 | 4.0 | **Phase 5 + Phase 6 reconciliation.** Added "From: Phase 5" section (6 items: base_ingredient_id, gardening data, recipe markup, chef backfill, difficulty scores, technique tagging). Added "From: Phase 6" section (31 items + 6 tech debt across high/medium/lower/tech tiers). Key Phase 6 items: cooking time backfill (🔴, only 60/475 recipes), CookingScreen simplification, multi-recipe cooking, PostCookFlow data gap, pantry fraction rethink, grocery list rethink, timer in step focus. Resolved: N8 (casing cleanup, Phase 5B), N9 (unmatched rows 9.2%→0.06%, Phase 5D), I8 (null names, Phase 5D), B14 (dietary flags, Phase 5C). Updated D3 (cooking method architecture — not addressed in Phase 6, retarget Phase 7). Cross-referenced D4-3 with P6-1 (both about missing cooking time data). Moved B15→P5-6, B4→P5-4 to avoid duplication. |
-| 2026-03-17 | 3.0 | **Phase 5A updates.** Resolved: B19, D1, D2, DI-5, DI-4, D4-31, N6. Updated: B14, D3, T1, T2, N1, E1, N8, N9, B1/B10. |
-| 2026-03-05 | 2.0 | **Phase 4/I reconciliation.** Added "From: Phase 4 / Phase I" section with 38 items. Marked R3 as delivered. |
-| 2026-03-02 | 1.0 | **Doc overhaul.** Moved to repo as canonical location. Restored Idea Shelf, B1 Detail, R3-R5. |
-| 2026-02-26 | — | Data seeding session. Added D1-D3. |
-| 2026-02-26 | — | SVG icon integration. Marked B9, B11, B12 as completed. Added B20, B21. |
-| 2026-02-25 | — | Phase 3A extraction pipeline. Marked B6, B7 as completed. Added B14-B19. |
-| 2026-02-24 | — | Added Phase 3A items B1-B13. |
-| 2026-02-19 | — | Created. Consolidated from Nutrition Tracker idea shelf and broader roadmap. |
+| 2026-04-22 | 5.1 | Added T4 through T7: 4 cross-cutting cleanup items surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory (service relocation, deprecated-file deletion, legacy-theme audit, ts-nocheck resolution). |
+| 2026-04-17 | 5.0 | **Phase 7 completion reconciliation.** Reconciled 42 deferred items from `PHASE_7_SOCIAL_FEED.md` into this doc. Resolved 20+ items (P5-4, P6-4, P6-5, S1, S2, P7-9, P7-15, P7-16, P7-29, P7-58, P7-60, P7-62, P7-64, P7-65, P7-66, P7-67, P7-85, P7-87, P7-88, P7-90, P7-97, P7-98, D3 partial, feed swipe). Added 17 infrastructure items, 13 detail polish items, 4 feed perf items, 30+ future sub-phase items from Phase 7. |
+| 2026-04-09 | 4.3 | Phase 7F wireframe cross-references. |
+| 2026-04-07 | 4.2 | Cross-cutting T3 added. |
+| 2026-04-07 | 4.1 | Phase 7D scoping additions (R6-R9, S1/S2 update). |
+| 2026-03-24 | 4.0 | Phase 5 + Phase 6 reconciliation. |
+| 2026-03-17 | 3.0 | Phase 5A updates. |
+| 2026-03-05 | 2.0 | Phase 4/I reconciliation. |
+| 2026-03-02 | 1.0 | Doc overhaul. |

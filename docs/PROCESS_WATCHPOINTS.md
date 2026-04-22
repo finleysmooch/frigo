@@ -1,6 +1,6 @@
 # Process Watchpoints
-**Last Updated:** April 21, 2026
-**Version:** 1.0
+**Last Updated:** April 22, 2026
+**Version:** 1.1
 
 **Purpose:** Track open concerns about the Frigo documentation and planning process — things we've invented on paper that haven't been pressure-tested yet, or disciplines we're trying to enforce that rely on habit. This is a retrospective working doc, not a rulebook. `DOC_MAINTENANCE_PROCESS.md` is where the actual rules live; this is where we track whether the rules are doing what we hoped.
 
@@ -89,7 +89,9 @@
 - On the next 3–5 CC sessions that touch living docs: does CC automatically update the `Last Updated` header + stage a dated copy to `_pk_sync/` without the prompt explicitly saying so?
 - If CC consistently needs prompt-level reminders, the Standing Rules aren't working as default behavior and we need a different mechanism (e.g., every CC prompt that touches a living doc includes a one-line reminder).
 
-**Observations:** None yet.
+**Observations:**
+
+- *2026-04-22 (discovery-pass patch v2 landing):* CC correctly applied the patch's content as spec'd despite a Verification #5 inconsistency in the spec itself — Edit 2's content used markdown bold (`**Tier 3 discovery:** SKIPPED`) while Verification #5's grep looked for plain text (`Tier 3 discovery: SKIPPED`). Per Rule D, CC flagged the mismatch in SESSION_LOG rather than modifying Edit 2 to satisfy the broken grep or modifying the grep to match the content. First concrete evidence that Rule D ("No strategic content authorship — STOP and report rather than improvising") triggers reliably on real prompts beyond the obvious-judgment-call cases. Positive signal for the standing-rule mechanism that W5 is tracking.
 
 **Status:** Open
 
@@ -103,7 +105,14 @@
 - Note any situations where a rule was misapplied because someone worked from memory rather than consulting the doc.
 - If misapplications cluster around specific sections, those sections might need to be shorter or moved to a more consulted location (e.g., promoted to CLAUDE.md Standing Rules).
 
-**Observations:** None yet.
+**Observations:**
+
+- *2026-04-22 (v5.1 first tier populate + refinement):* v4's categorical tier rules ("all `lib/services/**/*.ts`", "all non-Tier-2 `components/*.tsx`") produced 42/46/72 files across Tiers 1–3 on first populate. A full inventory + Claude.ai review surfaced three classes of rule failure:
+  - **Under-inclusion:** rules missed entire directories — `lib/types/` (9 files), `components/stats/` (29 files including 15 Tier 2 candidates), `components/cooking/` (12 files including 4 Tier 2 candidates). 41+ files that should have been candidates were invisible to the rules.
+  - **Over-inclusion:** "all non-Tier-2 `components/*.tsx`" captured ~71 files where the actual Tier 3 value-weighted set is ~24.
+  - **Structural drift:** 5 service files at `lib/` root vs. FRIGO_ARCHITECTURE v4.0's documented `lib/services/` home — drift the categorical rule couldn't surface because it only looked at `lib/services/**/*.ts`.
+
+  Evidence that broad categorical rules written pre-inventory consistently miss real structure in both directions. Patched in `PK_CODE_SNAPSHOTS.md` v1.1 (2026-04-22) by replacing rules with explicit named file lists. Not a new watchpoint — confirmation that W6's "written rules vs. actual consultation" concern is real, and that tier-rule calibration against a fresh inventory (not memory or partial directory listings) is a valuable check at first populate.
 
 **Status:** Open
 
@@ -150,4 +159,5 @@ When closing a watchpoint, add an entry here:
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-04-22 | 1.1 | W6 observation: v5.1 first tier populate surfaced three classes of categorical-rule failure (under-inclusion, over-inclusion, structural drift). Patched in PK_CODE_SNAPSHOTS.md v1.1. W5 observation (added later same day): discovery-pass-v2 patch landing surfaced first concrete evidence that Rule D triggers reliably — CC flagged a spec-internal inconsistency rather than silently fixing it. |
 | 2026-04-21 | 1.0 | Initial watchpoints doc. Seeded with 7 concerns surfaced during the DOC_MAINTENANCE_PROCESS v5.0 rewrite + CLAUDE.md Standing Rules session. |
