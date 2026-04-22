@@ -1,5 +1,42 @@
 # Session Log
 
+## 2026-04-22 — [cross-cutting] Promote `refresh_pk_code_snapshots.md` to PK residency (DMP v5.2)
+**Phase:** cross-cutting (small PK working-set adjustment)
+**Prompt from:** Tom's direct instruction — "lets add it" (in response to my recommendation to put the refresh prompt in PK so Claude.ai can reference it directly during cross-cutting patches).
+
+Previously the refresh prompt was repo-only. Claude.ai had to infer the prompt's shape from memory when authoring PK-workflow patches (v1.1 tier refinement, discovery-pass additions, today's flat-upload constraint update) — grep-first at CC execution time caught drift but created friction. This promotion eliminates the inference step.
+
+**Files changed:**
+- `docs/DOC_MAINTENANCE_PROCESS.md` — v5.1 → v5.2. Added `refresh_pk_code_snapshots.md` as a 6th bullet in the "Strongly recommended in PK" list (§4), updated count from (5) to (6), updated Status line to mention v5.2, prepended Changelog row.
+- `_pk_sync/DOC_MAINTENANCE_PROCESS_2026-04-22.md` — overwritten with v5.2 content. Byte-identical to repo copy.
+- `_pk_sync/refresh_pk_code_snapshots_2026-04-22.md` — NEW staged copy. First-time PK upload for this doc.
+
+**Rule E check:** neither `DOC_MAINTENANCE_PROCESS.md` nor `refresh_pk_code_snapshots.md` is a tier-listed code file. Rule E does not trigger.
+
+**Classification decision:** added to "Strongly recommended" rather than "Current essentials" because:
+- The refresh prompt is consulted during cross-cutting/infrastructure sessions (tier-refinement, discovery-rule additions), not during every phase planning session.
+- "Strongly recommended" matches its conditional-use pattern better than "essential" which implies baseline per-session search.
+- If usage patterns shift (e.g., refresh-prompt lookups become routine during phase planning), a future promotion to "Current essentials" is a single-line edit.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md`: none.
+- `DEFERRED_WORK.md`: none.
+- `PROJECT_CONTEXT.md`: none. (Could add a small note in the "Documentation System" section that the PK working set has been refined, but that's low-value — defer to next real PROJECT_CONTEXT edit.)
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+
+**Recommended next steps for Tom:**
+1. Commit the v5.2 edit + this SESSION_LOG entry. Suggested message: `docs(dmp): v5.2 — promote refresh_pk_code_snapshots.md to PK residency`.
+2. Upload `_pk_sync/DOC_MAINTENANCE_PROCESS_2026-04-22.md` to PK, replacing the v5.1 copy.
+3. Upload `_pk_sync/refresh_pk_code_snapshots_2026-04-22.md` to PK — this is the first-time addition to PK for this file, not a replacement.
+4. Clear `_pk_sync/*.md` after both uploads.
+
+**Surprises / Notes for Claude.ai:**
+- **`_pk_sync/` had been cleared between the last commit (0a48188) and this session.** That's the correct workflow per DMP §5 — Tom uploads staged copies to PK, then deletes them. No surprise, just noting the state transition.
+- **Same-day version bumps (v5.1 → v5.2) are acceptable** for structural additions like a new PK category entry. Contrast with the W6+W5 same-day observations which were documentary extensions without structural change — those stayed in the v1.1 changelog row rather than bumping to v1.2. Worth a mental rule-of-thumb: structural changes → version bump; content additions to existing structure → changelog-row extension.
+- **CLAUDE.md and PROCESS_WATCHPOINTS.md are already in the Essentials (9) list.** The list grew from 7 in the initial v5.1 write-up to 9 by today — a sister Claude.ai instance or a prior edit extended it. Didn't audit the history; flagging in case Claude.ai wants to reconcile against the v5.1 changelog which says "7 files."
+
+---
+
 ## 2026-04-22 — [PK refresh — follow-up] Flatten `_pk_sync/code/` for PK upload constraint
 **Phase:** cross-cutting (follow-up to the initial PK refresh)
 **Prompt from:** Tom's direct instruction — "i can't upload folders — the files have to all be flat. can you update?"

@@ -1,7 +1,7 @@
 # Frigo — Documentation Maintenance Process
 **Last Updated:** April 22, 2026
-**Version:** 5.1
-**Status:** Active — reflects the repo-as-canonical workflow established 2026-04-20/21, with code snapshots in PK codified in v5.1.
+**Version:** 5.2
+**Status:** Active — reflects the repo-as-canonical workflow established 2026-04-20/21, with code snapshots in PK codified in v5.1 and the refresh prompt promoted to PK residence in v5.2.
 
 ---
 
@@ -137,12 +137,13 @@ A cache of ~12–14 living-doc files plus a dated code-snapshot set (typically 4
 - The warm previous phase doc (per the warm-one-phase rule in Section 6)
 - `CLAUDE.md` — the CC-facing entry point. Lives in PK so Claude.ai can audit it for drift against `DOC_MAINTENANCE_PROCESS.md` without needing a CC read cycle.
 
-**Strongly recommended in PK (5):**
+**Strongly recommended in PK (6):**
 - Schema CSV (`Supabase_Snippet_Supabase_Frigo_DB_Structure_Query_22.csv`)
 - Product Feature Roadmap CSV
 - `CONCEPT_FLEXIBLE_MEAL_PLANNING.md` (or whichever phase-adjacent feature spec is currently in play)
 - `SHARED_PANTRIES_FEATURE_SPEC.md` (or current equivalent)
 - `Frigo_Wireframes_Companion.pdf`
+- `refresh_pk_code_snapshots.md` — the CC-side standing prompt defining the PK code-snapshot refresh mechanics (stamping logic, discovery rules, verification). Lives in PK so Claude.ai can reference it directly when authoring cross-cutting patches that touch the PK workflow (tier refinement, discovery additions, constraint tweaks), rather than inferring its shape from memory and relying on grep-first to catch drift. Repo source: `docs/CC_PROMPTS/refresh_pk_code_snapshots.md`.
 
 **What does NOT belong in PK:**
 - Code files **outside the Tier 1–3 snapshot set** (see the new "Code Snapshots in PK" subsection below). Arbitrary ad-hoc code uploads don't belong in PK — use `/mnt/user-data/uploads/` for one-off session-specific files instead. The curated snapshot set is the exception, not a license to mirror the entire repo.
@@ -456,6 +457,7 @@ Consolidated here in v5.0. Individual sections above repeat the relevant subset;
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-04-22 | 5.2 | **PK residency for refresh prompt.** `docs/CC_PROMPTS/refresh_pk_code_snapshots.md` promoted to PK (Section 4 "Strongly recommended" list, now 6 entries) so Claude.ai can reference it directly during cross-cutting sessions that patch PK workflow — tier refinement, discovery-rule additions, constraint tweaks. Previously repo-only; Claude.ai had to infer the prompt's shape from memory and rely on grep-first at CC execution time to catch drift. Cost: one additional `_pk_sync/` staging event per refresh-prompt edit. Benefit: Claude.ai drafts patches against the real shape, not an inferred one. |
 | 2026-04-22 | 5.1 | **Code snapshots in PK codified.** Partially reverses the v5.0 "no code in PK" rule by introducing a curated, dated, tiered snapshot set (Tier 1–3: services/utils/constants, screens/key components, supporting components/navigation). PK snapshots are explicitly non-canonical — every file carries a snapshot header surfacing its date. **Dual staleness signaling** introduced: SESSION_LOG entries flag PK snapshot drift in real time when CC edits a tier-listed file (so Tom sees the signal at copy-paste-to-Claude.ai), and CC bumps the file's Staleness Risk column in `PK_CODE_SNAPSHOTS.md` to HIGH in the same execution (persistent record). The flagging behavior is triggered via `CLAUDE.md` Rule E (added same day) so it survives across CC sessions without prompt-level reminders. Refresh cadence: sub-phase boundaries (standard, via standing CC prompt at `docs/CC_PROMPTS/refresh_pk_code_snapshots.md`), mid-phase on-demand, and phase completion (mandatory — new checklist step 1a; a successful refresh resets all Staleness Risk columns to Low). Mid-session, when current file state is needed, Tom uploads directly via `/mnt/user-data/uploads/` or fires a targeted CC recon prompt. Tracking doc at `docs/PK_CODE_SNAPSHOTS.md`. `_pk_sync/code/` subfolder introduced for batch staging. |
 | 2026-04-21 | 5.0 | **Full rewrite for repo-as-canonical workflow.** New sections: Claude.ai Session Types (phase planning / cross-cutting / oversight, with session-opening declaration, chat title convention, instance-proposed clarification when type isn't declared, and explicit allowance for untyped ad-hoc chats), Where Everything Lives (PK vs Repo vs Drive), `_pk_sync/` Workflow Folder (dated filenames in `_pk_sync/` and PK matching each file's `Last Updated` header so stale PK copies are visible at a glance), Archive Structure + Lifecycle, Naming Conventions, expanded Patterns for CC Prompts. Updated sections: Planning → Execution → Reconciliation Loop (adds downstream doc-update flagging), SESSION_LOG Conventions (adds "Recommended doc updates" block to entry format), Phase Completion Checklist (adds archive steps, `_pk_sync/` uploads, custom instructions update, recommended phase-boundary oversight pass). `CLAUDE.md` promoted to living-doc status and PK-resident so Claude.ai can audit it against this doc for drift; CC-facing audience framing pattern codified in Section 7. `PROCESS_WATCHPOINTS.md` introduced as a retrospective working doc for monitoring whether the v5.0 process is doing what we hoped. Retired guidance assuming PK is canonical. |
 | 2026-04-21 | 4.1 | Absorbed console.warn instrumentation pattern note from `DOC_UPDATES_CONSOLIDATED_2026-04-15.md` Section 7 into a new Patterns for CC Prompts section. Pending full rewrite. |
