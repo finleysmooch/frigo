@@ -29,63 +29,63 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
-| `lib/services/annotationService.ts` | | | — | |
-| `lib/services/bookViewService.ts` | | | — | |
-| `lib/services/commentsService.ts` | | | — | |
-| `lib/services/cookCardDataService.ts` | | Phase 7I CP5 / CP6 | — | SELECT-column SSoT per v4.0 arch doc |
-| `lib/services/cookingService.ts` | | Phase 7B-Rev | — | recipe_step_notes CRUD |
-| `lib/services/eaterRatingsService.ts` | | Phase 7I CP6 | — | D43 private per-eater ratings |
-| `lib/services/feedGroupingService.ts` | | Phase 7I CP4 / 7G | — | `buildFeedGroups`; sort key switched to cooked_at in 7G |
-| `lib/services/highlightsService.ts` | | Phase 7I | — | |
-| `lib/services/imageStorageService.ts` | | | — | |
-| `lib/services/ingredientService.ts` | | | — | |
-| `lib/services/ingredientSuggestionService.ts` | | | — | |
-| `lib/services/instructionSectionsService.ts` | | | — | |
-| `lib/services/mealPlanService.ts` | | | — | |
-| `lib/services/mealService.ts` | | Phase 7I CP2 / CP6 | — | `getMealEventForCook`, `getMealEventDetail` |
-| `lib/services/nutritionGoalsService.ts` | | Phase 4 | — | |
-| `lib/services/nutritionService.ts` | | | — | |
-| `lib/services/postParticipantsService.ts` | | Phase 7I CP7 | — | PostType union cleaned |
-| `lib/services/postService.ts` | | Phase 7M / 7L / 7G | — | UpdatePostPatch extended; computeDefaultVisibility |
-| `lib/services/recipeAnnotationsService.ts` | | | — | |
-| `lib/services/recipeHistoryService.ts` | | Phase 7I CP5 | — | `getCookHistoryForUserRecipe` |
-| `lib/services/recipeService.ts` | | Phase 7B-Rev | — | Top-level (distinct from extraction one); 20 lines, currently only `deleteRecipe` |
-| `lib/services/shareService.ts` | | Phase 7J | — | `shareRecipe`, `sharePost` |
-| `lib/services/spaceService.ts` | | | — | |
-| `lib/services/statsService.ts` | | Phase 4 | — | 38 exports |
-| `lib/services/subscriptionService.ts` | | | — | |
-| `lib/services/unitConverter.ts` | | | — | |
-| `lib/services/userRecipeTagsService.ts` | | | — | |
-| `lib/services/vibeService.ts` | | Phase 7F | — | `getRecipeVibe`, `computeMealVibe` |
-| `lib/services/recipeExtraction/bookService.ts` | | | — | 10 exports; Phase 7K backfill callers |
-| `lib/services/recipeExtraction/chefService.ts` | | Phase 7K | — | `backfillChefIds` added 2026-04-17 |
-| `lib/services/recipeExtraction/claudeVisionAPI.ts` | | | — | |
-| `lib/services/recipeExtraction/imageProcessor.ts` | | | — | |
-| `lib/services/recipeExtraction/index.ts` | | | — | Barrel export |
-| `lib/services/recipeExtraction/ingredientMatcher.ts` | | | — | Instruction text highlighting |
-| `lib/services/recipeExtraction/recipeService.ts` | | Phase 3A | — | saveRecipe (distinct from top-level) |
-| `lib/services/recipeExtraction/unifiedParser.ts` | | | — | |
-| `lib/services/recipeExtraction/webExtractor.ts` | | | — | |
-| `lib/utils/mealTypeHelpers.ts` | | Phase 7E Fix Pass 1 | — | Extracted from postService |
-| `lib/utils/timerDetection.ts` | | Phase 6 | — | detectTimersInText + formatTime |
-| `constants/cookingMethods.ts` | | Phase 7M | — | 16-value DB CHECK match |
-| `constants/pantry.ts` | | | — | |
-| `constants/vibeIcons.ts` | | | — | |
-| `lib/types/cooking.ts` | | Phase 6 | — | StepNote, CookingSession, TimerHistoryEntry, NormalizedStep |
-| `lib/types/feed.ts` | | Phase 7I | — | CookCardData, FeedGroup, LinkContext, MealEventContext |
-| `lib/types/grocery.ts` | | | — | Grocery list/item/template types |
-| `lib/types/pantry.ts` | | | — | PantryItem, StorageLocation, IngredientWithPantryData |
-| `lib/types/recipeExtraction.ts` | | | — | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
-| `lib/types/recipeFeatures.ts` | | | — | DB-corrected Book + author types |
-| `lib/types/search.ts` | | | — | SearchOptions, SearchResult, SearchError class |
-| `lib/types/space.ts` | | | — | SpaceRole, SpaceAction, permissions, invitations |
-| `lib/types/store.ts` | | | — | Store, UserIngredientPreference, view modes |
-| `lib/groceryListsService.ts` | | | — | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/groceryService.ts` | | | — | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/pantryService.ts` | | | — | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/searchService.ts` | | | — | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/storeService.ts` | | | — | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/ingredientsParser.ts` | | | — | Core ingredient matching pipeline (755 lines). Currently at lib/ root; review location during the lib/services/ relocation pass (T4). |
+| `lib/services/annotationService.ts` | 2026-04-22 | | Low | |
+| `lib/services/bookViewService.ts` | 2026-04-22 | | Low | |
+| `lib/services/commentsService.ts` | 2026-04-22 | | Low | |
+| `lib/services/cookCardDataService.ts` | 2026-04-22 | Phase 7I CP5 / CP6 | Low | SELECT-column SSoT per v4.0 arch doc |
+| `lib/services/cookingService.ts` | 2026-04-22 | Phase 7B-Rev | Low | recipe_step_notes CRUD |
+| `lib/services/eaterRatingsService.ts` | 2026-04-22 | Phase 7I CP6 | Low | D43 private per-eater ratings |
+| `lib/services/feedGroupingService.ts` | 2026-04-22 | Phase 7I CP4 / 7G | Low | `buildFeedGroups`; sort key switched to cooked_at in 7G |
+| `lib/services/highlightsService.ts` | 2026-04-22 | Phase 7I | Low | |
+| `lib/services/imageStorageService.ts` | 2026-04-22 | | Low | |
+| `lib/services/ingredientService.ts` | 2026-04-22 | | Low | |
+| `lib/services/ingredientSuggestionService.ts` | 2026-04-22 | | Low | |
+| `lib/services/instructionSectionsService.ts` | 2026-04-22 | | Low | |
+| `lib/services/mealPlanService.ts` | 2026-04-22 | | Low | |
+| `lib/services/mealService.ts` | 2026-04-22 | Phase 7I CP2 / CP6 | Low | `getMealEventForCook`, `getMealEventDetail` |
+| `lib/services/nutritionGoalsService.ts` | 2026-04-22 | Phase 4 | Low | |
+| `lib/services/nutritionService.ts` | 2026-04-22 | | Low | |
+| `lib/services/postParticipantsService.ts` | 2026-04-22 | Phase 7I CP7 | Low | PostType union cleaned |
+| `lib/services/postService.ts` | 2026-04-22 | Phase 7M / 7L / 7G | Low | UpdatePostPatch extended; computeDefaultVisibility |
+| `lib/services/recipeAnnotationsService.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeHistoryService.ts` | 2026-04-22 | Phase 7I CP5 | Low | `getCookHistoryForUserRecipe` |
+| `lib/services/recipeService.ts` | 2026-04-22 | Phase 7B-Rev | Low | Top-level (distinct from extraction one); 20 lines, currently only `deleteRecipe` |
+| `lib/services/shareService.ts` | 2026-04-22 | Phase 7J | Low | `shareRecipe`, `sharePost` |
+| `lib/services/spaceService.ts` | 2026-04-22 | | Low | |
+| `lib/services/statsService.ts` | 2026-04-22 | Phase 4 | Low | 38 exports |
+| `lib/services/subscriptionService.ts` | 2026-04-22 | | Low | |
+| `lib/services/unitConverter.ts` | 2026-04-22 | | Low | |
+| `lib/services/userRecipeTagsService.ts` | 2026-04-22 | | Low | |
+| `lib/services/vibeService.ts` | 2026-04-22 | Phase 7F | Low | `getRecipeVibe`, `computeMealVibe` |
+| `lib/services/recipeExtraction/bookService.ts` | 2026-04-22 | | Low | 10 exports; Phase 7K backfill callers |
+| `lib/services/recipeExtraction/chefService.ts` | 2026-04-22 | Phase 7K | Low | `backfillChefIds` added 2026-04-17 |
+| `lib/services/recipeExtraction/claudeVisionAPI.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/imageProcessor.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/index.ts` | 2026-04-22 | | Low | Barrel export |
+| `lib/services/recipeExtraction/ingredientMatcher.ts` | 2026-04-22 | | Low | Instruction text highlighting |
+| `lib/services/recipeExtraction/recipeService.ts` | 2026-04-22 | Phase 3A | Low | saveRecipe (distinct from top-level) |
+| `lib/services/recipeExtraction/unifiedParser.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/webExtractor.ts` | 2026-04-22 | | Low | |
+| `lib/utils/mealTypeHelpers.ts` | 2026-04-22 | Phase 7E Fix Pass 1 | Low | Extracted from postService |
+| `lib/utils/timerDetection.ts` | 2026-04-22 | Phase 6 | Low | detectTimersInText + formatTime |
+| `constants/cookingMethods.ts` | 2026-04-22 | Phase 7M | Low | 16-value DB CHECK match |
+| `constants/pantry.ts` | 2026-04-22 | | Low | |
+| `constants/vibeIcons.ts` | 2026-04-22 | | Low | |
+| `lib/types/cooking.ts` | 2026-04-22 | Phase 6 | Low | StepNote, CookingSession, TimerHistoryEntry, NormalizedStep |
+| `lib/types/feed.ts` | 2026-04-22 | Phase 7I | Low | CookCardData, FeedGroup, LinkContext, MealEventContext |
+| `lib/types/grocery.ts` | 2026-04-22 | | Low | Grocery list/item/template types |
+| `lib/types/pantry.ts` | 2026-04-22 | | Low | PantryItem, StorageLocation, IngredientWithPantryData |
+| `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
+| `lib/types/recipeFeatures.ts` | 2026-04-22 | | Low | DB-corrected Book + author types |
+| `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
+| `lib/types/space.ts` | 2026-04-22 | | Low | SpaceRole, SpaceAction, permissions, invitations |
+| `lib/types/store.ts` | 2026-04-22 | | Low | Store, UserIngredientPreference, view modes |
+| `lib/groceryListsService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/groceryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/pantryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/searchService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/storeService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/ingredientsParser.ts` | 2026-04-22 | | Low | Core ingredient matching pipeline (755 lines). Currently at lib/ root; review location during the lib/services/ relocation pass (T4). |
 
 ---
 
@@ -93,70 +93,70 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
-| `screens/AddRecipeFromPhotoScreen.tsx` | | | — | |
-| `screens/AddRecipeFromUrlScreen.tsx` | | | — | |
-| `screens/AdminScreen.tsx` | | | — | |
-| `screens/AuthorViewScreen.tsx` | | | — | |
-| `screens/BookDetailScreen.tsx` | | Phase 4 | — | |
-| `screens/BookViewScreen.tsx` | | | — | |
-| `screens/ChefDetailScreen.tsx` | | Phase 4 | — | |
-| `screens/CommentsScreen.tsx` | | Phase 7N | — | P7-85 keyboard avoidance |
-| `screens/CookDetailScreen.tsx` | | Phase 7M / 7N | — | Overflow collapsed 6→2; 7N polish |
-| `screens/CookingScreen.tsx` | | Phase 6 / 7B-Rev | — | |
-| `screens/CookSoonScreen.tsx` | | | — | |
-| `screens/DrillDownScreen.tsx` | | Phase 4 | — | |
-| `screens/EditMediaScreen.tsx` | | | — | |
-| `screens/EditPostScreen.tsx` | | Phase 7M | — | NEW ~1,178 lines |
-| `screens/EditProfileScreen.tsx` | | | — | |
-| `screens/FeedScreen.tsx` | | Phase 7I CP4 / 7G / 7M FP1 | — | cook-post-centric rewrite |
-| `screens/GroceryListDetailScreen.tsx` | | | — | |
-| `screens/GroceryListsScreen.tsx` | | | — | |
-| `screens/LoginScreen.tsx` | | | — | |
-| `screens/MealDetailScreen.tsx` | | | — | Deprecated-but-extant; P7-100 |
-| `screens/MealEventDetailScreen.tsx` | | Phase 7I CP6 | — | L7 detail screen |
-| `screens/MissingIngredientsScreen.tsx` | | | — | |
-| `screens/MyMealsScreen.tsx` | | Phase 7I CP7 | — | post_type='meal_event' fix |
-| `screens/MyPostDetailsScreen.tsx` | | | — | Deprecated-but-extant; P7-102 |
-| `screens/MyPostsScreen.tsx` | | | — | Deprecated-but-extant; P7-102 |
-| `screens/PantryScreen.tsx` | | | — | |
-| `screens/PendingApprovalsScreen.tsx` | | | — | |
-| `screens/ProfileScreen.tsx` | | | — | |
-| `screens/RecipeDetailScreen.tsx` | | Phase 7B-Rev / 7J | — | |
-| `screens/RecipeExtractionLoadingScreen.tsx` | | | — | |
-| `screens/RecipeListScreen.tsx` | | Phase 3A | — | |
-| `screens/RecipeReviewScreen.tsx` | | | — | |
-| `screens/RegularItemsScreen.tsx` | | | — | |
-| `screens/SettingsScreen.tsx` | | Phase 7L / 7K | — | visibility picker + chef backfill trigger |
-| `screens/SignupScreen.tsx` | | | — | |
-| `screens/SpaceSettingsScreen.tsx` | | | — | |
-| `screens/StatsScreen.tsx` | | Phase 4 / 7H | — | My Posts → CookDetail |
-| `screens/StoresScreen.tsx` | | | — | |
-| `screens/UserPostsScreen.tsx` | | Phase 4 | — | |
-| `screens/UserSearchScreen.tsx` | | | — | |
-| `screens/YasChefScreen.tsx` | | | — | |
-| `components/feedCard/CookCard.tsx` | | Phase 7I CP3 / 7N CP2 | — | Three-zone gesture pattern |
-| `components/feedCard/groupingPrimitives.tsx` | | Phase 7I CP3 / CP3.5 | — | Preheads, group headers, linked stacks |
-| `components/feedCard/sharedCardElements.tsx` | | Phase 7I / 7N CP2 | — | `onPhotoPress` added in 7N |
-| `components/stats/StatsOverview.tsx` | | Phase 4 | — | Overview sub-page coordinator |
-| `components/stats/StatsRecipes.tsx` | | Phase 4 | — | Recipes sub-page coordinator |
-| `components/stats/StatsNutrition.tsx` | | Phase 4 | — | Nutrition sub-page coordinator |
-| `components/stats/StatsInsights.tsx` | | Phase 4 | — | Insights sub-page coordinator |
-| `components/stats/WeeklyChart.tsx` | | Phase 4 | — | 5-mode SVG chart with tappable dots |
-| `components/stats/CalendarWeekCard.tsx` | | Phase 4 | — | 7-day emoji grid + streak |
-| `components/stats/MostCookedPodium.tsx` | | Phase 4 | — | 3-pedestal podium, 5-way toggle |
-| `components/stats/ConceptBubbleMap.tsx` | | Phase 4 | — | Size-scaled circles, 3 tiers |
-| `components/stats/GrowthTimeline.tsx` | | Phase 4 | — | Monthly milestones |
-| `components/stats/CookingPersonalityCard.tsx` | | Phase 4 | — | Dark teal template narrative |
-| `components/stats/FrontierCards.tsx` | | Phase 4 | — | Horizontal scroll suggestions |
-| `components/stats/GatewayCard.tsx` | | Phase 4 | — | Tappable overview card |
-| `components/stats/SectionHeader.tsx` | | Phase 4 | — | Kitchen/Frontier dividers |
-| `components/stats/MealTypeDropdown.tsx` | | Phase 4 | — | Anchored popup via measureInWindow |
-| `components/stats/PeriodToggle.tsx` | | Phase 4 | — | Period pill toggle with compact variant |
-| `components/cooking/ClassicView.tsx` | | Phase 6 | — | Full scrollable cookbook view |
-| `components/cooking/SectionCard.tsx` | | Phase 6 | — | Step cards with current/done/future states |
-| `components/cooking/IngredientSheet.tsx` | | Phase 6 | — | Pull-up ingredient bottom sheet |
-| `components/cooking/TimerDetail.tsx` | | Phase 6 | — | Expanded timer with controls |
-| `components/LogCookSheet.tsx` | | Phase 7B-Rev / 7G / 7M / 7L | — | StarRating delegation; cookedAt; default_visibility |
+| `screens/AddRecipeFromPhotoScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/AddRecipeFromUrlScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/AdminScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/AuthorViewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/BookDetailScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
+| `screens/BookViewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/ChefDetailScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
+| `screens/CommentsScreen.tsx` | 2026-04-22 | Phase 7N | Low | P7-85 keyboard avoidance |
+| `screens/CookDetailScreen.tsx` | 2026-04-22 | Phase 7M / 7N | Low | Overflow collapsed 6→2; 7N polish |
+| `screens/CookingScreen.tsx` | 2026-04-22 | Phase 6 / 7B-Rev | Low | |
+| `screens/CookSoonScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/DrillDownScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
+| `screens/EditMediaScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/EditPostScreen.tsx` | 2026-04-22 | Phase 7M | Low | NEW ~1,178 lines |
+| `screens/EditProfileScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/FeedScreen.tsx` | 2026-04-22 | Phase 7I CP4 / 7G / 7M FP1 | Low | cook-post-centric rewrite |
+| `screens/GroceryListDetailScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/GroceryListsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/LoginScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/MealDetailScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-100 |
+| `screens/MealEventDetailScreen.tsx` | 2026-04-22 | Phase 7I CP6 | Low | L7 detail screen |
+| `screens/MissingIngredientsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/MyMealsScreen.tsx` | 2026-04-22 | Phase 7I CP7 | Low | post_type='meal_event' fix |
+| `screens/MyPostDetailsScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-102 |
+| `screens/MyPostsScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-102 |
+| `screens/PantryScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/PendingApprovalsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/ProfileScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/RecipeDetailScreen.tsx` | 2026-04-22 | Phase 7B-Rev / 7J | Low | |
+| `screens/RecipeExtractionLoadingScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/RecipeListScreen.tsx` | 2026-04-22 | Phase 3A | Low | |
+| `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/RegularItemsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/SettingsScreen.tsx` | 2026-04-22 | Phase 7L / 7K | Low | visibility picker + chef backfill trigger |
+| `screens/SignupScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/SpaceSettingsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/StatsScreen.tsx` | 2026-04-22 | Phase 4 / 7H | Low | My Posts → CookDetail |
+| `screens/StoresScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/UserPostsScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
+| `screens/UserSearchScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/YasChefScreen.tsx` | 2026-04-22 | | Low | |
+| `components/feedCard/CookCard.tsx` | 2026-04-22 | Phase 7I CP3 / 7N CP2 | Low | Three-zone gesture pattern |
+| `components/feedCard/groupingPrimitives.tsx` | 2026-04-22 | Phase 7I CP3 / CP3.5 | Low | Preheads, group headers, linked stacks |
+| `components/feedCard/sharedCardElements.tsx` | 2026-04-22 | Phase 7I / 7N CP2 | Low | `onPhotoPress` added in 7N |
+| `components/stats/StatsOverview.tsx` | 2026-04-22 | Phase 4 | Low | Overview sub-page coordinator |
+| `components/stats/StatsRecipes.tsx` | 2026-04-22 | Phase 4 | Low | Recipes sub-page coordinator |
+| `components/stats/StatsNutrition.tsx` | 2026-04-22 | Phase 4 | Low | Nutrition sub-page coordinator |
+| `components/stats/StatsInsights.tsx` | 2026-04-22 | Phase 4 | Low | Insights sub-page coordinator |
+| `components/stats/WeeklyChart.tsx` | 2026-04-22 | Phase 4 | Low | 5-mode SVG chart with tappable dots |
+| `components/stats/CalendarWeekCard.tsx` | 2026-04-22 | Phase 4 | Low | 7-day emoji grid + streak |
+| `components/stats/MostCookedPodium.tsx` | 2026-04-22 | Phase 4 | Low | 3-pedestal podium, 5-way toggle |
+| `components/stats/ConceptBubbleMap.tsx` | 2026-04-22 | Phase 4 | Low | Size-scaled circles, 3 tiers |
+| `components/stats/GrowthTimeline.tsx` | 2026-04-22 | Phase 4 | Low | Monthly milestones |
+| `components/stats/CookingPersonalityCard.tsx` | 2026-04-22 | Phase 4 | Low | Dark teal template narrative |
+| `components/stats/FrontierCards.tsx` | 2026-04-22 | Phase 4 | Low | Horizontal scroll suggestions |
+| `components/stats/GatewayCard.tsx` | 2026-04-22 | Phase 4 | Low | Tappable overview card |
+| `components/stats/SectionHeader.tsx` | 2026-04-22 | Phase 4 | Low | Kitchen/Frontier dividers |
+| `components/stats/MealTypeDropdown.tsx` | 2026-04-22 | Phase 4 | Low | Anchored popup via measureInWindow |
+| `components/stats/PeriodToggle.tsx` | 2026-04-22 | Phase 4 | Low | Period pill toggle with compact variant |
+| `components/cooking/ClassicView.tsx` | 2026-04-22 | Phase 6 | Low | Full scrollable cookbook view |
+| `components/cooking/SectionCard.tsx` | 2026-04-22 | Phase 6 | Low | Step cards with current/done/future states |
+| `components/cooking/IngredientSheet.tsx` | 2026-04-22 | Phase 6 | Low | Pull-up ingredient bottom sheet |
+| `components/cooking/TimerDetail.tsx` | 2026-04-22 | Phase 6 | Low | Expanded timer with controls |
+| `components/LogCookSheet.tsx` | 2026-04-22 | Phase 7B-Rev / 7G / 7M / 7L | Low | StarRating delegation; cookedAt; default_visibility |
 
 ---
 
@@ -164,41 +164,41 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
-| `App.tsx` | | Phase 7M / 7H / 7I CP5/CP6 | — | FeedStack + StatsStack route registrations |
-| `contexts/CookingTimerContext.tsx` | | Phase 6 | — | |
-| `contexts/LogoConfigContext.tsx` | | | — | |
-| `contexts/SpaceContext.tsx` | | | — | |
-| `components/cooking/StepIngredients.tsx` | | Phase 6 | — | Two-column ingredient list per step |
-| `components/cooking/StepNoteInput.tsx` | | Phase 7B-Rev | — | Inline note input |
-| `components/cooking/StepNoteDisplay.tsx` | | Phase 7B-Rev | — | Saved step-note card |
-| `components/cooking/IngredientDetailPopup.tsx` | | Phase 6 | — | Ingredient tap popup |
-| `components/cooking/CompactTimerBar.tsx` | | Phase 6 | — | Single-line timer pills |
-| `components/cooking/ViewModeMenu.tsx` | | Phase 6 | — | Step-by-step vs classic dropdown |
-| `components/cooking/SectionDots.tsx` | | Phase 6 | — | Progress dots per section |
-| `components/UserAvatar.tsx` | | | — | Emoji/URL/null handling |
-| `components/RecipeNutritionPanel.tsx` | | Phase 3A | — | Collapsible macros + quality tier |
-| `components/DietaryBadgeRow.tsx` | | Phase 3A | — | 8 dietary flags |
-| `components/MarkupText.tsx` | | | — | Strikethrough + edit markup for annotations |
-| `components/StarRating.tsx` | | Phase 7M | — | Extracted from LogCookSheet |
-| `components/TimesMadeModal.tsx` | | Phase 7B-Rev | — | Historical cook counts stepper |
-| `components/NutritionGoalsModal.tsx` | | Phase 4 | — | 6-nutrient stepper + daily/per-meal toggle |
-| `components/FilterDrawer.tsx` | | Phase 3A | — | Recipe filter drawer |
-| `components/SpaceSwitcher.tsx` | | | — | Dropdown for switching shared spaces |
-| `components/MealInvitationsCard.tsx` | | | — | Pending meal invites with accept/decline |
-| `components/PendingSpaceInvitations.tsx` | | | — | Pending space invitation responder |
-| `components/InSheetMealCreate.tsx` | | Phase 7E | — | In-sheet meal creation + inline tagging |
-| `components/MadeOtherDishesSheet.tsx` | | Phase 7E | — | Post-publish planned-meal suggestions |
-| `components/MealPicker.tsx` | | | — | Attach to existing meal sub-view |
-| `components/CreateMealModal.tsx` | | | — | Create-meal modal with Quick Add Recipe |
-| `components/MealPlanSection.tsx` | | | — | Meal plan items with state + claim actions |
-| `components/MealCalendarView.tsx` | | | — | Month/week calendar for meals |
-| `components/QuickMealPlanModal.tsx` | | | — | Quick add recipe to meal plan |
-| `components/CategoryHeader.tsx` | | | — | Collapsible pantry family header |
-| `components/TypeHeader.tsx` | | | — | Collapsible ingredient type header |
-| `components/PantryItemRow.tsx` | | | — | Single-line pantry row with stock badges |
-| `components/PostActionMenu.tsx` | | | — | Legacy; P7-102 |
-| `components/GroceryListItem.tsx` | | | — | Single-line grocery item with cart toggle |
-| `components/ParticipantsListModal.tsx` | | | — | All cooking participants listing (Strava-style) |
+| `App.tsx` | 2026-04-22 | Phase 7M / 7H / 7I CP5/CP6 | Low | FeedStack + StatsStack route registrations |
+| `contexts/CookingTimerContext.tsx` | 2026-04-22 | Phase 6 | Low | |
+| `contexts/LogoConfigContext.tsx` | 2026-04-22 | | Low | |
+| `contexts/SpaceContext.tsx` | 2026-04-22 | | Low | |
+| `components/cooking/StepIngredients.tsx` | 2026-04-22 | Phase 6 | Low | Two-column ingredient list per step |
+| `components/cooking/StepNoteInput.tsx` | 2026-04-22 | Phase 7B-Rev | Low | Inline note input |
+| `components/cooking/StepNoteDisplay.tsx` | 2026-04-22 | Phase 7B-Rev | Low | Saved step-note card |
+| `components/cooking/IngredientDetailPopup.tsx` | 2026-04-22 | Phase 6 | Low | Ingredient tap popup |
+| `components/cooking/CompactTimerBar.tsx` | 2026-04-22 | Phase 6 | Low | Single-line timer pills |
+| `components/cooking/ViewModeMenu.tsx` | 2026-04-22 | Phase 6 | Low | Step-by-step vs classic dropdown |
+| `components/cooking/SectionDots.tsx` | 2026-04-22 | Phase 6 | Low | Progress dots per section |
+| `components/UserAvatar.tsx` | 2026-04-22 | | Low | Emoji/URL/null handling |
+| `components/RecipeNutritionPanel.tsx` | 2026-04-22 | Phase 3A | Low | Collapsible macros + quality tier |
+| `components/DietaryBadgeRow.tsx` | 2026-04-22 | Phase 3A | Low | 8 dietary flags |
+| `components/MarkupText.tsx` | 2026-04-22 | | Low | Strikethrough + edit markup for annotations |
+| `components/StarRating.tsx` | 2026-04-22 | Phase 7M | Low | Extracted from LogCookSheet |
+| `components/TimesMadeModal.tsx` | 2026-04-22 | Phase 7B-Rev | Low | Historical cook counts stepper |
+| `components/NutritionGoalsModal.tsx` | 2026-04-22 | Phase 4 | Low | 6-nutrient stepper + daily/per-meal toggle |
+| `components/FilterDrawer.tsx` | 2026-04-22 | Phase 3A | Low | Recipe filter drawer |
+| `components/SpaceSwitcher.tsx` | 2026-04-22 | | Low | Dropdown for switching shared spaces |
+| `components/MealInvitationsCard.tsx` | 2026-04-22 | | Low | Pending meal invites with accept/decline |
+| `components/PendingSpaceInvitations.tsx` | 2026-04-22 | | Low | Pending space invitation responder |
+| `components/InSheetMealCreate.tsx` | 2026-04-22 | Phase 7E | Low | In-sheet meal creation + inline tagging |
+| `components/MadeOtherDishesSheet.tsx` | 2026-04-22 | Phase 7E | Low | Post-publish planned-meal suggestions |
+| `components/MealPicker.tsx` | 2026-04-22 | | Low | Attach to existing meal sub-view |
+| `components/CreateMealModal.tsx` | 2026-04-22 | | Low | Create-meal modal with Quick Add Recipe |
+| `components/MealPlanSection.tsx` | 2026-04-22 | | Low | Meal plan items with state + claim actions |
+| `components/MealCalendarView.tsx` | 2026-04-22 | | Low | Month/week calendar for meals |
+| `components/QuickMealPlanModal.tsx` | 2026-04-22 | | Low | Quick add recipe to meal plan |
+| `components/CategoryHeader.tsx` | 2026-04-22 | | Low | Collapsible pantry family header |
+| `components/TypeHeader.tsx` | 2026-04-22 | | Low | Collapsible ingredient type header |
+| `components/PantryItemRow.tsx` | 2026-04-22 | | Low | Single-line pantry row with stock badges |
+| `components/PostActionMenu.tsx` | 2026-04-22 | | Low | Legacy; P7-102 |
+| `components/GroceryListItem.tsx` | 2026-04-22 | | Low | Single-line grocery item with cart toggle |
+| `components/ParticipantsListModal.tsx` | 2026-04-22 | | Low | All cooking participants listing (Strava-style) |
 
 **Tier 3 calibration (v1.1, 2026-04-22):** the 35-file Tier 3 set was calibrated against the full 221-file codebase inventory (`_claudeai_context/tier_inventory_2026-04-22.md`, ephemeral). Files included are those Claude.ai reaches for during planning/design/cross-cutting sessions: shared display primitives (UserAvatar, RecipeNutritionPanel, DietaryBadgeRow, MarkupText, StarRating), complex modal UX references (NutritionGoalsModal, CreateMealModal, FilterDrawer), meal/social surfaces (MealInvitationsCard, MealPlanSection, MealCalendarView, MealPicker, InSheetMealCreate, MadeOtherDishesSheet), pantry UI primitives (CategoryHeader, TypeHeader, PantryItemRow), and framework files (App.tsx, contexts/). Modals and pickers focused on implementation (all `Add*Modal`, `Edit*Modal`, picker files, inline editors) are Tier 4 — CC reads on demand. Revisit the Tier 3 list at the Phase 9 boundary: drop any files Claude.ai hasn't consulted in 4–6 weeks, add any Tier 4 files that have become frequently consulted. Changes via deliberate edit per the "Tier assignment" section.
 
@@ -236,6 +236,7 @@ If a specific file from an excluded category becomes useful mid-session, Tom upl
 |------|---------|--------------|--------------|--------------|-------|
 | 2026-04-22 | Initial seed | 42 | 46 | 72 | First population at v5.1 landing. Actual upload executed by `CC_PROMPTS/refresh_pk_code_snapshots.md`. |
 | 2026-04-22 | Tier rule refinement (v1.1) | 57 | 64 | 35 | Evidence-based tier assignments from full 221-file inventory. Tier 1 expanded (+`lib/types/`, +5 stray `lib/` root services, +`ingredientsParser`). Tier 2 widened (+15 stats coordinators, +4 cooking surfaces, +LogCookSheet). Tier 3 narrowed (from 72 to 35 named files). 4 DEFERRED_WORK entries added for cleanup. No `_pk_sync/code/` upload — seed population only. |
+| 2026-04-22 | Initial population (full refresh, all tiers) | 57 | 64 | 35 | First real batch upload. All 156 files stamped with `/** PK SNAPSHOT — 2026-04-22 */` header and staged to `_pk_sync/code/`. Snapshot Date column populated across all tier tables; Staleness Risk reset to Low. Discovery pass found 0 newly-discovered files and 0 stale rows (tracking doc came from fresh same-day inventory). Last Touched By column left unchanged — Tom's opening line did not specify current phase. |
 
 ---
 
