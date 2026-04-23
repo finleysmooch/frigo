@@ -73,8 +73,8 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `constants/vibeIcons.ts` | 2026-04-22 | | Low | |
 | `lib/types/cooking.ts` | 2026-04-22 | Phase 6 | Low | StepNote, CookingSession, TimerHistoryEntry, NormalizedStep |
 | `lib/types/feed.ts` | 2026-04-22 | Phase 7I | Low | CookCardData, FeedGroup, LinkContext, MealEventContext |
-| `lib/types/grocery.ts` | 2026-04-22 | | Low | Grocery list/item/template types |
-| `lib/types/pantry.ts` | 2026-04-22 | | Low | PantryItem, StorageLocation, IngredientWithPantryData |
+| `lib/types/grocery.ts` | 2026-04-22 | Phase 8A-CP1 | HIGH | Grocery list/item/template types; Phase 8A-CP1 added priority_reason / custom_name, ingredient_id nullable |
+| `lib/types/pantry.ts` | 2026-04-22 | Phase 8A-CP1 | HIGH | PantryItem (+last_confirmed_at/discarded_at/discarded_reason/thaw_planned_for), StorageLocation, IngredientWithPantryData; Phase 8A-CP1 added StapleState + PantryStaple{,Insert,Update} |
 | `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
 | `lib/types/recipeFeatures.ts` | 2026-04-22 | | Low | DB-corrected Book + author types |
 | `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
@@ -83,6 +83,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/groceryListsService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/groceryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/pantryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/pantryStaplesService.ts` | 2026-04-23 | Phase 8B-CP1 | Low | New — staples CRUD + state cycling. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/searchService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/storeService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/ingredientsParser.ts` | 2026-04-22 | | Low | Core ingredient matching pipeline (755 lines). Currently at lib/ root; review location during the lib/services/ relocation pass (T4). |
@@ -108,7 +109,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/EditMediaScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/EditPostScreen.tsx` | 2026-04-22 | Phase 7M | Low | NEW ~1,178 lines |
 | `screens/EditProfileScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/FeedScreen.tsx` | 2026-04-22 | Phase 7I CP4 / 7G / 7M FP1 | Low | cook-post-centric rewrite |
+| `screens/FeedScreen.tsx` | 2026-04-22 | Phase 7I CP4 / 7G / 7M FP1 | HIGH | cook-post-centric rewrite |
 | `screens/GroceryListDetailScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/GroceryListsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/LoginScreen.tsx` | 2026-04-22 | | Low | |
