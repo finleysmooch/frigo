@@ -1,7 +1,7 @@
 # Phase 8: Pantry Intelligence & UX Overhaul
 
 **Started:** TBD (wireframing complete 2026-04-23, execution pending)
-**Last Updated:** April 23, 2026 (v2.2)
+**Last Updated:** April 23, 2026 (v2.3)
 **Status:** 🔲 Planning complete, execution not yet started
 **Master Plan:** See `FF_LAUNCH_MASTER_PLAN.md` for full F&F context
 
@@ -110,7 +110,7 @@ Turn pantry from static inventory into an active assistant ("What can I cook wit
 **Checkpoints:**
 - **8B-CP1 Staples service layer.** New `pantryStaplesService.ts`. CRUD, state cycling (`unknown → good → running_low → out → good`, where `unknown → good` is first-tap confirmation and exits unknown permanently). Auto-bumps `last_confirmed_at = NOW()` on every state transition including unknown→good confirmation. Typed error classes (`DuplicateStapleError`, `StapleNotFoundError`). No UI changes.
 - **8B-CP2 Staples UI + color softening.** Renders `StaplesGrid` + `StapleCell` components at top of PantryScreen per v5 wireframe. Unknown state = dashed border + italic label + empty outlined dot. Low/out states = soft tint + border-left accent + dot + bolder label ("out" auto-sorts to top-left of grid). Color softening absorbed here (no longer a standalone 8A checkpoint). Split tap zones: dot (~28-32px) cycles state; label opens Ingredient Detail screen (stub until 8C-CP5 — Alert shown for now). Optimistic updates; re-sort on state change.
-- **8B-CP3 Bulk pre-populate tooling.** Tom-specific half-session: parse his Costco staples list, map to `ingredients` where possible, flag `custom_name` cases, seed his account. Matching logic reusable for other F&F testers. Also seeds Mary's account via shared-space pattern.
+- **8B-CP3 Add/Manage Staples screen.** Single-screen surface for adding, editing, and deleting staples. Entry points from StaplesGrid: footer "Add new", empty-state CTA, and "+N more" overflow cell all navigate here. Search bar with case-insensitive ILIKE prefix match on `ingredients.name` — results show current staples greyed out. Tap an ingredient row to add it as a staple (state=`unknown`). Custom-name add via dedicated input at bottom (for brands like "Motor City pizza"). List view shows all current staples with edit (custom_name only) and delete affordances. No manual state setting from this screen (cycling lives on the grid per D8-29). Bulk pre-populate tooling for Tom + Mary handled out-of-band via direct SQL; not part of this checkpoint.
 - **8B-CP4 Cook-post depletion banner.** Option A per wireframe: post flow unchanged; after success, banner appears "✓ Posted · We updated your pantry · 4 items · review / undo." Silent default. Review opens compact modal showing which `pantry_items` quantities will decrement and which staples change state (uncheckable per-item). Undo rolls back all depletion (quantity and state restorations). Staple state changes on depletion bump `last_confirmed_at`.
 
 **Architectural decisions:**
@@ -325,6 +325,7 @@ Full SQL in `phase_8_schema_migration.sql` (ready for Tom to paste into Supabase
 | D8-26 | Fraction display restored to Phase 8 scope (8A-CP3) | Dropped during v2.0 rewrite by oversight. Was promoted to must-have 2026-04-22. Utility function + wiring across pantry/grocery/recipe surfaces | 2026-04-23 | Audit response |
 | D8-27 | Drop `default_aisle`; use existing `ingredients.typical_store_section` for grocery aisle grouping | Audit surfaced duplicate-column issue. Existing column has the data and semantics; no reason to add new | 2026-04-23 | Audit response |
 | D8-28 | Drop brand schema additions; existing `grocery_list_items.brand_preference` + `size_preference` capture brand data organically | Audit surfaced that master plan delta's "brand capture during F&F" claim was unsupported by proposed schema. Existing columns cover it | 2026-04-23 | Audit response |
+| D8-29 | 8B-CP3 scope swap — Add/Manage Staples UI replaces Bulk pre-populate tooling | Bulk pre-populate was Tom-specific onboarding; actual F&F need is the Add UI for testers to bring their own staples into the system. Seeding Tom+Mary moves out-of-band via direct SQL (~15 min manual). Scope decisions embedded: single-screen (not modal), ILIKE prefix search, delete + edit custom_name only, grey-out duplicates, no manual state setting | 2026-04-23 | Tom decision + Claude.ai option 2 recommendation |
 
 ---
 
@@ -377,6 +378,7 @@ First three prompts drafted (pending audit):
 
 | Date | Change |
 |------|--------|
+| 2026-04-23 | **v2.3 — 8B-CP3 scope swap.** Add/Manage Staples UI replaces Bulk pre-populate tooling (D8-29). Sub-phase count and session estimate (18-28) unchanged — Add UI is ~1-2 sessions same as bulk tooling was. Bulk pre-populate for Tom + Mary moves out-of-band via direct SQL. |
 | 2026-04-23 | **v2.2 — Second-audit polish pass.** D8-25 rationale extended to note Day-1 freezer-cleanout surge as expected (not a bug — feature exists to surface forgotten items). 8A-CP3 scope clarified: recipe tap-sheet quantity wiring is 8D-CP3's cost, not 8A's — estimate unchanged. 8C-CP5 stub-handler wiring TODO now names specific call sites (`screens/PantryScreen.tsx` `handleTapRecipes` ~line 512, `handleTapItem` ~line 518, plus the `onStapleLabelTap` handler passed to StaplesGrid in 8B-CP2). No structural changes. |
 | 2026-04-23 | **v2.1 — Second-pass rewrite addressing first audit findings.** Sub-phase restructure: schema foundation moved from 8B-CP1 → 8A-CP1 (first executable prompt). Staple color softening merged into 8B-CP2. Stub-handler cleanup folded into 8C-CP5. Fraction display restored as 8A-CP3 (was dropped in v2.0 by oversight). Decision IDs D8-N added (D8-1 through D8-28). `default_aisle` dropped in favor of existing `typical_store_section` (D8-27). Brand schema additions dropped in favor of existing `grocery_list_items.brand_preference` (D8-28). `last_confirmed_at` backfill added to migration (D8-25). State naming standardized on `running_low` (DB) with "low" permitted as display-only. Session estimate 16-23 → 18-28. 8B sessions 3-4 → 4-5. 8C sessions 4-6 → 6-8. |
 | 2026-04-23 | v2.0 — Full content rewrite following wireframe session. Replaced by v2.1 above. |

@@ -137,6 +137,60 @@ export async function getStapleById(stapleId: string): Promise<PantryStaple | nu
 }
 
 /**
+ * Search ingredients by ILIKE prefix match on name. Case-insensitive.
+ * Returns ingredient rows + a boolean flagging whether each is already a staple
+ * in the given space, so the UI can grey out duplicates.
+ * Returns [] for empty / whitespace queries to avoid unbounded fetches.
+ */
+export async function searchIngredientsForStapleAdd(
+  spaceId: string,
+  searchQuery: string
+): Promise<Array<{ id: string; name: string; already_staple: boolean }>> {
+  const q = searchQuery.trim();
+  if (q.length === 0) return [];
+
+  console.log('📦 Searching ingredients for staple add:', { spaceId, q });
+
+  const [ingredientsResult, stapleResult] = await Promise.all([
+    supabase
+      .from('ingredients')
+      .select('id, name')
+      .ilike('name', `${q}%`)
+      .order('name')
+      .limit(30),
+    supabase
+      .from('pantry_staples')
+      .select('ingredient_id')
+      .eq('space_id', spaceId)
+      .not('ingredient_id', 'is', null),
+  ]);
+
+  if (ingredientsResult.error) {
+    console.error('❌ Error searching ingredients:', ingredientsResult.error);
+    throw ingredientsResult.error;
+  }
+  if (stapleResult.error) {
+    console.error('❌ Error loading existing staples for duplicate check:', stapleResult.error);
+    throw stapleResult.error;
+  }
+
+  const existingIds = new Set(
+    (stapleResult.data || [])
+      .map((row) => (row as { ingredient_id: string | null }).ingredient_id)
+      .filter((id): id is string => id !== null)
+  );
+
+  return (ingredientsResult.data || []).map((row) => {
+    const r = row as { id: string; name: string };
+    return {
+      id: r.id,
+      name: r.name,
+      already_staple: existingIds.has(r.id),
+    };
+  });
+}
+
+/**
  * Check whether a given ingredient_id is already a staple in this space.
  * Lets callers prevent duplicate adds before the DB rejects them.
  */

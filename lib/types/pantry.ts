@@ -3,6 +3,8 @@
 
 export type StorageLocation = 'fridge' | 'freezer' | 'pantry' | 'counter';
 
+export type StapleState = 'unknown' | 'good' | 'running_low' | 'out';
+
 export interface PantryItem {
   id: string;
   user_id: string;
@@ -17,6 +19,10 @@ export interface PantryItem {
   is_opened: boolean;
   opened_date: string | null; // ISO date string
   notes: string | null;
+  last_confirmed_at: string | null;
+  discarded_at: string | null;
+  discarded_reason: string | null;
+  thaw_planned_for: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +40,10 @@ export interface PantryItemInsert {
   is_opened?: boolean;
   opened_date?: string | null;
   notes?: string | null;
+  last_confirmed_at?: string | null;
+  discarded_at?: string | null;
+  discarded_reason?: string | null;
+  thaw_planned_for?: string | null;
 }
 
 export interface PantryItemUpdate {
@@ -47,6 +57,45 @@ export interface PantryItemUpdate {
   is_opened?: boolean;
   opened_date?: string | null;
   notes?: string | null;
+  last_confirmed_at?: string | null;
+  discarded_at?: string | null;
+  discarded_reason?: string | null;
+  thaw_planned_for?: string | null;
+}
+
+// ============================================
+// PANTRY STAPLES (Phase 8A-CP1)
+// ============================================
+// Space-scoped, state-based staples (olive oil, salt, Motor City pizza).
+// Separate from pantry_items — no quantity, no expiration.
+// DB CHECK: ingredient_id IS NOT NULL OR custom_name IS NOT NULL.
+
+export interface PantryStaple {
+  id: string;
+  space_id: string;
+  ingredient_id: string | null;
+  custom_name: string | null;
+  state: StapleState;
+  last_confirmed_at: string | null;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PantryStapleInsert {
+  space_id: string;
+  ingredient_id?: string | null;
+  custom_name?: string | null;
+  state?: StapleState;
+  last_confirmed_at?: string | null;
+  added_by?: string | null;
+}
+
+export interface PantryStapleUpdate {
+  ingredient_id?: string | null;
+  custom_name?: string | null;
+  state?: StapleState;
+  last_confirmed_at?: string | null;
 }
 
 // Extended Ingredient type with new pantry-related fields

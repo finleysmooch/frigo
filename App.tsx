@@ -30,6 +30,7 @@ import AdminScreen from './screens/AdminScreen';
 import YasChefScreen from './screens/YasChefScreen';
 import CommentsScreen from './screens/CommentsScreen';
 import PantryScreen from './screens/PantryScreen';
+import ManageStaplesScreen from './screens/ManageStaplesScreen';
 import GroceryListsScreen from './screens/GroceryListsScreen';
 import GroceryListDetailScreen from './screens/GroceryListDetailScreen';
 import StoresScreen from './screens/StoresScreen';
@@ -255,6 +256,7 @@ export type GroceryStackParamList = {
 export type PantryStackParamList = {
   Pantry: undefined;
   SpaceSettings: { spaceId: string };
+  ManageStaples: undefined;
 };
 
 export type RootTabParamList = {
@@ -682,11 +684,18 @@ function PantryStackNavigator() {
       }}
     >
       <PantryStackNav.Screen name="Pantry" component={PantryScreen} />
-      <PantryStackNav.Screen 
-        name="SpaceSettings" 
+      <PantryStackNav.Screen
+        name="SpaceSettings"
         component={SpaceSettingsScreen}
         options={{
           headerShown: false, // SpaceSettingsScreen has its own header
+        }}
+      />
+      <PantryStackNav.Screen
+        name="ManageStaples"
+        component={ManageStaplesScreen}
+        options={{
+          headerShown: false, // ManageStaplesScreen has its own header
         }}
       />
     </PantryStackNav.Navigator>

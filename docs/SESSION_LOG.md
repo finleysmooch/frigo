@@ -2,6 +2,166 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-23 — [Phase 8B-CP3] Add/Manage Staples screen + scope swap (D8-29)
+
+**Phase:** 8B-CP3 (Add/Manage Staples screen — replaces the previously-scoped "Bulk pre-populate tooling" per D8-29)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8B-CP3 execution prompt, scope-swap + 4 parts)
+**Status:** Shipped (code + phase doc updates in working tree; no visual smoke test run — see Surprises #1)
+
+**Scope:** Applied Part 0 phase-doc patch (D8-29 + v2.3 changelog + scope-line swap + header version bump). Extended `lib/pantryStaplesService.ts` with `searchIngredientsForStapleAdd` (Part 1). Created `screens/ManageStaplesScreen.tsx` (Part 2) — single-screen search + add + list + delete + edit-custom-name + custom-name add. Rewired `components/pantry/StaplesGrid.tsx` to self-navigate to 'ManageStaples' internally (Part 3) — `onSeeAllTap` and `onAddNewTap` props removed since the grid now owns that navigation; `onStapleLabelTap` preserved for 8C-CP5's Ingredient Detail. Registered `ManageStaples` route on PantryStack in `App.tsx` (Part 4). Bulk pre-populate tooling moved out-of-band per D8-29 — not in this CP.
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 4 edits: header `v2.2 → v2.3`, 8B-CP3 scope line replaced verbatim, D8-29 row appended to Decisions Log after D8-28, v2.3 changelog row prepended above v2.2.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md` — overwritten to match.
+- `lib/pantryStaplesService.ts` — added `searchIngredientsForStapleAdd` (ILIKE prefix + dedupe set via Promise.all; empty-query guard; 30-row cap). File now 420 lines. ⚠️ PK snapshot now stale (was 2026-04-23, Phase 8B-CP1).
+- `screens/ManageStaplesScreen.tsx` — **new file**, 463 lines (over ~400 target; see Surprises #4). Search bar with 200ms debounce, conditional results list (greyed duplicates), current-staples list with delete + inline edit for custom_name, custom-name add row at bottom, KeyboardAvoidingView, own header with back arrow.
+- `components/pantry/StaplesGrid.tsx` — Part 3 wiring: added imports for `useNavigation` + `NativeStackNavigationProp` + `PantryStackParamList`; removed `onSeeAllTap` and `onAddNewTap` from props; added internal `navigateToManage` callback; the 3 `onPress` sites (footer "See all", footer "Add new", overflow "+N more" cell, empty-state CTA) now all call `navigateToManage`. Label-tap callback (`onStapleLabelTap`) preserved unchanged per prompt's explicit instruction. ⚠️ Deliberate tier assignment still pending (not tracked in PK_CODE_SNAPSHOTS).
+- `screens/PantryScreen.tsx` — removed the two now-obsolete inline Alert props (`onSeeAllTap`, `onAddNewTap`) from `<StaplesGrid />`. Label-tap Alert for Ingredient Detail stays. ⚠️ PK snapshot now stale (was 2026-04-22, Phase 8B-CP2).
+- `App.tsx` — 3 edits: imported `ManageStaplesScreen`, added `ManageStaples: undefined` to `PantryStackParamList`, registered `<PantryStackNav.Screen name="ManageStaples" />` with `headerShown: false` (mirrors SpaceSettings pattern). ⚠️ PK snapshot now stale (was 2026-04-22, Phase 7M/7H/7I).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: three rows bumped (lib/pantryStaplesService.ts, screens/PantryScreen.tsx, App.tsx all Low→HIGH with 8B-CP3 touched-by added).
+
+**Verification:**
+- Phase doc verbatim-find anchors all matched (8B-CP3 scope line, D8-28 row, v2.2 changelog row, v2.2 header) ✓
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md` matches repo (cp after edits) ✓
+- `searchIngredientsForStapleAdd` signature matches spec: `(spaceId, searchQuery) => Promise<Array<{id, name, already_staple}>>` with empty-query guard + Promise.all parallel fetch + in-memory Set dedupe ✓
+- `updateStapleCustomName` verified present from 8B-CP1 — does NOT bump last_confirmed_at (correct per spec). Does NOT gate on `ingredient_id IS NULL` (divergence; see Surprises #2). Per prompt Part 1: flagged, NOT modified.
+- `npx tsc --noEmit` total error count: **181 before → 181 after** — zero new errors introduced ✓
+- `npx tsc --noEmit | grep -v node_modules` → only the 2 pre-existing JSX-typo errors (unrelated) ✓
+- ManageStaplesScreen uses only `pantryStaplesService` + `supabase.auth.getUser()` for current user (no direct DB queries for staples) ✓
+- StaplesGrid label-tap callback signature unchanged; parent still provides `onStapleLabelTap` ✓
+- Navigation stack: `ManageStaples: undefined` added to `PantryStackParamList`; Screen entry placed next to `SpaceSettings` in the same pattern (headerShown: false, screen renders own header) ✓
+- **Visual smoke test DEFERRED** — same constraint as 8B-CP1/8B-CP2 (no simulator / auth session available from CC's environment). See Surprises #1.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **consider** — prompt Open Q #5 flagged "if ingredients.name ILIKE is slow on 2000+ row table, may want an index" as a potential follow-up. Not observed yet; add as a speculative row only if Claude.ai wants to pre-stage it.
+- `PROJECT_CONTEXT.md`: **consider** — "What's Next" narrative could note that staples management loop is now complete end-to-end (add via search OR custom, edit, delete, cycle on grid). Low urgency; 8B-CP4 (cook-post depletion) is the next user-visible surface.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **real update** — new top-level screen `ManageStaplesScreen.tsx`; new service function `searchIngredientsForStapleAdd`; navigation-stack registration in App.tsx now includes 3 pantry-scoped screens (Pantry, SpaceSettings, ManageStaples). Worth a Recent Breaking Changes entry for 8B-CP3 plus a line in the screens inventory.
+- `PHASE_8_PANTRY_INTELLIGENCE.md` (active phase doc): **done this session** (D8-29 + v2.3 changelog + scope-line swap + header bump). 8B-CP3 status flag to ✅ Complete when Tom smoke-tests.
+
+**Recommended next steps for Tom:**
+
+1. **On-device smoke test the full loop.** Open Pantry → tap "Add new" footer / empty-state CTA / "+N more" overflow → ManageStaplesScreen opens. Search "pap" → Paprika (already staple from earlier seed) should be greyed out. Search a new name → tap row → returns (or stays and refreshes list). Add "Motor City pizza" via custom-name input → appears in current list. Edit the custom name (pencil icon) → inline TextInput, Enter to save. Delete a staple → confirm alert → removed optimistically. Return to Pantry → grid reflects updated list.
+2. **Commit scoped** to 8B-CP3 to avoid repeating the `d27aa9c` bundle-creep:
+   ```
+   git add docs/PHASE_8_PANTRY_INTELLIGENCE.md lib/pantryStaplesService.ts \
+     screens/ManageStaplesScreen.tsx screens/PantryScreen.tsx \
+     components/pantry/StaplesGrid.tsx App.tsx \
+     _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md \
+     docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   git commit -- docs/PHASE_8_PANTRY_INTELLIGENCE.md lib/pantryStaplesService.ts \
+     screens/ManageStaplesScreen.tsx screens/PantryScreen.tsx \
+     components/pantry/StaplesGrid.tsx App.tsx \
+     _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md \
+     docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md \
+     -m "feat(staples): Phase 8B-CP3 — Add/Manage Staples screen with search + custom_name + delete/edit"
+   ```
+   (Note the `--` path scope on commit to prevent staged-from-other-sessions files from riding along.)
+3. **Add three new files to `docs/PK_CODE_SNAPSHOTS.md`** as deliberate tier assignments. All three are new this week and pending placement:
+   - `screens/ManageStaplesScreen.tsx` → Tier 2 (screens/ precedent)
+   - `components/pantry/StaplesGrid.tsx` → Tier 3 (by analogy to `components/cooking/*.tsx`)
+   - `components/pantry/StapleCell.tsx` → Tier 3 (same)
+   Tier assignment is a deliberate edit per the doc's rules — flag, don't act on my own initiative.
+4. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md`** to PK, clear `_pk_sync/*.md` after.
+5. **Queue 8B-CP4** (cook-post depletion banner) per the roadmap. 8B-CP3 finishes the staples data-entry loop; 8B-CP4 closes the depletion loop (cook posts → `setStapleState` → reflected on grid).
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Visual smoke test (Verification steps under Part 2) deferred.** Same constraint as 8B-CP1 and 8B-CP2 — CC environment has no simulator, no authenticated Supabase session, so on-device behaviors (search debounce UX, tap targets, keyboard avoidance, inline-edit blur handling, delete confirm alert, navigate-and-return freshness) are all untested at runtime. Logic is mechanically verified and tsc clean. Recommend Tom run the step-1 smoke test before commit. Most-likely-bug surface: (a) inline-edit `onBlur` vs `onSubmitEditing` race (could cancel an edit before saving if user taps outside while typing); (b) the `addStapleByIngredient` / `addStapleByCustomName` happy-path requires `currentUserId` to be loaded before the first tap — I added a useEffect for `supabase.auth.getUser()` but if a user fires the tap in the <200ms before it resolves, `handleAddIngredient` early-returns silently (disabled by the `!currentUserId` guard). Worth verifying smoke-test doesn't hit that window.
+
+2. **`updateStapleCustomName` divergence from 8B-CP3 spec — flagged, not modified.** 8B-CP1's implementation does NOT gate on `ingredient_id IS NULL`; 8B-CP3 spec wants it to "throw a generic Error if called on an ingredient-linked staple." Per Part 1's explicit instruction ("flag in SESSION_LOG but don't modify — the 8B-CP1 signature was reviewed and accepted"), did NOT modify. Runtime impact: the UI gates the edit affordance to custom-named staples only (Part 2 spec point 5.4 — "for custom_name staples only, an edit button"), so at runtime this divergence can't be hit by normal flow. Only at risk if a future caller bypasses the UI gate. Flag for Claude.ai to decide whether to harden the service in a follow-up or leave the UI-only gate standing.
+
+3. **Part 3 interpretation — Alerts lived in PantryScreen, not StaplesGrid.** The prompt said "Edit components/pantry/StaplesGrid.tsx. Replace the three Alert.alert stubs with navigation.navigate('ManageStaples')" — but the actual Alert.alert calls for "See all" / "Add new" / empty-CTA were inline functions passed from PantryScreen (the grid just received them as props). Resolved per the prompt's follow-up line ("the grid currently uses useNavigation...") which clarified the intent: move the nav concern INTO the grid. Implemented by (a) adding `useNavigation<PantryStackNav>` + internal `navigateToManage` callback in the grid; (b) dropping `onSeeAllTap` + `onAddNewTap` props from the StaplesGrid signature; (c) removing the two obsolete inline Alerts from PantryScreen's `<StaplesGrid>` usage. Net: cleaner — grid owns its own navigation, parent only owns the label-tap concern (which remains stubbed per prompt's explicit "IMPORTANT: the label tap stays stubbed"). Note: the overflow "+N more" cell was a 4th Alert site in practice (shared `onSeeAllTap` with the footer); also now routes to ManageStaples. Matches prompt intent even though the literal count is 3 vs 4 call sites.
+
+4. **ManageStaplesScreen line count: 463, ≥15% over ~400 target.** Prompt Constraint 3: "Keep the screen under ~400 lines. Flag if substantially over." Initial draft landed at 463 after an adjustment to wire `currentUserId` from `supabase.auth.getUser()` (the first draft passed `''` as `addedBy` — a latent runtime bug I caught before finishing; see Surprise #5). Main size drivers: StyleSheet (~115 lines) + the ListHeaderComponent JSX block (~100 lines combining search bar + search results + divider + staples list + custom-name add section). Further trimming would either (a) consolidate empty-state / loading-state / populated-state branches at a readability cost, or (b) extract sub-components for one-off pieces (e.g., `<SearchRow>`, `<StapleRow>`) — reasonable refactor but not required for v1. Flag; defer.
+
+5. **Bug caught in-draft: `addedBy: ''`.** First draft passed empty string `''` to `addStapleByIngredient` / `addStapleByCustomName`. The service expects a valid `user_profiles.id` UUID, and the Supabase insert would fail at runtime with a UUID validation error. Fixed mid-writing by following PantryScreen's pattern: added a `currentUserId` state loaded via `supabase.auth.getUser()` on mount. All service calls now guard on `if (!currentUserId) return`. Flag because the initial bug shape would have been a silent runtime failure (the Promise would reject, the error would log, but the UI would just look unresponsive). Worth a runtime verify on first tap.
+
+6. **Service line count now 420.** `lib/pantryStaplesService.ts` was 366 lines post-8B-CP1. Added `searchIngredientsForStapleAdd` (~54 lines including docstring + Promise.all block + error handling) → 420 lines total. 8B-CP1's prompt had a "≤350" soft target; 8B-CP3's prompt has no explicit service line cap. Noting for awareness — not flagging as a violation.
+
+7. **No `_pk_sync/` staging for code.** Only the phase doc was staged (Part 0 explicit). Per Constraint 9 ("No _pk_sync/ staging for code files. Only the phase doc (Part 0)."), all other edits land via commit → PK re-upload, not `_pk_sync/`.
+
+8. **Sixth visible 2026-04-23 SESSION_LOG entry.** (8A-CP1 → DRAFT cleanup → FF v6.1 delta → [silent FF consistency fix] → 8B-CP1 → 8B-CP2 → 8B-CP3). Six written entries, one intentionally silent execution. Per Section 8 "one entry per prompt execution," distinct. Today's Phase 8 work has been dense — all six entries are reviewable linearly when Claude.ai reconciles tomorrow's docs.
+
+9. **⚠️ `components/pantry/` is still untracked in git.** Discovered while finalizing verification: `components/pantry/StaplesGrid.tsx` and `components/pantry/StapleCell.tsx` — both created in 8B-CP2 — **never landed in commit `d27aa9c`**. That commit's file list (per `git log -1 --name-only`) showed only 10 files bundled-in-from-earlier-staging + the 3 explicit adds; `components/pantry/*` was not among them because they'd been created AFTER the index was pre-staged in earlier sessions and were never `git add`-ed before the commit. So `d27aa9c` shipped `pantryStaplesService.ts` (Tier 1) but NOT the UI components that depend on it. At HEAD right now, `PantryScreen.tsx` imports `../components/pantry/StaplesGrid` — a file that doesn't exist in the committed tree. **Practical impact:** the current HEAD doesn't build. The working tree does (both files exist locally). Tom's 8B-CP3 commit MUST include `components/pantry/StapleCell.tsx` (untouched this session) alongside `components/pantry/StaplesGrid.tsx` (edited this session) to clean up the orphan. My step-2 `git add` list above already names `components/pantry/StaplesGrid.tsx`; Tom should ALSO add `components/pantry/StapleCell.tsx` — I've omitted it from the command and flagging it here. Alternative framing: rather than burying StapleCell inside the 8B-CP3 commit, Tom could split into two commits — a `fix(staples): land untracked 8B-CP2 components` commit first, then the 8B-CP3 feature commit. Either works; his call on history aesthetics. **Do not amend d27aa9c** — it's committed and the fix-forward path is cleaner.
+
+---
+
+## 2026-04-23 — [Phase 8B-CP2] Staples UI on PantryScreen (StaplesGrid + StapleCell)
+
+**Phase:** 8B-CP2 (Staples & depletion — UI layer consuming 8B-CP1's service)
+**Prompt from:** `docs/CC_PROMPT_2026-04-23_8B-CP2_staples_ui.md` (v2 draft)
+**Status:** Shipped (code in working tree; no visual smoke test run — see Surprises #1)
+
+**Scope:** Added staples grid to the top of PantryScreen, above the Expiring Soon banner. Two new components (`components/pantry/StaplesGrid.tsx`, `components/pantry/StapleCell.tsx`) + surgical changes to `screens/PantryScreen.tsx` (4 targeted edits). Split tap zones per wireframe: label → stubbed ingredient detail (Alert.alert until 8C-CP5), dot → `cycleStapleState`. Optimistic updates via local state + re-sort after cycle; empty state renders a dashed-border card with "Add your first staple" CTA; overflow handled via "+N more" unknown-styled cell when total > 8.
+
+**Files modified:**
+- `components/pantry/StaplesGrid.tsx` — **new file**, 272 lines. 2-column grid container, empty state, overflow cell, "See all N · Add new" footer, section header with hint, loads via `getStaplesBySpace(spaceId)`, optimistic update + re-sort on cycle.
+- `components/pantry/StapleCell.tsx` — **new file**, 176 lines. Single tile with split tap zones, state-driven visual treatment consolidated via `stateVisuals()` helper at file bottom, 32×32 dot hit target extended via `hitSlop` to meet 44×44 guideline, `accessibilityRole="button"` + dynamic `accessibilityLabel` on both zones.
+- `screens/PantryScreen.tsx` — 4 edits: (1) added import for `StaplesGrid`; (2) added `staplesRefreshTrigger` state; (3) bump trigger inside `onRefresh`; (4) inserted `<StaplesGrid />` between the ScrollView opening and the Expiring Soon section. Rest of screen untouched — SpaceSwitcher, 2-option view toggle, Expiring Soon, accordion, FAB, legend all unchanged. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: `screens/PantryScreen.tsx` row bumped Low → HIGH, Last Touched By set to "Phase 8B-CP2", notes column updated.
+
+**No other existing code files edited.**
+
+**Verification:**
+- `wc -l components/pantry/StaplesGrid.tsx` → **272** (over prompt's ~200 target; see Surprises #2)
+- `wc -l components/pantry/StapleCell.tsx` → **176** (over ~150 target after consolidation pass; within tolerance of `~`)
+- `npx tsc --noEmit` total error count: **181 before → 181 after** — zero new errors ✓
+- `npx tsc --noEmit | grep -v node_modules` → only the 2 pre-existing JSX-typo errors (unchanged from 8A-CP1, 8B-CP1, etc.) ✓
+- **Visual smoke test (Verification step 2): NOT RUN.** See Surprises #1.
+- **Accessibility verification (Constraint 11):** both tap zones on StapleCell use `hitSlop` to guarantee ≥44×44 effective hit area (dot touchable is 32×32 visual + 8px slop on all sides = 48×48 effective). Both have `accessibilityRole="button"` and `accessibilityLabel` dynamic to staple name + state. Footer and empty-state buttons also have accessibility labels. Visual-only verification on-device deferred.
+- Rule E: `screens/PantryScreen.tsx` flagged HIGH in `PK_CODE_SNAPSHOTS.md` ✓. The two new components (`components/pantry/StaplesGrid.tsx`, `components/pantry/StapleCell.tsx`) are new files not yet tracked — same tier-assignment situation as `pantryStaplesService.ts` in 8B-CP1 (deliberate edit, not mechanical Rule E). See Surprises #3.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **consider.** Two Open Q items from the prompt (flagged in Surprises) arguably warrant rows — animated re-sort on state change (Open Q #3; v1 is instant re-sort, animation nice-to-have) and empty-state-UX alternatives (Open Q #6). Judgment call — if Claude.ai already has these in the Phase 8 deferred list, no-op.
+- `PROJECT_CONTEXT.md`: **consider.** 8B-CP2 shipping completes the first user-facing Phase 8 surface. "What's Next" narrative block could mention staples are live on pantry screen. Low urgency.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **real update needed.** New `components/pantry/` directory with two components introduces a subdirectory convention under `components/` that Frigo hasn't used much (only `components/cooking/`, `components/feedCard/`, `components/stats/`, `components/modals/`, `components/icons/`, `components/branding/` exist today). Worth a short note in the components section, plus a "Recent Breaking Changes" entry for 8B-CP2. Also: three new tier-assignment candidates (StaplesGrid, StapleCell, pantryStaplesService from 8B-CP1) await tier placement in PK_CODE_SNAPSHOTS.
+- `PHASE_8_PANTRY_INTELLIGENCE.md` (active phase doc): **status update.** 8B-CP2 checkpoint status should flip to ✅ Complete.
+
+**Recommended next steps for Tom:**
+
+1. **Run the visual smoke test** (Verification step 2 from the prompt). The code is mechanically verified (types check; logic matches the spec), but not exercised in the simulator or on-device. Test the state cycle (unknown→good→low→out→good), tap-zone separation (label vs dot), empty state, overflow case, space switching, and pull-to-refresh. If anything looks off, flag for a follow-up edit.
+2. **Review diffs on the 4 touched files.** Particular attention to `screens/PantryScreen.tsx` — 4 surgical edits, all should be minimal.
+3. **Add the two new component files to `docs/PK_CODE_SNAPSHOTS.md`** as Tier 3 (match existing precedent for component subdirectories like `components/cooking/*.tsx` which are Tier 3). Suggested rows:
+   - `| components/pantry/StaplesGrid.tsx | 2026-04-23 | Phase 8B-CP2 | Low | New — 2-col staples grid on PantryScreen with optimistic cycling. |`
+   - `| components/pantry/StapleCell.tsx | 2026-04-23 | Phase 8B-CP2 | Low | New — single staple tile with split tap zones (label/dot). |`
+   (Tier placement is a deliberate edit per the tracking doc — flag, don't act on my own initiative.)
+4. **Commit.** Suggested message: `feat(staples): Phase 8B-CP2 — staples grid on PantryScreen with split tap zones + state cycling`. Note: working tree still has other uncommitted items from earlier today (lib/types/*, FF_LAUNCH_MASTER_PLAN, etc.) — scope the commit explicitly to avoid the same kind of bundle-creep that bit d27aa9c.
+5. **Queue 8B-CP3 (Add/Manage Staples screen).** The "See all" and "Add new" stubs currently Alert.alert; 8B-CP3 replaces them with a real management screen + search-based add flow. Once 8B-CP3 lands, the Alert stubs in PantryScreen get swapped for `navigation.navigate(...)`.
+6. **Queue 8C-CP5 (Ingredient Detail screen).** Staple label tap currently stubs with Alert.alert; that becomes `navigation.navigate('IngredientDetail', { ingredientId, customName })` in 8C-CP5.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Visual smoke test (Verification step 2) deferred.** Same constraint as 8B-CP1 — CC's environment has no authenticated Supabase session, no simulator, no way to render the staples grid. The test matrix (empty state, unknown→good, good→running_low→out→good, label-vs-dot tap separation, sort order, space switch, pull-to-refresh) is all on-device behavior. Running `npx expo start` would require an interactive session. The code is mechanically verified (tsc clean; logic matches the canonical cycling spec from 8B-CP1 which itself mirrors the wireframe); runtime is untested. Flag for Tom — recommend he run the test matrix in step 1 of Recommended next steps. If bugs surface, they're likely in styling / hit-target precision (hard to catch without rendering), not in the cycling logic.
+
+2. **Line count overshoots.** Prompt Constraint 6: "Keep `StapleCell` under ~150 lines. Keep `StaplesGrid` under ~200 lines." Final: StapleCell = 176, StaplesGrid = 272. StapleCell was at 204 initially and consolidated via a single `stateVisuals()` helper returning all state-driven tokens in one shape — reclaimed ~28 lines, now within the `~` tolerance. StaplesGrid stayed at 272 — the bulk is a justified StyleSheet (~70 lines for empty state + grid + overflow cell + footer split) + three TouchableOpacity blocks + the empty-state branch + the sort helper. Further trimming would require either (a) consolidating the empty and populated branches (hurts readability of two visually distinct states) or (b) inlining the sort helper (it's already 10 lines; removing its function wrapper saves ~3). Decision: flagged the overshoot rather than over-compressing. If Claude.ai prefers strict ≤200, the cleanest follow-up is splitting the empty-state card into its own `StaplesEmptyState.tsx` component (~50 lines out of the Grid).
+
+3. **Two new files not tracked in `PK_CODE_SNAPSHOTS.md`.** Same pattern as 8B-CP1: new files = deliberate tier-assignment (per tracking doc's own rules), NOT mechanical Rule E. Flagged for Tom in step 3 of Recommended next steps with suggested Tier 3 rows (by analogy to `components/cooking/*.tsx` which are tracked at Tier 3). Did not add on my own initiative per Rule D.
+
+4. **Color token mapping (prompt Open Q #1).** Prompt allows mapping wireframe visual treatment to existing tokens and notes: "if the closest existing tokens are saturated (not soft), map to the closest available and note mapping in SESSION_LOG." Mapping used:
+   - `good` background → `colors.background.card` (matches PantryItemRow's base surface)
+   - `running_low` background → `functionalColors.warningLight` (`#fef3c7` — genuinely soft amber)
+   - `out` background → `functionalColors.errorLight` (`#fee2e2` — genuinely soft red)
+   - `unknown` background → `'transparent'` (no token needed) with 1px dashed `colors.border.medium`
+   - Left accents → `functionalColors.warning` / `.error` (saturated — used only as 2px left stripe so visual weight stays low)
+   - Label color (low/out) → `functionalColors.warning` / `.error` directly (not a "dark" variant — none exists in tokens). Combined with label weight 500 and the soft tint background, contrast reads as intended. If Claude.ai reviews on-device and finds `functionalColors.error` on text too bright, fallback is `colors.text.primary` with the tint background carrying the state signal alone.
+   No new tokens invented.
+
+5. **Pull-to-refresh wiring (prompt Open Q #5).** Went with the "simple approach" the prompt offered: PantryScreen's `onRefresh` bumps a `staplesRefreshTrigger` integer state, StaplesGrid's `useEffect` depends on `[spaceId, refreshTrigger, load]` and reloads when trigger changes. Cleaner than passing a ref + `useImperativeHandle` and avoids the awkward "is the grid ready to refresh yet" race. Negligible overhead — the trigger bumps parent's render cycle but StaplesGrid only re-fetches via its own effect.
+
+6. **Animation on re-sort (prompt Open Q #3).** Not implemented. Re-sort happens via `setStaples(sortStaples(updated))` inside the optimistic-update path — React Native re-renders the flex grid with new order instantly. No `LayoutAnimation`, no Reanimated. Wireframe matches v1 scope. Flag as post-F&F nice-to-have if Claude.ai wants to track it in DEFERRED_WORK.
+
+7. **Legend at bottom (prompt Open Q #4).** Did not modify the existing legend. Legend applies to the Pantry shelf section (storage-location colors); staples don't use those colors, so the legend is still accurate for what it describes. If a reader assumes the legend covers the whole screen, they may wonder — but the existing visual hierarchy (legend sits at the bottom, under the accordion) suggests it's scoped. Flag for Claude.ai: if UX feedback says it's confusing, add a section-divider or caption ("Pantry shelf only") in a follow-up.
+
+8. **Empty state UX (prompt Open Q #6).** Went with the prompt's default: show an empty-state card with "Add your first staple" CTA. Alternative would be to hide the section entirely until a first staple is added — but that creates a chicken-and-egg problem (where does the user first discover staples exist?). The empty state serves a discovery function. Flag for Claude.ai if on-device feedback suggests otherwise.
+
+9. **Fifth 2026-04-23 committed SESSION_LOG entry.** Today's chronology: 8A-CP1 → DRAFT cleanup → FF v6.1 delta → FF consistency fix (no log) → 8B-CP1 → (commit d27aa9c bundled the first three visible entries) → 8B-CP2. Per one-entry-per-prompt-execution, separate entry despite same date. 8B-CP1's entry in this log remains fully accurate; this new entry appends the UI consumer above it in the file.
+
+10. **`components/pantry/` subdirectory is new under components/.** Existing subdirectories: `components/cooking/`, `components/feedCard/`, `components/stats/`, `components/modals/`, `components/icons/`, `components/branding/`. `components/pantry/` now joins them. This matches the "colocate pantry UI" pattern that the prompt's spec implies. If Claude.ai prefers the staples components live elsewhere (e.g., `components/` root alongside `PantryItemRow.tsx`, `CategoryHeader.tsx`, `TypeHeader.tsx`), that's a one-time refactor. Chose the subdirectory because the Phase 8 scope adds several more staples-related components in 8B-CP3 (Add/Manage Staples screen companion components) — grouping them avoids future clutter at components/ root.
+
+---
+
 ## 2026-04-23 — [Phase 8B-CP1] Staples service layer (lib/pantryStaplesService.ts)
 
 **Phase:** 8B-CP1 (Staples & depletion — first checkpoint after 8A schema foundation)

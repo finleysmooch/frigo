@@ -59,6 +59,9 @@ import SpaceSwitcher from '../components/SpaceSwitcher';
 import CreateSpaceModal from '../components/CreateSpaceModal';
 import PendingSpaceInvitations from '../components/PendingSpaceInvitations';
 
+// Phase 8B-CP2 — staples grid
+import StaplesGrid from '../components/pantry/StaplesGrid';
+
 // Helper function to get storage location icon
 const getStorageIcon = (storage: string): string => {
   const icons: { [key: string]: string } = {
@@ -380,6 +383,7 @@ export default function PantryScreen({ navigation }: Props) {
   const [items, setItems] = useState<PantryItemWithIngredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [staplesRefreshTrigger, setStaplesRefreshTrigger] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Expanded/collapsed state for families
@@ -464,6 +468,7 @@ export default function PantryScreen({ navigation }: Props) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setStaplesRefreshTrigger((n) => n + 1); // signals StaplesGrid to reload
     await loadPantryData();
     setRefreshing(false);
   }, [currentUserId, activeSpaceId]);
@@ -930,6 +935,15 @@ export default function PantryScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Staples Grid (Phase 8B-CP2) — sits above Expiring Soon */}
+        <StaplesGrid
+          spaceId={activeSpaceId}
+          refreshTrigger={staplesRefreshTrigger}
+          onStapleLabelTap={() =>
+            Alert.alert('Ingredient Detail', 'Coming in 8C-CP5')
+          }
+        />
+
         {/* Expiring Soon Section */}
         {expiringItems.length > 0 && (
           <View style={[styles.section, styles.sectionCompact]}>

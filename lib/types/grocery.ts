@@ -38,13 +38,15 @@ export interface GroceryListItem {
   id: string;
   user_id: string;
   list_id: string;  // FK to grocery_lists - which list this item belongs to
-  ingredient_id: string;
+  ingredient_id: string | null;  // Phase 8A-CP1: nullable — custom items set custom_name instead
+  custom_name: string | null;    // Phase 8A-CP1: for non-ingredient items (duct tape, toilet paper)
   quantity_display: number;
   unit_display: string;
   brand_preference: string | null;  // NEW: e.g., "Kerrygold", "Kirkland"
   size_preference: string | null;   // NEW: e.g., "large", "family size", "2L"
   store_section: string | null;
   priority: 'needed' | 'nice_to_have';
+  priority_reason: string | null;   // Phase 8A-CP1: machine-populated tier reason (staple out / for X recipe / manual)
   added_from: 'recipe' | 'pantry' | 'manual' | 'template' | null;
   recipe_id: string | null;
   source_pantry_item_id: string | null;
@@ -59,8 +61,10 @@ export type GroceryListItemInsert = Omit<GroceryListItem, 'id' | 'created_at' | 
 export type GroceryListItemUpdate = Partial<Omit<GroceryListItemInsert, 'user_id'>>;
 
 // Extended type with ingredient details
-export interface GroceryListItemWithIngredient extends Omit<GroceryListItem, 'ingredient_id'> {
-  ingredient_id: string;
+// Phase 8A-CP1: ingredient_id stays nullable here since custom items still populate
+// this shape with ingredient_id=null + custom_name=<value>. The `ingredient` join
+// is null for custom items.
+export interface GroceryListItemWithIngredient extends GroceryListItem {
   ingredient: {
     id: string;
     name: string;
@@ -68,7 +72,7 @@ export interface GroceryListItemWithIngredient extends Omit<GroceryListItem, 'in
     family: string;
     ingredient_type: string | null;
     typical_unit: string | null;
-  };
+  } | null;
 }
 
 // Extended type with list and ingredient details
@@ -173,14 +177,18 @@ export interface UpdateGroceryListParams {
 }
 
 // Add item to a grocery list
+// Phase 8A-CP1: ingredientId is now optional — custom items set customName instead.
+// One of ingredientId or customName MUST be provided (matches grocery_item_has_identity CHECK).
 export interface AddGroceryItemParams {
   listId: string;
-  ingredientId: string;
+  ingredientId?: string | null;
+  customName?: string | null;
   quantity: number;
   unit: string;
   brandPreference?: string;
   sizePreference?: string;
   priority?: Priority;
+  priorityReason?: string;
   addedFrom?: AddedFrom;
   recipeId?: string;
   sourcePantryItemId?: string;
@@ -194,6 +202,8 @@ export interface UpdateGroceryItemParams {
   brandPreference?: string;
   sizePreference?: string;
   priority?: Priority;
+  priorityReason?: string | null;
+  customName?: string | null;
   isInCart?: boolean;
   notes?: string;
 }
