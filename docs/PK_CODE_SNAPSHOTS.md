@@ -83,7 +83,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/groceryListsService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/groceryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/pantryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
-| `lib/pantryStaplesService.ts` | 2026-04-23 | Phase 8B-CP1 / 8B-CP3 | HIGH | Staples CRUD + state cycling; 8B-CP3 added `searchIngredientsForStapleAdd`. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/pantryStaplesService.ts` | 2026-04-23 | Phase 8B-CP1 / 8B-CP3 / 8B-CP3a | HIGH | Staples CRUD + state cycling; 8B-CP3 added `searchIngredientsForStapleAdd`; 8B-CP3a added case-insensitive + cross-boundary dedup via `throwIfDisplayNameTaken` helper. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/searchService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/storeService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/ingredientsParser.ts` | 2026-04-22 | | Low | Core ingredient matching pipeline (755 lines). Currently at lib/ root; review location during the lib/services/ relocation pass (T4). |
@@ -119,7 +119,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/MyMealsScreen.tsx` | 2026-04-22 | Phase 7I CP7 | Low | post_type='meal_event' fix |
 | `screens/MyPostDetailsScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-102 |
 | `screens/MyPostsScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-102 |
-| `screens/PantryScreen.tsx` | 2026-04-22 | Phase 8B-CP2 / 8B-CP3 | HIGH | StaplesGrid inserted above Expiring Soon; onRefresh extended with staples reload trigger; 8B-CP3 removed obsolete onSeeAllTap/onAddNewTap props |
+| `screens/PantryScreen.tsx` | 2026-04-22 | Phase 8B-CP2 / 8B-CP3 / 8B-CP3a | HIGH | StaplesGrid inserted above Expiring Soon; onRefresh extended with staples reload trigger; 8B-CP3 removed obsolete onSeeAllTap/onAddNewTap props; 8B-CP3a added `useFocusEffect` to auto-refresh staples on screen focus |
 | `screens/PendingApprovalsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/ProfileScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/RecipeDetailScreen.tsx` | 2026-04-22 | Phase 7B-Rev / 7J | Low | |

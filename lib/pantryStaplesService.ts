@@ -68,6 +68,43 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 }
 
+// Phase 8B-CP3a: case-insensitive + cross-boundary duplicate guard.
+// Before inserting a new staple, check whether any existing staple in the
+// same space has the same display name (custom_name OR joined ingredient.name,
+// compared after trim + lowercase). If so, throw DuplicateStapleError so the
+// caller surfaces "[Name] is already on your list" rather than inserting a
+// case variant or a cross-identity duplicate.
+// The DB-level UNIQUE(space_id, ingredient_id, custom_name) stays as a race
+// safety net (caller still handles 23505 → DuplicateStapleError).
+async function throwIfDisplayNameTaken(
+  spaceId: string,
+  candidateName: string
+): Promise<void> {
+  const normalized = candidateName.trim().toLowerCase();
+  if (!normalized) return; // empty candidate — let downstream insert validation handle it.
+
+  const { data, error } = await supabase
+    .from('pantry_staples')
+    .select('id, custom_name, ingredient:ingredients(name)')
+    .eq('space_id', spaceId);
+
+  if (error) {
+    console.error('❌ Error loading staples for duplicate check:', error);
+    throw error;
+  }
+
+  for (const row of data || []) {
+    const r = row as {
+      custom_name: string | null;
+      ingredient: { name: string } | null;
+    };
+    const display = (r.custom_name ?? r.ingredient?.name ?? '').trim().toLowerCase();
+    if (display && display === normalized) {
+      throw new DuplicateStapleError(candidateName);
+    }
+  }
+}
+
 // ============================================
 // READ
 // ============================================
@@ -230,6 +267,23 @@ export async function addStapleByIngredient(
 ): Promise<PantryStaple> {
   console.log('📦 Adding staple by ingredient:', { spaceId, ingredientId });
 
+  // 8B-CP3a Part 5: fetch ingredient name + run cross-boundary dedup check.
+  const { data: ingredient, error: ingredientError } = await supabase
+    .from('ingredients')
+    .select('name')
+    .eq('id', ingredientId)
+    .maybeSingle();
+
+  if (ingredientError) {
+    console.error('❌ Error fetching ingredient for duplicate check:', ingredientError);
+    throw ingredientError;
+  }
+
+  const ingredientName = (ingredient as { name: string } | null)?.name ?? '';
+  if (ingredientName) {
+    await throwIfDisplayNameTaken(spaceId, ingredientName);
+  }
+
   const insert: PantryStapleInsert = {
     space_id: spaceId,
     ingredient_id: ingredientId,
@@ -245,7 +299,7 @@ export async function addStapleByIngredient(
     .single();
 
   if (error) {
-    if (isUniqueViolation(error)) throw new DuplicateStapleError(ingredientId);
+    if (isUniqueViolation(error)) throw new DuplicateStapleError(ingredientName || ingredientId);
     console.error('❌ Error adding staple by ingredient:', error);
     throw error;
   }
@@ -264,6 +318,9 @@ export async function addStapleByCustomName(
   initialState: StapleState = 'unknown'
 ): Promise<PantryStaple> {
   console.log('📦 Adding custom-named staple:', { spaceId, customName });
+
+  // 8B-CP3a Part 4: case-insensitive + cross-boundary dedup check.
+  await throwIfDisplayNameTaken(spaceId, customName);
 
   const insert: PantryStapleInsert = {
     space_id: spaceId,

@@ -2,6 +2,90 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-23 — [Phase 8B-CP3a] UX patch-up for 8B-CP3 (6 fixes)
+
+**Phase:** 8B-CP3a (patch-up for 8B-CP3 — not a full checkpoint)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8B-CP3a execution prompt, 6 parts)
+**Status:** Shipped — all 6 fixes applied; pre-session bundled commit `a737c82` first cleaned up the 8B-CP2 + 8B-CP3 orphan before the patch ran
+
+**Scope:** 6 UX fixes landed on top of 8B-CP3:
+- **Part 1** — back button safe-area on ManageStaplesScreen via `SafeAreaView from 'react-native-safe-area-context'` with `edges={['top']}`, wrapping a new `keyboardAvoid` container (matches SettingsScreen / UserSearchScreen convention).
+- **Part 2** — "Search our ingredient list" heading + "Produce, pantry items, spices — 2000+ matches" subtitle added above the search bar to frame search as the primary action (addresses Tom's smoke-test observation that he skipped straight to the bottom custom-add).
+- **Part 3** — custom-name add collapsed by default behind a secondary/outline button labeled "Can't find it? Add a custom staple →" with the "For branded items…" hint visible in the closed state. Expanded state shows the TextInput + Add button + an ✕ collapse control. On successful add the open state persists (multi-add workflow).
+- **Parts 4 + 5** — case-insensitive + cross-boundary dedup. New shared helper `throwIfDisplayNameTaken(spaceId, candidate)` fetches all staples in the space (joining `ingredients(name)`), computes each existing staple's effective display name (`custom_name ?? ingredient.name`), normalizes (trim + lowercase), and throws `DuplicateStapleError` on any match. Wired into both `addStapleByCustomName` (Part 4) and `addStapleByIngredient` (Part 5 — which now also fetches the target ingredient's name first). The DB unique constraint + 23505 catch remain as race-condition safety net.
+- **Part 6** — `useFocusEffect` added to PantryScreen. Bumps `staplesRefreshTrigger` on every focus event, so returning from ManageStaplesScreen auto-refreshes the grid (prior workaround was pull-to-refresh).
+
+**Pre-patch bundled commit (Option A):** Before 8B-CP3a's edits, landed commit `a737c82` consolidating 8B-CP2 + 8B-CP3 work: `App.tsx`, `components/pantry/StaplesGrid.tsx`, `components/pantry/StapleCell.tsx`, `docs/PHASE_8_PANTRY_INTELLIGENCE.md`, `docs/PK_CODE_SNAPSHOTS.md`, `docs/SESSION_LOG.md`, `lib/pantryStaplesService.ts`, `lib/types/grocery.ts`, `lib/types/pantry.ts`, `screens/ManageStaplesScreen.tsx`, `screens/PantryScreen.tsx` (11 files). Message: `feat(staples): Phase 8B-CP2 + 8B-CP3 — staples grid on PantryScreen + Add/Manage Staples screen (bundles lib/types/pantry.ts additions from 8A-CP1 that d27aa9c HEAD depended on)`. Resolves the integrity gap at `d27aa9c` HEAD (which imported `PantryStaple` from `lib/types/pantry` — symbols that lived only in the uncommitted working tree). Also cleaned up the `components/pantry/` orphan flagged in 8B-CP3's SESSION_LOG Surprise #9. Pre-flight STOP condition (prompt's first check) was satisfied by this commit running first.
+
+**Files modified this session:**
+- `screens/ManageStaplesScreen.tsx` — Parts 1, 2, 3. Net +74 lines (463 → 537). Header now wrapped in SafeAreaView; new search heading block with two Text elements; custom-name add section split into closed/open branches via `customAddExpanded` boolean. ⚠️ PK snapshot pending (new-file deliberate tier assignment still outstanding from 8B-CP3).
+- `lib/pantryStaplesService.ts` — Parts 4 + 5. Net +57 lines (420 → 477). Added `throwIfDisplayNameTaken` helper (33 lines incl. docstring); `addStapleByCustomName` now calls the helper before INSERT; `addStapleByIngredient` now fetches the target `ingredients.name` then calls the helper. 23505-catch path preserved as race safety net. ⚠️ PK snapshot now stale (was 2026-04-23, Phase 8B-CP1 / 8B-CP3); bumped to HIGH with 8B-CP3a Last Touched By.
+- `screens/PantryScreen.tsx` — Part 6. Net +9 lines (1236 → 1245). Added `useFocusEffect` import from `@react-navigation/native` and a one-line effect that bumps `staplesRefreshTrigger`. Existing `onRefresh` trigger bump preserved (two call sites now; pull-to-refresh + focus both bump). ⚠️ PK snapshot bumped.
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: two rows updated (lib/pantryStaplesService.ts + screens/PantryScreen.tsx both get "/ 8B-CP3a" appended to Last Touched By + note row expanded with the 8B-CP3a change).
+
+**Verification:**
+- `wc -l` → screens/ManageStaplesScreen.tsx = 537, lib/pantryStaplesService.ts = 477, screens/PantryScreen.tsx = 1245. All within reasonable tolerance for a patch-up adding ~140 lines total across 3 files.
+- `npx tsc --noEmit` total error count: **181 before → 181 after** — zero new errors introduced ✓ (Constraint verification step 7)
+- `npx tsc --noEmit | grep -v node_modules` → only the 2 pre-existing JSX-typo errors (CookSoonSection.tsx, DayMealsModal.tsx — unrelated) ✓
+- `SafeAreaView` imported from `react-native-safe-area-context` (not deprecated `react-native` import) — matches SettingsScreen / UserSearchScreen / SignupScreen precedent ✓
+- Search heading renders above search bar with prompt-specified spacing (16px top, 4px between, 12px to search input) ✓
+- Custom-name add `customAddExpanded` defaults false → closed state on screen mount ✓
+- Both `addStaple*` functions now call `throwIfDisplayNameTaken` before INSERT ✓
+- `useFocusEffect` in PantryScreen depends on empty array (prompt-specified) — stable reference ✓
+- **No visual smoke test run** — per Constraint 5 ("No visual smoke test during this session — Tom will run it.")
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: none.
+- `PROJECT_CONTEXT.md`: none (8B-CP3a is a patch-up, not a scope change).
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider minor** — the `throwIfDisplayNameTaken` pattern (fetch-then-normalize duplicate guard) may be worth a one-liner reference as a services pattern for future staples-adjacent work. Low priority.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **consider** — 8B-CP3 status flip to ✅ Complete once Tom runs the 8B-CP3a smoke test (per Constraint 8: "8B-CP3's completion status in the phase doc gets flipped by Claude.ai post-smoke-test-pass, separately").
+
+**Recommended next steps for Tom:**
+
+1. **Smoke test all 6 fixes** per the prompt's recommended next-steps list:
+   - Tap back button in ManageStaples — reachable cleanly, clears status bar
+   - Observe "Search our ingredient list" heading + subtitle — search should feel visually primary
+   - Tap "Can't find it? Add a custom staple →" — expands to TextInput + Add + ✕
+   - Tap ✕ or add and close — collapses back
+   - Try adding `paprika` (lowercase) with Paprika already as an ingredient-linked staple → hard-block alert "paprika is already on your list"
+   - Try adding `MOTOR CITY PIZZA` with `Motor City pizza` already as a custom staple → hard-block
+   - Try adding ingredient `Thyme` (via search) when custom `thyme` exists → hard-block with "Thyme is already on your list"
+   - Add/delete something in ManageStaples → tap back → Pantry grid reflects change without pull-to-refresh
+2. **Commit scoped** per the prompt's recommended command (uses `--` path scope to prevent bundle-creep):
+   ```
+   git commit -- lib/pantryStaplesService.ts screens/ManageStaplesScreen.tsx screens/PantryScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md -m "fix(staples): Phase 8B-CP3a — back button safe-area, search prominence, collapsed custom-add, case-insensitive + cross-boundary dedup, grid auto-refresh on focus"
+   ```
+3. **Post-smoke-test:** Claude.ai flips 8B-CP3's status to ✅ Complete in `PHASE_8_PANTRY_INTELLIGENCE.md` (per Constraint 8 this is separately from this session).
+4. **Data cleanup consideration (prompt Open Q #4):** the `Paprika` / `paprika` / `PAPRIKA` case variants Tom created during the 8B-CP3 smoke test still exist in the DB (space `7aa945ab-...`). The 8B-CP3a dedup check prevents new duplicates but doesn't retroactively merge them. If Tom wants a clean slate before F&F, run a one-off SQL to remove the stale case-variant rows:
+   ```sql
+   DELETE FROM pantry_staples
+   WHERE space_id = '7aa945ab-fb32-4197-ae11-e6dbd3392587'
+     AND custom_name IS NOT NULL
+     AND LOWER(TRIM(custom_name)) IN ('paprika'); -- or any other known dupes
+   ```
+5. **Queue 8B-CP4** (cook-post depletion banner) once 8B-CP3a smoke-tests clean.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Pre-flight STOP fired, then resolved via Option A bundled commit.** Per the prompt's explicit pre-flight check, I stopped before starting any patch work because `components/pantry/` was still untracked and no 8B-CP3 commit existed at HEAD. Tom chose Option A (bundled commit of 8B-CP2 + 8B-CP3 work). Commit `a737c82` landed 11 files, including `lib/types/pantry.ts` + `lib/types/grocery.ts` which were 8A-CP1 integrity fixes that `d27aa9c` HEAD had depended on — without them the service's imports would have failed to resolve. Details in the "Pre-patch bundled commit" section above.
+
+2. **Shell quoting bug caught mid-commit.** First `git commit` attempt had `-m` placed after `--`, which made git interpret `-m` as a path rather than a flag. Errored with "pathspec '-m' did not match any file(s)". Re-ran with `-m "..."` before `--` and the commit landed. Flag because the initial recommendation I gave in the prompt-consumption response placed `-m` after `--` in the example; Claude.ai may want to correct the commit-recipe template for future prompts to show `-m` before `--`.
+
+3. **Dedup helper is symmetric — same check applies to both add paths.** Both `addStapleByCustomName` and `addStapleByIngredient` call `throwIfDisplayNameTaken(spaceId, candidateName)` with the candidate's display string (`customName` or fetched `ingredients.name`). The helper queries all space staples with `ingredients(name)` joined and normalizes each existing display-name. The `throws DuplicateStapleError` behavior is identical — the caller gets the same typed error regardless of add path. Clean symmetry; no special cases.
+
+4. **Latent data-state implication for the helper.** The Parts 4+5 helper runs BEFORE insert, so it's correctly-ordered for new adds. But it does NOT guard against existing rows already in the DB — the Paprika × 2 case variants from the 8B-CP3 smoke test will remain visible in ManageStaplesScreen's current-list view even after 8B-CP3a ships. Fix-forward is either (a) the SQL cleanup in step 4 above, or (b) a one-shot migration script (overkill). Low urgency — cosmetic only.
+
+5. **`useFocusEffect` first-mount caveat addressed in comments.** The hook fires on initial mount as well as every focus return. Per the prompt Open Q #3 ("may need a first-mount skip flag"), I did NOT add a skip flag — the cost of an extra StaplesGrid reload on first mount is trivial (one query, already debounced by Supabase's client), and the alternative (a first-mount ref guard) adds complexity for minimal benefit. Flag if Claude.ai prefers a cleaner execution profile.
+
+6. **ManageStaplesScreen line count: 537 (up from 463).** Part 2 added ~15 lines (heading + subtitle + 3 styles), Part 3 added ~60 lines (collapsed-state JSX branch + 5 new styles + state boolean). Still over the prompt's original ~400 target (8B-CP3 spec), but that was the prior prompt's constraint; 8B-CP3a has no explicit line cap and the growth is scope-justified. Flagging for awareness — not a blocker.
+
+7. **Pantry screen's double-trigger on focus + pull.** `onRefresh` and `useFocusEffect` both bump `staplesRefreshTrigger`. On a single pull-to-refresh, only `onRefresh` fires (the screen is already focused — no focus event). On navigation return, only the focus effect fires. So they don't double-fire on a single user action — clean. If the user pulls-to-refresh WHILE the screen is also regaining focus (rare), both may fire; StaplesGrid's `load` is idempotent, so the extra fetch is just a wasted round trip, not a bug.
+
+8. **Seventh visible 2026-04-23 SESSION_LOG entry.** (8A-CP1 → DRAFT cleanup → FF v6.1 delta → [silent FF consistency fix] → 8B-CP1 → 8B-CP2 → 8B-CP3 → 8B-CP3a). Per Section 8 one-entry-per-execution. Dense day — Phase 8A + the full 8B arc (schema/service/UI/management/patch-up) all landed in one calendar day.
+
+---
+
 ## 2026-04-23 — [Phase 8B-CP3] Add/Manage Staples screen + scope swap (D8-29)
 
 **Phase:** 8B-CP3 (Add/Manage Staples screen — replaces the previously-scoped "Bulk pre-populate tooling" per D8-29)

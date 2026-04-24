@@ -17,6 +17,7 @@ import {
   Alert
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 // Theme system
 import { useTheme } from '../lib/theme/ThemeContext';
@@ -472,6 +473,15 @@ export default function PantryScreen({ navigation }: Props) {
     await loadPantryData();
     setRefreshing(false);
   }, [currentUserId, activeSpaceId]);
+
+  // 8B-CP3a Part 6: reload staples whenever the screen regains focus (e.g.,
+  // after returning from ManageStaplesScreen). Fires on initial mount too —
+  // harmless (one extra StaplesGrid reload).
+  useFocusEffect(
+    useCallback(() => {
+      setStaplesRefreshTrigger((n) => n + 1);
+    }, [])
+  );
 
   // ============================================
   // DATA ORGANIZATION

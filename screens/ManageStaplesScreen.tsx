@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PantryStackParamList } from '../App';
 import { PantryStaple, StapleState } from '../lib/types/pantry';
@@ -56,6 +57,7 @@ export default function ManageStaplesScreen({ navigation }: Props) {
   const [editingValue, setEditingValue] = useState('');
 
   const [customNameInput, setCustomNameInput] = useState('');
+  const [customAddExpanded, setCustomAddExpanded] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -267,10 +269,11 @@ export default function ManageStaplesScreen({ navigation }: Props) {
   const addCustomDisabled = customNameInput.trim().length === 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backArrow}
@@ -289,6 +292,14 @@ export default function ManageStaplesScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View>
+            {/* Search section heading (8B-CP3a Part 2) */}
+            <View style={styles.searchHeadingBlock}>
+              <Text style={styles.searchHeading}>Search our ingredient list</Text>
+              <Text style={styles.searchSubtitle}>
+                Produce, pantry items, spices — 2000+ matches
+              </Text>
+            </View>
+
             {/* Search bar */}
             <View style={styles.searchBar}>
               <Text style={styles.searchIcon}>🔍</Text>
@@ -333,39 +344,72 @@ export default function ManageStaplesScreen({ navigation }: Props) {
               staples.map(renderStapleRow)
             )}
 
-            {/* Custom-name add */}
+            {/* Custom-name add (8B-CP3a Part 3: collapsed by default) */}
             <View style={styles.customSection}>
-              <Text style={styles.customHeader}>Add a custom staple</Text>
-              <Text style={styles.customSubtitle}>
-                For branded items or anything not in our ingredient list (e.g., "Motor City pizza").
-              </Text>
-              <View style={styles.customRow}>
-                <TextInput
-                  style={styles.customInput}
-                  value={customNameInput}
-                  onChangeText={setCustomNameInput}
-                  placeholder="Name"
-                  placeholderTextColor={colors.text.placeholder}
-                  autoCorrect={false}
-                  accessibilityLabel="Custom staple name"
-                  onSubmitEditing={addCustomDisabled ? undefined : handleAddCustom}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity
-                  style={[styles.addButton, addCustomDisabled && styles.addButtonDisabled]}
-                  onPress={handleAddCustom}
-                  disabled={addCustomDisabled}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add custom staple"
-                >
-                  <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-              </View>
+              {customAddExpanded ? (
+                <>
+                  <View style={styles.customHeaderRow}>
+                    <Text style={styles.customHeader}>Add a custom staple</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCustomAddExpanded(false);
+                        setCustomNameInput('');
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Collapse custom staple input"
+                    >
+                      <Text style={styles.customCollapseIcon}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.customRow}>
+                    <TextInput
+                      style={styles.customInput}
+                      value={customNameInput}
+                      onChangeText={setCustomNameInput}
+                      placeholder="Branded or non-standard name"
+                      placeholderTextColor={colors.text.placeholder}
+                      autoCorrect={false}
+                      autoFocus
+                      accessibilityLabel="Custom staple name"
+                      onSubmitEditing={addCustomDisabled ? undefined : handleAddCustom}
+                      returnKeyType="done"
+                    />
+                    <TouchableOpacity
+                      style={[styles.addButton, addCustomDisabled && styles.addButtonDisabled]}
+                      onPress={handleAddCustom}
+                      disabled={addCustomDisabled}
+                      accessibilityRole="button"
+                      accessibilityLabel="Add custom staple"
+                    >
+                      <Text style={styles.addButtonText}>Add</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.customToggleButton}
+                    onPress={() => setCustomAddExpanded(true)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add a custom staple"
+                  >
+                    <Text style={styles.customToggleButtonText}>
+                      Can't find it? Add a custom staple →
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.customSubtitle}>
+                    For branded items or anything not in our ingredient list (e.g., "Motor City pizza").
+                  </Text>
+                </>
+              )}
             </View>
           </View>
         }
       />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -385,6 +429,7 @@ function makeStyles(
 ) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background.primary },
+    keyboardAvoid: { flex: 1 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -396,11 +441,26 @@ function makeStyles(
     backArrow: { paddingRight: spacing.sm, paddingVertical: 4 },
     backArrowText: { fontSize: 28, color: colors.primary, fontWeight: '300' },
     headerTitle: { fontSize: 18, fontWeight: typography.weights.semibold, color: colors.text.primary },
+    searchHeadingBlock: {
+      paddingHorizontal: spacing.md,
+      paddingTop: 16,
+    },
+    searchHeading: {
+      fontSize: 17,
+      fontWeight: typography.weights.medium,
+      color: colors.text.primary,
+    },
+    searchSubtitle: {
+      fontSize: 13,
+      fontWeight: typography.weights.regular,
+      color: colors.text.secondary,
+      marginTop: 4,
+    },
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
       marginHorizontal: spacing.md,
-      marginTop: spacing.sm,
+      marginTop: 12,
       paddingHorizontal: 10,
       backgroundColor: colors.background.card,
       borderRadius: borderRadius.md,
@@ -445,7 +505,21 @@ function makeStyles(
       borderTopWidth: 1, borderTopColor: colors.border.light,
     },
     customHeader: { fontSize: 15, fontWeight: typography.weights.semibold, color: colors.text.primary },
-    customSubtitle: { fontSize: 12, color: colors.text.tertiary, marginTop: 2, marginBottom: 10 },
+    customHeaderRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
+    },
+    customCollapseIcon: { fontSize: 18, color: colors.text.secondary, paddingHorizontal: 4 },
+    customSubtitle: { fontSize: 12, color: colors.text.tertiary, marginTop: 8 },
+    customToggleButton: {
+      paddingVertical: 12, paddingHorizontal: 14,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1, borderColor: colors.border.medium,
+      backgroundColor: 'transparent',
+      alignItems: 'center',
+    },
+    customToggleButtonText: {
+      fontSize: 14, fontWeight: typography.weights.medium, color: colors.text.secondary,
+    },
     customRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     customInput: {
       flex: 1, paddingVertical: 10, paddingHorizontal: 10,
