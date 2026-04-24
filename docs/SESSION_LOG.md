@@ -2,6 +2,58 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-23 — [Phase 8B status flip + P8-12 deferred]
+
+**Phase:** 8B (doc hygiene — status reconciliation + deferred-work add)
+**Prompt from:** `docs/CC_START_PROMPT.md` (phase doc status flip + DEFERRED_WORK addition)
+**Status:** Shipped (4 edits to phase doc + 2 edits to DEFERRED_WORK + 2 _pk_sync copies staged)
+
+**Scope:** Mechanical phase-doc reconciliation after 8B-CP3a smoke-tested clean. Bumped 8B row status from "🔲 Depends on 8A-CP1 schema" to "🟡 In progress — CP1+CP2+CP3+CP3a shipped, CP4 up next". Appended D8-30 to the Decisions Log (records the 8B-CP3a patch-up for traceability without expanding scope). Prepended v2.4 changelog row + bumped header v2.3→v2.4. Added P8-12 to DEFERRED_WORK tracking post-F&F "ManageStaples section headers" polish that Tom surfaced during the 8B-CP3a smoke test. Bumped DEFERRED_WORK v5.6→v5.7 with matching changelog row.
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 4 edits: header v2.3→v2.4, 8B row Status column updated, D8-30 row appended to Decisions Log after D8-29, v2.4 changelog row prepended above v2.3.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md` — overwritten to match.
+- `docs/DEFERRED_WORK.md` — 3 edits: header version v5.6→v5.7, P8-12 row appended after P8-11, v5.7 changelog row prepended above v5.6.
+- `_pk_sync/DEFERRED_WORK_2026-04-23.md` — overwritten to match.
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep "CP4 up next" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → 1 match ✓
+- `grep "D8-30" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → 1 match (Decisions Log row) ✓
+- `grep "P8-12\|section headers" docs/DEFERRED_WORK.md` → 2 matches (P8-12 new row + pre-existing P7-99 row with similar phrasing) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md` → clean ✓
+- `diff docs/DEFERRED_WORK.md _pk_sync/DEFERRED_WORK_2026-04-23.md` → clean ✓
+- All find anchors (8B row exact text, D8-29 row, v2.3 changelog row, P8-11 row, v5.6 changelog row) matched verbatim — no STOP condition ✓
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.6 → v5.7 with P8-12 added).
+- `PROJECT_CONTEXT.md`: **consider** — 8B is now officially "In progress" per phase doc; the Project Vision table's phase-status line for Phase 8 could reflect "🟡 In progress — 8B shipping through; 8C next" if Claude.ai wants to carry the status forward. Low urgency — the phase doc is the canonical source.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: none.
+- `PHASE_8_PANTRY_INTELLIGENCE.md` (active phase doc): **done this session** (v2.4 + D8-30 + 8B status flip).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on both edited docs — four edits each.
+2. **Commit** per the prompt's suggested message:
+   ```
+   git commit -- docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/SESSION_LOG.md -m "docs(phase-8): 8B-CP3 + 8B-CP3a completion status + P8-12 deferred (section headers)"
+   ```
+   (`--` path scope to prevent other staged/modified files from riding along — same pattern as 8B-CP3a.)
+3. **Upload the 2 dated `_pk_sync/` copies to PK** (`PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md`, `DEFERRED_WORK_2026-04-23.md`) replacing stale versions. Clear `_pk_sync/*.md` after upload.
+4. **Queue 8B-CP4** (cook-post depletion banner) per the 8B row's "CP4 up next" status.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **All edits applied verbatim — zero find-anchor drift.** Every find string in the prompt matched the current state exactly. No STOP conditions, no improvisations, no flagged deviations. The mechanical nature of the prompt paid off cleanly.
+
+2. **Secondary P8-12 grep match is expected.** `grep "P8-12\|section headers" docs/DEFERRED_WORK.md` returns 2 rows: the new P8-12 row AND a pre-existing P7-99 ("Highlight picker section headers") whose phrasing happens to match the alternation. Not a duplicate — the P7-99 row is an unrelated Phase 7 item about a different screen's dual-pool picker. Flagging only because the grep alternation is wide enough to surface it; the verification itself still passes.
+
+3. **Eighth visible 2026-04-23 SESSION_LOG entry.** (8A-CP1 → DRAFT cleanup → FF v6.1 delta → [silent FF consistency fix] → 8B-CP1 → 8B-CP2 → 8B-CP3 → 8B-CP3a → this doc-hygiene pass). Dense day — all of Phase 8A + the full 8B arc landed today. This entry is the reconciliation closer for 8B-CP1 through 8B-CP3a; 8B-CP4 is the next prompt-driven execution.
+
+---
+
 ## 2026-04-23 — [Phase 8B-CP3a] UX patch-up for 8B-CP3 (6 fixes)
 
 **Phase:** 8B-CP3a (patch-up for 8B-CP3 — not a full checkpoint)

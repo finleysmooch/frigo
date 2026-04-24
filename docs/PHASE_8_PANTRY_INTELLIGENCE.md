@@ -1,7 +1,7 @@
 # Phase 8: Pantry Intelligence & UX Overhaul
 
 **Started:** TBD (wireframing complete 2026-04-23, execution pending)
-**Last Updated:** April 23, 2026 (v2.3)
+**Last Updated:** April 23, 2026 (v2.4)
 **Status:** 🔲 Planning complete, execution not yet started
 **Master Plan:** See `FF_LAUNCH_MASTER_PLAN.md` for full F&F context
 
@@ -326,6 +326,7 @@ Full SQL in `phase_8_schema_migration.sql` (ready for Tom to paste into Supabase
 | D8-27 | Drop `default_aisle`; use existing `ingredients.typical_store_section` for grocery aisle grouping | Audit surfaced duplicate-column issue. Existing column has the data and semantics; no reason to add new | 2026-04-23 | Audit response |
 | D8-28 | Drop brand schema additions; existing `grocery_list_items.brand_preference` + `size_preference` capture brand data organically | Audit surfaced that master plan delta's "brand capture during F&F" claim was unsupported by proposed schema. Existing columns cover it | 2026-04-23 | Audit response |
 | D8-29 | 8B-CP3 scope swap — Add/Manage Staples UI replaces Bulk pre-populate tooling | Bulk pre-populate was Tom-specific onboarding; actual F&F need is the Add UI for testers to bring their own staples into the system. Seeding Tom+Mary moves out-of-band via direct SQL (~15 min manual). Scope decisions embedded: single-screen (not modal), ILIKE prefix search, delete + edit custom_name only, grey-out duplicates, no manual state setting | 2026-04-23 | Tom decision + Claude.ai option 2 recommendation |
+| D8-30 | 8B-CP3a patch-up — UX polish for ManageStaplesScreen | Smoke-test of 8B-CP3 surfaced 6 UX issues (back-button safe-area, search prominence, eagerness-to-skip-to-custom-add, case-insensitive dedup missing, cross-boundary dedup missing, grid staleness on nav return). All fixed in 8B-CP3a without expanding scope. Patch-up only — no new decisions, captured here for traceability | 2026-04-23 | Smoke test findings |
 
 ---
 
@@ -340,7 +341,7 @@ Full SQL in `phase_8_schema_migration.sql` (ready for Tom to paste into Supabase
 | Sub-phase | Checkpoints | Sessions | Status |
 |-----------|-------------|----------|--------|
 | 8A | CP1-CP4 | 3-4 | 🔲 Ready to start (8A-CP1 is first executable prompt of Phase 8) |
-| 8B | CP1-CP4 | 4-5 | 🔲 Depends on 8A-CP1 schema |
+| 8B | CP1-CP4 | 4-5 | 🟡 In progress — CP1+CP2+CP3+CP3a shipped, CP4 up next |
 | 8C | CP1-CP8 | 6-8 | 🔲 Depends on 8B staples |
 | 8D | CP1-CP5 | 3-5 | 🔲 Depends on 8C Ingredient Detail |
 | 8E | CP1-CP4 | 3-4 | 🔲 Depends on 8D matching |
@@ -378,6 +379,7 @@ First three prompts drafted (pending audit):
 
 | Date | Change |
 |------|--------|
+| 2026-04-23 | **v2.4 — 8B-CP3a patch-up log.** D8-30 records the 6-fix UX patch-up applied to 8B-CP3 (back-button safe-area, search prominence, collapsed custom-add, case-insensitive + cross-boundary dedup, grid focus-refresh). No scope change. |
 | 2026-04-23 | **v2.3 — 8B-CP3 scope swap.** Add/Manage Staples UI replaces Bulk pre-populate tooling (D8-29). Sub-phase count and session estimate (18-28) unchanged — Add UI is ~1-2 sessions same as bulk tooling was. Bulk pre-populate for Tom + Mary moves out-of-band via direct SQL. |
 | 2026-04-23 | **v2.2 — Second-audit polish pass.** D8-25 rationale extended to note Day-1 freezer-cleanout surge as expected (not a bug — feature exists to surface forgotten items). 8A-CP3 scope clarified: recipe tap-sheet quantity wiring is 8D-CP3's cost, not 8A's — estimate unchanged. 8C-CP5 stub-handler wiring TODO now names specific call sites (`screens/PantryScreen.tsx` `handleTapRecipes` ~line 512, `handleTapItem` ~line 518, plus the `onStapleLabelTap` handler passed to StaplesGrid in 8B-CP2). No structural changes. |
 | 2026-04-23 | **v2.1 — Second-pass rewrite addressing first audit findings.** Sub-phase restructure: schema foundation moved from 8B-CP1 → 8A-CP1 (first executable prompt). Staple color softening merged into 8B-CP2. Stub-handler cleanup folded into 8C-CP5. Fraction display restored as 8A-CP3 (was dropped in v2.0 by oversight). Decision IDs D8-N added (D8-1 through D8-28). `default_aisle` dropped in favor of existing `typical_store_section` (D8-27). Brand schema additions dropped in favor of existing `grocery_list_items.brand_preference` (D8-28). `last_confirmed_at` backfill added to migration (D8-25). State naming standardized on `running_low` (DB) with "low" permitted as display-only. Session estimate 16-23 → 18-28. 8B sessions 3-4 → 4-5. 8C sessions 4-6 → 6-8. |

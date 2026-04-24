@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** April 22, 2026  
-**Version:** 5.1  
+**Version:** 5.7  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,36 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: Phase 8 — Pantry Intelligence Planning (April 23, 2026)
+
+**Context:** Phase 8 planning wireframe session + first audit surfaced 11 post-F&F items and 2 tech debt items. Phase 8 execution in-scope items live in `PHASE_8_PANTRY_INTELLIGENCE.md`; items below are explicitly out-of-scope for v1 and parked here so they don't get lost.
+
+### Open Action Items (post-F&F)
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P8-1 | Full accessibility audit across Phase 8 surfaces | 🔧 | 🟡 | Per-prompt verification covers tap target size (≥44×44pt) and accessibilityLabel presence during Phase 8 build. Full pass needs: VoiceOver focus order across StaplesGrid + Ingredient Detail + Freezer cleanout + recipe tap-sheet; screen reader announcements for state changes; color contrast audit for soft-tint state backgrounds; reduced motion support for re-sort animations; keyboard navigation where applicable. ~1-2 sessions post-launch. Surfaced 2026-04-23 first audit. |
+| P8-2 | Brand discovery full UI (Ingredient Detail Brands tab v2) | 🚀 | 🟡 | F&F ships read-only Brands tab pulling from existing `grocery_list_items.brand_preference` + `size_preference` (user's own history + space members' history). Full community-scale discovery UI post-F&F: seek-out vs settle markers, how-long-preferred metrics, brand ratings, friends-first visibility, cross-space aggregation. 3-5 sessions. |
+| P8-3 | Path B tracked-item staleness UI | 🚀 | 🟡 | Data foundation in 8A-CP1 (`last_confirmed_at` on pantry_items, `staleness_threshold_days` JSONB). UI post-F&F: stale-item surfacing pattern for tracked items (parallel to staples unknown-state), per-category threshold tuning UI. ~1 session. |
+| P8-4 | Per-store grocery aisle overrides | 🚀 | 🟢 | v1 uses global `ingredients.typical_store_section` for aisle grouping. Post-F&F: per-store aisle layouts + "where you found it last time" memory. Depends on per-store data model (which grocery list = which store). |
+| P8-5 | Smart (silent-automatic) cook-post depletion | 🚀 | 🟡 | Opt-in banner-after pattern in v1 (8B-CP4). Silent-automatic depletion post-F&F once matching confidence proven (probably 6-8 weeks of F&F data). |
+| P8-6 | Category-level pantry matching | 🚀 | 🟢 | "Any cheese" / "any dried pasta" matching deferred to post-F&F user-configurable setting. |
+| P8-7 | Quantity-aware pantry matching | 🚀 | 🟢 | "Recipe needs 4 eggs, I have 2" smart subtraction. v2 work. |
+| P8-8 | Smart thaw-time calculation | 💡 | 🟢 | "4 lb chicken = 24h thaw time" helper on Thaw & plan flow (8C-CP7). v1 is manual. |
+| P8-9 | Auto-schedule thawed items onto meal calendar | 🚀 | 🟢 | Phase 9 work — depends on meal calendar from Phase 9. |
+| P8-10 | Conversational search refinement | 🚀 | 🟢 | Natural-language search (8E-CP2) is single-turn v1. Multi-turn ("actually make it under 30 min" as follow-up) post-F&F. |
+| P8-11 | App-level voice recording for search | 💡 | 🟢 | v1 uses OS dictation (iOS/Android). In-app recording for custom processing post-F&F. |
+| P8-12 | ManageStaples section headers | 🟢 | post-F&F | Current-staples list on ManageStaplesScreen is flat — at 20+ staples it'll get hard to scan. Add section dividers — grouping by first-letter OR state (good/low/out/unknown) OR ingredient.category TBD. Post-F&F polish; not blocking pantry loop. Surfaced by Tom during 8B-CP3a smoke test. |
+
+### Tech Debt surfaced by Phase 8 planning
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P8-T1 | CLAUDE.md references `lib/theme.ts` as single file, but theme is a folder `lib/theme/` | 🔧 | 🟢 | Discovered during first audit of Phase 8 prompts. Low urgency — doesn't affect runtime, just doc accuracy. ~5 min fix. |
+| P8-T2 | `P5-1 base_ingredient_id` audit pass (scheduled for 8D-CP1) may surface a larger data backfill need | 📊 | 🟡 | 8D-CP1 runs query-and-report; if gap is large (protein cuts, cheese dupes, salt variants per P5-1 deferred item), spawns separate data-backfill CC prompt. Track here so the potential scope doesn't vanish. |
 
 ---
 
@@ -67,10 +97,11 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P7-44 | Feed infinite scroll (pagination) | 🚀 | 🔴 | Hard-capped at 200 dishes. Needs onEndReached pagination. |
-| P7-45 | Pull-to-refresh investigation | 🐛 | 🔴 | 15s hang. May have been fixed by 7I FeedScreen rewrite + 7M 5s stale threshold — needs verification. |
+| P7-44 | Feed infinite scroll (pagination) | 🚀 | 🔴 | Hard-capped at 200 dishes. Needs onEndReached pagination. **Scheduled: Phase 7P** (per FF_LAUNCH_MASTER_PLAN v6.0). |
 | P7-74 | hydrateEngagement perf | 🔧 | 🟡 | ~1.0s steady-state. Likely N+1 pattern. |
 | P7-75 | Batched getMealEventsByIds | 🔧 | 🟢 | N×4 round trips → 2-3 batched. |
+| PL-H1 | `highlightsService` batched RPC / materialized view (cold-path bottleneck) | 🔧 | 🟡 | Cold-path `hydrate:highlights` measured at ~2.6s on 200-post batch in 7P-1 testing. Per-post `computeSoloAuthorSignal` fires one `posts`-table query per card. 7P-2 pagination mitigates to ~390ms on 30-post page (D7P-8), but real fix is a single SQL rollup — either a batched RPC or materialized view. Service source already flags this. Deferred to post-launch per D7P-8. |
+| DQ-1 | Orphaned `parent_meal_id` on posts | 🐛 | 🟢 | _(Cross-cutting: data-integrity issue surfaced via feed rendering; not strictly a feed-perf item, but filed here since no Phase 7 data-quality subsection exists.)_ Posts reference deleted `meal_events` via `parent_meal_id`. `feedGroupingService.buildFeedGroups` logs `linked_meal_event group without mealEventContext` warnings at render time when an orphaned post is encountered. 3 confirmed orphans hit on page 4 of the 7P-2 pagination device test; count may grow over time. Needs (a) cleanup script nulling `parent_meal_id` where the referenced `meal_events` row no longer exists, (b) optional FK constraint or trigger preventing recurrence. Not F&F-blocking — warnings are log-only; feed rendering degrades gracefully. |
 
 ### Future sub-phases (post-launch)
 
@@ -131,6 +162,20 @@ This is the master backlog — the accumulated deferred work from all completed 
 - **P7-97** (Star picker stay-open) — Done in 7N Checkpoint 2.
 - **P7-98** (Inline engagement bar) — Done in 7N Checkpoint 2.
 - **Feed card swipe reliability** — Done in 7N Checkpoint 2 (3-zone Pressable restructure).
+- **P7-45** (Pull-to-refresh investigation) — **RESOLVED 2026-04-22 in Phase 7P-2** via P7-44 pagination. 7P-1 instrumentation measured cold load at 5.3s on the 200-post batch (2.6s in `computeHighlightsForFeedBatch` cold path). 7P-2 pagination cut the per-load batch to 30 posts, bringing cold page-1 load to 2888ms and paginated page loads to 1913-2967ms — all under D7P-2's 3s threshold. Original 15s hang report partially unexplained; likely combination of dev-mode StrictMode double-invoke, network variance, and per-device cold-start overhead. Post-launch follow-up tracked as PL-H1 (highlightsService SQL rollup).
+
+---
+
+## Pre-launch deferrals (2026-04-22 — master plan v6.0 scope cuts)
+
+The following items were in or adjacent to pre-launch scope and were explicitly moved to post-launch during the 2026-04-22 FF_LAUNCH_MASTER_PLAN v6.0 refresh. They live here rather than in phase-specific deferred sections because they were cut at the master-plan level, not by any individual phase.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| DEF-4/22-1 | Edit Mode full redesign | 🚀 | 🟡 | Notebook aesthetic, structural ingredient editing (separate quantity vs ingredient), drag handles for sections, "or" substitution syntax. MVP banner + Exit button from 7B-Rev stands as sufficient pre-F&F. |
+| DEF-4/22-2 | NYT Cooking integration | 🚀 | 🔴 | **Top-of-queue post-launch priority.** Tom's annotation: "would be awesome if we could get that shipped at or soon after F&F launch." Scope-first approach retained (1 session to investigate before committing build sessions). |
+| DEF-4/22-3 | Receipt scanning | 🚀 | 🟢 | Flagged as "if easy" during 4/22 review; real effort 3-5 sessions (OCR + item parse + pantry matching UX). Revisit post-launch. |
+| DEF-4/22-4 | Recipe comments knowledge base system (#30) | 🚀 | 🟢 | Community-shared notes, tips, substitutions per recipe. Needs moderation thinking, display UX, threading. F&F is the right moment to learn what users actually want before building. |
 
 ---
 
@@ -439,10 +484,24 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 ---
 
+## Process hygiene
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| PH-1 | PROCESS_WATCHPOINTS W1-W8 review pass | 🔧 | 🟢 | All eight watchpoints W1 through W8 are currently Observing; most predate the Phase 7P retrospective and have accumulated limited observations. A ~30-minute walk-through should decide each one's outcome per the new review-trigger outcome discipline rule (PROCESS_WATCHPOINTS §Review cadence, v1.4 2026-04-22): **graduate** (promote the mitigation to a DOC_MAINTENANCE_PROCESS rule), **close** (retire if the concern didn't materialize), or **explicitly extend** the observation window with a new review trigger. Not F&F-blocking; candidate for Phase 8 kickoff housekeeping or a cross-cutting session once Phase 8A is actively in progress. W9 + W10 (added same session) are too new for this pass — they have their own review triggers tied to Phase 8 completion / next diagnostic sub-phase. |
+
+---
+
 ## Changelog
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-04-23 | 5.7 | Added P8-12 (ManageStaples section headers, post-F&F polish). |
+| 2026-04-23 | 5.6 | Phase 8 planning reconciliation. Added 11 post-F&F items surfaced during Phase 8 wireframe session + first audit (P8-1 through P8-11) and 2 tech debt items (P8-T1, P8-T2). Full accessibility audit deferred as P8-1; brand discovery UI scope consolidated as P8-2. New section `## From: Phase 8 — Pantry Intelligence Planning (April 23, 2026)` inserted above the Phase 7 section per reverse-chronological phase order. |
+| 2026-04-22 | 5.5 | New row PH-1 tracking PROCESS_WATCHPOINTS W1-W8 review pass (per the new outcome-discipline rule added to PROCESS_WATCHPOINTS v1.4). Placed under new `## Process hygiene` subsection (no prior home for process-hygiene items existed). |
+| 2026-04-22 | 5.4 | P7-45 marked resolved (D7P-2 threshold met via Phase 7P-2 pagination). PL-H1 priority 🟢 → 🟡. DQ-1 added tracking orphaned `parent_meal_id` (3 confirmed during 7P-2 Test A). |
+| 2026-04-22 | 5.3 | PL-H1 added — highlightsService batched RPC / materialized view (post-launch, per D7P-8 from Phase 7P planning). |
+| 2026-04-22 | 5.2 | **Post-v6 master plan reconciliation.** Tagged P7-44 and P7-45 as Phase 7P scheduled targets. Added new "Pre-launch deferrals (2026-04-22)" section with 4 items: Edit Mode full redesign, NYT Cooking (top-of-queue), Receipt scanning, Recipe comments KB. No priority re-tagging; no removals. |
 | 2026-04-22 | 5.1 | Added T4 through T7: 4 cross-cutting cleanup items surfaced during PK_CODE_SNAPSHOTS v1.1 tier inventory (service relocation, deprecated-file deletion, legacy-theme audit, ts-nocheck resolution). |
 | 2026-04-17 | 5.0 | **Phase 7 completion reconciliation.** Reconciled 42 deferred items from `PHASE_7_SOCIAL_FEED.md` into this doc. Resolved 20+ items (P5-4, P6-4, P6-5, S1, S2, P7-9, P7-15, P7-16, P7-29, P7-58, P7-60, P7-62, P7-64, P7-65, P7-66, P7-67, P7-85, P7-87, P7-88, P7-90, P7-97, P7-98, D3 partial, feed swipe). Added 17 infrastructure items, 13 detail polish items, 4 feed perf items, 30+ future sub-phase items from Phase 7. |
 | 2026-04-09 | 4.3 | Phase 7F wireframe cross-references. |
