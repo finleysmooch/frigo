@@ -11,6 +11,7 @@ import {
   GroceryListWithCounts,
   CrossListIngredientPresence,
   GroceryListItemRecipe,
+  UpdateGroceryListParams,
 } from './types/grocery';
 
 // ============================================
@@ -205,6 +206,68 @@ export async function deleteGroceryList(listId: string): Promise<void> {
     console.log('✅ Grocery list deleted');
   } catch (error) {
     console.error('❌ Error in deleteGroceryList:', error);
+    throw error;
+  }
+}
+
+/**
+ * Phase 8C-CP3 — fetch a single list's metadata (used to hydrate per-list
+ * preferences like view_mode on screen mount).
+ */
+export async function getGroceryList(listId: string): Promise<GroceryList | null> {
+  try {
+    const { data, error } = await supabase
+      .from('grocery_lists')
+      .select('*')
+      .eq('id', listId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ Error getting grocery list:', error);
+      throw error;
+    }
+
+    return (data as unknown as GroceryList | null) ?? null;
+  } catch (error) {
+    console.error('❌ Error in getGroceryList:', error);
+    throw error;
+  }
+}
+
+/**
+ * Phase 8C-CP3 — update a grocery list's metadata. Maps camelCase params to
+ * snake_case DB columns. All fields optional; only those provided are written.
+ */
+export async function updateGroceryList(
+  listId: string,
+  params: UpdateGroceryListParams
+): Promise<GroceryList> {
+  try {
+    const updates: Record<string, unknown> = {};
+    if (params.name !== undefined) updates.name = params.name;
+    if (params.emoji !== undefined) updates.emoji = params.emoji;
+    if (params.isActive !== undefined) updates.is_active = params.isActive;
+    if (params.isTemplate !== undefined) updates.is_template = params.isTemplate;
+    if (params.sortOrder !== undefined) updates.sort_order = params.sortOrder;
+    if (params.storeName !== undefined) updates.store_name = params.storeName;
+    if (params.viewMode !== undefined) updates.view_mode = params.viewMode;
+
+    const { data, error } = await supabase
+      .from('grocery_lists')
+      .update(updates)
+      .eq('id', listId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating grocery list:', error);
+      throw error;
+    }
+
+    console.log('✅ Grocery list updated');
+    return data as unknown as GroceryList;
+  } catch (error) {
+    console.error('❌ Error in updateGroceryList:', error);
     throw error;
   }
 }

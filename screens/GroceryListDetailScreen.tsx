@@ -16,21 +16,29 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { typography, spacing } from '../lib/theme';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { GroceryFilled } from '../components/icons';
 import {
-  getItemsForList,
   deleteItemFromList,
   toggleItemInCart,
   updateListItem,
   getOtherListsContainingIngredient,
   deleteItemsByIngredientFromLists,
+  getItemsWithRecipes,
+  getGroceryList,
+  updateGroceryList,
 } from '../lib/groceryListsService';
-import { GroceryListItemWithIngredient, CrossListIngredientPresence } from '../lib/types/grocery';
+import {
+  GroceryListItemWithIngredient,
+  CrossListIngredientPresence,
+  GroceryListItemRecipe,
+} from '../lib/types/grocery';
 import GroceryListItem from '../components/GroceryListItem';
 import CrossListPrompt from '../components/CrossListPrompt';
 import { addPantryItem } from '../lib/pantryService';
@@ -322,6 +330,137 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
       color: colors.text.secondary,
       textAlign: 'center',
     },
+
+    // Phase 8C-CP3 — view-mode toggle in header
+    viewModeToggle: {
+      width: 44,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.xs,
+    },
+
+    // Phase 8C-CP3 — For: strip + filter chip
+    recipeStrip: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    recipeStripLabel: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      marginRight: spacing.xs,
+    },
+    recipeStripName: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+    },
+    recipeStripDot: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.tertiary,
+      marginHorizontal: 2,
+    },
+    filterChipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor:
+        (colors as { info?: { light?: string } }).info?.light || '#E6F1FB',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: 16,
+      minHeight: 32,
+    },
+    filterChipText: {
+      fontSize: typography.sizes.sm,
+      fontWeight: typography.weights.medium,
+      color:
+        (colors as { info?: { dark?: string } }).info?.dark || '#185FA5',
+      marginRight: spacing.xs,
+    },
+    filterChipClose: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.bold,
+      color:
+        (colors as { info?: { dark?: string } }).info?.dark || '#185FA5',
+      paddingHorizontal: 4,
+    },
+
+    // Phase 8C-CP3 — disambiguation modal
+    sheetBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'flex-end',
+    },
+    sheetContainer: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingBottom: spacing.lg,
+      maxHeight: '60%',
+    },
+    sheetHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border.medium,
+      alignSelf: 'center',
+      marginTop: spacing.sm,
+    },
+    sheetTitle: {
+      fontSize: typography.sizes.md,
+      fontWeight: typography.weights.semibold,
+      color: colors.text.primary,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    sheetItemRow: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+      minHeight: 56,
+      justifyContent: 'center',
+    },
+    sheetItemTitle: {
+      fontSize: typography.sizes.md,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+    },
+    sheetItemSubtitle: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    sheetCancel: {
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.border.medium,
+      marginTop: spacing.sm,
+    },
+    sheetCancelText: {
+      fontSize: typography.sizes.md,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
+    },
   }), [colors, functionalColors]);
 
   // Extract params with proper typing
@@ -347,6 +486,24 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
     otherLists: CrossListIngredientPresence[];
   } | null>(null);
 
+  // Phase 8C-CP3: per-list view mode (Compact/Detailed). Hydrated from
+  // grocery_lists.view_mode on mount; toggle persists via updateGroceryList.
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+
+  // Phase 8C-CP3: filter-by-recipe state. Set by tapping a single-recipe pill
+  // or selecting from disambiguation sheet; cleared on chip × tap. Does NOT
+  // persist across navigation (intentional per spec).
+  const [activeFilter, setActiveFilter] = useState<{
+    recipeId: string;
+    recipeTitle: string;
+  } | null>(null);
+
+  // Phase 8C-CP3: multi-recipe pill disambiguation modal state.
+  const [disambiguationState, setDisambiguationState] = useState<{
+    itemId: string;
+    recipes: GroceryListItemRecipe[];
+  } | null>(null);
+
   useEffect(() => {
     getCurrentUser();
   }, []);
@@ -354,6 +511,7 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (currentUserId) {
       loadItems();
+      hydrateViewMode();
     }
   }, [currentUserId, listId]);
 
@@ -374,7 +532,11 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
 
   const loadItems = async () => {
     try {
-      const itemsData = await getItemsForList(listId);
+      // Phase 8C-CP3: switched from getItemsForList to getItemsWithRecipes so
+      // each item carries its junction-derived recipe attributions for the
+      // pill rendering in Detailed mode. Compact mode ignores the recipes
+      // field; the extra single batched query is cheap.
+      const itemsData = await getItemsWithRecipes(listId);
       setItems(itemsData);
     } catch (error) {
       console.error('Error loading items:', error);
@@ -382,6 +544,19 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Phase 8C-CP3: hydrate per-list view_mode preference on mount.
+  const hydrateViewMode = async () => {
+    try {
+      const list = await getGroceryList(listId);
+      if (list && (list.view_mode === 'compact' || list.view_mode === 'detailed')) {
+        setViewMode(list.view_mode);
+      }
+    } catch (error) {
+      console.error('Error hydrating view mode:', error);
+      // Non-fatal: keep default 'compact'.
     }
   };
 
@@ -395,13 +570,21 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   // ============================================
 
   const tierGroups = useMemo<TierGroup[]>(() => {
+    // Phase 8C-CP3: when filter is active, restrict to items linked to the
+    // filtered recipe via junction. Custom items (no `recipes`) drop out.
+    const filteredItems = activeFilter
+      ? items.filter((item) =>
+          (item.recipes ?? []).some((r) => r.recipe_id === activeFilter.recipeId)
+        )
+      : items;
+
     const buckets: Record<Tier, Map<string, GroceryListItemWithIngredient[]>> = {
       now: new Map(),
       could_wait: new Map(),
       in_cart: new Map(),
     };
 
-    for (const item of items) {
+    for (const item of filteredItems) {
       const tier = tierForItem(item);
       const aisle = aisleForItem(item);
       const map = buckets[tier];
@@ -431,6 +614,22 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
         aisles,
       };
     });
+  }, [items, activeFilter]);
+
+  // Phase 8C-CP3: ordered list of unique recipes appearing on this list, in
+  // first-appearance order across the bucketed items. Used by the For: strip.
+  const recipesOnList = useMemo<GroceryListItemRecipe[]>(() => {
+    const seen = new Set<string>();
+    const result: GroceryListItemRecipe[] = [];
+    for (const item of items) {
+      for (const r of item.recipes ?? []) {
+        if (!seen.has(r.recipe_id)) {
+          seen.add(r.recipe_id);
+          result.push(r);
+        }
+      }
+    }
+    return result;
   }, [items]);
 
   // ============================================
@@ -567,6 +766,44 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
 
   const toggleTier = (tier: Tier) => {
     setCollapsedTiers((prev) => ({ ...prev, [tier]: !prev[tier] }));
+  };
+
+  // Phase 8C-CP3: view-mode toggle. Optimistically update local state so the
+  // UI flips immediately; persist via service. On persistence error we keep
+  // the new mode for this session and let the next mount resync from DB.
+  const handleToggleViewMode = async () => {
+    const newMode: 'compact' | 'detailed' = viewMode === 'compact' ? 'detailed' : 'compact';
+    setViewMode(newMode);
+    if (newMode === 'compact') {
+      // Switching to Compact clears any active filter — pills are gone.
+      setActiveFilter(null);
+      setDisambiguationState(null);
+    }
+    try {
+      await updateGroceryList(listId, { viewMode: newMode });
+    } catch (error) {
+      console.error('Failed to persist view mode:', error);
+    }
+  };
+
+  // Phase 8C-CP3: pill tap → either filter directly (1 recipe) or open the
+  // disambiguation sheet (2+ recipes).
+  const handleRecipePillTap = (itemId: string, recipes: GroceryListItemRecipe[]) => {
+    if (recipes.length === 0) return;
+    if (recipes.length === 1) {
+      handleSetFilter(recipes[0].recipe_id, recipes[0].recipe_title);
+      return;
+    }
+    setDisambiguationState({ itemId, recipes });
+  };
+
+  const handleSetFilter = (recipeId: string, recipeTitle: string) => {
+    setActiveFilter({ recipeId, recipeTitle });
+    setDisambiguationState(null);
+  };
+
+  const handleClearFilter = () => {
+    setActiveFilter(null);
   };
 
   const handleAddItem = () => {
@@ -714,6 +951,35 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           <Text style={styles.progressText}>
             {checkedCount} / {totalCount}
           </Text>
+          {/* Phase 8C-CP3: view-mode toggle */}
+          <TouchableOpacity
+            style={styles.viewModeToggle}
+            onPress={handleToggleViewMode}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              viewMode === 'compact'
+                ? 'Switch to detailed view'
+                : 'Switch to compact view'
+            }
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              {viewMode === 'compact' ? (
+                <>
+                  <Path d="M4 6h16" stroke={colors.text.secondary} strokeWidth={2} strokeLinecap="round" />
+                  <Path d="M4 12h16" stroke={colors.text.secondary} strokeWidth={2} strokeLinecap="round" />
+                  <Path d="M4 18h16" stroke={colors.text.secondary} strokeWidth={2} strokeLinecap="round" />
+                </>
+              ) : (
+                <>
+                  <Path d="M4 6h16" stroke={colors.primary} strokeWidth={2} strokeLinecap="round" />
+                  <Path d="M4 10h10" stroke={colors.primary} strokeWidth={2} strokeLinecap="round" />
+                  <Path d="M4 14h16" stroke={colors.primary} strokeWidth={2} strokeLinecap="round" />
+                  <Path d="M4 18h10" stroke={colors.primary} strokeWidth={2} strokeLinecap="round" />
+                </>
+              )}
+            </Svg>
+          </TouchableOpacity>
         </View>
 
         {/* Action Buttons Row */}
@@ -742,6 +1008,45 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Phase 8C-CP3: filter chip (when active) — replaces the For: strip */}
+      {activeFilter && (
+        <View style={styles.filterChipRow}>
+          <TouchableOpacity
+            style={styles.filterChip}
+            onPress={handleClearFilter}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear filter: ${activeFilter.recipeTitle}`}
+          >
+            <Text style={styles.filterChipText} numberOfLines={1}>
+              Showing: {activeFilter.recipeTitle}
+            </Text>
+            <Text style={styles.filterChipClose}>×</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Phase 8C-CP3: For: strip — Detailed mode only, when not filtered */}
+      {viewMode === 'detailed' && !activeFilter && recipesOnList.length > 0 && (
+        <View style={styles.recipeStrip}>
+          <Text style={styles.recipeStripLabel}>For:</Text>
+          {recipesOnList.map((r, idx) => (
+            <React.Fragment key={r.recipe_id}>
+              {idx > 0 && <Text style={styles.recipeStripDot}>·</Text>}
+              <TouchableOpacity
+                onPress={() => handleSetFilter(r.recipe_id, r.recipe_title)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter by recipe ${r.recipe_title}`}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text style={styles.recipeStripName} numberOfLines={1}>
+                  {r.recipe_title}
+                </Text>
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -787,10 +1092,12 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
                       <GroceryListItem
                         key={item.id}
                         item={item}
+                        viewMode={viewMode}
                         onToggleCart={handleToggleItem}
                         onAdjustQuantity={handleAdjustQuantity}
                         onMoveTier={handleMoveTier}
                         onDelete={handleDeleteItem}
+                        onRecipePillTap={handleRecipePillTap}
                       />
                     ))}
                   </View>
@@ -811,6 +1118,52 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           onDismiss={() => setCrossListPromptState(null)}
         />
       )}
+
+      {/* Phase 8C-CP3: multi-recipe disambiguation sheet */}
+      <Modal
+        visible={!!disambiguationState}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDisambiguationState(null)}
+      >
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setDisambiguationState(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Filter by which recipe?</Text>
+            {disambiguationState?.recipes.map((r) => {
+              const itemCount = items.filter((it) =>
+                (it.recipes ?? []).some((rr) => rr.recipe_id === r.recipe_id)
+              ).length;
+              return (
+                <TouchableOpacity
+                  key={r.recipe_id}
+                  style={styles.sheetItemRow}
+                  onPress={() => handleSetFilter(r.recipe_id, r.recipe_title)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filter by ${r.recipe_title}, ${itemCount} items`}
+                >
+                  <Text style={styles.sheetItemTitle}>{r.recipe_title}</Text>
+                  <Text style={styles.sheetItemSubtitle}>
+                    {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={styles.sheetCancel}
+              onPress={() => setDisambiguationState(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }

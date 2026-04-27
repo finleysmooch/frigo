@@ -17,6 +17,7 @@ export interface GroceryList {
   is_template: boolean;
   sort_order: number;
   store_name: string | null;   // Phase 8C-CP1a — optional store association (e.g., "Costco")
+  view_mode: 'compact' | 'detailed';   // Phase 8C-CP3 — per-list UI preference
   created_at: string;
   updated_at: string;
 }
@@ -207,6 +208,7 @@ export interface UpdateGroceryListParams {
   isTemplate?: boolean;
   sortOrder?: number;
   storeName?: string;   // Phase 8C-CP1a
+  viewMode?: 'compact' | 'detailed';   // Phase 8C-CP3
 }
 
 // Add item to a grocery list

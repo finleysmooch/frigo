@@ -2,6 +2,129 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-27 — Phase 8C-CP3 — Compact/Detailed view + recipe pills + filter-by-recipe
+
+**Phase:** 8C-CP3 (largest CP of 8C — final UX layer for grocery: per-list view-mode toggle, recipe + staple pills inline on rows, tappable pills filter-by-recipe with disambiguation sheet for multi-recipe items)
+**Prompt from:** `docs/DRAFT_CC_PROMPT_8C-CP3_view_mode_pills_filter.md` (DRAFT v1, authored 2026-04-27)
+**Status:** ⚠️ Partial — code complete + TypeScript clean; migration applied + verification passed mid-session; smoke-test (Tom's interactive paths) deferred.
+
+**Scope:** Added per-list view-mode preference (`compact` default, `detailed` opt-in) persisted via new `grocery_lists.view_mode` column. Compact mode: existing CP1+CP2 layout preserved, with `priority_reason` subtitle replaced by an inline staple pill (red/error) on the row's name line. Detailed mode adds: a "For: {recipe1} · {recipe2} · {recipe3}" strip below the action buttons (each name tappable to filter), and inline recipe pills on recipe-linked rows (`[Recipe]` for single, `[N recipes]` for multi). Recipe pills are tappable: single → directly applies filter; multi → opens a bottom-sheet `RecipeDisambiguationSheet` modal with per-recipe item counts. While filtered, the For: strip is replaced with a "Showing: {recipe} ×" chip. Filter is strict (recipe association alone determines inclusion; custom items drop out). Filter doesn't persist across navigation; view mode does (per-list, via DB column).
+
+**Files modified (5 code + 2 docs + 1 new migration):**
+
+- `supabase/migrations/20260427_8c_cp3_view_mode.sql` — new file, applied to Supabase mid-session by Tom; verification passed (`text`, `NO`, default `'compact'::text`).
+- `lib/types/grocery.ts` — added `view_mode: 'compact' | 'detailed'` to `GroceryList`; added `viewMode?: 'compact' | 'detailed'` to `UpdateGroceryListParams`. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — added two new exported functions: `getGroceryList(listId)` returning `GroceryList | null` (used to hydrate view_mode on mount per the "keep services pure" lean); `updateGroceryList(listId, params)` mapping camelCase params (`name/emoji/isActive/isTemplate/sortOrder/storeName/viewMode`) to snake_case DB columns. Imported `UpdateGroceryListParams` from canonical types. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/GroceryListItem.tsx` — wholesale rewrite. Added `viewMode` and optional `onRecipePillTap` props. Removed the `priority_reason` subtitle render entirely. New name-line layout uses a flex row with the name `<Text>` (truncating) plus 0+ inline pills (always-on staple pill if `priority_reason` includes "staple"; recipe pill only in Detailed mode based on `recipes[]` length). Truncation: staple max 12 chars, recipe max 14 chars; `{N} recipes` for 2+. Recipe pill is a `TouchableOpacity` with `hitSlop` for ≥32×32 effective tap target. Conservative match for staple pill via `priority_reason.toLowerCase().includes('staple')` so the existing "manual" reason from CP1's tier-move picker doesn't render as a staple. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `screens/GroceryListDetailScreen.tsx` — added new state (`viewMode`, `activeFilter`, `disambiguationState`); imports widened (`getItemsWithRecipes`, `getGroceryList`, `updateGroceryList`, `Modal`, `Svg`/`Path` from `react-native-svg`, `GroceryListItemRecipe`); switched `loadItems` from `getItemsForList` to `getItemsWithRecipes`; new `hydrateViewMode` called from existing currentUserId effect; new handlers (`handleToggleViewMode`, `handleRecipePillTap`, `handleSetFilter`, `handleClearFilter`); `tierGroups` memo now filters items via `activeFilter` (custom items drop when filter active per spec); new `recipesOnList` memo (first-appearance ordering for the For: strip); inline `<ViewModeToggle>` SVG-icon button in the progress row (3 equal lines for compact, 4 alternating-length lines tinted with primary color for detailed); inline `<RecipeStrip>` and `<FilterChip>` blocks (mutually exclusive, both occupy the same vertical position above the ScrollView); inline `<RecipeDisambiguationSheet>` as a Modal with backdrop, sheet handle, recipe rows showing item counts, and Cancel button. Switching from Detailed → Compact also clears any active filter and disambiguation state. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: appended 8C-CP3 notes to 4 rows.
+- `docs/SESSION_LOG.md` — this entry.
+
+**Verification:**
+1. ✅ Migration applied cleanly mid-session (Tom-confirmed): `text`, `NO` (NOT NULL), default `'compact'::text`.
+2. ✅ `npx tsc --noEmit --skipLibCheck` — only the 2 pre-existing baseline errors (`CookSoonSection.tsx:264`, `DayMealsModal.tsx:296`). Zero new errors.
+3. ⚠️ Smoke-test Paths deferred to Tom (eight interactive paths covering: Compact default + staple pill replacement, Detailed toggle persists across navigation, single-recipe pill filter, multi-recipe pill disambiguation, strip-tap filter, filter-doesn't-persist, Compact still has staple pills, existing functionality intact).
+
+**Decisions made during execution:**
+
+- **D8-40 (added `getGroceryList(listId)` service function rather than inline supabase call from screen).** Per Part 7b's "my lean: add the service function, keep the screen pure" — and the project's standing "services handle ALL Supabase calls" convention. The function reads a single row by id; trivial implementation, but keeps the boundary clean. Same reasoning would apply if the inline-call approach is considered later: small enough to revisit.
+- **D8-41 (staple pill match via `priority_reason.toLowerCase().includes('staple')`).** Spec's Part 5 conservative match guidance was loose ("staple · out OR equivalent"). Implemented as substring includes "staple" so the existing "manual" reason set by CP1's tier-move picker doesn't render as a staple pill. Label extracted from the second segment if formatted `staple · {label}`, else just "staple". Truncates at 12 chars.
+
+**Open questions deferred:**
+
+- **`addIngredientsToDefaultList` (P8-19) NOT folded into this CP.** Out-of-band #5 left it to CC's discretion. Decision: kept it deferred — it's a separate code path (recipe→default-list flow), and folding it inline here adds risk without expanding the CP3 scope value. Three-line follow-up still tracked as P8-19.
+- Existing `priority_reason` values weren't audited for unexpected variants. The conservative `.includes('staple')` match should be robust to "staple", "staple · out", "staple · low", etc., and ignore "manual" (CP1) and any `recipe` reasons. If real-data values differ, smoke test will surface them.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Out-of-band #1 — `updateGroceryList` did not exist before this CP.** Added as a new exported function (not widened). `getGroceryList` also added new. Both follow the established camelCase-params → snake_case-columns mapping convention.
+2. **Out-of-band #2 — `getGroceryList` service function was added** (Part 7b option) per D8-40 above.
+3. **Out-of-band #3 — `priority_reason` audit not performed.** No code-side variant audit was run; the conservative `.includes('staple')` match should be robust. Smoke test will surface any data-side surprises.
+4. **Out-of-band #4 — toggle icon SVG.** Used `react-native-svg`'s `<Svg>` + `<Path>` (already a project dependency). Two icon states: 3 equal horizontal lines for Compact (text.secondary tint); 4 alternating-length lines for Detailed (primary tint). 22×22 inside a 44×44 tap target. No stroke-width finickiness at this size.
+5. **Out-of-band #5 — `addIngredientsToDefaultList` (P8-19) NOT folded inline.** Documented under Open Questions above.
+6. **Multi-recipe pill text format.** Spec's `{N} recipes` chosen verbatim (e.g., `2 recipes`, `3 recipes`). Named-form alternative (`Lasagna +1`) intentionally not used.
+7. **Switching Compact → Detailed clears filter + disambiguation.** Slight behavior beyond strict spec ("filter doesn't persist across navigation"), but consistent with the spirit: Compact mode has no pills to drive filter actions, so leaving a filter active when there's no UI for it would be confusing. Defensive cleanup.
+8. **`loadItems` now uses `getItemsWithRecipes`** unconditionally. Compact mode ignores the `recipes` field; the extra batched junction query is cheap (one `IN (item_ids)` per list load). If profiling shows it's expensive at typical list sizes, can be made conditional.
+9. **For: strip ordering** uses first-appearance order across `items` (not the filtered `tierGroups` view, which only matters when filter is active anyway — the strip is hidden in that state).
+10. **Staple pill is non-tappable** in this CP (per spec). Future pills (e.g., "needed for X") could be tappable to filter; not in scope here.
+11. **Smoke test deferred to Tom.** Eight interactive paths required.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **consider** — P8-19 stays open since this CP didn't fold it in. No new items needed.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider** — `react-native-svg` was previously a dependency but this is the first time it's used inline in a screen file (rather than via `components/icons/`). Worth a one-line note on iconography conventions if a future cleanup pass standardizes inline-vs-component icons.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update during doc-hygiene pass** — flip 8C-CP3 to ⚠️ Partial → ✅ Complete after smoke test; capture D8-40/D8-41 in Decisions Log; bump 8C build-plan row to "3 of 8 numbered CPs done".
+
+**Recommended next steps for Tom:**
+
+1. **Run smoke-test Paths** from the prompt's Verification Part 8.2. Critical: (a) Compact default still works + staple pills replace subtitles cleanly, (b) toggle flips to Detailed and `view_mode='detailed'` persists in DB across navigation, (c) tap single-recipe pill → filter applies, chip appears, × clears, (d) tap `[2 recipes]` pill → bottom sheet appears with item counts, tap one → filter applies, (e) For: strip name-tap also filters, (f) Compact still shows staple pills.
+2. **Commit when smoke test passes** (mind `-m` before `--`):
+   ```
+   git commit -m "feat(grocery): Phase 8C-CP3 — Compact/Detailed view + recipe pills + filter-by-recipe" -- supabase/migrations/20260427_8c_cp3_view_mode.sql lib/types/grocery.ts lib/groceryListsService.ts components/GroceryListItem.tsx screens/GroceryListDetailScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+3. **Stage `_pk_sync/` copies** for the 4 stale-flagged code files.
+4. **Drop the snapshot table** after a few days:
+   ```sql
+   DROP TABLE _grocery_lists_pre_cp3_snapshot;
+   ```
+5. **Queue 8C-CP3 doc hygiene** Claude.ai will draft (PHASE_8 v2.9 → v2.10 with 8C-CP3 ✅ + D8-40/D8-41 + 8C build-plan row to "3 of 8 done"). Then 8C-CP4 design.
+
+**Next steps:** Smoke-test → commit → doc-hygiene → 8C-CP4 design.
+
+---
+
+## 2026-04-27 — 8C-CP2a doc hygiene — CP2a complete + P8-19 + v2.9 changelog
+
+**Phase:** doc hygiene (mechanical reconcile after 8C-CP2a smoke-test pass + commit `2ea2679`)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8C-CP2a doc hygiene, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — all 6 edits landed verbatim with zero find-anchor drift; 5/3 grep counts pass; both `_pk_sync/` diffs clean.
+
+**Scope:** Reconciled `PHASE_8_PANTRY_INTELLIGENCE.md` (3 edits, v2.8 → v2.9) and `DEFERRED_WORK.md` (3 edits, v5.11 → v5.12) to reflect shipped 8C-CP2a state. Phase doc: header bump, new 8C-CP2a scope bullet appended after the 8C-CP2 bullet (CP2a was a runtime-discovered data-layer prereq, not in the original v2.6 build plan), v2.9 changelog row prepended capturing junction table + service rewrite + smoke-test signal + the inline `added_from` enum fix. DEFERRED_WORK: header bump, P8-19 (`addIngredientsToDefaultList` recipeId-pass-through gap) appended after P8-18, v5.12 changelog row prepended. Both `_pk_sync/` copies re-staged (third overwrite of the day for these dated files).
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 3 edits per spec.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` — overwritten to match.
+- `docs/DEFERRED_WORK.md` — 3 edits per spec.
+- `_pk_sync/DEFERRED_WORK_2026-04-27.md` — overwritten to match.
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep -c "v2.9\|8C-CP2a Recipe attribution junction table\|✅ Complete (2026-04-27)" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → **5** (≥3 expected) ✓
+- `grep -c "P8-19\|5.12\|addIngredientsToDefaultList recipeId" docs/DEFERRED_WORK.md` → **3** (≥3 expected) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` → no output ✓
+- `diff docs/DEFERRED_WORK.md _pk_sync/DEFERRED_WORK_2026-04-27.md` → no output ✓
+
+**Decisions made during execution:** None. All 6 anchors matched verbatim — zero STOPs.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.11 → v5.12 with P8-19).
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **deferred per prompt Constraint** — `grocery_list_item_recipes` is the first many-to-many relation in the grocery domain; worth a one-line mention when broader Phase 8 architecture-doc updates happen post-Phase 8 completion.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.8 → v2.9 with new CP2a scope bullet + changelog row).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on the 2 living docs.
+2. **Commit:**
+   ```
+   git commit -m "docs(phase-8): 8C-CP2a doc hygiene — CP2a complete + P8-19 + v2.9 changelog" -- docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/SESSION_LOG.md
+   ```
+   (3 files; `-m` before `--`.)
+3. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` and `_pk_sync/DEFERRED_WORK_2026-04-27.md` to PK** (replacing same-dated copies from earlier today). Clear `_pk_sync/*.md` after.
+4. **Queue 8C-CP3 design** (Compact/Detailed toggle + recipe pills + filter-by-recipe). Junction data layer is now in place; CP3 reads it via `getItemsWithRecipes(listId)`.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Zero anchor drift this session.** All 3 PHASE_8 anchors and all 3 DEFERRED_WORK anchors matched verbatim — no STOPs, no Option A/B authorization needed. Pattern continues from this morning's earlier doc-hygiene passes.
+2. **Fourth doc-hygiene pass on 2026-04-27** (CP1+CP1a → CP1b → CP2 → CP2a). Same-dated PK suffix (`*_2026-04-27.md`) reused across all four; replace-on-upload semantics on PK handle cumulative version bumps cleanly.
+3. **v2.9 is now the cumulative shipped state of 8C** (CP1 + CP1a + CP1b + CP2 + CP2a). Two numbered CPs done out of 8; the rest are CP3 (UI) onward.
+
+---
+
 ## 2026-04-27 — Phase 8C-CP2a — Recipe attribution junction table + service rewrite
 
 **Phase:** 8C-CP2a (data-layer prerequisite for 8C-CP3 — replaces single-`recipe_id`-per-item with a many-to-many junction table preserving per-recipe quantities)
