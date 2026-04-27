@@ -53,7 +53,7 @@ export interface GroceryListItem {
   store_section: string | null;
   priority: 'needed' | 'nice_to_have';
   priority_reason: string | null;   // Phase 8A-CP1: machine-populated tier reason (staple out / for X recipe / manual)
-  added_from: 'recipe' | 'pantry' | 'manual' | 'template' | null;
+  added_from: 'recipe' | 'pantry' | 'manual' | 'regular' | null;
   recipe_id: string | null;
   source_pantry_item_id: string | null;
   is_in_cart: boolean;
@@ -80,6 +80,10 @@ export interface GroceryListItemWithIngredient extends GroceryListItem {
     typical_unit: string | null;
     typical_store_section: string | null;
   } | null;
+  // Phase 8C-CP2a: optional junction-derived recipe attribution.
+  // Populated by getItemsWithRecipes (CP3 detailed mode); left undefined by
+  // getItemsForList for legacy callers that don't need the join.
+  recipes?: GroceryListItemRecipe[];
 }
 
 // Phase 8C-CP2: cross-list ingredient overlap result
@@ -88,6 +92,18 @@ export interface GroceryListItemWithIngredient extends GroceryListItem {
 export interface CrossListIngredientPresence {
   list_id: string;
   list_name: string;
+}
+
+// Phase 8C-CP2a: junction-row attribution of a grocery list item to a recipe,
+// preserving per-recipe quantity. One row per (item, recipe) pair.
+export interface GroceryListItemRecipe {
+  id: string;
+  grocery_list_item_id: string;
+  recipe_id: string;
+  recipe_title: string;  // joined from recipes.title
+  recipe_quantity_amount: number | null;
+  recipe_quantity_unit: string | null;
+  created_at: string;
 }
 
 // Extended type with list and ingredient details
@@ -165,7 +181,7 @@ export type UserPantryPreferencesUpdate = Partial<Omit<UserPantryPreferences, 'u
 // ENUM TYPES
 // ============================================
 
-export type AddedFrom = 'recipe' | 'pantry' | 'manual' | 'template';
+export type AddedFrom = 'recipe' | 'pantry' | 'manual' | 'regular';
 export type Priority = 'needed' | 'nice_to_have';
 export type PurchaseFrequency = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 

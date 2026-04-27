@@ -10,6 +10,7 @@ import {
   GroceryListItemWithIngredient,
   GroceryListWithCounts,
   CrossListIngredientPresence,
+  GroceryListItemRecipe,
 } from './types/grocery';
 
 // ============================================
@@ -28,6 +29,13 @@ export interface AddItemToListParams {
   quantity_display: number;
   unit_display: string;
   notes?: string;
+  // Phase 8C-CP2a: optional recipe attribution. When provided, a junction
+  // row is written linking the resulting list item to the recipe with the
+  // per-recipe quantity preserved. Existing callers that omit these fields
+  // keep working unchanged.
+  recipeId?: string;
+  recipeQuantityAmount?: number;
+  recipeQuantityUnit?: string;
 }
 
 // ============================================
@@ -242,6 +250,206 @@ export async function getItemsForList(listId: string): Promise<GroceryListItemWi
   }
 }
 
+// ============================================
+// PHASE 8C-CP2a — RECIPE ATTRIBUTION (JUNCTION)
+// ============================================
+
+/**
+ * Upsert one (item, recipe) attribution row with additive-on-conflict semantics
+ * for the per-recipe quantity. Re-adding the same recipe to the same item
+ * sums recipe_quantity_amount on top of the existing value.
+ *
+ * Implementation note: PostgREST does not directly expose `ON CONFLICT ... DO
+ * UPDATE SET col = col + EXCLUDED.col` via the supabase-js builder. We do a
+ * read-then-write: try insert; on unique-violation, read the existing row,
+ * compute the new sum, update. Two round-trips on conflict, one on first add —
+ * acceptable for the typical small-N use case (recipe Add flow is per-modal
+ * action, not in a hot loop).
+ */
+async function upsertItemRecipeAttribution(
+  itemId: string,
+  recipeId: string,
+  recipeQuantityAmount: number | null | undefined,
+  recipeQuantityUnit: string | null | undefined
+): Promise<void> {
+  try {
+    const { error: insertError } = await supabase
+      .from('grocery_list_item_recipes')
+      .insert({
+        grocery_list_item_id: itemId,
+        recipe_id: recipeId,
+        recipe_quantity_amount: recipeQuantityAmount ?? null,
+        recipe_quantity_unit: recipeQuantityUnit ?? null,
+      });
+
+    if (!insertError) {
+      console.log(`✅ Junction attributed item to recipe ${recipeId}`);
+      return;
+    }
+
+    // 23505 = unique_violation. On conflict, sum quantities additively.
+    if ((insertError as { code?: string }).code !== '23505') {
+      console.error('❌ Error inserting junction row:', insertError);
+      throw insertError;
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('grocery_list_item_recipes')
+      .select('id, recipe_quantity_amount')
+      .eq('grocery_list_item_id', itemId)
+      .eq('recipe_id', recipeId)
+      .single();
+
+    if (fetchError || !existing) {
+      console.error('❌ Error fetching existing junction row:', fetchError);
+      throw fetchError;
+    }
+
+    const oldAmount = (existing as { recipe_quantity_amount: number | null }).recipe_quantity_amount ?? 0;
+    const addAmount = recipeQuantityAmount ?? 0;
+    const newAmount = oldAmount + addAmount;
+
+    const { error: updateError } = await supabase
+      .from('grocery_list_item_recipes')
+      .update({
+        recipe_quantity_amount: newAmount,
+        recipe_quantity_unit: recipeQuantityUnit ?? null,
+      })
+      .eq('id', (existing as { id: string }).id);
+
+    if (updateError) {
+      console.error('❌ Error updating junction row:', updateError);
+      throw updateError;
+    }
+
+    console.log(`✅ Junction merged: ${oldAmount} + ${addAmount} = ${newAmount}`);
+  } catch (error) {
+    console.error('❌ Error in upsertItemRecipeAttribution:', error);
+    throw error;
+  }
+}
+
+/**
+ * Phase 8C-CP2a — fetch all recipe attributions for a single item, with
+ * recipe titles joined.
+ */
+export async function getRecipesForItem(itemId: string): Promise<GroceryListItemRecipe[]> {
+  try {
+    const { data, error } = await supabase
+      .from('grocery_list_item_recipes')
+      .select(`
+        id,
+        grocery_list_item_id,
+        recipe_id,
+        recipe_quantity_amount,
+        recipe_quantity_unit,
+        created_at,
+        recipe:recipes (
+          title
+        )
+      `)
+      .eq('grocery_list_item_id', itemId);
+
+    if (error) {
+      console.error('❌ Error fetching recipes for item:', error);
+      throw error;
+    }
+
+    type Row = {
+      id: string;
+      grocery_list_item_id: string;
+      recipe_id: string;
+      recipe_quantity_amount: number | null;
+      recipe_quantity_unit: string | null;
+      created_at: string;
+      recipe: { title: string } | null;
+    };
+
+    const rows = (data as unknown as Row[]) || [];
+    return rows.map((r) => ({
+      id: r.id,
+      grocery_list_item_id: r.grocery_list_item_id,
+      recipe_id: r.recipe_id,
+      recipe_title: r.recipe?.title ?? '',
+      recipe_quantity_amount: r.recipe_quantity_amount,
+      recipe_quantity_unit: r.recipe_quantity_unit,
+      created_at: r.created_at,
+    }));
+  } catch (error) {
+    console.error('❌ Error in getRecipesForItem:', error);
+    throw error;
+  }
+}
+
+/**
+ * Phase 8C-CP2a — fetch all items for a list with each item's recipe
+ * attributions attached. Single batched query for junction rows; client-side
+ * group-by to avoid N+1. Used by CP3 in Detailed mode.
+ */
+export async function getItemsWithRecipes(listId: string): Promise<GroceryListItemWithIngredient[]> {
+  try {
+    const items = await getItemsForList(listId);
+    if (items.length === 0) {
+      return items;
+    }
+
+    const itemIds = items.map((i) => i.id);
+
+    const { data: junctionData, error: junctionError } = await supabase
+      .from('grocery_list_item_recipes')
+      .select(`
+        id,
+        grocery_list_item_id,
+        recipe_id,
+        recipe_quantity_amount,
+        recipe_quantity_unit,
+        created_at,
+        recipe:recipes (
+          title
+        )
+      `)
+      .in('grocery_list_item_id', itemIds);
+
+    if (junctionError) {
+      console.error('❌ Error fetching junction rows for list:', junctionError);
+      throw junctionError;
+    }
+
+    type Row = {
+      id: string;
+      grocery_list_item_id: string;
+      recipe_id: string;
+      recipe_quantity_amount: number | null;
+      recipe_quantity_unit: string | null;
+      created_at: string;
+      recipe: { title: string } | null;
+    };
+
+    const groups = new Map<string, GroceryListItemRecipe[]>();
+    for (const row of (junctionData as unknown as Row[]) || []) {
+      const existing = groups.get(row.grocery_list_item_id) || [];
+      existing.push({
+        id: row.id,
+        grocery_list_item_id: row.grocery_list_item_id,
+        recipe_id: row.recipe_id,
+        recipe_title: row.recipe?.title ?? '',
+        recipe_quantity_amount: row.recipe_quantity_amount,
+        recipe_quantity_unit: row.recipe_quantity_unit,
+        created_at: row.created_at,
+      });
+      groups.set(row.grocery_list_item_id, existing);
+    }
+
+    return items.map((item) => ({
+      ...item,
+      recipes: groups.get(item.id) || [],
+    }));
+  } catch (error) {
+    console.error('❌ Error in getItemsWithRecipes:', error);
+    throw error;
+  }
+}
+
 /**
  * Add item to a specific list
  */
@@ -284,13 +492,13 @@ export async function addItemToList(params: AddItemToListParams): Promise<Grocer
     // If item exists, update quantity instead of creating duplicate
     if (existingItem) {
       console.log('📝 Item exists, merging quantities');
-      
+
       const newQuantity = existingItem.quantity_display + params.quantity_display;
-      
+
       // Combine notes if both exist
       let combinedNotes = existingItem.notes || '';
       if (params.notes) {
-        combinedNotes = combinedNotes 
+        combinedNotes = combinedNotes
           ? `${combinedNotes}\n${params.notes}`
           : params.notes;
       }
@@ -317,11 +525,23 @@ export async function addItemToList(params: AddItemToListParams): Promise<Grocer
         throw updateError;
       }
 
+      // Phase 8C-CP2a: junction-row write on merge. Additive on conflict so
+      // re-adding the same recipe to the same item sums per-recipe quantities.
+      if (params.recipeId) {
+        await upsertItemRecipeAttribution(
+          existingItem.id,
+          params.recipeId,
+          params.recipeQuantityAmount ?? params.quantity_display,
+          params.recipeQuantityUnit ?? params.unit_display
+        );
+      }
+
       console.log(`✅ Merged quantities: ${existingItem.quantity_display} + ${params.quantity_display} = ${newQuantity}`);
       return updatedItem as unknown as GroceryListItemWithIngredient;
     }
 
-    // Item doesn't exist, create new one
+    // Item doesn't exist, create new one. Phase 8C-CP2a: do NOT pass legacy
+    // recipe_id — junction is the source of truth for new attributions.
     const { data, error } = await supabase
       .from('grocery_list_items')
       .insert({
@@ -346,6 +566,16 @@ export async function addItemToList(params: AddItemToListParams): Promise<Grocer
     if (error) {
       console.error('❌ Error adding item:', error);
       throw error;
+    }
+
+    // Phase 8C-CP2a: junction-row write on insert.
+    if (params.recipeId && data) {
+      await upsertItemRecipeAttribution(
+        (data as { id: string }).id,
+        params.recipeId,
+        params.recipeQuantityAmount ?? params.quantity_display,
+        params.recipeQuantityUnit ?? params.unit_display
+      );
     }
 
     console.log('✅ Item added to list');

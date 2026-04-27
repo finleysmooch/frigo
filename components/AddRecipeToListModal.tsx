@@ -23,8 +23,8 @@ import {
   getUserGroceryLists,
   createGroceryList,
   addItemToList,
-  GroceryList,
 } from '../lib/groceryListsService';
+import { GroceryList } from '../lib/types/grocery';
 
 interface Ingredient {
   id: string;
@@ -144,12 +144,17 @@ export default function AddRecipeToListModal({
           
           const unit = ingredient.quantity_unit || 'unit';
 
+          // Phase 8C-CP2a: junction-table attribution replaces the legacy
+          // free-text "From: ..." note. recipeId + per-recipe quantities are
+          // written into grocery_list_item_recipes by addItemToList.
           await addItemToList({
             list_id: selectedListId,
             ingredient_id: ingredient.id,
             quantity_display: scaledQty,
             unit_display: unit,
-            notes: `From: ${recipe.title}${scale !== 1 ? ` (${scale}x)` : ''}`,
+            recipeId: recipe.id,
+            recipeQuantityAmount: scaledQty,
+            recipeQuantityUnit: unit,
           });
           
           addedCount++;

@@ -2,6 +2,125 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-27 — Phase 8C-CP2a — Recipe attribution junction table + service rewrite
+
+**Phase:** 8C-CP2a (data-layer prerequisite for 8C-CP3 — replaces single-`recipe_id`-per-item with a many-to-many junction table preserving per-recipe quantities)
+**Prompt from:** `docs/CC_START_PROMPT.md` (Phase 8C-CP2a, DRAFT v1, authored 2026-04-27)
+**Status:** ⚠️ Partial — code complete + TypeScript clean; migration applied + Q1-Q4 all passed mid-session; smoke-test Paths A-E (interactive recipe-add flows + cascade verification) deferred to Tom.
+
+**Scope:** Built the junction-table data model that 8C-CP3 will read for recipe pills + filter UI. New `grocery_list_item_recipes` table (with PK, FKs to `grocery_list_items` and `recipes` both `ON DELETE CASCADE`, unique `(grocery_list_item_id, recipe_id)`, RLS policies for select/insert/update/delete keyed via parent item ownership, 2 indexes on item_id + recipe_id). Backfilled the 18 legacy `grocery_list_items.recipe_id IS NOT NULL` rows into the junction with quantity_display + unit_display copied as best-effort per-recipe quantity (no per-recipe data exists in legacy). Service rewrite: `addItemToList` widened to accept optional `recipeId` + per-recipe quantity, writes a junction row on both insert and merge paths via a new private `upsertItemRecipeAttribution` helper; new public `getRecipesForItem(itemId)` and `getItemsWithRecipes(listId)` functions return junction-joined recipe titles. `AddRecipeToListModal.handleAddToList` now passes `recipeId` + per-recipe quantity through and drops the legacy `notes: "From: {recipe.title}"` free-text attribution. Legacy `grocery_list_items.recipe_id` column kept in place (not dropped) for backward-compat per spec.
+
+**Files modified (4 code + 2 docs + 1 new migration):**
+
+- `supabase/migrations/20260427_8c_cp2a_grocery_list_item_recipes.sql` — new file, applied to Supabase mid-session by Tom; Q1-Q4 verified clean (junction table exists with 6 columns, 18 backfilled rows, RLS enabled, spot-check confirms `legacy_recipe_id == junction_recipe_id` and `quantity_display == recipe_quantity_amount`).
+- `lib/types/grocery.ts` — added `GroceryListItemRecipe` interface; extended `GroceryListItemWithIngredient` with optional `recipes?: GroceryListItemRecipe[]` field; **fixed `added_from` enum bug** in both `GroceryListItem.added_from` (`'template'` → `'regular'`) and `AddedFrom` type alias (out-of-band #1 — single-line correction inline as authorized by prompt). ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — widened `AddItemToListParams` with optional `recipeId`/`recipeQuantityAmount`/`recipeQuantityUnit` (camelCase per CP1a precedent); rewrote `addItemToList` to call new private `upsertItemRecipeAttribution` helper on both insert and merge paths; added private helper using read-then-write on unique-violation (out-of-band #2 — PostgREST doesn't expose `ON CONFLICT ... DO UPDATE SET col = col + EXCLUDED.col` additive math via supabase-js builder, so detecting `code='23505'` and falling through to fetch+sum+update is the cleanest path); added `getRecipesForItem(itemId)` and `getItemsWithRecipes(listId)` public functions, the latter using a single batched `IN (item_ids)` junction query reduced client-side to avoid N+1. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/AddRecipeToListModal.tsx` — `handleAddToList` updated to pass `recipeId: recipe.id`, `recipeQuantityAmount: scaledQty`, `recipeQuantityUnit: unit`; `notes: "From: ..."` line dropped. Comment added explaining the junction replacement. Not in PK snapshot tables.
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: appended 8C-CP2a notes to 2 rows.
+- `docs/SESSION_LOG.md` — this entry.
+
+**Verification:**
+1. ✅ Migration applied cleanly mid-session (Tom-confirmed): Q1 6 columns, Q2 18 backfilled rows, Q3 RLS enabled, Q4 spot-check matches.
+2. ✅ `npx tsc --noEmit --skipLibCheck` — only the 2 pre-existing baseline errors (`CookSoonSection.tsx:264`, `DayMealsModal.tsx:296`). Zero new errors.
+3-A through 3-E. ⚠️ Smoke-test Paths A-E deferred to Tom — require interactive recipe-add flows + Supabase Dashboard verification of junction rows + cascade-delete verification. Critical paths:
+   - **A — single-recipe add:** RecipeDetail → "Add to grocery list" → modal → Add. Verify junction rows for the recipe; item rows have `recipe_id = NULL` (new behavior).
+   - **B — multi-recipe overlap:** Add Recipe A then Recipe B (sharing an ingredient). Overlapping ingredient should have TWO junction rows; item `quantity_display` is merged sum.
+   - **C — re-add same recipe:** Add Recipe A's ingredients twice. ONE junction row per (item, recipe), `recipe_quantity_amount` doubled (additive ON CONFLICT via the read-then-write helper).
+   - **D — `getRecipesForItem` shape:** confirm `recipe_title` populated.
+   - **E — recipe deletion cascades:** DELETE a test recipe → its junction rows removed automatically.
+
+**Decisions made during execution:** None. All design calls (junction-table-vs-array, legacy-column-keep, additive-on-conflict semantics) were spec-time decisions. No new decision IDs assigned.
+
+**Open questions deferred:**
+
+- **`addIngredientsToDefaultList` doesn't pass `recipeId` through** (Out-of-band #5 finding). The function signature already accepts a `recipeId` parameter (line 491 of service), but doesn't forward it to its inner `addItemToList` call (line 883). Recipe-from-default-flow ingredients won't get junction attribution. CP2a's prompt explicitly scoped the modal update only; this is a small follow-up — flag for inclusion in a future CP or fold into 8C-CP3's wiring.
+- Legacy `grocery_list_items.recipe_id` column stays in place per spec; eventual cleanup is a future CP once junction has been the source of truth long enough that backfill is irrelevant.
+- Legacy `notes: "From: ..."` free-text values on existing rows are not migrated (spec call); they remain as legacy artifacts, unread by the new junction-aware code paths.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Out-of-band #1 — `added_from` enum bug fixed inline.** Was `'template'`, actual DB CHECK constraint is `'regular'`. Fixed in both `GroceryListItem.added_from` (line 50) and `AddedFrom` type alias (line 153). No callers in code currently use the `'template'` literal value (verified via grep — only doc references in `CC_START_PROMPT.md` remain). Single-line correction per prompt Part 3.
+2. **Out-of-band #2 — PostgREST doesn't expose additive `ON CONFLICT DO UPDATE` via supabase-js.** The natural SQL pattern (`INSERT ... ON CONFLICT (a, b) DO UPDATE SET col = grocery_list_item_recipes.col + EXCLUDED.col`) can't be cleanly expressed through the supabase-js builder — `.upsert()` does whole-row replacement, not column-arithmetic merge. Implemented a read-then-write fallback in the new private `upsertItemRecipeAttribution` helper: try insert, on `code='23505'` (unique_violation) fetch existing row, compute sum, update. Two round-trips on conflict, one on first-add — acceptable for the typical recipe-add flow (per-modal action, not a hot loop). If volume grows, candidate for a Postgres function called via RPC.
+3. **Out-of-band #3 — `recipes(title)` join works fine.** No PostgREST RLS or join surprise; the inline `recipe:recipes (title)` projection in both `getRecipesForItem` and `getItemsWithRecipes` returns the joined title cleanly.
+4. **Out-of-band #4 — cascade-delete behavior unverified by terminal observation.** Spec'd via `ON DELETE CASCADE` on both FKs at table-creation time; should work, but Tom's Path E during smoke test is the real proof.
+5. **Out-of-band #5 — `addIngredientsToDefaultList` is the one extra `addItemToList` caller.** Captured in Open Questions above. The service-internal call site doesn't currently forward its `recipeId` parameter to `addItemToList`. `AddGroceryItemModal.tsx:159` is the only other external caller and is the manual-add path with no recipe context — no update needed.
+6. **Smoke test deferred to Tom.** Five interactive paths (A-E) require multi-recipe setup + Supabase Dashboard verification.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **consider** — file the `addIngredientsToDefaultList` recipeId-pass-through as a small follow-up. Likely lands as an inline fix during 8C-CP3's wiring rather than its own item.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider** — the new `grocery_list_item_recipes` junction table is the first many-to-many relation table in the grocery domain; worth a one-line entry in the schema/data-model section of architecture doc when broader Phase 8 doc updates happen. Out of scope this session per Constraint.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update during doc-hygiene pass** — add CP2a to the build plan + scope summary; capture the `added_from` enum fix; flip 8C-CP3 to "depends on CP2a complete" (already implicitly true). No new D8-* decisions to add.
+
+**Recommended next steps for Tom:**
+
+1. **Smoke-test Paths A-E** from the prompt's Verification section. Watch metro.log for `✅ Junction attributed item to recipe` and `✅ Junction merged: X + Y = Z` log lines as confirmation of the additive-on-conflict path.
+2. **Commit when smoke test passes** (mind `-m` before `--`):
+   ```
+   git commit -m "feat(grocery): Phase 8C-CP2a — recipe attribution junction table + service rewrite" -- supabase/migrations/20260427_8c_cp2a_grocery_list_item_recipes.sql lib/types/grocery.ts lib/groceryListsService.ts components/AddRecipeToListModal.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+3. **Stage `_pk_sync/` copies** for the 2 stale-flagged code files (`lib/types/grocery.ts`, `lib/groceryListsService.ts`).
+4. **Drop snapshot table** after a few days of confidence:
+   ```sql
+   DROP TABLE _grocery_list_items_pre_cp2a_snapshot;
+   ```
+5. **Queue 8C-CP3 design** (UI: Compact/Detailed toggle + recipe pills + filter-by-recipe). Junction data layer is now in place; CP3 can read it via the new `getItemsWithRecipes(listId)` function.
+
+**Next steps:** Smoke-test by Tom, commit, then 8C-CP3 design.
+
+---
+
+## 2026-04-27 — 8C-CP2 doc hygiene — D8-38/39 + P8-18 + 2-of-8 status flip
+
+**Phase:** doc hygiene (mechanical reconcile after 8C-CP2 smoke-test pass + commit `02c9258`)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8C-CP2 doc hygiene, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — all 8 edits landed verbatim with zero find-anchor drift; 7/3 grep counts pass; both `_pk_sync/` diffs clean.
+
+**Scope:** Reconciled `PHASE_8_PANTRY_INTELLIGENCE.md` (5 edits, v2.7 → v2.8) and `DEFERRED_WORK.md` (3 edits, v5.10 → v5.11) to reflect shipped 8C-CP2 state. Phase doc: header bump, 8C-CP2 scope bullet expanded with ✅ Complete + design-redirect rationale + final-UX summary, 8C build-plan row updated to "2 of 8 numbered CPs done; CP3 next", D8-38/D8-39 appended to Decisions Log, v2.8 changelog row prepended capturing the spec redirect + PostgREST quirk note. DEFERRED_WORK: header bump, P8-18 (cross-list auto-dismissal opt-in design pending) appended after P8-17, v5.11 changelog row prepended. Both `_pk_sync/` copies re-staged.
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 5 edits per spec.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` — overwritten to match (same dated suffix as earlier same-day uploads).
+- `docs/DEFERRED_WORK.md` — 3 edits per spec.
+- `_pk_sync/DEFERRED_WORK_2026-04-27.md` — overwritten to match.
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep -c "v2.8\|D8-38\|D8-39\|✅ Complete (2026-04-27)\|2 of 8 numbered CPs" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → **7** (≥5 expected) ✓
+- `grep -c "P8-18\|5.11\|cross-list auto-dismissal" docs/DEFERRED_WORK.md` → **3** (≥3 expected) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` → no output ✓
+- `diff docs/DEFERRED_WORK.md _pk_sync/DEFERRED_WORK_2026-04-27.md` → no output ✓
+
+**Decisions made during execution:** None. All 8 anchors matched verbatim — zero STOPs this session.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.10 → v5.11 with P8-18).
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider (deferred per prompt Constraint)** — `components/CrossListPrompt.tsx` is the second top-floating banner pattern after `components/pantry/CookDepletionBanner.tsx`. The components map could note both as the "post-action top banner" precedent. Prompt explicitly excluded this scope; folding it into a separate cross-cutting CP after Phase 8 completes.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.7 → v2.8 with D8-38/D8-39 + 8C-CP2 ✅ + 2-of-8 build-plan flip).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on the 2 living docs.
+2. **Commit:**
+   ```
+   git commit -m "docs(phase-8): 8C-CP2 doc hygiene — D8-38/39 + P8-18 + 2-of-8 status flip" -- docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/SESSION_LOG.md
+   ```
+   (3 files; `-m` before `--`.)
+3. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` and `_pk_sync/DEFERRED_WORK_2026-04-27.md` to PK** (replacing same-dated copies from earlier today). Clear `_pk_sync/*.md` after.
+4. **Queue 8C-CP3 design** (recipe chips on grocery detail). Phase doc estimates 6-8 sessions for 8C; 2 of 8 numbered CPs done.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Zero anchor drift this session.** All 5 PHASE_8 anchors and all 3 DEFERRED_WORK anchors matched verbatim — no STOPs, no Option A/B authorization needed. Prompt anchors were authored after the CP2 SESSION_LOG entry landed, so the doc states matched the prompt's expectations exactly.
+2. **Three Phase 8C doc-hygiene passes ran on 2026-04-27** (CP1+CP1a → CP1b → CP2). Same-dated PK suffix (`*_2026-04-27.md`) reused across all three; replace-on-upload semantics handle cumulative version bumps cleanly.
+
+---
+
 ## 2026-04-27 — Phase 8C-CP2 — Cross-list checkoff-moment confirmation
 
 **Phase:** 8C-CP2 (cross-list awareness via checkoff-moment confirmation prompt — original spec was passive subtitle + auto-dismiss; redesigned in chat to checkoff-moment prompt only)
