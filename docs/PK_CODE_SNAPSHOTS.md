@@ -73,14 +73,15 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `constants/vibeIcons.ts` | 2026-04-22 | | Low | |
 | `lib/types/cooking.ts` | 2026-04-22 | Phase 6 | Low | StepNote, CookingSession, TimerHistoryEntry, NormalizedStep |
 | `lib/types/feed.ts` | 2026-04-22 | Phase 7I | Low | CookCardData, FeedGroup, LinkContext, MealEventContext |
-| `lib/types/grocery.ts` | 2026-04-22 | Phase 8A-CP1 | HIGH | Grocery list/item/template types; Phase 8A-CP1 added priority_reason / custom_name, ingredient_id nullable |
+| `lib/types/grocery.ts` | 2026-04-22 | Phase 8A-CP1 / 8C-CP1 / 8C-CP1a / 8C-CP2 | HIGH | Grocery list/item/template types; 8A-CP1 added priority_reason / custom_name, ingredient_id nullable; 8C-CP1 added typical_store_section to GroceryListItemWithIngredient.ingredient and now/could_wait/in_cart counts to GroceryListWithCounts; 8C-CP1a added store_name to GroceryList and storeName? to Create/UpdateGroceryListParams (resolves D8-35); 8C-CP2 added CrossListIngredientPresence interface |
 | `lib/types/pantry.ts` | 2026-04-22 | Phase 8A-CP1 | HIGH | PantryItem (+last_confirmed_at/discarded_at/discarded_reason/thaw_planned_for), StorageLocation, IngredientWithPantryData; Phase 8A-CP1 added StapleState + PantryStaple{,Insert,Update} |
 | `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
 | `lib/types/recipeFeatures.ts` | 2026-04-22 | | Low | DB-corrected Book + author types |
 | `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
 | `lib/types/space.ts` | 2026-04-22 | | Low | SpaceRole, SpaceAction, permissions, invitations |
 | `lib/types/store.ts` | 2026-04-22 | | Low | Store, UserIngredientPreference, view modes |
-| `lib/groceryListsService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/cookDepletionService.ts` | 2026-04-23 | Phase 8B-CP4 | HIGH | New — orchestrates cook-post depletion (compute + apply + rollback) across pantry_items + pantry_staples vs recipe_ingredients. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/groceryListsService.ts` | 2026-04-22 | Phase 8C-CP1 / 8C-CP1a / 8C-CP2 | HIGH | 8C-CP1 deleted inline GroceryList/GroceryListItem types in favor of canonical lib/types/grocery; widened getItemsForList SELECT (typical_store_section etc.); widened updateListItem signature (priority/priority_reason/brand/size/custom_name); added getUserGroceryListsWithCounts (single batched query with tier counts). 8C-CP1a renamed local CreateGroceryListParams.store_name → storeName (DB column stays snake_case). 8C-CP2 added getOtherListsContainingIngredient and deleteItemsByIngredientFromLists for cross-list checkoff prompt. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/groceryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/pantryService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/pantryStaplesService.ts` | 2026-04-23 | Phase 8B-CP1 / 8B-CP3 / 8B-CP3a | HIGH | Staples CRUD + state cycling; 8B-CP3 added `searchIngredientsForStapleAdd`; 8B-CP3a added case-insensitive + cross-boundary dedup via `throwIfDisplayNameTaken` helper. ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
@@ -103,15 +104,15 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/ChefDetailScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
 | `screens/CommentsScreen.tsx` | 2026-04-22 | Phase 7N | Low | P7-85 keyboard avoidance |
 | `screens/CookDetailScreen.tsx` | 2026-04-22 | Phase 7M / 7N | Low | Overflow collapsed 6→2; 7N polish |
-| `screens/CookingScreen.tsx` | 2026-04-22 | Phase 6 / 7B-Rev | Low | |
+| `screens/CookingScreen.tsx` | 2026-04-22 | Phase 6 / 7B-Rev / 8B-CP4 | HIGH | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path |
 | `screens/CookSoonScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/DrillDownScreen.tsx` | 2026-04-22 | Phase 4 | Low | |
 | `screens/EditMediaScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/EditPostScreen.tsx` | 2026-04-22 | Phase 7M | Low | NEW ~1,178 lines |
 | `screens/EditProfileScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/FeedScreen.tsx` | 2026-04-22 | Phase 7I CP4 / 7G / 7M FP1 | HIGH | cook-post-centric rewrite |
-| `screens/GroceryListDetailScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/GroceryListsScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/GroceryListDetailScreen.tsx` | 2026-04-22 | Phase 8C-CP1 / 8C-CP2 | HIGH | 8C-CP1 restructured around 3 tiers (Now / Could wait / In cart) with aisle sub-headers; long-press → tier-move Alert picker; renders new presentational GroceryListItem component. 8C-CP2 added cross-list checkoff prompt state + handleToggleItem cross-list query on check-on + Keep/Remove handlers + CrossListPrompt sibling render |
+| `screens/GroceryListsScreen.tsx` | 2026-04-22 | Phase 8C-CP1 / 8C-CP1a | HIGH | 8C-CP1 switched to getUserGroceryListsWithCounts, replaced item-count summary with tier summary line and red "N now" badge. 8C-CP1a removed D8-35 local store_name extension (now on canonical type), added useFocusEffect → loadLists() so tier counts refresh on focus return, renamed createGroceryList caller arg store_name → storeName |
 | `screens/LoginScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/MealDetailScreen.tsx` | 2026-04-22 | | Low | Deprecated-but-extant; P7-100 |
 | `screens/MealEventDetailScreen.tsx` | 2026-04-22 | Phase 7I CP6 | Low | L7 detail screen |
@@ -122,7 +123,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/PantryScreen.tsx` | 2026-04-22 | Phase 8B-CP2 / 8B-CP3 / 8B-CP3a | HIGH | StaplesGrid inserted above Expiring Soon; onRefresh extended with staples reload trigger; 8B-CP3 removed obsolete onSeeAllTap/onAddNewTap props; 8B-CP3a added `useFocusEffect` to auto-refresh staples on screen focus |
 | `screens/PendingApprovalsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/ProfileScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/RecipeDetailScreen.tsx` | 2026-04-22 | Phase 7B-Rev / 7J | Low | |
+| `screens/RecipeDetailScreen.tsx` | 2026-04-22 | Phase 7B-Rev / 7J / 8B-CP4 | HIGH | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path |
 | `screens/RecipeExtractionLoadingScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/RecipeListScreen.tsx` | 2026-04-22 | Phase 3A | Low | |
 | `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | Low | |
@@ -165,9 +166,10 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
-| `App.tsx` | 2026-04-22 | Phase 7M / 7H / 7I CP5/CP6 / 8B-CP3 | HIGH | FeedStack + StatsStack route registrations; 8B-CP3 added ManageStaples route + PantryStackParamList entry |
+| `App.tsx` | 2026-04-22 | Phase 7M / 7H / 7I CP5/CP6 / 8B-CP3 / 8B-CP4 | HIGH | FeedStack + StatsStack route registrations; 8B-CP3 added ManageStaples route + PantryStackParamList entry; 8B-CP4 added CookDepletionBannerProvider + global CookDepletionBanner render |
 | `contexts/CookingTimerContext.tsx` | 2026-04-22 | Phase 6 | Low | |
 | `contexts/LogoConfigContext.tsx` | 2026-04-22 | | Low | |
+| `contexts/CookDepletionBannerContext.tsx` | 2026-04-23 | Phase 8B-CP4 | HIGH | New — singleton provider for the post-cook banner state (plan + show/dismiss). |
 | `contexts/SpaceContext.tsx` | 2026-04-22 | | Low | |
 | `components/cooking/StepIngredients.tsx` | 2026-04-22 | Phase 6 | Low | Two-column ingredient list per step |
 | `components/cooking/StepNoteInput.tsx` | 2026-04-22 | Phase 7B-Rev | Low | Inline note input |
@@ -198,8 +200,10 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `components/TypeHeader.tsx` | 2026-04-22 | | Low | Collapsible ingredient type header |
 | `components/PantryItemRow.tsx` | 2026-04-22 | | Low | Single-line pantry row with stock badges |
 | `components/PostActionMenu.tsx` | 2026-04-22 | | Low | Legacy; P7-102 |
-| `components/GroceryListItem.tsx` | 2026-04-22 | | Low | Single-line grocery item with cart toggle |
+| `components/GroceryListItem.tsx` | 2026-04-22 | Phase 8C-CP1 | HIGH | 8C-CP1 wholesale rewrite: now a presentational tier-aware row, props-driven, no service imports, long-press triggers onMoveTier, renders priority_reason subtitle |
 | `components/ParticipantsListModal.tsx` | 2026-04-22 | | Low | All cooking participants listing (Strava-style) |
+| `components/pantry/CookDepletionBanner.tsx` | 2026-04-23 | Phase 8B-CP4 | HIGH | New — absolute-positioned banner with Review/Undo/✕ + 5s auto-dismiss. |
+| `components/pantry/CookDepletionReviewModal.tsx` | 2026-04-23 | Phase 8B-CP4 | HIGH | New — review modal with per-row checkboxes for selective rollback. |
 
 **Tier 3 calibration (v1.1, 2026-04-22):** the 35-file Tier 3 set was calibrated against the full 221-file codebase inventory (`_claudeai_context/tier_inventory_2026-04-22.md`, ephemeral). Files included are those Claude.ai reaches for during planning/design/cross-cutting sessions: shared display primitives (UserAvatar, RecipeNutritionPanel, DietaryBadgeRow, MarkupText, StarRating), complex modal UX references (NutritionGoalsModal, CreateMealModal, FilterDrawer), meal/social surfaces (MealInvitationsCard, MealPlanSection, MealCalendarView, MealPicker, InSheetMealCreate, MadeOtherDishesSheet), pantry UI primitives (CategoryHeader, TypeHeader, PantryItemRow), and framework files (App.tsx, contexts/). Modals and pickers focused on implementation (all `Add*Modal`, `Edit*Modal`, picker files, inline editors) are Tier 4 — CC reads on demand. Revisit the Tier 3 list at the Phase 9 boundary: drop any files Claude.ai hasn't consulted in 4–6 weeks, add any Tier 4 files that have become frequently consulted. Changes via deliberate edit per the "Tier assignment" section.
 

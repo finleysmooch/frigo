@@ -16,6 +16,7 @@ export interface GroceryList {
   is_active: boolean;
   is_template: boolean;
   sort_order: number;
+  store_name: string | null;   // Phase 8C-CP1a — optional store association (e.g., "Costco")
   created_at: string;
   updated_at: string;
 }
@@ -24,10 +25,15 @@ export type GroceryListInsert = Omit<GroceryList, 'id' | 'created_at' | 'updated
 export type GroceryListUpdate = Partial<Omit<GroceryListInsert, 'user_id'>>;
 
 // Extended type with item counts
+// Phase 8C-CP1: tier counts added so the lists screen can show
+// "{now} now · {could_wait} could wait · {in_cart} in cart" without N+1 queries.
 export interface GroceryListWithCounts extends GroceryList {
   total_items: number;
   checked_items: number;
   unchecked_items: number;
+  now_count: number;
+  could_wait_count: number;
+  in_cart_count: number;
 }
 
 // ============================================
@@ -72,7 +78,16 @@ export interface GroceryListItemWithIngredient extends GroceryListItem {
     family: string;
     ingredient_type: string | null;
     typical_unit: string | null;
+    typical_store_section: string | null;
   } | null;
+}
+
+// Phase 8C-CP2: cross-list ingredient overlap result
+// Returned by getOtherListsContainingIngredient — names the other active lists
+// that still have this ingredient as a not-yet-in-cart entry.
+export interface CrossListIngredientPresence {
+  list_id: string;
+  list_name: string;
 }
 
 // Extended type with list and ingredient details
@@ -165,6 +180,7 @@ export interface CreateGroceryListParams {
   isActive?: boolean;
   isTemplate?: boolean;
   sortOrder?: number;
+  storeName?: string;   // Phase 8C-CP1a
 }
 
 // Update a grocery list
@@ -174,6 +190,7 @@ export interface UpdateGroceryListParams {
   isActive?: boolean;
   isTemplate?: boolean;
   sortOrder?: number;
+  storeName?: string;   // Phase 8C-CP1a
 }
 
 // Add item to a grocery list

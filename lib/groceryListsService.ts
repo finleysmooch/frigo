@@ -5,40 +5,21 @@
 // Location: lib/groceryListsService.ts
 
 import { supabase } from './supabase';
+import {
+  GroceryList,
+  GroceryListItemWithIngredient,
+  GroceryListWithCounts,
+  CrossListIngredientPresence,
+} from './types/grocery';
 
 // ============================================
 // TYPES
 // ============================================
 
-export interface GroceryList {
-  id: string;
-  user_id: string;
-  name: string;
-  store_name?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface GroceryListItem {
-  id: string;
-  list_id: string;
-  ingredient_id: string;
-  quantity_display: number;
-  unit_display: string;
-  is_in_cart: boolean;
-  notes?: string;
-  created_at: string;
-  ingredient?: {
-    id: string;
-    name: string;
-    family: string;
-  };
-}
-
 export interface CreateGroceryListParams {
   user_id: string;
   name: string;
-  store_name?: string;
+  storeName?: string;   // Phase 8C-CP1a — was snake_case `store_name`; renamed to align with canonical params shape (DB column stays snake_case)
 }
 
 export interface AddItemToListParams {
@@ -72,9 +53,89 @@ export async function getUserGroceryLists(userId: string): Promise<GroceryList[]
     }
 
     console.log(`✅ Found ${data?.length || 0} lists`);
-    return data || [];
+    return (data as unknown as GroceryList[]) || [];
   } catch (error) {
     console.error('❌ Error in getUserGroceryLists:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all grocery lists for a user with item counts broken down by tier.
+ * Phase 8C-CP1: single grouped item-query, derived client-side, to avoid N+1.
+ */
+export async function getUserGroceryListsWithCounts(
+  userId: string
+): Promise<GroceryListWithCounts[]> {
+  try {
+    const lists = await getUserGroceryLists(userId);
+
+    if (lists.length === 0) {
+      return [];
+    }
+
+    const listIds = lists.map((l) => l.id);
+
+    const { data: itemRows, error } = await supabase
+      .from('grocery_list_items')
+      .select('list_id, priority, is_in_cart')
+      .in('list_id', listIds);
+
+    if (error) {
+      console.error('❌ Error getting items for tier counts:', error);
+      throw error;
+    }
+
+    type Counts = {
+      total_items: number;
+      checked_items: number;
+      unchecked_items: number;
+      now_count: number;
+      could_wait_count: number;
+      in_cart_count: number;
+    };
+
+    const emptyCounts = (): Counts => ({
+      total_items: 0,
+      checked_items: 0,
+      unchecked_items: 0,
+      now_count: 0,
+      could_wait_count: 0,
+      in_cart_count: 0,
+    });
+
+    const countsByList = new Map<string, Counts>();
+    for (const id of listIds) {
+      countsByList.set(id, emptyCounts());
+    }
+
+    for (const row of (itemRows as Array<{
+      list_id: string;
+      priority: 'needed' | 'nice_to_have' | null;
+      is_in_cart: boolean;
+    }> | null) || []) {
+      const c = countsByList.get(row.list_id);
+      if (!c) continue;
+      c.total_items += 1;
+      if (row.is_in_cart) {
+        c.checked_items += 1;
+        c.in_cart_count += 1;
+      } else {
+        c.unchecked_items += 1;
+        if (row.priority === 'nice_to_have') {
+          c.could_wait_count += 1;
+        } else {
+          c.now_count += 1;
+        }
+      }
+    }
+
+    return lists.map((list) => ({
+      ...list,
+      ...(countsByList.get(list.id) ?? emptyCounts()),
+    }));
+  } catch (error) {
+    console.error('❌ Error in getUserGroceryListsWithCounts:', error);
     throw error;
   }
 }
@@ -91,7 +152,7 @@ export async function createGroceryList(params: CreateGroceryListParams): Promis
       .insert({
         user_id: params.user_id,
         name: params.name,
-        store_name: params.store_name,
+        store_name: params.storeName,
       })
       .select()
       .single();
@@ -102,7 +163,7 @@ export async function createGroceryList(params: CreateGroceryListParams): Promis
     }
 
     console.log('✅ Grocery list created');
-    return data;
+    return data as unknown as GroceryList;
   } catch (error) {
     console.error('❌ Error in createGroceryList:', error);
     throw error;
@@ -147,7 +208,7 @@ export async function deleteGroceryList(listId: string): Promise<void> {
 /**
  * Get all items for a specific list
  */
-export async function getItemsForList(listId: string): Promise<GroceryListItem[]> {
+export async function getItemsForList(listId: string): Promise<GroceryListItemWithIngredient[]> {
   try {
     console.log('📦 Getting items for list:', listId);
 
@@ -158,7 +219,11 @@ export async function getItemsForList(listId: string): Promise<GroceryListItem[]
         ingredient:ingredients (
           id,
           name,
-          family
+          plural_name,
+          family,
+          ingredient_type,
+          typical_unit,
+          typical_store_section
         )
       `)
       .eq('list_id', listId)
@@ -170,7 +235,7 @@ export async function getItemsForList(listId: string): Promise<GroceryListItem[]
     }
 
     console.log(`✅ Found ${data?.length || 0} items`);
-    return data || [];
+    return (data as unknown as GroceryListItemWithIngredient[]) || [];
   } catch (error) {
     console.error('❌ Error in getItemsForList:', error);
     throw error;
@@ -180,7 +245,7 @@ export async function getItemsForList(listId: string): Promise<GroceryListItem[]
 /**
  * Add item to a specific list
  */
-export async function addItemToList(params: AddItemToListParams): Promise<GroceryListItem> {
+export async function addItemToList(params: AddItemToListParams): Promise<GroceryListItemWithIngredient> {
   try {
     console.log('➕ Adding item to list:', params.list_id);
 
@@ -253,7 +318,7 @@ export async function addItemToList(params: AddItemToListParams): Promise<Grocer
       }
 
       console.log(`✅ Merged quantities: ${existingItem.quantity_display} + ${params.quantity_display} = ${newQuantity}`);
-      return updatedItem;
+      return updatedItem as unknown as GroceryListItemWithIngredient;
     }
 
     // Item doesn't exist, create new one
@@ -284,7 +349,7 @@ export async function addItemToList(params: AddItemToListParams): Promise<Grocer
     }
 
     console.log('✅ Item added to list');
-    return data;
+    return data as unknown as GroceryListItemWithIngredient;
   } catch (error) {
     console.error('❌ Error in addItemToList:', error);
     throw error;
@@ -343,12 +408,17 @@ export async function deleteItemFromList(itemId: string): Promise<void> {
  * Update item in list (for quantity, notes, etc.)
  */
 export async function updateListItem(
-  itemId: string, 
+  itemId: string,
   updates: {
     quantity_display?: number;
     unit_display?: string;
     notes?: string;
     is_in_cart?: boolean;
+    priority?: 'needed' | 'nice_to_have';
+    priority_reason?: string | null;
+    brand_preference?: string | null;
+    size_preference?: string | null;
+    custom_name?: string | null;
   }
 ): Promise<void> {
   try {
@@ -376,6 +446,145 @@ export async function updateListItem(
  */
 export async function deleteListItem(itemId: string): Promise<void> {
   return deleteItemFromList(itemId);
+}
+
+/**
+ * Phase 8C-CP2 — find other active lists owned by the same user that contain
+ * the given ingredient as a not-yet-in-cart entry. Used by the checkoff-moment
+ * cross-list prompt: when an item is checked, surface which other lists still
+ * have it pending so the user can decide whether to keep or remove.
+ */
+export async function getOtherListsContainingIngredient(
+  ingredientId: string,
+  currentListId: string,
+  userId: string
+): Promise<CrossListIngredientPresence[]> {
+  try {
+    const { data, error } = await supabase
+      .from('grocery_list_items')
+      .select(`
+        list_id,
+        is_in_cart,
+        list:grocery_lists!inner (
+          id,
+          name,
+          user_id,
+          is_active
+        )
+      `)
+      .eq('ingredient_id', ingredientId)
+      .eq('is_in_cart', false)
+      .neq('list_id', currentListId);
+
+    if (error) {
+      console.error('❌ Error querying cross-list overlap:', error);
+      throw error;
+    }
+
+    type Row = {
+      list_id: string;
+      is_in_cart: boolean;
+      list: {
+        id: string;
+        name: string;
+        user_id: string;
+        is_active: boolean;
+      } | null;
+    };
+
+    const rows = (data as unknown as Row[]) || [];
+
+    // Filter to active lists owned by this user (the !inner join is mandatory
+    // but the eq filters on the joined table aren't directly expressible in
+    // PostgREST, so apply them client-side).
+    const filtered = rows.filter(
+      (r) => r.list && r.list.user_id === userId && r.list.is_active
+    );
+
+    // Deduplicate by list_id — an ingredient can appear on the same list
+    // multiple times (e.g., via different recipe annotations).
+    const seen = new Set<string>();
+    const result: CrossListIngredientPresence[] = [];
+    for (const r of filtered) {
+      if (!r.list || seen.has(r.list_id)) continue;
+      seen.add(r.list_id);
+      result.push({ list_id: r.list_id, list_name: r.list.name });
+    }
+
+    if (result.length === 0) {
+      console.log('🔍 No cross-list overlap');
+    } else {
+      console.log(`🔍 Cross-list overlap: ${result.length} other list(s)`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('❌ Error in getOtherListsContainingIngredient:', error);
+    throw error;
+  }
+}
+
+/**
+ * Phase 8C-CP2 — bulk-delete pending entries of a given ingredient from a set
+ * of other lists. Defensive filters: only deletes rows still pending
+ * (`is_in_cart = false`) and only on lists owned by the requesting user.
+ * Returns the count of deleted rows.
+ */
+export async function deleteItemsByIngredientFromLists(
+  ingredientId: string,
+  listIds: string[],
+  userId: string
+): Promise<number> {
+  if (listIds.length === 0) return 0;
+
+  try {
+    // First fetch the matching item ids so we can return a count and confirm
+    // user ownership via the list join (defensive — RLS should already enforce).
+    const { data: rows, error: fetchError } = await supabase
+      .from('grocery_list_items')
+      .select(`
+        id,
+        list:grocery_lists!inner (
+          id,
+          user_id
+        )
+      `)
+      .eq('ingredient_id', ingredientId)
+      .eq('is_in_cart', false)
+      .in('list_id', listIds);
+
+    if (fetchError) {
+      console.error('❌ Error fetching items for cross-list delete:', fetchError);
+      throw fetchError;
+    }
+
+    type Row = { id: string; list: { id: string; user_id: string } | null };
+    const owned = ((rows as unknown as Row[]) || []).filter(
+      (r) => r.list && r.list.user_id === userId
+    );
+
+    if (owned.length === 0) {
+      console.log('🗑️ Cross-list delete: nothing to remove');
+      return 0;
+    }
+
+    const ids = owned.map((r) => r.id);
+    const { error: deleteError } = await supabase
+      .from('grocery_list_items')
+      .delete()
+      .in('id', ids);
+
+    if (deleteError) {
+      console.error('❌ Error deleting cross-list items:', deleteError);
+      throw deleteError;
+    }
+
+    console.log(`🗑️ Cross-list delete: removed ${ids.length} item(s)`);
+    return ids.length;
+  } catch (error) {
+    console.error('❌ Error in deleteItemsByIngredientFromLists:', error);
+    throw error;
+  }
 }
 
 /**

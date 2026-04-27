@@ -2,6 +2,497 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-27 — Phase 8C-CP2 — Cross-list checkoff-moment confirmation
+
+**Phase:** 8C-CP2 (cross-list awareness via checkoff-moment confirmation prompt — original spec was passive subtitle + auto-dismiss; redesigned in chat to checkoff-moment prompt only)
+**Prompt from:** `docs/DRAFT_CC_PROMPT_8C-CP2_cross_list_prompt.md` (DRAFT v1, authored 2026-04-27)
+**Status:** ⚠️ Partial — code complete + TypeScript clean; smoke test (Verification Path A-F) deferred to Tom (requires interactive shopping flow + multi-list overlap setup that this session can't drive).
+
+**Scope:** Added cross-list checkoff prompt: when an item with an `ingredient_id` is checked on (false → true) on a grocery list, the system queries other active lists owned by the same user that still have the same ingredient pending; if any are found, a top-floating prompt appears with `[Keep] [Remove]` buttons + 5s auto-dismiss to Keep. Tap Remove deletes the matching pending entries from those other lists; Keep is a no-op confirmation. Custom items (`ingredient_id IS NULL`) skipped. Un-check transitions never fire the prompt. Architecture mirrors 8B-CP4's CookDepletionBanner pattern (top-floating absolute-positioned banner with SafeAreaView edges + auto-dismiss timer) but is a distinct component with different content + lifetime — no shared imports or subclassing.
+
+**Files modified (4 code + 1 doc):**
+
+- `lib/types/grocery.ts` — added `CrossListIngredientPresence` interface (`{ list_id: string; list_name: string }`). Per Out-of-band #1: added to canonical types (preferred over inline `Array<{...}>` typing per the prompt's "CC's call" guidance — typed-return is cleaner and the type is reusable for future cross-list queries). ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — added two new exported functions: `getOtherListsContainingIngredient(ingredientId, currentListId, userId)` returns `Promise<CrossListIngredientPresence[]>` filtered to active user-owned lists with `is_in_cart=false` and deduplicated by `list_id`; `deleteItemsByIngredientFromLists(ingredientId, listIds, userId)` does a defensive two-step (fetch ids with user-ownership join check, then bulk-delete by id) and returns the count. Per Out-of-band #2: implemented the helper rather than looping `deleteListItem` from the screen — keeps deletion logic in the service layer per the "services handle ALL Supabase calls" constraint. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/CrossListPrompt.tsx` — **new file**. Top-floating banner; SafeAreaView with `edges={['top']}`; absolute position with `zIndex/elevation: 1000`; `marginTop: 64` for header clearance (mirrors CookDepletionBanner). Title row with ✓ icon + "{itemName} checked off"; subtitle line "Also on your **{listsLabel}** — keep it there?"; action row with Remove (outlined, secondary) + Keep (filled, primary) buttons. List name formatting: 1 list → name; 2 lists → "A, B"; 3+ lists → "A, B + N more". 5s auto-dismiss via `useEffect` with `useRef` timer cleanup. `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"` on the bar; min 44pt tap targets on both buttons.
+- `screens/GroceryListDetailScreen.tsx` — imports widened (`getOtherListsContainingIngredient`, `deleteItemsByIngredientFromLists`, `CrossListIngredientPresence`, `CrossListPrompt` component). New `crossListPromptState` state. `handleToggleItem` modified: captures pre-toggle item from `items.find(...)`, performs the toggle + reload as before, then on a check-on transition with `ingredient_id` non-null queries the service and sets prompt state if results are non-empty. New `handleCrossListKeep` / `handleCrossListRemove` handlers. Prompt rendered as a sibling of the ScrollView at the end of the screen JSX. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: appended 8C-CP2 notes to 3 existing rows.
+
+**Verification:**
+1. ✅ `npx tsc --noEmit --skipLibCheck` — only the 2 pre-existing baseline errors (`CookSoonSection.tsx:264`, `DayMealsModal.tsx:296`). Zero new errors.
+2-3, A-F. ⚠️ Smoke test deferred to Tom — requires interactive multi-list setup with manual overlap creation. Critical paths to verify:
+   - **A (no overlap):** check item with no other-list match → no prompt, silent toggle.
+   - **B (overlap, Keep / auto-dismiss):** add olive oil to 2 active lists, check on list 1 → prompt with list 2 → wait 5s → auto-dismiss → list 2 still has olive oil.
+   - **C (overlap, Remove):** same setup, tap Remove → list 2 olive oil removed.
+   - **D (overlap, mixed `is_in_cart`):** olive oil on lists A/B/C; check on B; on A manually check (in cart); check on C → prompt should show only B (A filtered out).
+   - **E (custom item):** check custom item with `ingredient_id=null` → no prompt.
+   - **F (un-check):** check then un-check → un-check never fires the prompt.
+
+**Decisions made during execution:**
+
+- **D8-38 (added `CrossListIngredientPresence` to canonical types).** Per Part 1c "CC's call" — went with canonical type addition rather than inline `Array<{...}>` typing on the function signature. Reasoning: the type is reusable (future cross-list queries can return the same shape), the canonical types file is the established home for grocery shapes, and importing a named type at call sites is more grep-friendly than inline structural types.
+- **D8-39 (added `deleteItemsByIngredientFromLists` helper).** Per Part 1b "CC's call" — implemented the helper rather than looping `deleteListItem` from the screen. Reasoning: keeps Supabase calls in the service layer per the project-wide "services handle ALL Supabase calls" constraint, and the two-step (fetch with user-ownership join, then bulk-delete by id) is non-trivial enough to warrant encapsulation.
+
+**Open questions deferred:**
+
+- The existing `toggleItemInCart(itemId, isInCart)` service signature accepts the new state explicitly, so no service-shape concern fired (Out-of-band #5 was a non-issue).
+- `bakery` vs `baking` aisle distinction (flagged in 8C-CP1b SESSION_LOG) doesn't affect this CP — cross-list query is keyed on `ingredient_id`, not aisle.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Out-of-band #1 (`CrossListIngredientPresence` type) — added to canonical** per D8-38. Cleaner than inline.
+2. **Out-of-band #2 (`deleteItemsByIngredientFromLists` helper) — added** per D8-39. Cleaner than looping in screen.
+3. **Out-of-band #3 (CookDepletionBanner deviations).** Structurally parallel: same SafeAreaView+edges, same absolute+zIndex/elevation, same auto-dismiss timer pattern via `useEffect` + `useRef`. Differences: (a) two-line copy with title + subtitle vs single message; (b) `[Keep] [Remove]` action row is full-width below the message vs CookDepletion's inline button row to the right of the message; (c) 5s lifetime vs 30s; (d) no Review modal (this prompt is a single decision moment); (e) no `pauseTimer` mechanism (no modal opens on top of it). These are content/lifetime divergences — the structural skeleton is the same.
+4. **Out-of-band #4 (race conditions).** No race conditions surfaced. The `items.find(...)` lookup happens BEFORE `await toggleItemInCart()` so the local-state snapshot is captured pre-toggle (same `ingredient_id` and `ingredient` regardless of `is_in_cart` flip). The cross-list query happens AFTER `await loadItems()` resolves so the visual checked state settles before the prompt overlays.
+5. **PostgREST join filtering quirk on `getOtherListsContainingIngredient`.** Wanted to filter on `grocery_lists.user_id = userId` and `grocery_lists.is_active = true` directly in the query, but PostgREST's filter syntax doesn't expose joined-table column predicates cleanly via the supabase-js builder. Used `!inner` join (mandatory) to enforce the join and then filtered the resulting rows client-side. Trade-off: slightly more rows shipped than strictly needed (RLS already restricts by user, so the user-ownership filter is mostly defensive). Acceptable for the typical 2-5 lists-per-user volume; if user counts grow, the function may want a Supabase RPC.
+6. **Smoke test deferred to Tom.** Cannot exercise multi-list overlap interactively in this session. Critical paths in Verification section above.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **consider** — log P8-18 (auto-dismissal of items on other lists when checked elsewhere — explicit per-item user opt-in if revisited) per the prompt's reasoning capture. Mentioned in Context section but not yet in DEFERRED_WORK; the doc-hygiene CP can fold it in.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider** — `components/CrossListPrompt.tsx` is the second top-floating banner pattern (after `components/pantry/CookDepletionBanner.tsx`); worth a one-line note in the components map naming both as the "post-action top banner" precedent for future patterns.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update during doc-hygiene pass** — flip 8C-CP2 to ⚠️ Partial → ✅ Complete after smoke test; capture D8-38/39 in Decisions Log; capture P8-18 reasoning if filed; bump 8C build-plan row to "2 of 8 done".
+
+**Recommended next steps for Tom:**
+
+1. **Run smoke-test Paths A-F** from the prompt's Verification section. Watch metro.log for the 🔍 cross-list overlap signal and the 🗑️ cross-list delete signal as confirmation that the service paths fire correctly.
+2. **Commit when smoke test passes** (mind `-m` before `--`):
+   ```
+   git commit -m "feat(grocery): Phase 8C-CP2 — cross-list checkoff-moment confirmation prompt" -- lib/types/grocery.ts lib/groceryListsService.ts components/CrossListPrompt.tsx screens/GroceryListDetailScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+3. **Stage `_pk_sync/` copies** for the 3 stale-flagged files (and `components/CrossListPrompt.tsx` as a new addition).
+4. **Queue 8C doc-hygiene CP** Claude.ai will draft (PHASE_8 v2.7 → v2.8 with 8C-CP2 ✅ + D8-38/39 + 8C build-plan row updated to "2 of 8 done"; DEFERRED_WORK addition for P8-18).
+5. **Then 8C-CP3 design** (recipe chips on grocery detail).
+
+**Next steps:** Doc-hygiene pass, then 8C-CP3.
+
+---
+
+## 2026-04-27 — Phase 8C-CP1b — typical_store_section backfill (P8-15 resolved) + P8-17 added
+
+**Phase:** 8C-CP1b (mini-CP — pure data correction + small doc update; sequenced before 8C-CP2 so cross-list aisle features have populated data)
+**Prompt from:** `docs/CC_START_PROMPT.md` (Phase 8C-CP1b, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — migration applied + Q1-Q3 all passed mid-session; 7 doc edits landed verbatim across 2 files; both `_pk_sync/` copies re-staged byte-identical.
+
+**Scope:** Resolved P8-15 (49.5% of `ingredients.typical_store_section` null) via heuristic-SQL backfill keyed on `(family, ingredient_type)`. 314 null rows backfilled; 2 capitalized anomalies (`Produce`, `Pantry`) normalized to lowercase. Mapping per CP1b spec: Dairy→dairy, Produce→produce, Proteins+Seafood→seafood, other Proteins→meat (incl. plant-based proteins per the lumping decision baked into the prompt), Pantry+Baking→baking, other Pantry→pantry. Tom applied via Supabase Dashboard SQL Editor with snapshot-first rollback safety. Post-image: 0 nulls, 7 lowercase sections totaling 634 rows (pantry 279, produce 166, dairy 60, meat 53, baking 40, seafood 33, bakery 3), and 6 plant-based proteins all = `meat`. DEFERRED_WORK + PHASE_8 reconciled: P8-15 collapsed to one-line ✅ Resolved row, P8-17 (plant-based protein subclass UX) added as a parked post-F&F enhancement, both docs version-bumped (DEFERRED_WORK v5.9 → v5.10; PHASE_8 v2.6 → v2.7) with appropriate changelog rows.
+
+**Files modified:**
+- `supabase/migrations/20260427_8c_cp1b_typical_store_section_backfill.sql` — new file, applied to Supabase mid-session by Tom; Q1-Q3 verified clean before doc edits resumed.
+- `docs/DEFERRED_WORK.md` — 4 edits (Edit 3.4 was a no-op skip per spec — `**Last Updated:**` already read `April 27, 2026` from this morning's doc-hygiene pass): P8-15 row collapsed to ✅ Resolved one-liner; P8-17 row appended after P8-16; version 5.9 → 5.10; v5.10 changelog row prepended.
+- `_pk_sync/DEFERRED_WORK_2026-04-27.md` — overwritten to match (same dated suffix as this morning's doc-hygiene PK copy; replace-on-upload semantics handle the version bump).
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 2 edits: combined header `(v2.6)` → `(v2.7)`; v2.7 changelog row prepended (8C-CP1b complete — data backfill; P8-15 closed; P8-17 parked).
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` — overwritten to match.
+
+**No application code edited** — Rule E does not fire this session.
+
+**Verification:**
+- Migration applied cleanly (Tom-confirmed mid-session). Q1: 0 nulls. Q2: 7 lowercase sections, total 634 (pantry 279 / produce 166 / dairy 60 / meat 53 / baking 40 / seafood 33 / bakery 3) — no `Produce` or `Pantry` rows remained. Q3: 6 plant-based proteins all = `meat`.
+- `grep -c "P8-17\|5.10\|✅ Resolved 2026-04-27 by 8C-CP1b" docs/DEFERRED_WORK.md` → **4** (≥3 expected) ✓
+- `grep -c "v2.7\|8C-CP1b" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → **2** (≥2 expected) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` → no output ✓
+- `diff docs/DEFERRED_WORK.md _pk_sync/DEFERRED_WORK_2026-04-27.md` → no output ✓
+
+**Decisions made during execution:** None. The two design calls baked into the prompt (Plant-Based Proteins lump with `meat`; NULL `ingredient_type` rows in Pantry default to `pantry`) were spec-time decisions, not in-flight calls.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.9 → v5.10, P8-15 ✅ + P8-17).
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: none.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.6 → v2.7).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on the 2 living docs + the new migration file.
+2. **Commit:**
+   ```
+   git commit -m "fix(grocery): Phase 8C-CP1b — typical_store_section backfill (P8-15) + plant-based subclass deferred (P8-17)" -- supabase/migrations/20260427_8c_cp1b_typical_store_section_backfill.sql docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/SESSION_LOG.md
+   ```
+   (4 files; `-m` before `--`.)
+3. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` and `_pk_sync/DEFERRED_WORK_2026-04-27.md` to PK** (replacing same-dated copies from earlier today's doc-hygiene pass). Clear `_pk_sync/*.md` after.
+4. **Drop the snapshot table** after a few days of confidence:
+   ```sql
+   DROP TABLE _ingredients_pre_cp1b_snapshot;
+   ```
+5. **Queue 8C-CP2** (cross-list awareness). Aisle data is now 100% populated for all 634 ingredients; CP2 design can assume coherent grouping with no nullable-section fallback paths needed.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Edit 3.4 was a no-op skip** per the prompt's conditional rule. The DEFERRED_WORK `**Last Updated:**` value was already `April 27, 2026` (from this morning's doc-hygiene pass), and today's date is still April 27, so no edit was applied. This was the prompt's expected default path. The PHASE_8 combined header (`(v2.6)` → `(v2.7)`) is the only date+version line edit in either doc this session.
+2. **Both `_pk_sync/` dated copies overwrote the same-suffix files staged this morning** during the doc-hygiene pass. Per the prompt's Part 5 note, replace-on-upload semantics on PK handle the version bump cleanly — Tom uploads the latest, prior version on PK gets replaced. No new dated suffix needed.
+3. **Q2 totals (634) match the smoke-test data check from earlier today** — coverage is now 100%, including the 2 normalized capitalized anomalies. The 7 sections (pantry 279 / produce 166 / dairy 60 / meat 53 / baking 40 / seafood 33 / bakery 3) imply that `bakery` was already a real section pre-CP1b (3 rows in the populated set), separate from `baking` (the new section for `family=Pantry, ingredient_type=Baking` rows). 8C-CP2 design should be aware that `bakery` and `baking` are distinct values — the former is in-store bakery (loaves, pastries), the latter is the baking-supplies aisle (flour, sugar, etc.). Worth a one-line note in any future aisle-vocabulary documentation.
+4. **CP1b's lumping decision (Plant-Based Proteins → `meat`) is parked as P8-17.** D8-* decision range untouched this CP — the lumping is data, not a code-architecture decision; capturing it as a deferred UX item keeps the Decisions Log focused on architectural calls.
+
+---
+
+## 2026-04-27 — 8C-CP1+CP1a doc hygiene — D8-34/35/36/37 + P8-15/16 + status flip
+
+**Phase:** doc hygiene (mechanical reconcile after 8C-CP1 + 8C-CP1a smoke-test pass)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8C-CP1+CP1a doc hygiene, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — all 8 edits landed; 7/4 grep counts pass; both `_pk_sync/` diffs clean.
+
+**Scope:** Reconciled `PHASE_8_PANTRY_INTELLIGENCE.md` (5 edits, v2.5 → v2.6) and `DEFERRED_WORK.md` (3 edits, v5.8 → v5.9) to reflect shipped 8C-CP1 + 8C-CP1a state. Phase doc: header date+version bump, 8C-CP1 scope bullet expanded with ✅ Complete + 8C-CP1a patch-up summary, 8C build-plan row flipped 🔲 → 🟡, four new decision rows (D8-34 typical_store_section type widening, D8-35 store_name resolved by CP1a schema migration, D8-36 new `getUserGroceryListsWithCounts` function, D8-37 default tier collapse state), v2.6 changelog row prepended. DEFERRED_WORK: header bump, P8-15 (`typical_store_section` data coverage backfill — 49.5% null) + P8-16 (`CreateGroceryListParams` shape unification) appended after P8-14, v5.9 changelog row prepended. Both `_pk_sync/` copies staged.
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 5 edits per spec.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` — staged byte-identical copy.
+- `docs/DEFERRED_WORK.md` — 3 edits per spec.
+- `_pk_sync/DEFERRED_WORK_2026-04-27.md` — staged byte-identical copy.
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep -c "v2.6\|D8-34\|D8-35\|D8-36\|D8-37\|✅ Complete (2026-04-27)\|🟡 In progress — CP1 + CP1a" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → **7** (≥7 expected) ✓
+- `grep -c "P8-15\|P8-16\|5.9" docs/DEFERRED_WORK.md` → **4** (≥3 expected) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` → no output ✓
+- `diff docs/DEFERRED_WORK.md _pk_sync/DEFERRED_WORK_2026-04-27.md` → no output ✓
+
+**Decisions made during execution:** None. Tom resolved the one anchor mismatch via Option A (see Surprise #1).
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.8 → v5.9 with P8-15 + P8-16).
+- `PROJECT_CONTEXT.md`: **consider** — Phase 8 status table could reflect "🟡 In progress — 8A+8B Complete; 8C-CP1+CP1a shipped, CP2 next." Low urgency; phase doc is canonical. Out of scope per prompt Constraint.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: none.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.5 → v2.6 with D8-34/35/36/37 + 8C-CP1 ✅ + 8C ✅ build-plan flip + scope bullet expansion).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on the two living docs.
+2. **Commit:**
+   ```
+   git commit -m "docs(phase-8): 8C-CP1+CP1a doc hygiene — D8-34/35/36/37 + P8-15/16 + 8C status flip" -- docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/SESSION_LOG.md
+   ```
+   (3 files; `-m` before `--`.)
+3. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` and `_pk_sync/DEFERRED_WORK_2026-04-27.md` to PK** (replacing 2026-04-23 dated copies). Clear `_pk_sync/*.md` after upload.
+4. **Queue 8C-CP2** (cross-list awareness — "→ also on Costco run"). Phase doc estimates 6-8 sessions for 8C; 1 of 8 done. P8-15 (typical_store_section backfill) is worth running before 8C-CP2 lands for cleaner aisle data — Claude.ai's call whether to schedule that as a small standalone CP first or fold into 8C-CP2 prep.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Edit 1.1 anchor mismatch — STOP fired, Tom authorized Option A.** Prompt expected `**Version:** 2.5` as a standalone line in PHASE_8. Actual state had the version encoded in the existing combined header `**Last Updated:** April 23, 2026 (v2.5)`. CC stopped before editing, reported the mismatch with file:line evidence, listed Options A (bump existing combined line) vs B (insert new standalone line). Tom chose A. Final result: `**Last Updated:** April 27, 2026 (v2.6)`. The other 4 PHASE_8 anchors and all 3 DEFERRED_WORK anchors matched verbatim. Note for future doc-hygiene prompts: the two living docs use different version-header conventions (PHASE_8 inline-with-date, DEFERRED_WORK separate `**Version:**` line) — prompts should target the actual current state of each. Single drift point this session.
+2. **Per Rule A (living-doc propagation), Last Updated headers were bumped on both docs.** PHASE_8: April 23 → April 27 (merged with version bump per Option A). DEFERRED_WORK: April 22 → April 27 (the prompt's Edit 2.1 only specified the `**Version:**` bump; Rule A independently requires the date bump).
+3. **All 4 D8 row anchors and v2.5/v5.8 changelog anchors matched verbatim** — no other drift. The 8C-CP1+CP1a SESSION_LOG entries were the source of truth for D8-34/35/36/37 row content and matched the prompt's spec exactly.
+4. **Three Phase 8 Decisions Log gaps now closed** (D8-31/32/33 from 8B-CP4, D8-34/35/36/37 from 8C-CP1+CP1a). Decisions Log is current through 8C-CP1a.
+
+---
+
+## 2026-04-27 — Phase 8C-CP1a — store_name schema + lists counts refresh
+
+**Phase:** 8C-CP1a (patch-up — closes two items surfaced by 8C-CP1's smoke test)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8C-CP1a, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — code complete + TypeScript clean; schema migration applied to Supabase by Tom mid-session.
+
+**Scope:** Resolved D8-35 (vestigial `grocery_lists.store_name`) by shipping the missing schema column + adding `store_name` to the canonical `GroceryList` type, then removing the two D8-35 local `& { store_name?: string }` extensions in `GroceryListsScreen` and `AddRecipeToListModal`. Added `useFocusEffect` to `GroceryListsScreen` so tier-summary counts and the red "Now" badge refresh on focus return (parallel to 8B-CP3a's PantryScreen fix). Mid-session in-scope addition (per Tom): renamed the service's local `CreateGroceryListParams.store_name` → `storeName` (camelCase, aligning with the canonical params shape — DB column stays snake_case), updated the `createGroceryList` insert body and the one caller in `GroceryListsScreen.handleCreateList` to match.
+
+**Files modified (5 code + 2 docs + 1 new migration):**
+
+- `supabase/migrations/20260427_8c_cp1a_grocery_lists_store_name.sql` — new file. `ALTER TABLE grocery_lists ADD COLUMN IF NOT EXISTS store_name TEXT;` wrapped in BEGIN/COMMIT, with descriptive `COMMENT ON COLUMN` and a commented rollback block. Applied to Supabase mid-session by Tom; confirmed clean.
+- `lib/types/grocery.ts` — added `store_name: string | null` to `GroceryList`; added `storeName?: string` to `CreateGroceryListParams` and `UpdateGroceryListParams`. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — renamed local `CreateGroceryListParams.store_name` → `storeName`; updated `createGroceryList` insert body to read `params.storeName` (DB column stays `store_name`). No projection widening needed (Part 3a finding: `getUserGroceryLists` and `getUserGroceryListsWithCounts` both use `select('*')` on `grocery_lists`, and `createGroceryList` uses `select()` on insert — `store_name` flows through automatically once the column exists). ⚠️ PK snapshot now stale (was 2026-04-22).
+- `screens/GroceryListsScreen.tsx` — removed D8-35 `type ListRow = GroceryListWithCounts & { store_name?: string }` extension and renamed all 4 references back to `GroceryListWithCounts` (state declaration, setLists cast removed since cast is now redundant, `handleListPress` and `buildTierSummary` signatures). Added `useFocusEffect` import from `@react-navigation/native` and new effect block that calls `loadLists()` on focus return when `currentUserId` is set. Renamed the `handleCreateList` arg from `store_name: newStoreName.trim() || undefined` to `storeName: ...`. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/AddRecipeToListModal.tsx` — removed D8-35 local extension (`type GroceryList = CanonicalGroceryList & { store_name?: string }`) and replaced with a direct import of canonical `GroceryList` from `lib/types/grocery`. Not in PK snapshot tables — no staleness flag needed.
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: appended 8C-CP1a notes to the 3 file rows that match (`lib/types/grocery.ts`, `lib/groceryListsService.ts`, `screens/GroceryListsScreen.tsx`); kept Staleness Risk = HIGH on each.
+- `docs/SESSION_LOG.md` — this entry.
+
+**Verification results:**
+
+1. ✅ `npx tsc --noEmit --skipLibCheck` — same 2 pre-existing baseline errors only (`CookSoonSection.tsx:264`, `DayMealsModal.tsx:296` — both `TS1382` JSX `>` issues, unrelated). Zero new errors from this CP.
+2. ✅ `git status --short` shows the expected file set: 1 untracked migration + 4 modified code files + `PK_CODE_SNAPSHOTS.md` + `SESSION_LOG.md`. No accidental file touches; the rest of the working-tree noise is pre-existing 8B closeout state untouched by this session.
+3. ✅ Schema verification — Tom confirmed mid-session that the migration ran cleanly against the DB.
+4. ⚠️ Smoke test (Part 4 of prompt's Verification section) — deferred to Tom. Critical paths to verify: (a) create a list with store name "Costco" → 🏪 badge actually renders for the first time; (b) move an item between tiers in detail screen → return to lists → counts and red "Now" badge reflect the change.
+
+**Decisions made during execution:** None this CP. All three decisions implied by the prompt (D8-34/36/37) were made during 8C-CP1; this CP cleans up D8-35's "defer" → "resolved by schema migration" status. No new decision IDs.
+
+**Open questions deferred:**
+
+- Substantial alignment between the service's local `CreateGroceryListParams` and the canonical `CreateGroceryListParams` in `lib/types/grocery.ts` is still pending — they have different field shapes (`user_id` is on the service's; `emoji`/`isActive`/etc. are on the canonical). Tom explicitly scoped this CP to the one `store_name` → `storeName` field rename only. Larger params unification is a future CP.
+- `getListItemCount` (already noted in the 8C-CP1 SESSION_LOG as unused externally) remains exported but unused.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Part 3a finding: `select('*')` everywhere.** Both `getUserGroceryLists` and `getUserGroceryListsWithCounts` use `select('*')` on `grocery_lists`, and `createGroceryList` uses `.select()` on `.insert(...)` (which behaves like `*` for the inserted row). No projection widening was needed — `store_name` flows through automatically post-migration.
+2. **`useCallback` was already imported** in `GroceryListsScreen.tsx` (used by `onRefresh`). Only `useFocusEffect` needed to be added to the import list. Per the prompt's flag #2.
+3. **`useFocusEffect` produces a duplicate initial fetch** — both the existing `useEffect(loadLists, [currentUserId])` block AND the new `useFocusEffect` will fire on first mount when `currentUserId` resolves, yielding two `loadLists()` calls in quick succession. Same pattern as 8B-CP3a's PantryScreen fix; `loadLists()` is idempotent and the duplicate is a single throwaway round-trip. Acceptable tradeoff; the alternative (gating the focus effect on a "did mount" ref) adds complexity for no user-visible benefit.
+4. **Mid-session scope addition (Tom):** snake_case→camelCase rename of `CreateGroceryListParams.store_name` to `storeName`. Touched 3 sites: the service's local interface, the service's insert body, and the one caller in `handleCreateList`. Did NOT unify the service's local `CreateGroceryListParams` with the canonical one (substantially different shapes — bigger refactor). Per Tom's instruction this is flagged as a small in-scope addition, no new decision ID.
+5. **D8-35 graduates from "defer" to "resolved by schema migration."** The vestigial column is now real. Recommend Claude.ai update D8-35's row in the Decisions Log accordingly during the post-CP1a doc-hygiene pass.
+6. **Smoke test deferred to Tom.** Critical user-visible verification: (a) the 🏪 store badge actually renders for the first time on a freshly-created list, and (b) tier counts refresh on focus return after a tier-move in the detail screen.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **consider** — log the larger params-shape unification (service's local `CreateGroceryListParams` vs canonical) as a follow-up cleanup. Small.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: none — schema addition is too small for a Recent Breaking Changes entry on its own; will roll up with the broader 8C-CP1+CP1a doc-hygiene pass.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update during doc-hygiene pass** — note 8C-CP1a in the changelog (resolves D8-35); flip 8C-CP1 status alongside if smoke test passes.
+
+**Recommended next steps for Tom:**
+
+1. **Run the prompt's Part 4 smoke test:** create a list with a store name → verify 🏪 badge renders; move item between tiers in detail screen → return to lists screen → verify counts + red badge update without manual refresh.
+2. **Commit when smoke test passes** (mind `-m` before `--`):
+   ```
+   git commit -m "fix(grocery): Phase 8C-CP1a — store_name schema + lists counts refresh on focus return" -- supabase/migrations/20260427_8c_cp1a_grocery_lists_store_name.sql lib/types/grocery.ts lib/groceryListsService.ts screens/GroceryListsScreen.tsx components/AddRecipeToListModal.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+3. **Stage updated PK snapshots** for the 3 code files modified this CP into `_pk_sync/` (canonical types, service, lists screen). `AddRecipeToListModal.tsx` isn't in the snapshot tables but updating its PK copy for the new chat handoff would still be useful.
+4. **Queue the 8C-CP1+CP1a doc-hygiene CP** Claude.ai will draft (PHASE_8 v2.5 → v2.6 with 8C-CP1 ✅ + D8-34/36/37 + 8C-CP1a in changelog; D8-35 status flip to "resolved").
+
+**Next steps:** Doc-hygiene pass (Claude.ai drafts), then 8C-CP2 design (cross-list awareness — "also on Costco run" indicators).
+
+---
+
+## 2026-04-27 — Phase 8C-CP1 — Grocery 3-tier restructure
+
+**Phase:** 8C-CP1 (first executable Phase 8C checkpoint — Grocery 3-tier restructure + service alignment)
+**Prompt from:** `docs/DRAFT_CC_PROMPT_8C-CP1_grocery_3_tier.md` (DRAFT v1, authored 2026-04-23 — Tom asked for review-and-execute, no separate audit pass)
+**Status:** ⚠️ Partial — code complete + TypeScript clean; smoke-test items 2-9 of the prompt's Part 5 checklist not run (require interactive `npx expo start` + manual UI walk-through that this session can't perform). Items 1 (tsc) + 10 (git status) verified.
+
+**Scope:** Restructured grocery list detail around three priority tiers (Now / Could wait / In cart) with aisle sub-headers within each tier. Custom items (`ingredient_id=null`, `custom_name` set) bucket into a synthetic "Household" aisle. Long-press on a row opens an `Alert.alert` tier-move picker (Move to Now / Move to Could wait / Cancel) — moves write `priority_reason: 'manual'` and force `is_in_cart: false`. `priority_reason` renders as a subtle subtitle below the item name when populated. On the lists screen, replaced the per-list item-count summary with a tier-summary line (`{n} now · {n} could wait · {n} in cart`) and a red "N now" badge when Now-tier has items. Bundled service alignment (Part 1) so the UI can read the 8A-CP1 schema fields it needs.
+
+**Files modified (6 code files + 2 docs):**
+
+- `lib/types/grocery.ts` — added `typical_store_section: string | null` to `GroceryListItemWithIngredient.ingredient`; added `now_count` / `could_wait_count` / `in_cart_count` to `GroceryListWithCounts`. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — deleted inline `GroceryList` + `GroceryListItem` interfaces; imported canonical `GroceryList`, `GroceryListItemWithIngredient`, `GroceryListWithCounts` from `lib/types/grocery`; widened `getItemsForList` SELECT to include `plural_name`, `ingredient_type`, `typical_unit`, `typical_store_section`; typed return as `Promise<GroceryListItemWithIngredient[]>`; widened `updateListItem` signature to accept `priority`, `priority_reason`, `brand_preference`, `size_preference`, `custom_name`; added new function `getUserGroceryListsWithCounts(userId)` — single batched grouped query (`select('list_id, priority, is_in_cart').in('list_id', listIds)`) reduced client-side to per-list tier counts, avoids N+1. `addItemToList` retyped to return `GroceryListItemWithIngredient` via cast (was the deleted inline `GroceryListItem`); logic untouched. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/GroceryListItem.tsx` — wholesale rewrite. Now a pure presentational row: takes `item: GroceryListItemWithIngredient` + 4 callback props (`onToggleCart`, `onAdjustQuantity`, `onMoveTier`, `onDelete`). No service imports. Long-press on the main info touchable triggers `onMoveTier(item.id)` with `delayLongPress={350}`. Renders display name from `ingredient.plural_name || ingredient.name` for ingredient items and `custom_name` for custom items. Quantity string appends ` · {brand}` and ` · {size}` when present. `priority_reason` renders as a subtle subtitle below the name in `typography.sizes.xs` / `colors.text.tertiary`. Borderless row inside the screen's tier+aisle container. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `screens/GroceryListDetailScreen.tsx` — replaced family-grouping with tier-first / aisle-second grouping computed via `useMemo`. Tier headers render colored dot (red error / tertiary gray / success green) + label + count + collapse caret. Default-collapsed: `in_cart` collapsed; `now` and `could_wait` expanded. Aisle sub-headers (smaller than family headers were) render inside expanded tiers. `<GroceryListItem />` invocations replace the previous inline `renderItem`. New `handleMoveTier(itemId)` opens the Alert picker. Empty-tier headers stay rendered (so users see "Now · 0"); fully-empty list still renders the existing emptyState block. `handleMoveToPantry` left untouched. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `screens/GroceryListsScreen.tsx` — switched data source from `getUserGroceryLists` + N×`getListItemCount` to `getUserGroceryListsWithCounts` (single batched query). Local state typed as `(GroceryListWithCounts & { store_name?: string })[]`. Per-row footer text replaced with `buildTierSummary(list)` (`{now} now · {could_wait} could wait · {in_cart} in cart`; "0 now" segment dropped when `now_count === 0`; "Empty list" when `total_items === 0`). Red "N now" pill badge added to the list-name row when `now_count > 0` (`functionalColors.error` background, `text.inverse`, `borderRadius: 10`, `paddingHorizontal: spacing.xs`). ⚠️ PK snapshot now stale (was 2026-04-22).
+- `components/AddRecipeToListModal.tsx` — forced caller fix (NOT in prompt's expected file list, but required by Part 1a's "delete inline types ⇒ update all callers" directive): switched `GroceryList` import from `lib/groceryListsService` to canonical `lib/types/grocery`, with local `type GroceryList = CanonicalGroceryList & { store_name?: string }` extension to preserve the existing `list.store_name` rendering on line 239. Not in PK snapshots — no staleness flag needed.
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: bumped Staleness Risk to HIGH on 5 rows (the code files above) and appended Phase 8C-CP1 notes per row.
+
+**Verification results (per prompt Part 5 checklist):**
+
+1. ✅ `npx tsc --noEmit --skipLibCheck` — only 2 pre-existing baseline errors (`components/CookSoonSection.tsx:264`, `components/DayMealsModal.tsx:296` — both `TS1382` JSX `>` token issues unrelated to this CP). My changes added zero new errors. Note: `tsc --noEmit` *without* `--skipLibCheck` surfaces hundreds of pre-existing errors inside `node_modules/@react-navigation/core/lib/typescript/src/types.d.ts` even though `tsconfig.json` has `skipLibCheck: true` — appears to be a tsconfig inheritance quirk where the base config is overriding the project flag. Used `--skipLibCheck` explicitly to get a clean signal. Flag for Claude.ai if this turns into a recurring source of false positives.
+2. ⚠️ Not run — `npx expo start` smoke test requires interactive harness this session can't drive. Deferred to Tom.
+3-9. ⚠️ Not run — same reason. All UI smoke-test items (open list / toggle cart / long-press → tier picker / persist round-trip / custom item via SQL insert / collapse-expand / lists-screen badge) need a running app + Supabase connection.
+10. ✅ `git status` shows the expected 5 code files modified + 1 forced caller fix (`AddRecipeToListModal.tsx`) + `docs/PK_CODE_SNAPSHOTS.md` (Rule E). Pre-existing uncommitted changes in the working tree (8B closeout doc edits + cook-depletion components, etc.) are unrelated to this CP and untouched by this session. No accidental file touches.
+
+**Decisions made during execution:**
+
+- **D8-34 (canonical type extension — `typical_store_section`).** Prompt's input #2 said "do not modify `lib/types/grocery.ts`" but Part 1b directed me to widen the SELECT to include `typical_store_section` and type the return as `GroceryListItemWithIngredient`. The canonical interface didn't include the field. Resolution: added `typical_store_section: string | null` to the join shape — the minimum additive change required to satisfy the prompt's typed contract. Considered local cast / extension at the service layer; rejected because the prompt explicitly asked for the canonical type as the return.
+- **D8-35 (canonical type silence on `store_name`).** Inline service `GroceryList` had `store_name?: string`; canonical does not. Two callers (`GroceryListsScreen`, `AddRecipeToListModal`) read `list.store_name`. Did NOT add the field to canonical (out of scope). Instead defined local `& { store_name?: string }` extension types at each caller to preserve existing rendering without a TS error. Flag for Claude.ai: if `store_name` is genuinely a real DB column, the canonical type should probably include it — separate cleanup CP. If it's vestigial, the two caller render blocks should be removed.
+- **D8-36 (no-existing-`GroceryListWithCounts`-caller adaptation).** Prompt's Part 4b instructed "Choose Option A: extend whichever function returns `GroceryListWithCounts`." But no such function existed — `GroceryListsScreen` was using its own inline `GroceryList { item_count? }` shape with per-list `getListItemCount` queries (N+1). Resolution: created a new function `getUserGroceryListsWithCounts(userId)` per the spirit of Option A — single batched query, tier counts derived client-side from the grouped result. This is what the prompt envisioned; the surprise was that the function didn't already exist.
+- **D8-37 (default tier collapse state).** Prompt specced "in_cart collapsed by default, Now and Could wait expanded." Implemented as initial state `{ now: false, could_wait: false, in_cart: true }`. No new judgment, but recording for traceability.
+
+**Open questions deferred:**
+
+- `typical_store_section` data coverage in the `ingredients` table — not verified (no DB access this session). If most rows are null, aisle grouping degrades to family fallback, which may not match the wireframe's intent. Flagged in Surprises #1 below for Claude.ai's 8C-CP2/CP3 planning.
+- The `addItemToList` ingredient join still selects only `id, name, family` (3 fields) per prompt directive ("keep as-is for this CP"). When `addItemToList` is called and the result is later re-rendered by `<GroceryListItem />`, fields like `plural_name` / `typical_store_section` will be missing on the returned object until the next `loadItems()` refresh. Not a problem in current flows — every caller re-fetches after add — but worth noting if a future flow depends on the immediate return.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **`typical_store_section` data coverage unknown.** I added the field to the canonical type and the SELECT, but couldn't verify how populated it actually is in the ingredients table. If coverage is sparse, the tier-aisle UI degrades gracefully via the `family` fallback (and `Household` for custom items) — but a backfill subtask may be needed before 8C-CP2/CP3 can rely on aisle data for cross-list features. Worth a one-line query during the next Claude.ai review pass: `SELECT COUNT(*) FILTER (WHERE typical_store_section IS NULL) AS nulls, COUNT(*) AS total FROM ingredients;`.
+2. **Inline-service-`GroceryList` had `store_name?` that canonical lacks.** D8-35 documents the workaround. The prompt anticipated this case ("If a caller's usage site depends on a field that only exists in the inline type ... flag it in SESSION_LOG rather than hacking around it") — flagging here.
+3. **`AddRecipeToListModal.tsx` was a sixth file** beyond the prompt's "expected five files modified" list. The prompt's Part 1a said "update every caller" of the deleted inline types but didn't enumerate them — `AddRecipeToListModal` was using the inline `GroceryList` import from the service. Forced caller fix is consistent with the prompt's intent.
+4. **No existing `GroceryListWithCounts` caller.** D8-36 covers this. The screen was on an N+1 pattern; the new `getUserGroceryListsWithCounts` function (single grouped query) is the cleanest path that matches the prompt's "Option A" spirit even though Option A literally said "extend whichever function returns `GroceryListWithCounts`" — extending didn't apply because nothing returned it yet.
+5. **`getListItemCount` is now unused externally.** Only callers were `GroceryListsScreen.loadLists`, replaced this CP. Function still exported — left in place per prompt directive ("keep everything else in the service unchanged"). Cleanup candidate for a future CP.
+6. **`tsc --noEmit` without `--skipLibCheck` surfaces hundreds of `@react-navigation/core` parse errors despite `skipLibCheck: true` in tsconfig.json.** Used `--skipLibCheck` flag explicitly to get a clean signal. Could be a Watchpoint candidate ("CC verification commands should pass `--skipLibCheck` until the tsconfig inheritance is fixed") or a separate cleanup PR — not blocking but a paper-cut.
+7. **Smoke test deferred to Tom.** Items 2-9 of Part 5 require interactive testing. Critical path to verify: long-press → tier picker fires → move persists across reload → custom item lands in Household → red badge on lists screen.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **consider** — log the `typical_store_section` data-coverage check as a small task (T-tier or P8 backlog), since it's a prerequisite for confidence in 8C-CP2/CP3 aisle features. Also `getListItemCount` cleanup. Both small.
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider** — the `GroceryListItemWithIngredient` is now the canonical row+join shape used across all consumers (was previously fragmented across inline service types). Worth a one-line in the Recent Breaking Changes or services map noting that `lib/groceryListsService.ts` no longer defines its own row types.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update** — flip 8C-CP1's status to ⚠️ Partial (code complete; smoke test pending) or ✅ Complete after Tom runs the smoke test, and capture D8-34/35/36/37 in the Decisions Log.
+
+**Recommended next steps for Tom:**
+
+1. **Run the smoke-test items 2-9** from the prompt's Part 5 checklist. Critical: open a list with mixed-priority items, confirm 3 tiers render, long-press → tier-move picker → move persists across refresh, custom item via SQL insert lands in Household, lists-screen red badge appears. If anything fails, surface back as a follow-up CP.
+2. **Verify `typical_store_section` coverage** via `SELECT COUNT(*) FILTER (WHERE typical_store_section IS NULL), COUNT(*) FROM ingredients;`. If coverage is < 50%, queue a backfill task before 8C-CP2.
+3. **Commit when smoke-test passes** — likely command (mind the `-m` before `--` shell-quoting per W11):
+   ```
+   git commit -m "feat(grocery): Phase 8C-CP1 — 3-tier restructure (Now/Could wait/In cart) with aisle sub-headers + service alignment" -- lib/types/grocery.ts lib/groceryListsService.ts components/GroceryListItem.tsx components/AddRecipeToListModal.tsx screens/GroceryListDetailScreen.tsx screens/GroceryListsScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+4. **Stage updated PK snapshots** for the 5 code files into `_pk_sync/` so PK reflects the 8C-CP1 state. Optional: also restage `lib/types/grocery.ts` (was already 2026-04-23 dated from 8B closeout — date bump to 2026-04-27 if you want chronological clarity).
+5. **Queue 8C-CP2** (cross-list awareness — "also on Costco run" indicators) once smoke test passes.
+
+**Next steps:** 8C-CP2 design (cross-list awareness) — pending 8C-CP1 smoke-test pass.
+
+---
+
+## 2026-04-23 — [PK staging prep for chat handoff]
+
+**Phase:** cross-cutting (mechanical staging — no design, no code)
+**Prompt from:** `docs/CC_START_PROMPT.md` (PK staging prep for chat handoff)
+**Status:** Shipped (19 files copied to `_pk_sync/` with encoded dated names)
+
+**Scope:** Staged 19 code files + SESSION_LOG in `_pk_sync/` with `path__encoded__name_2026-04-23.ext` naming for Tom's PK upload ahead of the 8C-CP1 chat handoff. 14 files from 8B execution (8 new + 6 modified) + 5 8C-context grocery files (service + screens + row component) the new chat will need + `docs/SESSION_LOG.md` (the day's full narrative trail, added per Tom's mid-session request).
+
+**Files staged (all copies; source working tree unchanged):**
+- From 8B new: `lib/pantryStaplesService.ts`, `lib/cookDepletionService.ts`, `contexts/CookDepletionBannerContext.tsx`, `components/pantry/StaplesGrid.tsx`, `components/pantry/StapleCell.tsx`, `components/pantry/CookDepletionBanner.tsx`, `components/pantry/CookDepletionReviewModal.tsx`, `screens/ManageStaplesScreen.tsx`.
+- From 8B modified: `App.tsx`, `screens/PantryScreen.tsx`, `screens/RecipeDetailScreen.tsx`, `screens/CookingScreen.tsx`, `lib/types/pantry.ts`, `lib/types/grocery.ts`.
+- 8C context: `lib/groceryService.ts`, `lib/groceryListsService.ts`, `screens/GroceryListDetailScreen.tsx`, `screens/GroceryListsScreen.tsx`, `components/GroceryListItem.tsx`.
+
+**No code files edited** — Rule E does not fire.
+
+**Verification:**
+- Source-file existence check: all 19 present ✓
+- `ls _pk_sync/*_2026-04-23.* | wc -l` → **23** (prompt expected 21; delta explained in Surprises #1 — 1 extra pre-existing doc + 1 mid-session addition)
+- `cmp` on 3 spot-checks: `pantryStaplesService.ts`, `App.tsx`, `CookDepletionReviewModal.tsx` all byte-identical to sources ✓
+- `ls -la` listing shows all 22 dated files with sizes (ranges from 1.9KB for BannerContext to 69KB for RecipeDetailScreen)
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: None.
+- `PROJECT_CONTEXT.md`: None.
+- `FF_LAUNCH_MASTER_PLAN.md`: None.
+- `FRIGO_ARCHITECTURE.md`: None.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: None.
+
+**Recommended next steps for Tom:**
+
+1. Upload all 23 files from `_pk_sync/` to PK (replacing the 3 living docs + SESSION_LOG with their dated 2026-04-23 versions; adding 19 dated code snapshots alongside the existing undated tier-1/2/3 code files).
+2. Do NOT delete the older undated PK code snapshots — new chat will be told to prefer dated versions when both exist.
+3. Clear `_pk_sync/*_2026-04-23.*` locally after upload (`rm _pk_sync/*_2026-04-23.*`).
+4. Open the new Claude.ai chat in the Frigo project.
+5. Paste the handoff prompt (artifact: `PHASE_8C_KICKOFF_HANDOFF_2026-04-23.md`).
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Final file count is 23, prompt expected 21.** Two additions beyond the prompt's math: (a) `PROCESS_WATCHPOINTS_2026-04-23.md` was already in `_pk_sync/` from earlier today when W11 landed — prompt assumed only 2 pre-existing docs, actual was 3; (b) Tom asked mid-session to also stage `docs/SESSION_LOG.md` (added as `docs__SESSION_LOG_2026-04-23.md`, 201KB — contains the full day's narrative trail which the new chat will want for context). Net math: 19 code copies + 3 pre-existing living docs + 1 mid-session SESSION_LOG = 23 in `_pk_sync/`. All uploads to PK.
+
+   ⚠️ The SESSION_LOG copy was captured at the moment I staged it; it will NOT include the final edit I just applied updating these counts from 22 → 23. If that matters for upload freshness, re-copy via: `cp docs/SESSION_LOG.md _pk_sync/docs__SESSION_LOG_2026-04-23.md`. Otherwise the 22→23 count edit lives in the repo-side log but not in the staged PK version — the new chat will see the fresh count in the repo regardless.
+
+2. **11th visible 2026-04-23 SESSION_LOG entry.** Last of the day's Phase 8A + 8B arc. The new chat will start fresh against these staged files for 8C-CP1.
+
+**Phase:** 8B closeout (doc hygiene — status flips + D8-31/32/33 + P8-13/14)
+**Prompt from:** Tom's direct mechanical follow-up to 8B-CP4 smoke-test pass
+**Status:** Shipped (4 edits to phase doc + 3 edits to DEFERRED_WORK + 2 _pk_sync copies staged)
+
+**Scope:** Reconciled phase doc + DEFERRED_WORK after 8B-CP4 smoke-tested clean. Flipped 8B-CP4's scope line to ✅ Complete (adding the three-decision cross-reference + fix summary from the smoke test); flipped 8B's build-plan-table row to ✅ Complete. Added D8-31 (LogCookSheet structural adaptation), D8-32 (recipe_ingredients as normalized table vs JSONB), D8-33 (space_id as param vs row column) to the Decisions Log — capturing the three structural adaptations required by actual codebase shape. Added P8-13 (cross-unit reconciliation) + P8-14 (soft-delete on zero-quantity depletion) to DEFERRED_WORK — both surfaced during smoke test. Version bumps: PHASE_8 v2.4 → v2.5; DEFERRED_WORK v5.7 → v5.8. Both `_pk_sync/` copies overwritten to match.
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 5 edits: header v2.4 → v2.5; 8B-CP4 scope bullet expanded with ✅ Complete marker + shipped-behavior summary + 3-decision cross-ref; 8B build-plan row status `🟡 In progress` → `✅ Complete`; D8-31/32/33 rows appended to Decisions Log after D8-30; v2.5 changelog row prepended above v2.4.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md` — overwritten to match.
+- `docs/DEFERRED_WORK.md` — 3 edits: version header v5.7 → v5.8; P8-13 + P8-14 rows appended after P8-12; v5.8 changelog row prepended above v5.7.
+- `_pk_sync/DEFERRED_WORK_2026-04-23.md` — overwritten to match.
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep "v2.5\|D8-31\|D8-32\|D8-33\|✅ Complete — all 4"` across phase doc — 7 matches (header + 3 decision rows + 1 CP4 bullet reference + 1 build-plan row + 1 changelog row) ✓
+- `grep "P8-13\|P8-14\|5.8"` across DEFERRED_WORK — 3 matches (version header + 2 new rows + 1 changelog row — P8-13/14 refs appear in 2 rows each counted once) ✓
+- Both `_pk_sync/` diffs clean ✓
+- Every find anchor matched verbatim (no STOP) ✓
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **done this session** (v5.7 → v5.8 with P8-13 + P8-14).
+- `PROJECT_CONTEXT.md`: **consider** — Phase 8 status in the Project Vision table could reflect "🟡 In progress — 8A+8B Complete; 8C-CP1 queued". Low urgency; phase doc is canonical.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **consider minor** — the cook-depletion cross-cutting flow (RecipeDetailScreen/CookingScreen → cookDepletionService → banner context → CookDepletionBanner/ReviewModal) is architecturally significant enough for a Recent Breaking Changes bullet. Noted as a flag in the 8B-CP4 SESSION_LOG entry too; Claude.ai's call whether to roll it into a single architecture-doc pass covering 8B end-to-end.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.5 + 8B-CP4 ✅ + 8B ✅ + D8-31/32/33).
+
+**Recommended next steps for Tom:**
+
+1. **Review diffs** on both edited docs.
+2. **Commit** the combined 8B-CP4 + closeout:
+   ```
+   git commit -m "feat(staples): Phase 8B-CP4 — cook-post depletion banner with review + undo; 8B sub-phase complete" -- lib/cookDepletionService.ts contexts/CookDepletionBannerContext.tsx components/pantry/CookDepletionBanner.tsx components/pantry/CookDepletionReviewModal.tsx App.tsx screens/RecipeDetailScreen.tsx screens/CookingScreen.tsx docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/DEFERRED_WORK.md docs/PK_CODE_SNAPSHOTS.md docs/PROCESS_WATCHPOINTS.md docs/SESSION_LOG.md
+   ```
+   (12 files: 4 new + 8 modified. `-m` before `--` to avoid the shell-quoting bug from 8B-CP3a.)
+3. **Upload the 2 dated `_pk_sync/` copies to PK** (`PHASE_8_PANTRY_INTELLIGENCE_2026-04-23.md`, `DEFERRED_WORK_2026-04-23.md`). Plus `_pk_sync/PROCESS_WATCHPOINTS_2026-04-23.md` from W11 landed earlier. Clear `_pk_sync/*.md` after.
+4. **Queue 8C-CP1** (grocery 3-tier restructure). With 8B fully shipped, the next major scope is the grocery UX overhaul. Phase doc's build plan shows 8C at 6-8 sessions.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **All edits applied verbatim — no find-anchor drift.** Every find string in Tom's direct instructions matched the current state exactly. No STOP conditions, no improvisations on content. Three decisions + two deferred items were drafted from the 8B-CP4 SESSION_LOG's Surprises section content + live smoke-test discoveries, within the narrow "Tom listed these — draft the content" scope he authorized.
+
+2. **10th visible 2026-04-23 SESSION_LOG entry.** (8A-CP1 → DRAFT cleanup → FF v6.1 delta → [silent FF consistency fix] → 8B-CP1 → 8B-CP2 → 8B-CP3 → 8B-CP3a → 8B status flip → 8B-CP4 → 8B closeout). Phase 8A + all of Phase 8B — 11 distinct prompt executions in a single calendar day. Phase 8B is now fully shipped: schema foundation + staples service + grid UI + Add/Manage screen + patch-up + cook-post depletion + comprehensive doc trail.
+
+3. **D8-33 cross-references W11.** Both were surfaced by the same pre-flight STOP event. D8-33 captures the decision ("space_id as param, not row column"); W11 captures the process learning ("prompts making schema claims should cite source"). The paired surfacing is explicitly called out in D8-33's row so future readers can trace both artifacts back to the same trigger.
+
+---
+
+## 2026-04-23 — [Phase 8B-CP4] Cook-post depletion banner (service + context + banner + modal + caller wiring)
+
+**Phase:** 8B-CP4 (last checkpoint of sub-phase 8B — cook-post depletion banner with review + undo)
+**Prompt from:** `docs/CC_START_PROMPT.md` (Phase 8B-CP4 execution prompt, 5 parts)
+**Status:** Shipped (code in working tree; no visual smoke test run — see Surprises #1)
+
+**Scope:** Built the cook-post pantry depletion loop end-to-end. Four new files (service + context + banner + modal); App.tsx provider wiring; caller wiring into the two `handleLogCookSubmit` call sites (RecipeDetailScreen, CookingScreen). After a cook post is submitted, the depletion plan is computed against `recipe_ingredients` vs `pantry_items` + `pantry_staples` for the active space. If non-empty, the plan is applied (parallel writes, errors non-fatal) and a banner appears at the top of the screen with Review / Undo / X and a 30-second auto-dismiss timer. Review opens a modal with per-row checkboxes — unchecking marks a row for rollback on Done.
+
+**Pre-work — two STOP conditions flagged and authorized adaptations applied.** Before writing any code, I STOPPed on two of the prompt's Open Q conditions (per prompt Constraint 1 + Rule D):
+- **Open Q #1 (`posts.space_id`):** the posts table has no `space_id` column. `postService.createDishPost` inserts `user_id`, `recipe_id`, `meal_type`, `title`, `rating`, etc. — posts are user-scoped in the actual schema. Prompt's Part 1 design depended on `posts.select('id, space_id, recipe_id')` resolving space_id from the row.
+- **Open Q #2 (`recipes.ingredients` JSONB):** recipe ingredients live in a separate `recipe_ingredients` table (fields: `recipe_id`, `ingredient_id`, `quantity_amount`, `quantity_unit`, `preparation`, etc.) — NOT a JSONB column on `recipes`. Verified via `lib/ingredientsParser.ts` type defs + `.from('recipe_ingredients')` call sites in `pantryService.ts` + `ingredientsParser.ts`.
+
+**Tom authorized Option B (adaptations):**
+1. `computeDepletion(postId, spaceId)` signature takes `spaceId` as explicit param. Callers pass `useActiveSpaceId()`. Matches how `pantryStaplesService` and `pantryService` already work.
+2. Recipe ingredients fetched via `.from('recipe_ingredients').select('ingredient_id, quantity_amount, quantity_unit').eq('recipe_id', recipeId)` with null-`ingredient_id` rows filtered out.
+
+Also identified a third structural adaptation (LogCookSheet doesn't own post creation — parents do): wired depletion at the PARENT call sites (RecipeDetailScreen's `handleLogCookSubmit` after `createDishPost` resolves + CookingScreen's equivalent), rather than inside LogCookSheet itself. LogCookSheet stays untouched. This is structurally cleaner — parents have `newPost.id` in hand and own the depletion trigger.
+
+**Files modified:**
+- `lib/cookDepletionService.ts` — **new file**, 364 lines. Exports `DepletionPlan`, `DepletionItem`, `DepletionStaple` types + 4 functions: `computeDepletion(postId, spaceId)`, `applyDepletion(plan)`, `rollbackDepletion(plan, excludeIds?)`, and a convenience `runPostCookDepletion(postId, spaceId)` that bundles compute + apply for the two caller sites. Internal `cookTransition` for D1 state rules; `reconcileDecrement` for D2 unit matching (exact case-insensitive match only per prompt Constraint 8); `applyItemForward` helper for per-item writes. Writes use `updatePantryItem` + `setStapleState` (no raw Supabase writes); reads query pantry_items/pantry_staples/recipe_ingredients/posts directly.
+- `contexts/CookDepletionBannerContext.tsx` — **new file**, 69 lines. `CookDepletionBannerProvider` + `useCookDepletionBanner()` hook. Simple `currentBanner | null` singleton state with `showBanner(plan)` / `dismissBanner()`.
+- `components/pantry/CookDepletionBanner.tsx` — **new file**, 186 lines. Absolute-positioned banner below top safe-area. Subtle success tint + left-border accent via `functionalColors.successLight` + `.success`. 30s auto-dismiss via `setTimeout`, cleared on unmount and paused while review modal is open. `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"`. Review button opens the modal; Undo runs `rollbackDepletion(plan)` (no excludeIds = full revert) then `dismissBanner()`; ✕ closes without rollback (commits).
+- `components/pantry/CookDepletionReviewModal.tsx` — **new file**, 280 lines. Page-sheet modal with scrollable row list. Each row = checkbox + name + summary (e.g., `2 cups → 1.5 cups` or `good → low` or `marked as used`). Default-checked means "keep" (stay depleted); uncheck → rollback on Done. Cancel (✕) closes without action — banner persists, Undo still available. Uses `Modal` from react-native (matches existing codebase pattern) with SafeAreaView on top+bottom edges.
+- `App.tsx` — wrapped `MainTabNavigator` with `CookDepletionBannerProvider` + rendered `<CookDepletionBanner />` as a sibling so the banner floats above all screens. Provider lives inside `SpaceProvider` (the banner needs access to active space implicitly via the wired callers). ⚠️ PK snapshot now stale (was HIGH, Phase 8B-CP3).
+- `screens/RecipeDetailScreen.tsx` — added 3 imports (`runPostCookDepletion`, `useActiveSpaceId`, `useCookDepletionBanner`); 2 hook calls at top of component (`activeSpaceId`, `showBanner`); added fire-and-forget `runPostCookDepletion(newPost.id, activeSpaceId).then(plan => plan && showBanner(plan))` block right after `setHasPublishedDishPost(true)`. ⚠️ PK snapshot now stale (was Low).
+- `screens/CookingScreen.tsx` — same shape: 3 imports, 2 hook calls at top of component, fire-and-forget depletion call after `updateTimesCooked` and before `completePlanItem`. ⚠️ PK snapshot now stale (was Low).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: three rows bumped (App.tsx Low→HIGH with 8B-CP4 touched-by already HIGH-chained; screens/RecipeDetailScreen.tsx Low→HIGH; screens/CookingScreen.tsx Low→HIGH). 4 new files flagged for deliberate tier assignment (see Surprises #2).
+
+**LogCookSheet.tsx was NOT modified** — the structural review found the component doesn't own post creation. Parents do. See Surprises #3.
+
+**Verification:**
+- `npx tsc --noEmit` total error count: **181 before → 181 after** — zero new errors ✓
+- `npx tsc --noEmit | grep -v node_modules` → only the 2 pre-existing JSX-typo errors (unrelated) ✓
+- `wc -l` on all 4 new files: 364 + 69 + 186 + 280 = 899 lines total. All within reasonable tolerance.
+- `computeDepletion` correctly handles: null recipe_id (returns null); no matching ingredients in pantry or staples (returns null); mixed matches.
+- `applyDepletion` + `rollbackDepletion` are mathematical inverses when `excludeIds` is empty ✓ (verified by reading code paths — runtime not tested).
+- Unit-conversion failure path: `reconcileDecrement` returns null for any non-exact-match unit pair → caller sets mode='touch_only' ✓.
+- D1 state transitions: good → running_low → out → out (no-op); unknown → unknown (no-op). Matching rows still included in plan for `applyDepletion` to skip + for banner count — but `rollbackDepletion` filters the no-op staples so nothing redundant happens there.
+- Banner auto-dismiss timer: 30_000ms via `setTimeout`; paused when `reviewOpen` true; cleared on unmount/deps change.
+- Silent on zero matches: `computeDepletion` returns null → `runPostCookDepletion` returns null → caller's `plan && showBanner(plan)` short-circuits. No banner appears ✓.
+- LogCookSheet's existing flow unchanged — not edited. Parent callers add one fire-and-forget line after `createDishPost` resolves; existing await chain preserved.
+- **No visual smoke test run** — see Surprises #1.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **consider** — a few potential follow-up items surfaced during design (see Surprises): unit cross-conversion for depletion (currently exact-match-only per D2/Constraint 8), `last_confirmed_at` rollback behavior (currently NOT reverted — engagement semantics decided), partial-state recovery if apply writes fail mid-way (v1: "acceptable for v1" per prompt Constraint 7). Low-urgency; if Claude.ai wants to pre-stage as P8-13+.
+- `PROJECT_CONTEXT.md`: **consider** — the staples + depletion loop is now complete end-to-end. "What's Next" narrative could note 8B done and 8C-CP1 queued.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **real update** — new top-level service (`cookDepletionService.ts`), new context (`CookDepletionBannerContext`), new component pair (`CookDepletionBanner` + `CookDepletionReviewModal`), new cross-cutting flow (post-cook depletion pathway from RecipeDetailScreen/CookingScreen → service → banner/modal). Architecturally significant surface-area addition. Worth a Recent Breaking Changes entry for 8B-CP4 + inventory updates.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **status update** — once Tom smoke-tests, 8B-CP4 checkpoint flips to ✅ Complete and the 8B row overall flips to ✅ Complete (all four checkpoints done). The Decisions Log may want D8-31 and D8-32 records for the two structural adaptations (space_id as param vs row-column, recipe_ingredients table vs JSONB) so future callers don't rediscover them.
+
+**Recommended next steps for Tom:**
+
+1. **On-device smoke test.** Cook a recipe that has ingredients matching both pantry items and staples in your active space. After the cook sheet closes, the banner should appear at the top. Test paths:
+   - Let the 30s timer expire → banner auto-dismisses, depletion committed (check Pantry grid reflects new state).
+   - Tap Undo within 30s → banner disappears, pantry restored to pre-cook state.
+   - Tap Review → modal opens, shows all depletion rows with checkboxes default-checked; uncheck one item, tap Done → that item rolls back, others stay depleted.
+   - Test silent path: cook a recipe whose ingredients match nothing in pantry/staples → no banner appears, normal flow.
+2. **Commit scoped:**
+   ```
+   git commit -m "feat(staples): Phase 8B-CP4 — cook-post depletion banner with review + undo" -- lib/cookDepletionService.ts contexts/CookDepletionBannerContext.tsx components/pantry/CookDepletionBanner.tsx components/pantry/CookDepletionReviewModal.tsx App.tsx screens/RecipeDetailScreen.tsx screens/CookingScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+   (`-m` before `--` path scope. 9 files: 4 new + 5 modified.)
+3. **Deliberate tier assignments for PK_CODE_SNAPSHOTS:** add rows for the 4 new files (Tier 1 for `cookDepletionService.ts` by analogy to other `lib/` root services; Tier 3 for `CookDepletionBannerContext.tsx` by analogy to `SpaceContext.tsx`; Tier 3 for both `CookDepletionBanner.tsx` and `CookDepletionReviewModal.tsx` by analogy to `components/pantry/Staples*.tsx` pattern).
+4. **Post-smoke-test:** Claude.ai flips 8B-CP4 to ✅ and 8B overall to ✅ Complete in the phase doc, optionally adding D8-31/D8-32 for the structural adaptations.
+5. **Queue 8C-CP1** (grocery 3-tier restructure). With 8B fully shipped, the next major scope is the grocery UX overhaul.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Visual smoke test deferred — highest-leverage test surface of Phase 8 so far.** CC environment has no simulator/auth session; depletion only exercises at runtime against real DB + authenticated user. Several behaviors are only verifiable on-device: 30s auto-dismiss timer, modal presentation/SafeArea, banner z-index vs other screens (tab bar, stack headers), `useCookDepletionBanner` hook access from child callers across multiple navigation stacks. Most-likely-bug surfaces: (a) banner z-index below a tab bar or modal; (b) banner disappearing prematurely if the `DepletionPlan` object reference changes between renders (I used `useEffect` deps on `currentBanner` — should be stable, but React Navigation focus transitions can do surprising things); (c) review modal's checkbox count including `out→out` staple rows (I filter those out, but visual review will confirm).
+
+2. **Four new files flagged for deliberate tier assignment** (same pattern as 8B-CP1/CP2/CP3 new files): `cookDepletionService.ts`, `CookDepletionBannerContext.tsx`, `CookDepletionBanner.tsx`, `CookDepletionReviewModal.tsx`. Did NOT add PK rows on my own initiative. Suggested placements in next-steps #3.
+
+3. **LogCookSheet.tsx was NOT modified — structural adaptation.** The prompt's Part 5 said "Edit `components/LogCookSheet.tsx`. Find the post-submit success handler." But LogCookSheet fires an `onSubmit(data)` callback prop; the actual `createDishPost` happens in the parent. Wiring depletion inside LogCookSheet would have required either (a) making `onSubmit` async with a return-value contract, or (b) passing the banner/depletion hooks as props — both more invasive than the adaptation I chose. Instead, the two parents that use LogCookSheet (RecipeDetailScreen's and CookingScreen's `handleLogCookSubmit`) each gained: 3 imports + 2 hook calls + 1 fire-and-forget depletion block (4 lines) after `createDishPost` resolves. Minimal surgery, cleaner structure, LogCookSheet stays pure. Flag for Claude.ai: if future caller files emerge (a third screen that uses LogCookSheet), they'll need the same three lines. A `useCookDepletion(postId)` custom hook that encapsulates the pattern could be a post-F&F refactor if this pattern proliferates.
+
+4. **Depletion is fire-and-forget — sheet close not blocked.** Per prompt Constraint 3 ("Preserve all existing post-submit behavior... sheet close, etc. must work exactly as before"), the depletion call is `runPostCookDepletion(postId, spaceId).then(plan => plan && showBanner(plan))` — no `await`. The cook sheet closes on its existing timeline; banner appears whenever depletion completes (usually <500ms). If depletion errors, `runPostCookDepletion` logs internally and returns null, so no banner and no user-facing surface — matches Constraint 3's intent.
+
+5. **Unit reconciliation is exact-match-only (per D2 + Constraint 8).** `reconcileDecrement` returns null unless `recipeUnit.trim().toLowerCase() === pantryUnit.trim().toLowerCase()`. Any cross-unit case (cups vs tbsp, g vs oz, etc.) falls through to `touch_only` mode. The existing `unitConverter.ts` surface isn't directly usable for this reconciliation task (it converts to metric/imperial for display — takes amount+unit+targetSystem, returns ConversionResult; no "reconcile two units" function). A proper cross-unit reconciler would require either extending `unitConverter.ts` or adding a dedicated helper; both would be scope creep for v1 per prompt Constraint 8's "don't be clever" guidance. Flagging because real-world recipes frequently use "1 cup" while pantry tracks "2 bottles" — lots of cases will hit `touch_only` fallback and the user will see just `marked as used` in the review rather than a quantity change. Post-F&F enhancement candidate.
+
+6. **`last_confirmed_at` is NOT reverted on rollback.** By design per prompt Part 1 rollback spec: "`last_confirmed_at` can be left bumped (it's a timestamp, not a reversion candidate)." This means that even if a user undoes a cook's depletion, the `last_confirmed_at` stamps on all affected pantry_items remain updated. That's semantically correct — the user DID engage with those items (they submitted a cook linked to them), which is what the timestamp records for future staleness logic. Flag for awareness.
+
+7. **Partial-apply error semantics.** Per prompt Constraint 7 + D applyDepletion spec: "If any [write] fails, log error but don't throw — partial state is acceptable for v1." `applyDepletion` uses `Promise.all` with per-write `.catch` handlers that log + swallow. If 5 of 6 writes succeed and 1 fails, the banner still appears showing all 6 changes, but only 5 are actually in the DB. Review/undo flow operates against the original plan shape — undo attempts to revert all 6, and the 5 that succeeded in apply will revert cleanly, while the 1 that failed in apply is a no-op on revert (nothing to revert). Net-net, partial state resolves to consistent state on user undo. If the user doesn't undo, the partial state persists. Acceptable for v1 but worth a DEFERRED_WORK row if Claude.ai wants a retry/telemetry mechanism post-launch.
+
+8. **App.tsx provider placement.** `CookDepletionBannerProvider` wraps `MainTabNavigator` + renders `CookDepletionBanner` as a sibling inside the provider. This means the banner renders at the root of the tab navigator, floating above all tabs and stacks via absolute positioning + zIndex 1000. Tested at the TypeScript level — runtime z-index vs other app layers (headers, tab bar, modal sheets) needs visual verification. If the banner sits under a tab bar or above a full-screen modal inappropriately, adjustment is a quick styling fix (pointerEvents="box-none" already lets taps pass through non-banner areas).
+
+9. **Ninth visible 2026-04-23 SESSION_LOG entry.** (8A-CP1 → DRAFT cleanup → FF v6.1 delta → [silent FF consistency fix] → 8B-CP1 → 8B-CP2 → 8B-CP3 → 8B-CP3a → 8B status flip → 8B-CP4). The 8B arc is complete pending smoke test. Phase 8B shipped in one calendar day — remarkable density.
+
+10. **Process watchpoint landed in this session — W11 added to PROCESS_WATCHPOINTS.md.** Tom's authorization message parked the idea ("future addition to DOC_MAINTENANCE_PROCESS.md"), then a follow-up message asked for the watchpoint to land immediately. W11 ("Prompts making schema/API claims should cite the source or mark needs-verification") was added to `docs/PROCESS_WATCHPOINTS.md` with full Observation / Pattern / Proposed mitigation / Counter-consideration / Review trigger structure (matching W9/W10 format). Version bumped 1.4 → 1.5; changelog row prepended; `_pk_sync/PROCESS_WATCHPOINTS_2026-04-23.md` staged. Traceback to this SESSION_LOG entry is baked into both the Review trigger text + the changelog row. Net additions to this session's commit scope: `docs/PROCESS_WATCHPOINTS.md` + `_pk_sync/PROCESS_WATCHPOINTS_2026-04-23.md` (gitignored — staging for PK upload only).
+
+---
+
 ## 2026-04-23 — [Phase 8B status flip + P8-12 deferred]
 
 **Phase:** 8B (doc hygiene — status reconciliation + deferred-work add)

@@ -1,9 +1,10 @@
 // ============================================
-// FRIGO - GROCERY LIST DETAIL SCREEN (WITH CART ICON)
+// FRIGO - GROCERY LIST DETAIL SCREEN (3-TIER)
 // ============================================
-// Shows items in a specific grocery list with improved UX
+// Phase 8C-CP1: triage-driven 3-tier grouping (Now / Could wait / In cart),
+// aisle sub-headers within each tier, custom items in a "Household" bucket,
+// long-press → tier-move picker, priority_reason rendered as subtitle.
 // Location: screens/GroceryListDetailScreen.tsx
-// Updated: November 7, 2025 - Added cart icon
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -26,8 +27,12 @@ import {
   deleteItemFromList,
   toggleItemInCart,
   updateListItem,
-  GroceryListItem,
+  getOtherListsContainingIngredient,
+  deleteItemsByIngredientFromLists,
 } from '../lib/groceryListsService';
+import { GroceryListItemWithIngredient, CrossListIngredientPresence } from '../lib/types/grocery';
+import GroceryListItem from '../components/GroceryListItem';
+import CrossListPrompt from '../components/CrossListPrompt';
 import { addPantryItem } from '../lib/pantryService';
 import { supabase as supabaseClient } from '../lib/supabase';
 
@@ -42,6 +47,70 @@ export type GroceryStackParamList = {
 };
 
 type Props = NativeStackScreenProps<GroceryStackParamList, 'GroceryListDetail'>;
+
+// ============================================
+// TIER MODEL
+// ============================================
+
+type Tier = 'now' | 'could_wait' | 'in_cart';
+
+interface AisleGroup {
+  aisle: string;
+  items: GroceryListItemWithIngredient[];
+}
+
+interface TierGroup {
+  tier: Tier;
+  label: string;
+  hint: string | null;
+  count: number;
+  aisles: AisleGroup[];
+}
+
+const HOUSEHOLD_AISLE = 'Household';
+
+const TIER_ORDER: Tier[] = ['now', 'could_wait', 'in_cart'];
+
+const TIER_META: Record<Tier, { label: string; hint: string | null }> = {
+  now: {
+    label: 'Now',
+    hint: 'Acute — out of a staple or needed for a recipe this week',
+  },
+  could_wait: {
+    label: 'Could wait',
+    hint: 'Low but not out — pick up when convenient',
+  },
+  in_cart: {
+    label: 'In cart',
+    hint: null,
+  },
+};
+
+function tierForItem(item: GroceryListItemWithIngredient): Tier {
+  if (item.is_in_cart) return 'in_cart';
+  if (item.priority === 'nice_to_have') return 'could_wait';
+  return 'now';
+}
+
+function aisleForItem(item: GroceryListItemWithIngredient): string {
+  if (!item.ingredient) return HOUSEHOLD_AISLE;
+  const section = item.ingredient.typical_store_section;
+  if (section && section.trim().length > 0) return section;
+  return item.ingredient.family || HOUSEHOLD_AISLE;
+}
+
+function displayNameOf(item: GroceryListItemWithIngredient): string {
+  if (item.ingredient) {
+    return item.ingredient.plural_name || item.ingredient.name;
+  }
+  return item.custom_name || '(unnamed item)';
+}
+
+function compareAisles(a: string, b: string): number {
+  if (a === HOUSEHOLD_AISLE && b !== HOUSEHOLD_AISLE) return 1;
+  if (b === HOUSEHOLD_AISLE && a !== HOUSEHOLD_AISLE) return -1;
+  return a.localeCompare(b);
+}
 
 export default function GroceryListDetailScreen({ route, navigation }: Props) {
   const { colors, functionalColors } = useTheme();
@@ -105,9 +174,6 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
       alignItems: 'center',
       gap: spacing.sm,
       marginBottom: spacing.md,
-    },
-    cartIcon: {
-      fontSize: 20,
     },
     progressBar: {
       flex: 1,
@@ -177,102 +243,66 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
     scrollView: {
       flex: 1,
     },
-    familySection: {
+
+    tierSection: {
       marginBottom: spacing.sm,
     },
-    familyHeader: {
+    tierHeader: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
       backgroundColor: colors.border.light,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+      minHeight: 44,
     },
-    familyHeaderText: {
+    tierCaret: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      width: 14,
+    },
+    tierDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    tierDotNow: {
+      backgroundColor: functionalColors.error,
+    },
+    tierDotCouldWait: {
+      backgroundColor: colors.text.tertiary,
+    },
+    tierDotInCart: {
+      backgroundColor: functionalColors.success,
+    },
+    tierLabel: {
       fontSize: typography.sizes.md,
       color: colors.text.primary,
       fontWeight: typography.weights.semibold,
+      flex: 1,
     },
-    familyCount: {
+    tierCount: {
       fontSize: typography.sizes.sm,
       color: colors.text.secondary,
-      backgroundColor: colors.background.card,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 4,
-      borderRadius: 12,
-      minWidth: 48,
-      textAlign: 'center',
       fontWeight: typography.weights.medium,
     },
-    familyItems: {
-      backgroundColor: colors.background.card,
-    },
-
-    itemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border.light,
-    },
-    itemRowChecked: {
-      opacity: 0.5,
-    },
-    checkbox: {
-      marginRight: spacing.sm,
-      width: 28,
-      height: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    checkboxEmpty: {
-      fontSize: 24,
-      color: colors.text.tertiary,
-    },
-    checkboxFilled: {
-      fontSize: 24,
-      color: functionalColors.success,
-    },
-    itemInfo: {
-      flex: 1,
-      marginRight: spacing.sm,
-      paddingVertical: spacing.xs,
-    },
-    itemText: {
-      fontSize: typography.sizes.sm,
-      color: colors.text.primary,
-    },
-    itemTextChecked: {
-      textDecorationLine: 'line-through',
-      color: colors.text.tertiary,
-    },
-    itemQuantity: {
+    tierHint: {
+      fontSize: typography.sizes.xs,
       color: colors.text.secondary,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xs,
+      backgroundColor: colors.background.secondary,
     },
-
-    quantityControls: {
-      flexDirection: 'row',
-      marginRight: spacing.sm,
+    aisleHeader: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      backgroundColor: colors.background.secondary,
     },
-    quantityButton: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: colors.border.light,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginLeft: spacing.xs,
-    },
-    quantityButtonText: {
-      fontSize: 18,
-      color: colors.text.primary,
-      fontWeight: typography.weights.semibold,
-    },
-    deleteButton: {
-      fontSize: 20,
-      color: functionalColors.error,
-      paddingHorizontal: spacing.sm,
+    aisleHeaderText: {
+      fontSize: typography.sizes.sm,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
     },
 
     emptyState: {
@@ -280,10 +310,6 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
       justifyContent: 'center',
       paddingTop: 100,
       paddingHorizontal: spacing.xl,
-    },
-    emptyIcon: {
-      fontSize: 64,
-      marginBottom: spacing.lg,
     },
     emptyTitle: {
       fontSize: typography.sizes.xl,
@@ -301,11 +327,25 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   // Extract params with proper typing
   const { listId, listName } = route.params;
 
-  const [items, setItems] = useState<GroceryListItem[]>([]);
+  const [items, setItems] = useState<GroceryListItemWithIngredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  // Tier collapse state. Default: in_cart collapsed; Now and Could wait expanded.
+  const [collapsedTiers, setCollapsedTiers] = useState<Record<Tier, boolean>>({
+    now: false,
+    could_wait: false,
+    in_cart: true,
+  });
+
+  // Phase 8C-CP2: cross-list checkoff prompt state. null = no prompt visible.
+  const [crossListPromptState, setCrossListPromptState] = useState<{
+    visible: boolean;
+    itemName: string;
+    ingredientId: string;
+    otherLists: CrossListIngredientPresence[];
+  } | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -351,45 +391,52 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   }, [listId]);
 
   // ============================================
-  // GROUPING
+  // TIER + AISLE GROUPING
   // ============================================
 
-  const groupedItems = items.reduce((acc, item) => {
-    if (!item.ingredient) return acc;
-    
-    const family = item.ingredient.family;
-    if (!acc[family]) {
-      acc[family] = { unchecked: [], checked: [] };
-    }
-    if (item.is_in_cart) {
-      acc[family].checked.push(item);
-    } else {
-      acc[family].unchecked.push(item);
-    }
-    return acc;
-  }, {} as Record<string, { unchecked: GroceryListItem[]; checked: GroceryListItem[] }>);
+  const tierGroups = useMemo<TierGroup[]>(() => {
+    const buckets: Record<Tier, Map<string, GroceryListItemWithIngredient[]>> = {
+      now: new Map(),
+      could_wait: new Map(),
+      in_cart: new Map(),
+    };
 
-  const families = Object.keys(groupedItems).sort((a, b) => {
-    const aItems = groupedItems[a];
-    const bItems = groupedItems[b];
-    
-    const aAllChecked = aItems.unchecked.length === 0 && aItems.checked.length > 0;
-    const bAllChecked = bItems.unchecked.length === 0 && bItems.checked.length > 0;
-    
-    // If both are complete or both incomplete, sort alphabetically
-    if (aAllChecked === bAllChecked) {
-      return a.localeCompare(b);
+    for (const item of items) {
+      const tier = tierForItem(item);
+      const aisle = aisleForItem(item);
+      const map = buckets[tier];
+      const list = map.get(aisle) || [];
+      list.push(item);
+      map.set(aisle, list);
     }
-    
-    // Otherwise, incomplete sections come first
-    return aAllChecked ? 1 : -1;
-  });
+
+    return TIER_ORDER.map((tier) => {
+      const map = buckets[tier];
+      const aisles: AisleGroup[] = Array.from(map.entries())
+        .map(([aisle, aisleItems]) => ({
+          aisle,
+          items: aisleItems
+            .slice()
+            .sort((a, b) => displayNameOf(a).localeCompare(displayNameOf(b))),
+        }))
+        .sort((a, b) => compareAisles(a.aisle, b.aisle));
+
+      const count = aisles.reduce((sum, g) => sum + g.items.length, 0);
+
+      return {
+        tier,
+        label: TIER_META[tier].label,
+        hint: TIER_META[tier].hint,
+        count,
+        aisles,
+      };
+    });
+  }, [items]);
 
   // ============================================
   // STATS
   // ============================================
 
-  const uncheckedCount = items.filter(item => !item.is_in_cart).length;
   const checkedCount = items.filter(item => item.is_in_cart).length;
   const totalCount = items.length;
   const progressPercent = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
@@ -398,13 +445,57 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   // ITEM ACTIONS
   // ============================================
 
-  const handleToggleItem = async (itemId: string, currentState: boolean) => {
+  const handleToggleItem = async (itemId: string, currentInCart: boolean) => {
     try {
-      await toggleItemInCart(itemId, !currentState);
+      const newState = !currentInCart;
+      // Capture from local state pre-toggle so we still have ingredient details
+      // even if loadItems() reshapes the array.
+      const item = items.find((i) => i.id === itemId);
+
+      await toggleItemInCart(itemId, newState);
       await loadItems();
+
+      // Phase 8C-CP2: cross-list prompt fires only on check-on (false → true)
+      // and only for items with an ingredient_id (custom items skipped).
+      if (newState && currentUserId && item?.ingredient_id && item.ingredient) {
+        const otherLists = await getOtherListsContainingIngredient(
+          item.ingredient_id,
+          listId,
+          currentUserId
+        );
+        if (otherLists.length > 0) {
+          setCrossListPromptState({
+            visible: true,
+            itemName: item.ingredient.plural_name || item.ingredient.name,
+            ingredientId: item.ingredient_id,
+            otherLists,
+          });
+        }
+      }
     } catch (error) {
       console.error('Error toggling item:', error);
       Alert.alert('Error', 'Failed to update item');
+    }
+  };
+
+  const handleCrossListKeep = () => {
+    setCrossListPromptState(null);
+  };
+
+  const handleCrossListRemove = async () => {
+    const state = crossListPromptState;
+    if (!state || !currentUserId) {
+      setCrossListPromptState(null);
+      return;
+    }
+    try {
+      const listIds = state.otherLists.map((l) => l.list_id);
+      await deleteItemsByIngredientFromLists(state.ingredientId, listIds, currentUserId);
+    } catch (error) {
+      console.error('Error removing cross-list items:', error);
+      Alert.alert('Error', 'Failed to remove items from other lists');
+    } finally {
+      setCrossListPromptState(null);
     }
   };
 
@@ -429,11 +520,53 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const toggleSection = (family: string) => {
-    setCollapsedSections(prev => ({
-      ...prev,
-      [family]: !prev[family],
-    }));
+  const handleMoveTier = (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    Alert.alert(
+      'Move item',
+      undefined,
+      [
+        {
+          text: 'Move to Now',
+          onPress: async () => {
+            try {
+              await updateListItem(itemId, {
+                priority: 'needed',
+                priority_reason: 'manual',
+                is_in_cart: false,
+              });
+              await loadItems();
+            } catch (error) {
+              console.error('Error moving item to Now:', error);
+              Alert.alert('Error', 'Failed to move item');
+            }
+          },
+        },
+        {
+          text: 'Move to Could wait',
+          onPress: async () => {
+            try {
+              await updateListItem(itemId, {
+                priority: 'nice_to_have',
+                priority_reason: 'manual',
+                is_in_cart: false,
+              });
+              await loadItems();
+            } catch (error) {
+              console.error('Error moving item to Could wait:', error);
+              Alert.alert('Error', 'Failed to move item');
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const toggleTier = (tier: Tier) => {
+    setCollapsedTiers((prev) => ({ ...prev, [tier]: !prev[tier] }));
   };
 
   const handleAddItem = () => {
@@ -446,7 +579,7 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
 
   const handleMoveToPantry = async () => {
     const checkedItems = items.filter(item => item.is_in_cart);
-    
+
     if (checkedItems.length === 0) {
       return;
     }
@@ -505,10 +638,8 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
                 }
               }
 
-              // Reload the list
               await loadItems();
 
-              // Show result
               if (failCount === 0) {
                 Alert.alert(
                   'Success!',
@@ -531,78 +662,14 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
   };
 
   // ============================================
-  // RENDER ITEM
-  // ============================================
-
-  const renderItem = (item: GroceryListItem) => {
-    if (!item.ingredient) return null;
-
-    return (
-      <View
-        key={item.id}
-        style={[
-          styles.itemRow,
-          item.is_in_cart && styles.itemRowChecked,
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => handleToggleItem(item.id, item.is_in_cart)}
-          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-        >
-          <Text style={item.is_in_cart ? styles.checkboxFilled : styles.checkboxEmpty}>
-            {item.is_in_cart ? '✓' : '○'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.itemInfo}
-          onPress={() => handleToggleItem(item.id, item.is_in_cart)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.itemText,
-              item.is_in_cart && styles.itemTextChecked,
-            ]}
-            numberOfLines={1}
-          >
-            {item.ingredient.name} · <Text style={styles.itemQuantity}>{item.quantity_display} {item.unit_display}</Text>
-          </Text>
-        </TouchableOpacity>
-
-        {!item.is_in_cart && (
-          <View style={styles.quantityControls}>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => handleAdjustQuantity(item.id, item.quantity_display, -0.5)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.quantityButtonText}>−</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => handleAdjustQuantity(item.id, item.quantity_display, 0.5)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.quantityButtonText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <TouchableOpacity
-          onPress={() => handleDeleteItem(item.id)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.deleteButton}>✕</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // ============================================
   // RENDER
   // ============================================
+
+  const tierDotStyle = (tier: Tier) => {
+    if (tier === 'now') return styles.tierDotNow;
+    if (tier === 'could_wait') return styles.tierDotCouldWait;
+    return styles.tierDotInCart;
+  };
 
   if (loading) {
     return (
@@ -612,6 +679,8 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
       </View>
     );
   }
+
+  const hasAnyItems = items.length > 0;
 
   return (
     <View style={styles.container}>
@@ -625,21 +694,21 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           >
             <Text style={styles.backButtonText}>‹ Back</Text>
           </TouchableOpacity>
-          
+
           <Text style={styles.title}>{listName}</Text>
-          
+
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Progress Bar WITH CART ICON */}
+        {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <GroceryFilled size={20} color={colors.primary} />
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
-                { width: `${progressPercent}%` }
-              ]} 
+                styles.progressFill,
+                { width: `${progressPercent}%` },
+              ]}
             />
           </View>
           <Text style={styles.progressText}>
@@ -659,14 +728,14 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           <TouchableOpacity
             style={[
               styles.toPantryButton,
-              checkedCount === 0 && styles.toPantryButtonDisabled
+              checkedCount === 0 && styles.toPantryButtonDisabled,
             ]}
             onPress={handleMoveToPantry}
             disabled={checkedCount === 0}
           >
             <Text style={[
               styles.toPantryButtonText,
-              checkedCount === 0 && styles.toPantryButtonTextDisabled
+              checkedCount === 0 && styles.toPantryButtonTextDisabled,
             ]}>
               Place in Pantry ({checkedCount})
             </Text>
@@ -680,7 +749,7 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {items.length === 0 ? (
+        {!hasAnyItems ? (
           <View style={styles.emptyState}>
             <GroceryFilled size={48} color={colors.text.tertiary} />
             <Text style={styles.emptyTitle}>No Items Yet</Text>
@@ -689,39 +758,59 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
             </Text>
           </View>
         ) : (
-          <>
-            {families.map((family) => {
-              const familyItems = groupedItems[family];
-              const isCollapsed = collapsedSections[family];
-              const checkedInFamily = familyItems.checked.length;
-              const totalInFamily = familyItems.unchecked.length + familyItems.checked.length;
+          tierGroups.map((group) => {
+            const isCollapsed = collapsedTiers[group.tier];
+            return (
+              <View key={group.tier} style={styles.tierSection}>
+                <TouchableOpacity
+                  style={styles.tierHeader}
+                  onPress={() => toggleTier(group.tier)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${group.label} tier, ${group.count} ${group.count === 1 ? 'item' : 'items'}, ${isCollapsed ? 'collapsed' : 'expanded'}`}
+                >
+                  <Text style={styles.tierCaret}>{isCollapsed ? '▶' : '▼'}</Text>
+                  <View style={[styles.tierDot, tierDotStyle(group.tier)]} />
+                  <Text style={styles.tierLabel}>{group.label}</Text>
+                  <Text style={styles.tierCount}>· {group.count}</Text>
+                </TouchableOpacity>
 
-              return (
-                <View key={family} style={styles.familySection}>
-                  <TouchableOpacity
-                    style={styles.familyHeader}
-                    onPress={() => toggleSection(family)}
-                  >
-                    <Text style={styles.familyHeaderText}>
-                      {isCollapsed ? '▶' : '▼'} {family}
-                    </Text>
-                    <Text style={styles.familyCount}>
-                      {checkedInFamily}/{totalInFamily}
-                    </Text>
-                  </TouchableOpacity>
+                {group.hint && !isCollapsed && (
+                  <Text style={styles.tierHint}>{group.hint}</Text>
+                )}
 
-                  {!isCollapsed && (
-                    <View style={styles.familyItems}>
-                      {familyItems.unchecked.map(renderItem)}
-                      {familyItems.checked.map(renderItem)}
+                {!isCollapsed && group.aisles.map((aisleGroup) => (
+                  <View key={`${group.tier}:${aisleGroup.aisle}`}>
+                    <View style={styles.aisleHeader}>
+                      <Text style={styles.aisleHeaderText}>{aisleGroup.aisle}</Text>
                     </View>
-                  )}
-                </View>
-              );
-            })}
-          </>
+                    {aisleGroup.items.map((item) => (
+                      <GroceryListItem
+                        key={item.id}
+                        item={item}
+                        onToggleCart={handleToggleItem}
+                        onAdjustQuantity={handleAdjustQuantity}
+                        onMoveTier={handleMoveTier}
+                        onDelete={handleDeleteItem}
+                      />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            );
+          })
         )}
       </ScrollView>
+
+      {crossListPromptState && (
+        <CrossListPrompt
+          visible={crossListPromptState.visible}
+          itemName={crossListPromptState.itemName}
+          otherLists={crossListPromptState.otherLists}
+          onKeep={handleCrossListKeep}
+          onRemove={handleCrossListRemove}
+          onDismiss={() => setCrossListPromptState(null)}
+        />
+      )}
     </View>
   );
 }
