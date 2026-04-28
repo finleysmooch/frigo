@@ -14,6 +14,7 @@ import {
   PantryStapleUpdate,
   StapleState,
 } from './types/pantry';
+import { createGroceryList, updateListItem } from './groceryListsService';
 
 // ============================================
 // TYPES (in-file — service-specific, not shared)
@@ -355,6 +356,10 @@ export async function addStapleByCustomName(
  *   good → running_low → out → good → ...
  * Bumps last_confirmed_at = NOW() on EVERY transition (including unknown→good).
  * Throws StapleNotFoundError if ID doesn't exist in user's accessible spaces.
+ *
+ * Phase 8C-CP4: when the resolved new state is 'out', auto-route the staple to
+ * the user's primary grocery list. Routing failure is a soft-fail (logged,
+ * swallowed) — the state change still succeeds.
  */
 export async function cycleStapleState(stapleId: string): Promise<PantryStaple> {
   console.log('📦 Cycling staple state:', stapleId);
@@ -379,13 +384,25 @@ export async function cycleStapleState(stapleId: string): Promise<PantryStaple> 
     throw error;
   }
 
-  return data as PantryStaple;
+  const updated = data as PantryStaple;
+  if (updated.state === 'out') {
+    try {
+      await routeStapleToGroceryList(stapleId);
+    } catch (routeError) {
+      console.error('❌ routeStapleToGroceryList failed (soft-fail):', routeError);
+    }
+  }
+
+  return updated;
 }
 
 /**
  * Set a staple's state directly. For explicit changes from the recipe tap-sheet's
  * "Mark low" / "Mark out" / "Actually have" actions and cook-post depletion.
  * Bumps last_confirmed_at = NOW().
+ *
+ * Phase 8C-CP4: when newState === 'out', auto-route the staple to the user's
+ * primary grocery list. Soft-fail on routing error (state change succeeds).
  */
 export async function setStapleState(
   stapleId: string,
@@ -411,7 +428,166 @@ export async function setStapleState(
   }
 
   if (!data) throw new StapleNotFoundError(stapleId);
+
+  if (newState === 'out') {
+    try {
+      await routeStapleToGroceryList(stapleId);
+    } catch (routeError) {
+      console.error('❌ routeStapleToGroceryList failed (soft-fail):', routeError);
+    }
+  }
+
   return data as PantryStaple;
+}
+
+// ============================================
+// PHASE 8C-CP4 — STAPLE → GROCERY ROUTING
+// ============================================
+
+/**
+ * Phase 8C-CP4. Auto-route a staple-out event to the user's primary grocery list.
+ * Idempotent: re-routing a staple that already has a routed item is a no-op
+ * promotion (Stage 1 finds the existing row and refreshes its priority/reason).
+ *
+ * Algorithm:
+ * 1. Resolve acting user via supabase.auth.getUser. Soft-fail if absent.
+ * 2. Fetch staple (id, ingredient_id, custom_name).
+ * 3. Resolve primary list = acting user's most-recently-updated active list.
+ *    Auto-create a 'Groceries' list if none exists.
+ * 4. Stage 1 match by source_staple_id on the primary list — if hit, promote
+ *    priority + refresh priority_reason.
+ * 5. Stage 2 match by ingredient_id (or custom_name when ingredient_id is null),
+ *    ORDER BY updated_at DESC LIMIT 1 — if hit, link source_staple_id and promote.
+ * 6. Insert new row if no match.
+ *
+ * Always overwrites priority_reason to 'staple · out' (D8C-CP4-4).
+ * Throws if staple not found.
+ */
+export async function routeStapleToGroceryList(stapleId: string): Promise<void> {
+  console.log('🛒 Routing staple to grocery list:', stapleId);
+
+  // Step 4a — resolve acting user.
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    console.warn('⚠️ routeStapleToGroceryList: auth error; soft-failing', authError);
+    return;
+  }
+  if (!user) {
+    console.warn('⚠️ routeStapleToGroceryList: no auth user; soft-failing');
+    return;
+  }
+
+  // Step 4b — fetch staple.
+  const staple = await getStapleById(stapleId);
+  if (!staple) throw new StapleNotFoundError(stapleId);
+
+  // Step 4c — resolve primary list (user-scoped, not space-scoped per D8C-CP4-2).
+  const { data: listRows, error: listError } = await supabase
+    .from('grocery_lists')
+    .select('id, updated_at')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (listError) {
+    console.error('❌ routeStapleToGroceryList: error loading primary list:', listError);
+    throw listError;
+  }
+
+  let primaryListId: string;
+  if (!listRows || listRows.length === 0) {
+    console.log('🛒 No active list — auto-creating "Groceries" for routing');
+    const created = await createGroceryList({ user_id: user.id, name: 'Groceries' });
+    primaryListId = created.id;
+  } else {
+    primaryListId = (listRows[0] as { id: string }).id;
+  }
+
+  // Step 4d — Stage 1 dedup by source_staple_id.
+  const { data: stage1, error: stage1Error } = await supabase
+    .from('grocery_list_items')
+    .select('id')
+    .eq('list_id', primaryListId)
+    .eq('source_staple_id', stapleId)
+    .limit(1)
+    .maybeSingle();
+
+  if (stage1Error) {
+    console.error('❌ routeStapleToGroceryList: Stage 1 query error:', stage1Error);
+    throw stage1Error;
+  }
+
+  if (stage1) {
+    console.log('🛒 Stage 1 hit — promoting existing routed row');
+    await updateListItem((stage1 as { id: string }).id, {
+      priority: 'needed',
+      priority_reason: 'staple · out',
+    });
+    return;
+  }
+
+  // Step 4e — Stage 2 dedup by ingredient_id / custom_name.
+  let stage2Query = supabase
+    .from('grocery_list_items')
+    .select('id')
+    .eq('list_id', primaryListId)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (staple.ingredient_id) {
+    stage2Query = stage2Query.eq('ingredient_id', staple.ingredient_id);
+  } else if (staple.custom_name) {
+    stage2Query = stage2Query.is('ingredient_id', null).eq('custom_name', staple.custom_name);
+  } else {
+    // Defensive — staple insert path enforces at least one identity, so this
+    // branch should be unreachable. Skip Stage 2 and fall through to insert.
+    stage2Query = stage2Query.eq('id', '00000000-0000-0000-0000-000000000000'); // forces no-match
+  }
+
+  const { data: stage2, error: stage2Error } = await stage2Query.maybeSingle();
+
+  if (stage2Error) {
+    console.error('❌ routeStapleToGroceryList: Stage 2 query error:', stage2Error);
+    throw stage2Error;
+  }
+
+  if (stage2) {
+    console.log('🛒 Stage 2 hit — linking source_staple_id and promoting');
+    await updateListItem((stage2 as { id: string }).id, {
+      priority: 'needed',
+      priority_reason: 'staple · out',
+      source_staple_id: stapleId,
+    });
+    return;
+  }
+
+  // Step 4f — Stage 3 insert.
+  console.log('🛒 No match — inserting new routed row');
+  const insertRow = {
+    list_id: primaryListId,
+    user_id: user.id,
+    ingredient_id: staple.ingredient_id,
+    custom_name: staple.custom_name,
+    quantity_display: 1,
+    unit_display: 'unit',
+    priority: 'needed' as const,
+    priority_reason: 'staple · out',
+    added_from: 'staple' as const,
+    source_staple_id: staple.id,
+    is_in_cart: false,
+  };
+
+  const { error: insertError } = await supabase
+    .from('grocery_list_items')
+    .insert(insertRow);
+
+  if (insertError) {
+    console.error('❌ routeStapleToGroceryList: insert error:', insertError);
+    throw insertError;
+  }
+
+  console.log('✅ Staple routed to grocery list');
 }
 
 /**

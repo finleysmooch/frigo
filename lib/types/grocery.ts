@@ -54,9 +54,10 @@ export interface GroceryListItem {
   store_section: string | null;
   priority: 'needed' | 'nice_to_have';
   priority_reason: string | null;   // Phase 8A-CP1: machine-populated tier reason (staple out / for X recipe / manual)
-  added_from: 'recipe' | 'pantry' | 'manual' | 'regular' | null;
+  added_from: 'recipe' | 'pantry' | 'manual' | 'regular' | 'staple' | null;   // Phase 8C-CP4 — 'staple' added for auto-routed rows
   recipe_id: string | null;
   source_pantry_item_id: string | null;
+  source_staple_id: string | null;   // Phase 8C-CP4 — back-pointer to the routed pantry_staples row
   is_in_cart: boolean;
   checked_at: string | null;
   notes: string | null;
@@ -182,7 +183,7 @@ export type UserPantryPreferencesUpdate = Partial<Omit<UserPantryPreferences, 'u
 // ENUM TYPES
 // ============================================
 
-export type AddedFrom = 'recipe' | 'pantry' | 'manual' | 'regular';
+export type AddedFrom = 'recipe' | 'pantry' | 'manual' | 'regular' | 'staple';   // Phase 8C-CP4 — 'staple' is the auto-routed source semantic
 export type Priority = 'needed' | 'nice_to_have';
 export type PurchaseFrequency = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 

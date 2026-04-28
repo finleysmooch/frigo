@@ -2,6 +2,154 @@
 
 _This log is for Phase 8 (Pantry Intelligence + UX Overhaul) and subsequent work. Phase 7 + bridge-period entries are archived at `docs/archive/session_logs/_SESSION_LOG_PHASE7.md`._
 
+## 2026-04-27 — Phase 8C-CP4 — Staple → grocery auto-routing
+
+**Phase:** 8C-CP4 (the propagation loop Tom noticed during CP3 smoke-test setup — when a pantry staple goes 'out' it should automatically appear on the user's grocery list, and checking it off restores it to 'good')
+**Prompt from:** `docs/DRAFT_CC_PROMPT_8C-CP4_staple_grocery_routing.md` (DRAFT v1, authored 2026-04-27)
+**Status:** ⚠️ Partial — code complete + TypeScript clean (no new errors); migration file written but **NOT applied** in this environment (no Supabase CLI / DB access from CC); all 10 smoke tests deferred to Tom (require Expo running against live Supabase).
+
+**Scope:** Built the staple→grocery routing loop. Forward direction: when `cycleStapleState` or `setStapleState` resolves a transition to `'out'`, the new `routeStapleToGroceryList(stapleId)` service function fires automatically (D8C-CP4-1 — gated on `newState === 'out'` inside the setters themselves, no new orchestrator). Routing resolves the acting user via `supabase.auth.getUser()`, picks their most-recently-updated active list as primary (auto-creating a `'Groceries'` list if none exists — D8C-CP4-2 — user-scoped, not space-scoped), then runs three-stage dedup: Stage 1 matches `source_staple_id`, Stage 2 falls back to `ingredient_id`/`custom_name` `ORDER BY updated_at DESC LIMIT 1`, Stage 3 inserts a fresh row. All matched/inserted rows get `priority='needed'`, `priority_reason='staple · out'` (always overwritten per D8C-CP4-4), and the new `added_from='staple'` enum value. Reverse direction: in `GroceryListDetailScreen.handleToggleItem`, on check-on of a row with non-null `source_staple_id`, calls `setStapleState(staple_id, 'good')` (D8C-CP4-5 — does NOT fire on un-check or delete). Schema diff: one new column (`grocery_list_items.source_staple_id UUID NULL REFERENCES pantry_staples(id) ON DELETE SET NULL`), one partial index, and the `added_from` CHECK extended to include `'staple'`. P8-19 fold-in: `addIngredientsToDefaultList` now forwards `recipeId`/`recipeQuantityAmount`/`recipeQuantityUnit` so junction rows write on the recipe→default-list path (closes the gap noted in CP2a's SESSION_LOG).
+
+**Files modified (4 code + 1 new migration + 2 docs):**
+
+- `supabase/migrations/20260427_8c_cp4_staple_routing.sql` — new file. Adds `source_staple_id` UUID column with `ON DELETE SET NULL` (so deleting a staple soft-detaches the routed row instead of cascading), partial index `idx_gli_source_staple_id WHERE source_staple_id IS NOT NULL`, and drops + re-adds `grocery_list_items_added_from_check` to add `'staple'` as a fifth allowed enum value. **Not yet applied** — Tom must run via Supabase Studio SQL editor (existing project pattern; no `supabase/config.toml` here).
+- `lib/types/grocery.ts` — added `source_staple_id: string | null` to `GroceryListItem`; extended both the `GroceryListItem.added_from` union and the `AddedFrom` type alias to include `'staple'`. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/groceryListsService.ts` — widened `updateListItem`'s updates parameter signature to accept optional `source_staple_id?: string | null` (used by Stage 2 dedup to backfill the link on a previously-orphaned row). Folded P8-19: `addIngredientsToDefaultList` now passes `recipeId` + per-ingredient `quantity`/`unit` as `recipeQuantityAmount`/`recipeQuantityUnit` to `addItemToList` so the junction table is populated for every ingredient added via the recipe→default-list flow. ⚠️ PK snapshot now stale (was 2026-04-22).
+- `lib/pantryStaplesService.ts` — added new exported `routeStapleToGroceryList(stapleId)` function (full algorithm above). `cycleStapleState` and `setStapleState` both call it inside a try/catch when the resolved state is `'out'` — soft-fail logs but does not propagate (state change still succeeds). New imports of `createGroceryList` and `updateListItem` from `groceryListsService` (no circular dependency since `groceryListsService` doesn't import from `pantryStaplesService`). ⚠️ PK snapshot now stale (was 2026-04-23).
+- `screens/GroceryListDetailScreen.tsx` — added import of `setStapleState`. In `handleToggleItem`, after the existing `toggleItemInCart` + `loadItems` calls and before the existing CP2 cross-list prompt, added a check-on-only block that restores the linked staple to `'good'` (try/catch soft-fail). ⚠️ PK snapshot now stale (was 2026-04-22).
+- `docs/PK_CODE_SNAPSHOTS.md` — Rule E: appended 8C-CP4 notes to 4 rows (Staleness Risk already HIGH for all four; preserved).
+- `docs/SESSION_LOG.md` — this entry.
+
+**Decisions executed (all per the prompt's D8C-CP4-1 through D8C-CP4-8 — no new sub-decisions made):**
+
+- **D8C-CP4-1** ✅ — routing fires inside `cycleStapleState` and `setStapleState` themselves, gated on resolved-new-state === 'out'. Cook-depletion `applyDepletion` and `rollbackDepletion` (lines 295 + 362 of `cookDepletionService.ts`) call `setStapleState`, so they get routing for free with no changes there. Tap-cycle path covered via `cycleStapleState` (called by `StaplesGrid` → `StapleCell` → `cycleStapleState`).
+- **D8C-CP4-2** ✅ — primary list = acting user's most-recently-updated `is_active=true` list. Auto-creates `'Groceries'` if none. User-scoped, not space-scoped. Routing follows the actor (resolved via `supabase.auth.getUser()`), not the staple's `added_by`.
+- **D8C-CP4-3** ✅ — Stage 1 by `source_staple_id`, Stage 2 by `ingredient_id`/`custom_name` with `ORDER BY updated_at DESC LIMIT 1`. Stage 2 leaves any duplicates alone.
+- **D8C-CP4-4** ✅ — `priority_reason` always overwritten to `'staple · out'`, including on Stage 1 promotion of an existing routed row.
+- **D8C-CP4-5** ✅ — reverse direction fires only on `is_in_cart` transition `false → true`. The check-on guard `if (newState && item?.source_staple_id)` covers exactly this. Un-check (`true → false`) and delete paths untouched.
+- **D8C-CP4-6** ✅ — schema diff is exactly one column + one partial index + one CHECK swap, per the prompt's verbatim SQL.
+- **D8C-CP4-7** ✅ — only `'out'` triggers routing this CP. `'running_low'` not handled.
+- **D8C-CP4-8** ✅ — new rows use `quantity_display=1`, `unit_display='unit'`, `added_from='staple'`. The `added_from` CHECK extension lands in this CP's migration.
+
+**Verification:**
+
+1. ✅ `npx tsc --noEmit -p tsconfig.json` — only the 2 pre-existing baseline errors (`CookSoonSection.tsx:264`, `DayMealsModal.tsx:296`) plus the existing `node_modules/@react-navigation/core/lib/typescript/src/types.d.ts` parse errors that show up in this environment regardless of skipLibCheck. Filtered to non-`node_modules`, non-baseline errors: **zero new errors** in any of the 4 changed code files.
+2. ⚠️ Migration not applied in this environment. No `supabase/config.toml`, no Supabase CLI invocation surfaced — the project's pattern is for Tom to apply via Supabase Studio SQL editor (matches every prior 8C-CPx migration in this directory).
+3. ⚠️ All 10 smoke tests deferred to Tom — every test path requires the Expo app running against live Supabase to drive UI cycles and inspect resulting `grocery_list_items` rows. CC environment can't execute them.
+
+**DEFERRED_WORK status (per Task 7 — DEFERRED_WORK.md NOT edited this session, by spec):**
+
+- **P8-19 — closed inline.** `addIngredientsToDefaultList` now forwards `recipeId`/`recipeQuantityAmount`/`recipeQuantityUnit` to each `addItemToList` call. Per-ingredient quantity is reused as the per-recipe quantity (the per-ingredient shape this function accepts doesn't carry separate per-recipe values). The doc-hygiene CP that follows can mark P8-19 closed in DEFERRED_WORK.md.
+- **P8-20 — flagged for capture in next doc-hygiene CP.** Pill render in `GroceryListItem.tsx` currently uses `priority_reason.toLowerCase().includes('staple')` substring match (D8-41 from CP3). Once CP4 is in use and `source_staple_id` is reliably populated for every staple-routed row, the pill render should switch to the structural field `source_staple_id IS NOT NULL`. Defer until lived-with — not changed in this CP.
+- **P8-21 — flagged for capture in next doc-hygiene CP.** The cookDepletion undo path (`cookDepletionService.ts:362`) reverts staple state via `setStapleState(s.staple_id, s.old_state)` but does not clean up grocery items routed during the corresponding `applyDepletion` call. Recoverable manually (user can delete from list); rare in practice. Note: rollback's `setStapleState(s.staple_id, s.old_state)` could in principle re-route if `old_state === 'out'` (i.e., a no-op transition that the routing fires on anyway), but `applyDepletion` filters to `old_state !== new_state` so rollback only runs for staples that actually changed — and CP4's idempotent Stage-1 dedup makes this safe even if it did fire.
+
+**Soft-fail behavior, explicit:**
+
+Tasks 5 (`cycleStapleState` / `setStapleState` routing call) and 6 (`handleToggleItem` reverse-direction restore) wrap their cross-system call in `try/catch` and swallow errors with a `console.error` line. This is **intentional**: the primary state change (staple state update / grocery item check-off) succeeds even if its side effect (routing or reverse restore) fails. Future debugging signal lives in the console:
+- Forward direction: grep Metro logs for `routeStapleToGroceryList failed` (full error logged) or `routeStapleToGroceryList: no auth user` / `routeStapleToGroceryList: auth error` (the soft-fail-and-return paths inside the function itself).
+- Reverse direction: grep for `Reverse-direction staple restore failed`.
+
+Anyone investigating "staple went out but no grocery item appeared" should check those logs first, not assume the routing call didn't run.
+
+**Recommended doc updates:**
+
+- `DEFERRED_WORK.md`: **needs an update during the next doc-hygiene CP** — close P8-19 (inline fix shipped); add P8-20 (pill render structural-field switch) and P8-21 (cookDepletion undo cleanup of routed grocery items). Per Task 7 spec, NOT edited in this CP.
+- `PROJECT_CONTEXT.md`: **none.**
+- `FF_LAUNCH_MASTER_PLAN.md`: **none.**
+- `FRIGO_ARCHITECTURE.md`: **none** (no new architectural pattern; routing is a service-layer side-effect of an existing service function call, the same pattern as CP2's cross-list prompt).
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **needs an update during the next doc-hygiene CP** — flip 8C-CP4 to ⚠️ Partial → ✅ Complete after smoke test; capture D8C-CP4-1 through D8C-CP4-8 in the Decisions Log; bump 8C build-plan row to "4 of 8 numbered CPs done".
+
+**Recommended next steps for Tom:**
+
+1. **Apply the migration** via Supabase Studio SQL editor (paste the contents of `supabase/migrations/20260427_8c_cp4_staple_routing.sql`). Quick verification queries:
+   ```sql
+   SELECT column_name, data_type, is_nullable FROM information_schema.columns
+     WHERE table_name='grocery_list_items' AND column_name='source_staple_id';
+   -- expect: source_staple_id, uuid, YES
+
+   SELECT pg_get_constraintdef(oid) FROM pg_constraint
+     WHERE conname='grocery_list_items_added_from_check';
+   -- expect: CHECK (added_from = ANY (ARRAY['recipe'::text, 'pantry'::text, 'manual'::text, 'regular'::text, 'staple'::text]))
+   ```
+2. **Run the 10 smoke tests** in order from the prompt's Verification section. Critical:
+   - **Test 1 (reset fixtures)** — cycle the 3 pre-CP4 'out' staples (lemon, red wine vinegar, cumin) through to 'good' in StaplesGrid. No grocery items appear (transitions don't land on 'out').
+   - **Tests 2–3 (fresh transitions)** — cycle each back to 'out'. Three rows on most-recently-updated active list with `priority='needed'`, `priority_reason='staple · out'`, `source_staple_id` set, `added_from='staple'`, `unit_display='unit'`. Red staple pill renders in UI.
+   - **Test 4 (cook-depletion path)** — log a cook that depletes a 'good' staple to 'out'. Routed item appears (validates `setStapleState` routing fires from cookDepletion path too).
+   - **Test 5 (reverse — check off restores)** — check off lemon. `pantry_staples.state='good'`, `last_confirmed_at` bumped.
+   - **Test 6 (un-check does NOT re-trigger)** — un-check lemon. Staple stays 'good'.
+   - **Test 7 (delete does NOT restore)** — delete cumin item. Staple stays 'out'.
+   - **Test 8 (Stage 2 dedup)** — manually add "lemon" with `priority='nice_to_have'`, then cycle the lemon staple to 'out'. Existing row promoted in place (no duplicate; moves Could wait → Now).
+   - **Test 9 (idempotency)** — easiest path: cookDepletion redo of an already-routed staple. Stage 1 promotes; no duplicate.
+   - **Test 10 (auto-create primary list)** — if testable cleanly in dev, mark a staple 'out' from a state with no active lists; verify a 'Groceries' list is created. Flag in next session if not feasible.
+3. **Commit when smoke test passes** (mind `-m` before `--`):
+   ```
+   git commit -m "feat(grocery): Phase 8C-CP4 — staple → grocery auto-routing + P8-19 fold-in" -- supabase/migrations/20260427_8c_cp4_staple_routing.sql lib/types/grocery.ts lib/groceryListsService.ts lib/pantryStaplesService.ts screens/GroceryListDetailScreen.tsx docs/PK_CODE_SNAPSHOTS.md docs/SESSION_LOG.md
+   ```
+4. **Stage `_pk_sync/` copies** for the 4 stale-flagged code files (per Rule E — Tom's normal post-commit upload).
+5. **Queue 8C-CP4 doc hygiene** — Claude.ai will draft (PHASE_8 v2.10 → v2.11 with 8C-CP4 ✅ + D8C-CP4-1..8 + 4-of-8 build-plan flip; DEFERRED_WORK v5.12 → v5.13 with P8-19 closed + P8-20/P8-21 added).
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Zero strategic content authorship.** All 8 Decisions executed verbatim from the prompt. No filename inventions, no scope expansions, no architectural choices. Per Rule D — execution-only CP.
+2. **Migration not applied.** Project has no `supabase/config.toml` or local Supabase setup; Tom applies migrations via Supabase Studio SQL editor (matches every prior 8C-CPx migration). Flagged in Verification Item 2 above.
+3. **All 4 edited code files were already HIGH staleness risk** in `PK_CODE_SNAPSHOTS.md` from the cumulative 8C run. CP4 notes appended to the Notes column; Staleness Risk preserved as HIGH (no flip needed).
+4. **Migration file not in PK snapshot tables.** `supabase/migrations/*.sql` is in the "Excluded from snapshots (intentional)" set — no Rule E tracking for the new SQL file.
+5. **Stage 2 dedup branching for custom-named staples.** When `staple.ingredient_id` is null and `custom_name` is set, Stage 2 query uses `.is('ingredient_id', null).eq('custom_name', staple.custom_name)` — exact case-sensitive match, no normalization (the cross-boundary dedup logic in `pantryStaplesService.throwIfDisplayNameTaken` already prevents case-variant duplicates at staple insert time, so this is safe). Defensive third branch (when both ingredient_id AND custom_name are null) forces a no-match via a hardcoded zero-UUID, since the staple insert path enforces at least one identity.
+6. **`unit_display='unit'`** — kept Tom's choice from D8C-CP4-8. Did not deviate to empty string. Existing UI concatenation pattern (e.g., `${quantity_display} ${unit_display}`) renders this as "1 unit" which reads as defensibly intentional rather than buggy. If Tom wants a different fallback display, that's a CP4a-or-later UX call, not an execution sub-decision here.
+7. **No edits to `StaplesGrid.tsx`, `StapleCell.tsx`, or `GroceryListItem.tsx`** — confirmed not needed during execution. Pill render still uses substring match (P8-20 deferred per spec).
+8. **No edits to `cookDepletionService.ts`** — confirmed lines 295 + 362 call `setStapleState`, so they get routing for free. The undo cleanup gap (P8-21) is the only follow-up surface, deferred per spec.
+
+**Next steps:** Apply migration → 10 smoke tests → commit → doc-hygiene → 8C-CP5 design.
+
+---
+
+## 2026-04-27 — 8C-CP3 doc hygiene — D8-40/41 + 3-of-8 status flip
+
+**Phase:** doc hygiene (mechanical reconcile after 8C-CP3 smoke-test pass + commit `e41246b`)
+**Prompt from:** `docs/CC_START_PROMPT.md` (8C-CP3 doc hygiene, DRAFT v1, authored 2026-04-27)
+**Status:** ✅ Complete — all 5 PHASE_8 edits landed (one Edit 1.2 anchor mismatch resolved via Tom's Option A authorization); 9/3 grep counts pass; `_pk_sync/` diff clean.
+
+**Scope:** Reconciled `PHASE_8_PANTRY_INTELLIGENCE.md` (5 edits, v2.9 → v2.10) to reflect shipped 8C-CP3 state. Phase doc: header bump, 8C-CP3 scope bullet expanded with ✅ Complete + reframed-spec body + final-UX summary, 8C build-plan row flipped 2-of-8 → 3-of-8 done with CP4 next, D8-40/D8-41 appended to Decisions Log, v2.10 changelog row prepended capturing the wireframe design-pass redirect + smoke-test result + P8-19 status. DEFERRED_WORK no-drift verified (still v5.12, P8-19 intact). `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` re-staged (DEFERRED_WORK PK copy unchanged from earlier today).
+
+**Files modified:**
+- `docs/PHASE_8_PANTRY_INTELLIGENCE.md` — 5 edits per spec.
+- `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` — overwritten to match (fourth same-dated overwrite of the day for this file).
+
+**No code files edited** — Rule E does not fire this session.
+
+**Verification:**
+- `grep -c "v2.10\|D8-40\|D8-41\|3 of 8 numbered CPs\|✅ Complete (2026-04-27)" docs/PHASE_8_PANTRY_INTELLIGENCE.md` → **9** (≥5 expected) ✓
+- `grep -c "Version.*5.12\|P8-19" docs/DEFERRED_WORK.md` → **3** (≥2 expected; ≥2 is the no-drift signal — got 3, all P8-19 references still intact) ✓
+- `diff docs/PHASE_8_PANTRY_INTELLIGENCE.md _pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` → no output ✓
+
+**Decisions made during execution:** None. Tom resolved the one anchor mismatch via Option A (see Surprise #1).
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md`: **none** (no edits this session per spec; P8-19 stays open from CP2a).
+- `PROJECT_CONTEXT.md`: none.
+- `FF_LAUNCH_MASTER_PLAN.md`: none.
+- `FRIGO_ARCHITECTURE.md`: **deferred per prompt Constraint** — `react-native-svg` first inline use in a screen file (rather than via `components/icons/`) was flagged in CP3's SESSION_LOG; out of scope here. Architecture-doc updates fold into a cross-cutting pass after Phase 8 completes.
+- `PHASE_8_PANTRY_INTELLIGENCE.md`: **done this session** (v2.9 → v2.10).
+
+**Recommended next steps for Tom:**
+
+1. **Review diff** on `docs/PHASE_8_PANTRY_INTELLIGENCE.md`.
+2. **Commit:**
+   ```
+   git commit -m "docs(phase-8): 8C-CP3 doc hygiene — D8-40/41 + 3-of-8 status flip" -- docs/PHASE_8_PANTRY_INTELLIGENCE.md docs/SESSION_LOG.md
+   ```
+   (2 files; `-m` before `--`. DEFERRED_WORK isn't included since it didn't change.)
+3. **Upload `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` to PK** (replacing this morning's same-dated copy). Clear `_pk_sync/PHASE_8_PANTRY_INTELLIGENCE_2026-04-27.md` after upload (DEFERRED_WORK PK copy stays as-is from earlier today).
+4. **Queue 8C-CP4 design** (staple → grocery auto-routing — the propagation loop Tom noticed during CP3 smoke-test setup). The 3 staples Tom marked 'out' during smoke-test prep (lemon, red wine vinegar, cumin) are real test data for CP4 verification.
+
+**Surprises / Notes for Claude.ai:**
+
+1. **Edit 1.2 anchor mismatch — STOP fired, Tom authorized Option A.** Prompt expected the 8C-CP3 scope bullet to read `Chip bar at top of GroceryListDetailScreen with one chip per recipe. Tap chip → list filters to only that recipe's items. Recipe-linked rows show recipe name + recipe quantity inline.` Actual line 134 read `Chip bar at top filters to items linked via grocery_list_items.recipe_id. Recipe-linked rows show recipe name + recipe quantity inline. Non-recipe items stay minimal.` — same bold title, different body wording, plus an extra "Non-recipe items stay minimal." sentence the prompt didn't anticipate. Tom chose Option A (overwrite the actual line 134 content with the prompt's ✅ Complete + reframed-spec replacement payload). The intent was clearly to replace the chip-bar stub with the new bullet; only the find-string anchor was outdated. Single drift point this session. Other 4 anchors matched verbatim.
+2. **Fifth doc-hygiene pass on 2026-04-27** (CP1+CP1a → CP1b → CP2 → CP2a → CP3). Same-dated PK suffix (`*_2026-04-27.md`) reused across all five for PHASE_8; DEFERRED_WORK PK copy stable from CP2a's hygiene pass. Replace-on-upload semantics handle cumulative version bumps cleanly.
+3. **v2.10 is now the cumulative shipped state of 8C** (CP1 + CP1a + CP1b + CP2 + CP2a + CP3). Three numbered CPs done out of 8; CP4 (staple → grocery auto-routing + drag-to-reorder) is next per the changelog row.
+
+---
+
 ## 2026-04-27 — Phase 8C-CP3 — Compact/Detailed view + recipe pills + filter-by-recipe
 
 **Phase:** 8C-CP3 (largest CP of 8C — final UX layer for grocery: per-list view-mode toggle, recipe + staple pills inline on rows, tappable pills filter-by-recipe with disambiguation sheet for multi-recipe items)

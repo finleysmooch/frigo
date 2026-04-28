@@ -34,6 +34,7 @@ import {
   getGroceryList,
   updateGroceryList,
 } from '../lib/groceryListsService';
+import { setStapleState } from '../lib/pantryStaplesService';
 import {
   GroceryListItemWithIngredient,
   CrossListIngredientPresence,
@@ -653,6 +654,19 @@ export default function GroceryListDetailScreen({ route, navigation }: Props) {
 
       await toggleItemInCart(itemId, newState);
       await loadItems();
+
+      // Phase 8C-CP4: reverse-direction restore. On check-on (false → true) for
+      // a row linked to a staple via source_staple_id, restore the staple to
+      // 'good' (and bump last_confirmed_at via setStapleState). Soft-fail —
+      // checkoff already succeeded; staple restore failure should not surface
+      // as a user error. Does NOT fire on un-check or delete (D8C-CP4-5).
+      if (newState && item?.source_staple_id) {
+        try {
+          await setStapleState(item.source_staple_id, 'good');
+        } catch (restoreError) {
+          console.error('Reverse-direction staple restore failed (soft-fail):', restoreError);
+        }
+      }
 
       // Phase 8C-CP2: cross-list prompt fires only on check-on (false → true)
       // and only for items with an ingredient_id (custom items skipped).

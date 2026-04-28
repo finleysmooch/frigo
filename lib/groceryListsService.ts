@@ -712,6 +712,7 @@ export async function updateListItem(
     brand_preference?: string | null;
     size_preference?: string | null;
     custom_name?: string | null;
+    source_staple_id?: string | null;   // Phase 8C-CP4 — staple back-pointer (set when Stage-2 dedup links an existing row)
   }
 ): Promise<void> {
   try {
@@ -939,7 +940,9 @@ export async function addIngredientsToDefaultList(
       targetList = lists[0];
     }
 
-    // Add all ingredients to the list
+    // Add all ingredients to the list. Phase 8C-CP4 (P8-19 fold-in): forward
+    // recipeId so addItemToList writes the junction attribution row for each
+    // ingredient. Per-recipe quantity defaults to the per-ingredient amount.
     let addedCount = 0;
     for (const ingredient of ingredients) {
       try {
@@ -948,6 +951,9 @@ export async function addIngredientsToDefaultList(
           ingredient_id: ingredient.ingredient_id,
           quantity_display: ingredient.quantity,
           unit_display: ingredient.unit,
+          recipeId,
+          recipeQuantityAmount: ingredient.quantity,
+          recipeQuantityUnit: ingredient.unit,
         });
         addedCount++;
       } catch (error) {
