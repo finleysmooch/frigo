@@ -30,9 +30,9 @@ import AdminScreen from './screens/AdminScreen';
 import YasChefScreen from './screens/YasChefScreen';
 import CommentsScreen from './screens/CommentsScreen';
 import PantryScreen from './screens/PantryScreen';
-import ManageStaplesScreen from './screens/ManageStaplesScreen';
-import GroceryListsScreen from './screens/GroceryListsScreen';
-import GroceryListDetailScreen from './screens/GroceryListDetailScreen';
+import SupplyDetailScreen from './screens/SupplyDetailScreen';
+import ViewsScreen from './screens/ViewsScreen';
+import ViewDetailScreen from './screens/ViewDetailScreen';
 import StoresScreen from './screens/StoresScreen';
 import BookViewScreen from './screens/BookViewScreen';
 import AuthorViewScreen from './screens/AuthorViewScreen';
@@ -62,6 +62,12 @@ import SpaceSettingsScreen from './screens/SpaceSettingsScreen';
 
 // NEW: Space Provider for shared pantries
 import { SpaceProvider } from './contexts/SpaceContext';
+import { CookDepletionBannerProvider } from './contexts/CookDepletionBannerContext';
+import CookDepletionBanner from './components/pantry/CookDepletionBanner';
+import { SpawnOnOutToastProvider } from './contexts/SpawnOnOutToastContext';
+import SpawnOnOutToast from './components/SpawnOnOutToast';
+import { AcquireLotToastProvider } from './contexts/AcquireLotToastContext';
+import AcquireLotToast from './components/pantry/AcquireLotToast';
 
 // Theme Provider for color schemes
 import { ThemeProvider, useTheme } from './lib/theme/ThemeContext';
@@ -124,6 +130,9 @@ export type RecipesStackParamList = {
     initialDietaryFlag?: string;
     initialChefId?: string;
     initialBookId?: string;
+    // CP6d-SupplyDetail (Q-NEW-26): pre-applies a hero-ingredient filter from
+    // the SupplyDetail "Find recipes" CTA.
+    initialIngredient?: string;
     sortBy?: string;
   } | undefined;
   RecipeDetail: { 
@@ -165,6 +174,8 @@ export type FeedStackParamList = {
   Profile: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  Admin: undefined;  // dev-only screen, reachable from Settings → Developer
+  LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
   RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
   AuthorView: { chefName: string };
   /** Phase 7I Checkpoint 5: cook post detail screen (L6). The `photoIndex`
@@ -233,6 +244,8 @@ export type StatsStackParamList = {
   Profile: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  Admin: undefined;  // dev-only screen, reachable from Settings → Developer
+  LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
   /** Phase 7H: My Posts cards tap through to the 7I L6 detail screen.
    *  Same param shape as the FeedStack's CookDetail route. */
   CookDetail: { postId: string; photoIndex?: number };
@@ -240,23 +253,21 @@ export type StatsStackParamList = {
   EditPost: { postId: string };
 };
 
-export type ProfileStackParamList = {
-  ProfileHome: undefined;
-  Settings: undefined;
-  EditProfile: undefined;
-  LogoPlayground: undefined;
+export type ViewsStackParamList = {
+  Views: undefined;
+  ViewDetail: { viewId: string };
 };
 
-export type GroceryStackParamList = {
-  GroceryLists: undefined;
-  GroceryListDetail: { listId: string; listName: string };
-};
+// Legacy alias kept for any pre-CP6c imports that haven't been updated yet.
+// Active code should use ViewsStackParamList; this re-export prevents stale
+// references from breaking the build during the rename transition.
+export type GroceryStackParamList = ViewsStackParamList;
 
 // NEW: Pantry Stack with Space Settings
 export type PantryStackParamList = {
   Pantry: undefined;
   SpaceSettings: { spaceId: string };
-  ManageStaples: undefined;
+  SupplyDetail: { supplyId: string };
 };
 
 export type RootTabParamList = {
@@ -267,14 +278,12 @@ export type RootTabParamList = {
   PantryStack: undefined;
   GroceryStack: undefined;
   Stores: undefined;
-  Admin: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>(); // NEW
 const RecipesStack = createNativeStackNavigator<RecipesStackParamList>();
 const StatsStackNav = createNativeStackNavigator<StatsStackParamList>();
-const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const MealsStack = createNativeStackNavigator<MealsStackParamList>();
 
@@ -394,6 +403,22 @@ function FeedStackNavigator() {
         options={{
           headerShown: true,
           title: 'Settings',
+        }}
+      />
+      <FeedStack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{
+          headerShown: true,
+          title: 'Admin Tools',
+        }}
+      />
+      <FeedStack.Screen
+        name="LogoPlayground"
+        component={LogoPlaygroundScreen}
+        options={{
+          headerShown: true,
+          title: 'Logo Playground',
         }}
       />
       <FeedStack.Screen
@@ -589,6 +614,16 @@ function StatsStackNavigator() {
         options={{ headerShown: true, title: 'Settings' }}
       />
       <StatsStackNav.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{ headerShown: true, title: 'Admin Tools' }}
+      />
+      <StatsStackNav.Screen
+        name="LogoPlayground"
+        component={LogoPlaygroundScreen}
+        options={{ headerShown: true, title: 'Logo Playground' }}
+      />
+      <StatsStackNav.Screen
         name="EditProfile"
         component={EditProfileScreen}
         options={{ headerShown: true, title: 'Edit Profile' }}
@@ -639,39 +674,6 @@ function MealsStackNavigator() {
   );
 }
 
-// Profile Stack Navigator
-function ProfileStackNavigator() {
-  return (
-    <ProfileStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        headerTintColor: '#0F6E56',
-      }}
-    >
-      <ProfileStack.Screen
-        name="ProfileHome"
-        component={ProfileScreen}
-      />
-      <ProfileStack.Screen
-        name="Settings"
-        component={SettingsScreen}
-      />
-      <ProfileStack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-      />
-      <ProfileStack.Screen
-        name="LogoPlayground"
-        component={LogoPlaygroundScreen}
-        options={{
-          headerShown: true,
-          title: 'Logo Playground',
-        }}
-      />
-    </ProfileStack.Navigator>
-  );
-}
-
 // UPDATED: Pantry Stack Navigator with SpaceSettings
 const PantryStackNav = createNativeStackNavigator<PantryStackParamList>();
 
@@ -692,36 +694,30 @@ function PantryStackNavigator() {
         }}
       />
       <PantryStackNav.Screen
-        name="ManageStaples"
-        component={ManageStaplesScreen}
+        name="SupplyDetail"
+        component={SupplyDetailScreen}
         options={{
-          headerShown: false, // ManageStaplesScreen has its own header
+          headerShown: false, // SupplyDetailScreen has its own header
         }}
       />
     </PantryStackNav.Navigator>
   );
 }
 
-// Grocery Stack Navigator
-const GroceryStack = createNativeStackNavigator<GroceryStackParamList>();
+// Views (formerly Grocery) Stack Navigator
+const ViewsStack = createNativeStackNavigator<ViewsStackParamList>();
 
 function GroceryStackNavigator() {
   return (
-    <GroceryStack.Navigator
+    <ViewsStack.Navigator
       screenOptions={{
         headerShown: false,
         headerTintColor: '#0F6E56',
       }}
     >
-      <GroceryStack.Screen 
-        name="GroceryLists" 
-        component={GroceryListsScreen}
-      />
-      <GroceryStack.Screen 
-        name="GroceryListDetail" 
-        component={GroceryListDetailScreen}
-      />
-    </GroceryStack.Navigator>
+      <ViewsStack.Screen name="Views" component={ViewsScreen} />
+      <ViewsStack.Screen name="ViewDetail" component={ViewDetailScreen} />
+    </ViewsStack.Navigator>
   );
 }
 
@@ -900,7 +896,16 @@ export default function App() {
           <NavigationContainer>
             {session ? (
               <SpaceProvider>
-                <MainTabNavigator />
+                <CookDepletionBannerProvider>
+                  <SpawnOnOutToastProvider>
+                    <AcquireLotToastProvider>
+                      <MainTabNavigator />
+                      <CookDepletionBanner />
+                      <SpawnOnOutToast />
+                      <AcquireLotToast />
+                    </AcquireLotToastProvider>
+                  </SpawnOnOutToastProvider>
+                </CookDepletionBannerProvider>
               </SpaceProvider>
             ) : (
               <AuthStackNavigator />
