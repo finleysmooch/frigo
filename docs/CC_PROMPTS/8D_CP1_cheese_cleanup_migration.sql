@@ -1,23 +1,21 @@
--- 8D-CP1 Part 0 — Cheese duplicate cleanup migration
+-- 8D-CP1 Part 0 — Cheese duplicate cleanup migration (v2 — actually applied)
 -- Run manually in Supabase SQL editor.
 -- This migration deletes orphan ingredient rows of the form "X cheese" when a
 -- canonical "X" row already exists with cheese-family metadata. The orphan rows
 -- were created during recipe extraction before the cheese-family normalization
 -- landed in CP6e-Catalog-SF5.
 --
--- Each phase outputs row counts so Tom can verify before committing the
--- transaction. Run with the transaction open (BEGIN/COMMIT) so any anomaly
--- can be rolled back.
+-- Phase 3b v2 fix: previously set custom_name alongside ingredient_id, which
+-- violated supply_has_identity (XOR CHECK on supplies — exactly one of
+-- ingredient_id OR custom_name, never both). v2 nulls ingredient_id at the
+-- same time, satisfying the constraint and pre-empting Phase 5's FK SET NULL
+-- cascade.
 
 BEGIN;
 
 -- ============================================
 -- Phase 1: Discovery — enumerate orphan/canonical pairs
 -- ============================================
--- Output: list of pairs for Tom's manual review before destructive phases.
--- Tom can SELECT this CTE first, sanity-check the pair count and names,
--- then proceed to Phase 2.
-
 WITH orphan_pairs AS (
   SELECT
     orphan.id   AS orphan_id,
@@ -28,7 +26,7 @@ WITH orphan_pairs AS (
   JOIN ingredients canon
     ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
   WHERE LOWER(orphan.name) ~ ' cheese$'
-    AND orphan.base_ingredient_id IS NULL  -- only base-level orphans, not variants
+    AND orphan.base_ingredient_id IS NULL
     AND canon.id != orphan.id
 )
 SELECT
@@ -44,11 +42,10 @@ ORDER BY orphan_name;
 -- ============================================
 -- Phase 2: Re-point recipe_ingredients FKs
 -- ============================================
-
 WITH orphan_pairs AS (
   SELECT
-    orphan.id   AS orphan_id,
-    canon.id    AS canonical_id
+    orphan.id AS orphan_id,
+    canon.id  AS canonical_id
   FROM ingredients orphan
   JOIN ingredients canon
     ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
@@ -62,16 +59,12 @@ FROM orphan_pairs pairs
 WHERE ri.ingredient_id = pairs.orphan_id;
 
 -- ============================================
--- Phase 3: Re-point supplies FKs (with collision safety)
+-- Phase 3a: Re-point supplies that have NO collision
 -- ============================================
--- If a user has BOTH "feta" and "feta cheese" supplies in the same space,
--- we archive the orphan-side and leave the canonical-side intact.
-
--- Phase 3a: Re-point supplies that have no collision
 WITH orphan_pairs AS (
   SELECT
-    orphan.id   AS orphan_id,
-    canon.id    AS canonical_id
+    orphan.id AS orphan_id,
+    canon.id  AS canonical_id
   FROM ingredients orphan
   JOIN ingredients canon
     ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
@@ -90,9 +83,15 @@ WHERE s.ingredient_id = pairs.orphan_id
       AND s2.archived_at IS NULL
   );
 
--- Phase 3b: Archive orphan-side supplies where collision exists
+-- ============================================
+-- Phase 3b (v2): Archive orphan-side supplies WHERE collision exists
+--                Atomic: null FK + set custom_name + archive
+--                Result: XOR constraint satisfied (ingredient_id NULL, custom_name NOT NULL)
+-- ============================================
 WITH orphan_pairs AS (
-  SELECT orphan.id AS orphan_id
+  SELECT
+    orphan.id   AS orphan_id,
+    orphan.name AS orphan_name
   FROM ingredients orphan
   JOIN ingredients canon
     ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
@@ -100,16 +99,18 @@ WITH orphan_pairs AS (
     AND orphan.base_ingredient_id IS NULL
     AND canon.id != orphan.id
 )
-UPDATE supplies
-SET archived_at = NOW()
-WHERE ingredient_id IN (SELECT orphan_id FROM orphan_pairs)
-  AND archived_at IS NULL;
+UPDATE supplies s
+SET
+  archived_at   = NOW(),
+  custom_name   = pairs.orphan_name,
+  ingredient_id = NULL
+FROM orphan_pairs pairs
+WHERE s.ingredient_id = pairs.orphan_id
+  AND s.archived_at IS NULL;
 
 -- ============================================
--- Phase 4: Verify zero references remain before deleting ingredient rows
+-- Phase 4: Verify zero references remain
 -- ============================================
-
--- Should return 0
 SELECT COUNT(*) AS leftover_recipe_ingredient_refs
 FROM recipe_ingredients ri
 WHERE ri.ingredient_id IN (
@@ -122,25 +123,21 @@ WHERE ri.ingredient_id IN (
     AND canon.id != orphan.id
 );
 
--- Should return 0
-SELECT COUNT(*) AS leftover_active_supply_refs
+SELECT COUNT(*) AS leftover_supply_refs
 FROM supplies s
-WHERE s.archived_at IS NULL
-  AND s.ingredient_id IN (
-    SELECT orphan.id
-    FROM ingredients orphan
-    JOIN ingredients canon
-      ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
-    WHERE LOWER(orphan.name) ~ ' cheese$'
-      AND orphan.base_ingredient_id IS NULL
-      AND canon.id != orphan.id
-  );
+WHERE s.ingredient_id IN (
+  SELECT orphan.id
+  FROM ingredients orphan
+  JOIN ingredients canon
+    ON LOWER(canon.name) = LOWER(REGEXP_REPLACE(orphan.name, ' cheese$', '', 'i'))
+  WHERE LOWER(orphan.name) ~ ' cheese$'
+    AND orphan.base_ingredient_id IS NULL
+    AND canon.id != orphan.id
+);
 
 -- ============================================
 -- Phase 5: Delete orphan ingredient rows
 -- ============================================
--- Only run if Phase 4 verification queries return 0 for both checks.
-
 DELETE FROM ingredients
 WHERE id IN (
   SELECT orphan.id
@@ -153,9 +150,8 @@ WHERE id IN (
 );
 
 -- ============================================
--- Phase 6: Final verification
+-- Phase 6: Final verification — should return 0
 -- ============================================
--- Should return 0 orphan rows
 SELECT COUNT(*) AS remaining_orphans
 FROM ingredients orphan
 JOIN ingredients canon
