@@ -21,9 +21,12 @@ import {
   searchRecipesByMultipleIngredients,
   searchRecipesByMixedTerms
 } from '../lib/searchService';
+import { runPantryMatchingSmokeTests } from '../lib/services/_pantryMatchingSmokeTest';
+import { useActiveSpaceId } from '../contexts/SpaceContext';
 
 export default function AdminScreen() {
   const { colors, functionalColors } = useTheme();
+  const activeSpaceId = useActiveSpaceId();
 
   const [testResults, setTestResults] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -583,6 +586,26 @@ export default function AdminScreen() {
     setIsLoading(false);
   };
 
+  // 8D-CP1 Part 3 — run the pantry matching smoke tests (TEMP).
+  const runSmokeTests = async () => {
+    if (!activeSpaceId) {
+      Alert.alert('No Active Space', 'Select a space before running the smoke tests.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await runPantryMatchingSmokeTests(activeSpaceId);
+      Alert.alert(
+        'Smoke Tests Complete',
+        'Check the Metro / debugger console for [SMOKE-N] result lines.'
+      );
+    } catch (err) {
+      Alert.alert('Smoke Tests Failed', String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Clear results
   const clearResults = () => {
     setTestResults([]);
@@ -723,6 +746,18 @@ export default function AdminScreen() {
           }}
         >
           <Text style={styles.buttonText}>Backfill Chef IDs</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Pantry Matching Smoke Tests — 8D-CP1 (TEMP) */}
+      <View style={styles.buttonSection}>
+        <Text style={styles.sectionTitle}>Pantry Matching (8D-CP1)</Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#7c3aed' }, isLoading && styles.buttonDisabled]}
+          onPress={runSmokeTests}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Run pantry matching smoke tests</Text>
         </TouchableOpacity>
       </View>
 

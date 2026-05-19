@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 8R/CP6e — Lots Wireframes v2</title>
+<style>
+  :root {
+    --bg-page: #f5f4ef;
+    --bg-surface: #ffffff;
+    --bg-muted: #f1efe8;
+    --bg-section: #f5f4ef;
+    --border: #e3e0d8;
+    --border-strong: #c5c3bc;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+
+    --status-good: #14a085;
+    --status-good-dim: #34c2a0;
+    --status-low: #f59e0b;
+    --status-critical: #ea580c;
+    --status-out: #dc2626;
+    --status-unknown: #9ca3af;
+
+    --brand-teal: #14a085;
+    --brand-teal-dark: #0f8c74;
+    --brand-priority: #d97706;
+
+    --note-info: #2563eb;
+    --note-warn-bg: #fef3c7;
+    --note-warn-border: #d97706;
+    --note-warn-text: #78350f;
+    --note-q-bg: #ede9fe;
+    --note-q-border: #6d28d9;
+    --note-q-text: #4c1d95;
+    --note-new-bg: #d1fae5;
+    --note-new-text: #064e3b;
+    --note-changed-bg: #fef3f2;
+    --note-changed-border: #dc2626;
+    --note-changed-text: #7f1d1d;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg-page); color: var(--text-primary); padding: 28px 16px 60px; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  header h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header .sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+  .changelog { background: var(--bg-muted); padding: 12px 14px; border-radius: 6px; margin-bottom: 18px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+  .changelog strong { color: var(--text-primary); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; border-bottom: 0.5px solid var(--border); padding-bottom: 12px; }
+  .tab { background: transparent; border: 0.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer; font-family: inherit; }
+  .tab:hover { background: var(--bg-muted); }
+  .tab.active { background: var(--text-primary); color: white; border-color: var(--text-primary); }
+  .tab.new { border-color: var(--brand-teal); color: var(--brand-teal-dark); }
+  .tab.new.active { background: var(--brand-teal); color: white; border-color: var(--brand-teal); }
+  .tab.flow { border-color: var(--note-info); color: var(--note-info); }
+  .tab.flow.active { background: var(--note-info); color: white; border-color: var(--note-info); }
+
+  .panel { display: none; }
+  .panel.active { display: grid; grid-template-columns: 420px 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 880px) { .panel.active { grid-template-columns: 1fr; } }
+
+  .phone { width: 380px; background: var(--bg-muted); border-radius: 24px; padding: 14px; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .phone-inner { background: var(--bg-page); border-radius: 16px; border: 0.5px solid var(--border); overflow: hidden; font-size: 13px; min-height: 600px; }
+
+  .notes h3 { font-size: 16px; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .notes h4 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+  .notes p, .notes li { font-size: 13.5px; line-height: 1.65; color: var(--text-secondary); }
+  .notes p { margin: 0 0 12px; }
+  .notes ul { padding-left: 18px; margin: 0 0 14px; }
+  .notes li { margin-bottom: 5px; }
+  .notes strong { color: var(--text-primary); font-weight: 600; }
+  .notes code { background: var(--bg-muted); padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--text-primary); }
+
+  .note-info { background: #dbeafe; padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--note-info); font-size: 12.5px; color: #1e3a8a; margin: 12px 0; }
+  .note-warn { background: var(--note-warn-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--note-warn-border); font-size: 12.5px; color: var(--note-warn-text); margin: 12px 0; }
+  .note-q { background: var(--note-q-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--note-q-border); font-size: 12.5px; color: var(--note-q-text); margin: 12px 0; }
+  .note-new { background: var(--note-new-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid #047857; font-size: 12.5px; color: var(--note-new-text); margin: 12px 0; }
+  .note-changed { background: var(--note-changed-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--note-changed-border); font-size: 12.5px; color: var(--note-changed-text); margin: 12px 0; }
+
+  .subtoggle { display: flex; gap: 4px; margin-bottom: 14px; padding: 4px; background: var(--bg-muted); border-radius: 8px; }
+  .subtoggle-btn { flex: 1; padding: 6px 10px; border: none; background: transparent; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-family: inherit; }
+  .subtoggle-btn.active { background: white; color: var(--text-primary); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .subvariant { display: none; }
+  .subvariant.active { display: block; }
+
+  /* PHONE HEADER */
+  .phone-statusbar { display: flex; justify-content: space-between; padding: 8px 16px 4px; font-size: 11.5px; color: var(--text-primary); font-weight: 600; }
+  .phone-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 16px 12px; }
+  .phone-header-back { font-size: 18px; color: var(--brand-teal); }
+  .phone-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .phone-title-mid { font-size: 16px; font-weight: 600; }
+  .phone-header-right { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .space-pill { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: 999px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-primary); }
+  .space-pill svg { width: 12px; height: 12px; }
+
+  .pantry-icon { width: 22px; height: 22px; }
+
+  .search-bar { margin: 0 16px 12px; padding: 11px 14px; background: var(--bg-muted); border-radius: 10px; color: var(--text-tertiary); font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .search-bar svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .section-label { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 8px; font-size: 11.5px; letter-spacing: 0.04em; font-weight: 700; color: var(--text-primary); }
+  .section-label .count { color: var(--text-tertiary); font-weight: 600; }
+  .section-label.with-icon { gap: 6px; }
+
+  .sub-label { font-size: 11px; color: var(--text-tertiary); padding: 6px 16px 4px; font-weight: 500; }
+
+  /* ROW CARD */
+  .row-card { display: flex; align-items: center; background: var(--bg-surface); margin: 0 12px 4px; border-radius: 6px; overflow: hidden; min-height: 44px; }
+  .row-card .accent-bar { width: 3px; align-self: stretch; }
+  .row-card .accent-bar.good { background: var(--status-good); }
+  .row-card .accent-bar.low { background: var(--status-low); }
+  .row-card .accent-bar.critical { background: var(--status-critical); }
+  .row-card .accent-bar.out { background: var(--status-out); }
+  .row-card .accent-bar.unknown { background: var(--status-unknown); }
+
+  /* 5-circle status icon — non-lot supplies */
+  .status-icon { display: flex; gap: 2px; padding: 0 10px 0 8px; align-items: center; }
+  .status-icon .dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; border: 1px solid var(--text-tertiary); }
+  .status-icon.lvl-5 .dot { background: var(--status-good); border-color: var(--status-good); }
+  .status-icon.lvl-4 .dot.d1, .status-icon.lvl-4 .dot.d2, .status-icon.lvl-4 .dot.d3, .status-icon.lvl-4 .dot.d4 { background: var(--status-good); border-color: var(--status-good); }
+  .status-icon.lvl-3 .dot.d1, .status-icon.lvl-3 .dot.d2, .status-icon.lvl-3 .dot.d3 { background: var(--status-good); border-color: var(--status-good); }
+  .status-icon.lvl-2 .dot.d1, .status-icon.lvl-2 .dot.d2 { background: var(--status-low); border-color: var(--status-low); }
+  .status-icon.lvl-1 .dot.d1 { background: var(--status-critical); border-color: var(--status-critical); }
+  .status-icon.lvl-0 .dot { border-color: var(--status-out); }
+  .status-icon.lvl-0 .dot.d1 { background: var(--status-out); }
+
+  /* Lot-aware badge — number + small unit icon */
+  .lot-badge {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 38px;
+    padding: 4px 8px 4px 6px;
+    margin-left: 6px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    gap: 3px;
+  }
+  .lot-badge svg { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.75; }
+  .lot-badge.good { background: #d4f5ea; border-color: #a3e3cd; color: var(--brand-teal-dark); }
+  .lot-badge.good svg { color: var(--brand-teal-dark); }
+  .lot-badge.low { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+  .lot-badge.low svg { color: #92400e; }
+  .lot-badge.critical { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+  .lot-badge.critical svg { color: #9a3412; }
+  .lot-badge.out { background: #fee2e2; border-color: #fca5a5; color: var(--status-out); }
+  .lot-badge.out svg { color: var(--status-out); }
+
+  .row-name { flex: 1; padding: 10px 6px 10px 8px; }
+  .row-name .name { font-size: 14.5px; font-weight: 500; color: var(--text-primary); }
+  .row-name .meta { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .row-name .meta svg { width: 10px; height: 10px; }
+
+  .row-status-text { font-size: 12px; padding-right: 10px; font-weight: 500; }
+  .row-status-text.good { color: var(--status-good); }
+  .row-status-text.low { color: var(--status-low); }
+  .row-status-text.critical { color: var(--status-critical); }
+  .row-status-text.out { color: var(--status-out); }
+
+  .row-aggregate-text { font-size: 12px; padding-right: 10px; color: var(--text-secondary); font-weight: 500; }
+
+  .row-bookmark { padding-right: 12px; display: flex; align-items: center; }
+  .row-bookmark svg { width: 14px; height: 14px; color: var(--brand-teal); }
+  .row-bookmark.priority svg { width: 16px; height: 16px; color: var(--brand-priority); }
+
+  /* Expanded panel */
+  .row-card.expanded { display: block; }
+  .row-card.expanded > .row-flex { display: flex; align-items: center; min-height: 44px; }
+  .expand-panel { padding: 10px 16px 14px; border-top: 1px solid var(--border); background: var(--bg-surface); }
+
+  .expand-summary-line { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px; }
+  .expand-summary-line .badge-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary); }
+  .expand-summary-line .badge-row svg { width: 11px; height: 11px; color: var(--brand-teal); }
+
+  /* Inline lots-list collapser */
+  .lots-collapser {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px;
+    background: var(--bg-muted);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .lots-collapser .left { display: flex; align-items: center; gap: 6px; }
+  .lots-collapser svg { width: 11px; height: 11px; }
+  .lots-collapser.open { background: white; border: 1px solid var(--border); }
+
+  .lots-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; margin-bottom: 12px; }
+
+  .lot-row {
+    display: flex; align-items: center;
+    padding: 8px 10px;
+    background: var(--bg-page);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    gap: 8px;
+  }
+  .lot-row.warn { border-color: var(--status-low); }
+  .lot-row.bad { border-color: var(--status-out); }
+  .lot-row.match { background: #fef9c3; border-color: #ca8a04; }
+
+  .lot-storage-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--bg-muted); color: var(--text-secondary); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; flex-shrink: 0; }
+  .lot-storage-badge.freezer { background: #dbeafe; color: #1e40af; }
+  .lot-storage-badge.fridge { background: #ddf4ee; color: #065f46; }
+  .lot-storage-badge.pantry { background: #fef3c7; color: #78350f; }
+  .lot-storage-badge.counter { background: #fce7f3; color: #831843; }
+
+  .lot-qty { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+  .lot-variant { font-size: 12px; color: var(--text-secondary); flex: 1; }
+  .lot-expires { font-size: 11.5px; color: var(--text-tertiary); white-space: nowrap; }
+  .lot-expires.warn { color: var(--status-low); font-weight: 500; }
+  .lot-expires.bad { color: var(--status-out); font-weight: 500; }
+  .lot-qty-stepper { display: flex; align-items: center; gap: 4px; }
+  .lot-step-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
+
+  .lot-variant-group {
+    margin-bottom: 10px;
+  }
+  .lot-variant-group-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 4px; font-size: 11px; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .lot-variant-group-header svg { width: 10px; height: 10px; }
+
+  .lots-search-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px;
+    background: var(--bg-muted);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 12px; color: var(--text-tertiary);
+  }
+  .lots-search-bar svg { width: 11px; height: 11px; }
+
+  .add-lot-btn {
+    padding: 9px 14px; border: 1px dashed var(--border-strong); border-radius: 6px;
+    font-size: 12.5px; color: var(--brand-teal-dark); text-align: center; margin-top: 4px;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .add-lot-btn svg { width: 12px; height: 12px; }
+
+  .expand-cta-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; gap: 12px; flex-wrap: wrap; }
+  .expand-cta-button {
+    padding: 7px 14px; border: 1px dashed var(--border-strong); border-radius: 6px;
+    font-size: 12.5px; color: var(--text-primary);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .expand-cta-button svg { width: 11px; height: 11px; }
+  .expand-cta-link { font-size: 12px; color: var(--brand-teal); display: flex; align-items: center; gap: 4px; }
+  .expand-cta-link svg { width: 12px; height: 12px; }
+
+  .expand-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-secondary); margin-top: 10px; }
+  .location-pill { display: inline-flex; align-items: center; gap: 4px; }
+  .location-pill svg { width: 11px; height: 11px; }
+
+  /* DETAIL screen styles */
+  .detail-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .detail-section.no-border { border-bottom: none; }
+  .detail-label { font-size: 11px; letter-spacing: 0.04em; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; }
+  .detail-value { font-size: 14px; color: var(--text-primary); }
+  .detail-value-muted { font-size: 12.5px; color: var(--text-tertiary); }
+  .detail-row-flex { display: flex; justify-content: space-between; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-muted); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--text-primary); margin-right: 6px; margin-bottom: 4px; }
+  .chip.add { border: 1px dashed var(--border-strong); background: transparent; color: var(--text-secondary); }
+  .chip .x { font-size: 10px; color: var(--text-tertiary); margin-left: 2px; }
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 12px; }
+  .toggle { width: 36px; height: 22px; border-radius: 999px; background: var(--brand-teal); position: relative; flex-shrink: 0; }
+  .toggle.off { background: var(--border-strong); }
+  .toggle::after { content: ''; position: absolute; right: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; }
+  .toggle.off::after { right: auto; left: 2px; }
+  .toggle-label { font-size: 13.5px; color: var(--text-primary); }
+  .toggle-help { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+
+  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--bg-muted); border-radius: 8px; }
+  .segmented-btn { flex: 1; padding: 6px; font-size: 12px; text-align: center; border-radius: 6px; color: var(--text-secondary); }
+  .segmented-btn.active { background: white; color: var(--text-primary); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .segmented-btn.active.low { color: #92400e; }
+  .segmented-btn.active.critical { color: #9a3412; }
+  .segmented-btn.active.out { color: #7f1d1d; }
+
+  .lot-detail-row { padding: 12px 14px; background: var(--bg-page); border: 0.5px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+  .lot-detail-row.warn { border-left: 3px solid var(--status-low); }
+  .lot-detail-row.bad { border-left: 3px solid var(--status-out); }
+  .lot-detail-row .lot-line-1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .lot-detail-row .lot-line-2 { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+  .lot-edit-icon { font-size: 14px; color: var(--text-tertiary); }
+
+  /* Sheet */
+  .sheet-frame { background: white; min-height: 600px; border-top-left-radius: 14px; border-top-right-radius: 14px; }
+  .sheet-handle { width: 36px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 8px auto 6px; }
+  .sheet-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px 14px; border-bottom: 1px solid var(--border); }
+  .sheet-title { font-size: 15.5px; font-weight: 600; }
+  .sheet-action { font-size: 13.5px; color: var(--brand-teal); font-weight: 600; }
+  .sheet-body { padding: 8px 16px 16px; }
+  .input-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .input-row:last-child { border-bottom: none; }
+  .input-row .label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 4px; }
+  .input-row .value { font-size: 14.5px; color: var(--text-primary); }
+  .input-row .input-mock { font-size: 14.5px; color: var(--text-tertiary); padding: 8px 12px; background: var(--bg-muted); border-radius: 6px; }
+  .help-text { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; line-height: 1.5; }
+
+  /* Cook depletion banner */
+  .banner {
+    margin: 12px 12px;
+    padding: 14px;
+    background: white;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand-teal);
+    border-radius: 8px;
+  }
+  .banner-title {
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+  }
+  .banner-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
+  .banner-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .banner-row:first-of-type { border-top: none; padding-top: 4px; }
+  .banner-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .banner-btn { padding: 8px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 600; flex: 1; text-align: center; }
+  .banner-btn.primary { background: var(--brand-teal); color: white; }
+  .banner-btn.secondary { background: var(--bg-muted); color: var(--text-primary); }
+  .banner-link { font-size: 11.5px; color: var(--brand-teal); margin-top: 8px; text-align: center; cursor: pointer; }
+  .banner-override-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+  .banner-override-row { display: flex; align-items: center; padding: 6px 8px; background: var(--bg-muted); border-radius: 6px; gap: 8px; font-size: 12px; }
+  .banner-override-row.selected { background: #d4f5ea; border: 1px solid var(--brand-teal); }
+  .banner-override-row .check { width: 16px; height: 16px; border: 1px solid var(--border-strong); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .banner-override-row.selected .check { background: var(--brand-teal); border-color: var(--brand-teal); color: white; font-size: 10px; }
+
+  /* Search results — multi-token highlight */
+  .match-pill {
+    font-size: 9.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+    background: #fef3c7; color: #78350f; margin-left: 4px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .for-user-mini { background: var(--bg-muted); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--text-secondary); }
+
+  /* Catalog suggestion rows */
+  .catalog-suggestion { background: var(--bg-surface); margin: 0 12px 4px; border-radius: 6px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; opacity: 0.85; }
+  .catalog-suggestion .plus-icon { width: 22px; height: 22px; border-radius: 50%; border: 1px dashed var(--border-strong); display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); font-size: 14px; }
+  .catalog-suggestion .info { flex: 1; }
+  .catalog-suggestion .info .name { font-size: 13.5px; color: var(--text-secondary); }
+  .catalog-suggestion .info .meta { font-size: 11px; color: var(--text-tertiary); }
+
+  /* Grocery acquire mock */
+  .acquire-toast {
+    margin: 12px;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid var(--brand-teal);
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .acquire-toast-title { font-size: 13px; font-weight: 600; }
+  .acquire-toast-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  .acquire-toast-info { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+  .acquire-actions { display: flex; gap: 8px; margin-top: 10px; font-size: 11.5px; }
+  .acquire-actions .a { color: var(--brand-teal); font-weight: 600; }
+  .acquire-actions .b { color: var(--text-tertiary); }
+
+  /* Need row collapsed (grocery) */
+  .need-row { display: flex; align-items: center; padding: 10px 14px; background: var(--bg-surface); border-bottom: 0.5px solid var(--border); gap: 10px; }
+  .need-checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--status-low); flex-shrink: 0; }
+  .need-checkbox.in-cart { background: #14a085; border-color: #14a085; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .need-name { flex: 1; font-size: 14px; }
+  .need-name-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+  .need-qty { font-size: 12px; color: var(--text-secondary); }
+
+  /* Misc */
+  .small-emphasis { font-size: 11.5px; color: var(--text-secondary); padding: 0 16px 8px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ===== ICON DEFS ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Search -->
+    <symbol id="i-search" viewBox="0 0 16 16">
+      <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </symbol>
+    <!-- Home -->
+    <symbol id="i-home" viewBox="0 0 16 16">
+      <path d="M2 7l6-5 6 5v7H10v-4H6v4H2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Pantry shelf -->
+    <symbol id="i-pantry" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="18" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="3" y1="11.5" x2="21" y2="11.5" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="7.5" cy="7.5" r="1" fill="currentColor"/>
+      <rect x="11" y="6" width="3.5" height="3.5" rx="0.4" fill="currentColor"/>
+      <rect x="6" y="13.5" width="3" height="5" rx="0.3" fill="currentColor"/>
+      <circle cx="13" cy="16" r="2" fill="currentColor"/>
+    </symbol>
+    <!-- Bookmark (regular) -->
+    <symbol id="i-bookmark" viewBox="0 0 14 14">
+      <path d="M3 1.5h8v11l-4-2.5-4 2.5z" fill="currentColor"/>
+    </symbol>
+    <!-- Star (priority) -->
+    <symbol id="i-star" viewBox="0 0 16 16">
+      <path d="M8 1.5l1.9 4.4 4.6.4-3.5 3.1 1 4.5L8 11.5 3.9 14l1-4.5L1.5 6.3l4.6-.4z" fill="currentColor"/>
+    </symbol>
+    <!-- Chevron right -->
+    <symbol id="i-chev-r" viewBox="0 0 12 12">
+      <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Chevron down -->
+    <symbol id="i-chev-d" viewBox="0 0 12 12">
+      <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Plus -->
+    <symbol id="i-plus" viewBox="0 0 14 14">
+      <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </symbol>
+    <!-- Cart -->
+    <symbol id="i-cart" viewBox="0 0 16 16">
+      <path d="M2 3h2l1.6 7.4a1 1 0 0 0 1 .8H12a1 1 0 0 0 1-.8L14 5H5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="13.5" r="1" fill="currentColor"/>
+      <circle cx="11.5" cy="13.5" r="1" fill="currentColor"/>
+    </symbol>
+    <!-- Recipe book -->
+    <symbol id="i-book" viewBox="0 0 14 14">
+      <path d="M2 2.5h4.5a1 1 0 0 1 1 1V12L7 11.4 2 12V2.5z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M7 3.5h4.5a1 1 0 0 1 1 1V11.5L12 11l-5 .8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    </symbol>
+
+    <!-- ===== UNIT ICONS ===== -->
+    <!-- count: small dot/circle -->
+    <symbol id="u-count" viewBox="0 0 14 14">
+      <circle cx="7" cy="7" r="2.5" fill="currentColor"/>
+    </symbol>
+    <!-- bag: angled rectangle with crease -->
+    <symbol id="u-bag" viewBox="0 0 14 14">
+      <path d="M3 5l1.5-2h5L11 5v7H3z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M5.5 5.5v1.5M8.5 5.5v1.5" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
+    </symbol>
+    <!-- bottle: tall rectangle with cap -->
+    <symbol id="u-bottle" viewBox="0 0 14 14">
+      <rect x="5.5" y="1.5" width="3" height="2" fill="currentColor"/>
+      <path d="M5 4h4l1 2v6.5H4V6z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+    </symbol>
+    <!-- jar/can: cylinder -->
+    <symbol id="u-jar" viewBox="0 0 14 14">
+      <ellipse cx="7" cy="3" rx="3.5" ry="1.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M3.5 3v8c0 0.7 1.6 1.2 3.5 1.2s3.5-0.5 3.5-1.2V3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    </symbol>
+    <!-- pack: stacked rectangles -->
+    <symbol id="u-pack" viewBox="0 0 14 14">
+      <rect x="2" y="3" width="9" height="6.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+      <rect x="3.5" y="4.5" width="9" height="6.5" fill="white" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+    </symbol>
+    <!-- bunch: like a small flame/bunch -->
+    <symbol id="u-bunch" viewBox="0 0 14 14">
+      <path d="M7 1.5C5 4 4 6 4 8a3 3 0 0 0 6 0c0-2-1-4-3-6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="7" y1="11" x2="7" y2="13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </symbol>
+    <!-- container: square with rounded top (clamshell) -->
+    <symbol id="u-container" viewBox="0 0 14 14">
+      <path d="M2 6c0-2 2-3 5-3s5 1 5 3v6H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+      <line x1="2" y1="6.5" x2="12" y2="6.5" stroke="currentColor" stroke-width="0.8"/>
+    </symbol>
+    <!-- weight: simple scale/balance -->
+    <symbol id="u-weight" viewBox="0 0 14 14">
+      <rect x="2" y="4" width="10" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="7" y1="4" x2="7" y2="2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="5" y1="2" x2="9" y2="2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="7" y="10.5" font-size="4" font-weight="700" text-anchor="middle" fill="currentColor">lb</text>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="container">
+
+<header>
+  <h1>Phase 8R/CP6e — Lots Wireframes <span style="color: var(--text-tertiary); font-weight: 400; font-size: 14px;">v2 · 2026-05-06</span></h1>
+  <p class="sub">Updated per v1 review. Status cycle restored on lot supplies. Lots collapsible by default. Variant sub-headers. Icon set replacing emojis. + cook depletion + grocery acquire + frozen pizza search.</p>
+</header>
+
+<div class="changelog">
+  <strong>v2 changes (vs v1):</strong>
+  <span style="color: var(--note-changed-text);">Status cycle stays primary on lot supplies (Q-W2/W4/W10 convergence) → tap badge cycles supply.status, qty unaffected.</span>
+  Lots list collapsible, default closed (Q-W21).
+  Variant sub-headers within lots list, independently collapsible (Q-W5 your suggestion).
+  Search-within-lots affordance when 4+ (Q-W20).
+  Coffee Tab 5 simplified to single variant (decoupled status + lots).
+  Emojis replaced with line icons throughout.
+  Catalog adds shown for non-pantry results (Q-W19).
+  +Tab 9 (cook depletion against lots).
+  +Tab 10 (grocery acquire → lot create).
+  +Tab 8d (frozen pizza search demonstrating multi-token AND across all dimensions).
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="t1">1 · Pantry overview</button>
+  <button class="tab new" data-tab="t2">2 · Eggs (single lot)</button>
+  <button class="tab new" data-tab="t3">3 · Chicken thighs (multi-lot)</button>
+  <button class="tab new" data-tab="t4">4 · Blueberries (mixed storage)</button>
+  <button class="tab new" data-tab="t5">5 · Coffee (lots + status)</button>
+  <button class="tab new" data-tab="t6">6 · Supply detail</button>
+  <button class="tab new" data-tab="t7">7 · Supply create</button>
+  <button class="tab new" data-tab="t8">8 · Search</button>
+  <button class="tab flow" data-tab="t9">9 · Cook depletion</button>
+  <button class="tab flow" data-tab="t10">10 · Grocery acquire</button>
+</div>
+
+<!-- ========== TAB 1: PANTRY OVERVIEW ========== -->
+<div class="panel active" id="t1">
+  <div>
+    <div class="phone"><div class="phone-inner">
+      <div class="phone-statusbar"><span>10:34</span><span></span></div>
+      <div class="phone-header"><div class="phone-title">My Pantry</div>
+        <div class="phone-header-right">
+          <span class="space-pill"><svg><use href="#i-home"/></svg> Home <svg style="width:9px;height:9px;"><use href="#i-chev-d"/></svg></span>
+          <svg class="pantry-icon"><use href="#i-pantry"/></svg>
+        </div>
+      </div>
+
+      <div class="search-bar"><svg><use href="#i-search"/></svg><span>Search or add…</span></div>
+
+      <div class="section-label"><span>ATTENTION</span><span class="count">5 <svg style="width:9px;height:9px;display:inline-block;"><use href="#i-chev-d"/></svg></span></div>
+      <div class="sub-label">Out</div>
+      <div class="row-card">
+        <div class="accent-bar out"></div>
+        <div class="lot-badge out">0<svg><use href="#u-count"/></svg></div>
+        <div class="row-name"><div class="name">eggs</div><div class="meta">no lots</div></div>
+        <div class="row-status-text out">Out</div>
+        <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+      </div>
+      <div class="sub-label">Low</div>
+      <div class="row-card">
+        <div class="accent-bar low"></div>
+        <div class="status-icon lvl-2"><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div></div>
+        <div class="row-name"><div class="name">olive oil</div></div>
+        <div class="row-status-text low">Low</div>
+        <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+      </div>
+      <div class="row-card">
+        <div class="accent-bar low"></div>
+        <div class="lot-badge low">2<svg><use href="#u-bag"/></svg></div>
+        <div class="row-name"><div class="name">coffee beans</div><div class="meta">pantry</div></div>
+        <div class="row-status-text low">Low</div>
+        <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+      </div>
+
+      <div class="section-label"><span>ON HAND</span><span class="count">8</span></div>
+
+      <div class="sub-label">Produce · 4</div>
+      <div class="row-card">
+        <div class="accent-bar good"></div>
+        <div class="lot-badge low">2<svg><use href="#u-container"/></svg></div>
+        <div class="row-name"><div class="name">blueberries</div><div class="meta">fresh exp 3d · frozen ok</div></div>
+        <div class="row-status-text low">Low</div>
+      </div>
+      <div class="row-card">
+        <div class="accent-bar good"></div>
+        <div class="status-icon lvl-5"><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div></div>
+        <div class="row-name"><div class="name">cilantro</div></div>
+        <div class="row-status-text good">In stock</div>
+      </div>
+
+      <div class="sub-label">Proteins · 3</div>
+      <div class="row-card">
+        <div class="accent-bar good"></div>
+        <div class="lot-badge good">4<svg><use href="#u-pack"/></svg></div>
+        <div class="row-name"><div class="name">chicken thighs</div><div class="meta">freezer · 8.75 lb</div></div>
+        <div class="row-status-text good">In stock</div>
+      </div>
+      <div class="row-card">
+        <div class="accent-bar good"></div>
+        <div class="status-icon lvl-5"><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div></div>
+        <div class="row-name"><div class="name">whole chickens</div></div>
+        <div class="row-status-text good">In stock</div>
+      </div>
+
+      <div class="sub-label">Dairy · 1</div>
+      <div class="row-card">
+        <div class="accent-bar good"></div>
+        <div class="lot-badge good">12<svg><use href="#u-count"/></svg></div>
+        <div class="row-name"><div class="name">eggs</div><div class="meta">fridge · expires May 22</div></div>
+        <div class="row-status-text good">In stock</div>
+      </div>
+
+      <div class="section-label"><svg style="width:13px;height:13px;color:var(--brand-teal);"><use href="#i-bookmark"/></svg> <span>REGULARS</span><span class="count">58</span></div>
+      <div class="sub-label" style="padding-top: 4px;">Pantry · 34 <svg style="width:9px;height:9px;display:inline-block;"><use href="#i-chev-r"/></svg></div>
+      <div class="sub-label">Produce · 10 <svg style="width:9px;height:9px;display:inline-block;"><use href="#i-chev-r"/></svg></div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <h3>Pantry overview — updated visual</h3>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>Lot badge color reflects status</strong> (not just numeric). "0" eggs in red because status=out, "2" coffee in amber because Low, "12" eggs in green because in_stock. The badge is now a status-aware affordance.</li>
+        <li><strong>Tap badge → cycles status</strong> just like the 5-circle dots on non-lot supplies. Number doesn't change; color + label do.</li>
+        <li><strong>Right-side text restored to status word</strong> ("In stock", "Low", "Out") instead of "4 packs" / "2 lots." Aggregate qty info moved to the meta line.</li>
+        <li><strong>Unit icons inside badge</strong>: count dot, bag, pack, container — replacing the emoji set.</li>
+      </ul>
+    </div>
+
+    <div class="note-info">
+      <strong>Why this works:</strong> Status (in_stock/low/critical/out) and lot count are <em>independent</em> dimensions. The badge fuses them visually but the user only manages status via tap. Lots can be edited from the expand panel or supply detail, but day-to-day status flagging works exactly like before.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V1 — eggs at 0:</strong> when the lot count hits 0, status auto-flips to <code>out</code> (no manual cycle needed — it's a fact). Badge shows "0 ◯" in red. Confirm: this auto-flip is the only case where lots affect status.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 2: EGGS ========== -->
+<div class="panel" id="t2">
+  <div>
+    <div class="subtoggle" data-group="t2-sub">
+      <button class="subtoggle-btn active" data-sub="t2a">Collapsed</button>
+      <button class="subtoggle-btn" data-sub="t2b">Expanded · lots closed</button>
+      <button class="subtoggle-btn" data-sub="t2c">Expanded · lots open</button>
+    </div>
+
+    <div class="subvariant active" id="t2a">
+      <div class="phone"><div class="phone-inner" style="min-height: 200px;">
+        <div style="padding: 16px;">
+          <div class="row-card" style="margin: 0;">
+            <div class="accent-bar good"></div>
+            <div class="lot-badge good">12<svg><use href="#u-count"/></svg></div>
+            <div class="row-name"><div class="name">eggs</div><div class="meta">fridge · expires May 22</div></div>
+            <div class="row-status-text good">In stock</div>
+            <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t2b">
+      <div class="phone"><div class="phone-inner" style="min-height: 360px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar good"></div>
+              <div class="lot-badge good">12<svg><use href="#u-count"/></svg></div>
+              <div class="row-name"><div class="name">eggs</div><div class="meta">fridge · expires May 22</div></div>
+              <div class="row-status-text good">In stock</div>
+              <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser">
+                <span class="left"><svg><use href="#i-chev-r"/></svg> 1 lot · 12 eggs · expires in 16d</span>
+                <span style="font-size: 10px; color: var(--text-tertiary);">tap to expand</span>
+              </div>
+
+              <div class="expand-cta-row">
+                <div class="expand-cta-button"><svg><use href="#i-plus"/></svg> Add to grocery list</div>
+                <div class="expand-cta-link">Search eggs in <svg><use href="#i-book"/></svg> Recipes →</div>
+              </div>
+              <div class="expand-footer">
+                <span>Open detail <svg style="width:10px;height:10px;display:inline-block;"><use href="#i-chev-r"/></svg></span>
+                <span class="location-pill">Track: Quantity · Fridge</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t2c">
+      <div class="phone"><div class="phone-inner" style="min-height: 440px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar good"></div>
+              <div class="lot-badge good">12<svg><use href="#u-count"/></svg></div>
+              <div class="row-name"><div class="name">eggs</div><div class="meta">fridge · expires May 22</div></div>
+              <div class="row-status-text good">In stock</div>
+              <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser open">
+                <span class="left"><svg><use href="#i-chev-d"/></svg> 1 lot · 12 eggs · expires in 16d</span>
+              </div>
+
+              <div class="lots-list">
+                <div class="lot-row">
+                  <span class="lot-storage-badge fridge">Fridge</span>
+                  <span class="lot-qty">12 eggs</span>
+                  <span class="lot-variant" style="flex: 1;"></span>
+                  <span class="lot-expires">exp May 22</span>
+                  <div class="lot-qty-stepper">
+                    <div class="lot-step-btn">−</div>
+                    <div class="lot-step-btn">+</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+
+              <div class="expand-cta-row" style="margin-top: 12px;">
+                <div class="expand-cta-button"><svg><use href="#i-plus"/></svg> Add to grocery list</div>
+                <div class="expand-cta-link">Search eggs in <svg><use href="#i-book"/></svg> Recipes →</div>
+              </div>
+              <div class="expand-footer">
+                <span>Open detail <svg style="width:10px;height:10px;display:inline-block;"><use href="#i-chev-r"/></svg></span>
+                <span class="location-pill">Track: Quantity · Fridge</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Eggs — single-lot quantity</h3>
+    <p>Three states shown: collapsed row, expanded with lots panel collapsed (default), expanded with lots panel open.</p>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>Lots list now collapsible inside the expand panel.</strong> Default state when row is expanded: lots panel showing summary line "1 lot · 12 eggs · expires in 16d ▸". Tap to drill down.</li>
+        <li><strong>Primary CTAs come first</strong> (Add to grocery, Search in Recipes) — these are the most common actions. Lot management is secondary.</li>
+        <li><strong>Footer pill</strong> "Track: Quantity · Fridge" replaces just "Track: Lots" — clearer at a glance what mode this supply is in.</li>
+        <li><strong>Tap supply badge cycles status</strong> (per status cycle restoration). +/- on the lot adjusts qty, doesn't affect status until qty hits 0.</li>
+      </ul>
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V2 — single-lot inline display:</strong> when lots panel is collapsed and there's only 1 lot, the summary line "1 lot · 12 eggs · expires in 16d" is reasonably informative on its own. Should single-lot supplies skip the collapser entirely (always show inline) and only collapse-by-default when 2+ lots? Lean: yes, keep the collapser only when it adds value (2+ lots).
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 3: CHICKEN THIGHS ========== -->
+<div class="panel" id="t3">
+  <div>
+    <div class="subtoggle" data-group="t3-sub">
+      <button class="subtoggle-btn active" data-sub="t3a">Default · variants collapsed</button>
+      <button class="subtoggle-btn" data-sub="t3b">One variant expanded</button>
+      <button class="subtoggle-btn" data-sub="t3c">All open + search</button>
+    </div>
+
+    <div class="subvariant active" id="t3a">
+      <div class="phone"><div class="phone-inner" style="min-height: 480px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar good"></div>
+              <div class="lot-badge good">4<svg><use href="#u-pack"/></svg></div>
+              <div class="row-name"><div class="name">chicken thighs</div><div class="meta">freezer · 8.75 lb · 2 variants</div></div>
+              <div class="row-status-text good">In stock</div>
+              <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser open">
+                <span class="left"><svg><use href="#i-chev-d"/></svg> 4 packs · 8.75 lb · oldest exp Jul 5</span>
+              </div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-r"/></svg> Bone-in skin-on · 2</span>
+                  <span style="color: var(--text-tertiary); text-transform: none; font-weight: 400;">3.75 lb · exp Jul 5</span>
+                </div>
+              </div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-r"/></svg> Boneless skinless · 2</span>
+                  <span style="color: var(--text-tertiary); text-transform: none; font-weight: 400;">2.5 lb · exp Aug 10</span>
+                </div>
+              </div>
+
+              <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+
+              <div class="expand-cta-row" style="margin-top: 14px;">
+                <div class="expand-cta-button"><svg><use href="#i-plus"/></svg> Add to grocery list</div>
+                <div class="expand-cta-link">Search chicken in <svg><use href="#i-book"/></svg> Recipes →</div>
+              </div>
+              <div class="expand-footer">
+                <span>Open detail <svg style="width:10px;height:10px;display:inline-block;"><use href="#i-chev-r"/></svg></span>
+                <span class="location-pill">Track: Lots · Freezer</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t3b">
+      <div class="phone"><div class="phone-inner" style="min-height: 540px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar good"></div>
+              <div class="lot-badge good">4<svg><use href="#u-pack"/></svg></div>
+              <div class="row-name"><div class="name">chicken thighs</div><div class="meta">freezer · 8.75 lb · 2 variants</div></div>
+              <div class="row-status-text good">In stock</div>
+              <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser open">
+                <span class="left"><svg><use href="#i-chev-d"/></svg> 4 packs · 8.75 lb · oldest exp Jul 5</span>
+              </div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-d"/></svg> Bone-in skin-on · 2</span>
+                  <span style="color: var(--text-tertiary); text-transform: none; font-weight: 400;">3.75 lb · exp Jul 5</span>
+                </div>
+                <div class="lots-list" style="margin-top: 4px;">
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">1.25 lb</span>
+                    <span class="lot-variant">4-pack</span>
+                    <span class="lot-expires">exp Jul 5</span>
+                  </div>
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">2.5 lb</span>
+                    <span class="lot-variant">6-pack</span>
+                    <span class="lot-expires">exp Jul 5</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-r"/></svg> Boneless skinless · 2</span>
+                  <span style="color: var(--text-tertiary); text-transform: none; font-weight: 400;">2.5 lb · exp Aug 10</span>
+                </div>
+              </div>
+
+              <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t3c">
+      <div class="phone"><div class="phone-inner" style="min-height: 640px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar good"></div>
+              <div class="lot-badge good">4<svg><use href="#u-pack"/></svg></div>
+              <div class="row-name"><div class="name">chicken thighs</div><div class="meta">freezer · 8.75 lb · 2 variants</div></div>
+              <div class="row-status-text good">In stock</div>
+              <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser open">
+                <span class="left"><svg><use href="#i-chev-d"/></svg> 4 packs · 8.75 lb · oldest exp Jul 5</span>
+              </div>
+
+              <div class="lots-search-bar"><svg><use href="#i-search"/></svg><span>Find within lots…</span></div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-d"/></svg> Bone-in skin-on · 2</span>
+                </div>
+                <div class="lots-list" style="margin-top: 4px;">
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">1.25 lb</span>
+                    <span class="lot-variant">4-pack</span>
+                    <span class="lot-expires">exp Jul 5</span>
+                  </div>
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">2.5 lb</span>
+                    <span class="lot-variant">6-pack</span>
+                    <span class="lot-expires">exp Jul 5</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lot-variant-group">
+                <div class="lot-variant-group-header">
+                  <span><svg style="width:10px;height:10px;"><use href="#i-chev-d"/></svg> Boneless skinless · 2</span>
+                </div>
+                <div class="lots-list" style="margin-top: 4px;">
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">1.25 lb</span>
+                    <span class="lot-variant">4-pack</span>
+                    <span class="lot-expires">exp Aug 10</span>
+                  </div>
+                  <div class="lot-row">
+                    <span class="lot-storage-badge freezer">Freezer</span>
+                    <span class="lot-qty">1.25 lb</span>
+                    <span class="lot-variant">4-pack</span>
+                    <span class="lot-expires">exp Aug 10</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Chicken thighs — multi-lot with variant sub-headers</h3>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>Lots list collapsed by default.</strong> Summary line at top is the always-visible read.</li>
+        <li><strong>Variant sub-headers</strong> (your suggestion on Q-W5) — each variant block has its own collapser with summary stats. Bone-in / Boneless can be expanded independently.</li>
+        <li><strong>Search-within-lots</strong> appears when 4+ lots present — lets you find a specific pack quickly without scanning.</li>
+        <li><strong>Variant A from v1 (flat by exp) deprioritized.</strong> The grouped-by-variant view (v1's C) handles your "I want bone-in tonight" mental model better.</li>
+      </ul>
+    </div>
+
+    <div class="note-info">
+      <strong>State A — variants collapsed:</strong> the most compact read. You see "2 of each variant, oldest exp Jul 5" without any drill-down.
+      <br><br>
+      <strong>State B — one variant expanded:</strong> the typical interaction — drilling into bone-in to see specific packs.
+      <br><br>
+      <strong>State C — all open + lot search:</strong> power-user state when many lots exist. Search filters lots inline.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V3 — sort within variant:</strong> within a variant block, lots sorted by exp ascending (soonest first). Confirm — alternative is by acquired_at (oldest first), which usually matches but not always.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V4 — flat-mode toggle:</strong> for users who don't want variant grouping, should there be a toggle in SupplyDetail (Tab 6) to flip the lots list to flat-by-expiration mode? Lean: defer to post-F&F. Default grouping should be sufficient for most cases.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 4: BLUEBERRIES ========== -->
+<div class="panel" id="t4">
+  <div>
+    <div class="subtoggle" data-group="t4-sub">
+      <button class="subtoggle-btn active" data-sub="t4a">Collapsed</button>
+      <button class="subtoggle-btn" data-sub="t4b">Expanded</button>
+    </div>
+
+    <div class="subvariant active" id="t4a">
+      <div class="phone"><div class="phone-inner" style="min-height: 200px;">
+        <div style="padding: 16px;">
+          <div class="row-card" style="margin: 0;">
+            <div class="accent-bar low"></div>
+            <div class="lot-badge low">2<svg><use href="#u-container"/></svg></div>
+            <div class="row-name"><div class="name">blueberries</div><div class="meta">fresh exp 3d · frozen ok</div></div>
+            <div class="row-status-text low">Low</div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t4b">
+      <div class="phone"><div class="phone-inner" style="min-height: 420px;">
+        <div style="padding: 16px;">
+          <div class="row-card expanded" style="margin: 0;">
+            <div class="row-flex">
+              <div class="accent-bar low"></div>
+              <div class="lot-badge low">2<svg><use href="#u-container"/></svg></div>
+              <div class="row-name"><div class="name">blueberries</div><div class="meta">fresh exp 3d · frozen ok</div></div>
+              <div class="row-status-text low">Low</div>
+            </div>
+            <div class="expand-panel">
+              <div class="lots-collapser open">
+                <span class="left"><svg><use href="#i-chev-d"/></svg> 2 lots · oldest exp in 3 days</span>
+              </div>
+
+              <div class="lots-list">
+                <div class="lot-row warn">
+                  <span class="lot-storage-badge fridge">Fridge</span>
+                  <span class="lot-qty">2 pints</span>
+                  <span class="lot-variant">fresh</span>
+                  <span class="lot-expires warn">exp in 3d</span>
+                </div>
+                <div class="lot-row">
+                  <span class="lot-storage-badge freezer">Freezer</span>
+                  <span class="lot-qty">1 bag</span>
+                  <span class="lot-variant">frozen</span>
+                  <span class="lot-expires">exp in 9 mo</span>
+                </div>
+              </div>
+
+              <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+
+              <div class="expand-cta-row" style="margin-top: 12px;">
+                <div class="expand-cta-button"><svg><use href="#i-plus"/></svg> Add to grocery list</div>
+                <div class="expand-cta-link">Search berries in <svg><use href="#i-book"/></svg> Recipes →</div>
+              </div>
+              <div class="expand-footer">
+                <span>Open detail <svg style="width:10px;height:10px;display:inline-block;"><use href="#i-chev-r"/></svg></span>
+                <span class="location-pill">Track: Lots · Mixed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Blueberries — fresh + frozen as one supply</h3>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>Variant sub-headers not used here.</strong> Only 2 lots, no variant_label set (per Q-W9: fresh/frozen is implicit from storage_location). Flat list inside the collapser is sufficient.</li>
+        <li><strong>Status = Low</strong> reflects user's judgment ("we're going to need more" — fresh expiring soon). NOT auto-derived from lot expirations. User can keep it In stock if they prefer.</li>
+        <li><strong>Footer "Track: Lots · Mixed"</strong> indicates lots span multiple storage locations.</li>
+      </ul>
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V5 — accent color from soonest-expiring lot:</strong> the row's accent color (amber) comes from "fresh expires in 3 days." Should this be automatic, or should the accent strictly mirror status (which the user just set to Low)? In this case both happen to be amber so it's hard to tell. <strong>Edge case:</strong> if user sets status=in_stock but a lot is about to expire, accent is green or amber? Lean: accent ALWAYS mirrors status. Soonest-exp lot urgency is conveyed via the lot row's own warn-border + "exp in 3d" text. Decoupled.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 5: COFFEE ========== -->
+<div class="panel" id="t5">
+  <div>
+    <div class="phone"><div class="phone-inner" style="min-height: 460px;">
+      <div style="padding: 16px;">
+        <div class="row-card expanded" style="margin: 0;">
+          <div class="row-flex">
+            <div class="accent-bar low"></div>
+            <div class="lot-badge low">2<svg><use href="#u-bag"/></svg></div>
+            <div class="row-name"><div class="name">coffee beans</div><div class="meta">pantry · 2 bags · 24 oz</div></div>
+            <div class="row-status-text low">Low</div>
+            <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+          </div>
+          <div class="expand-panel">
+            <div class="lots-collapser open">
+              <span class="left"><svg><use href="#i-chev-d"/></svg> 2 lots · 24 oz total</span>
+            </div>
+
+            <div class="lots-list">
+              <div class="lot-row">
+                <span class="lot-storage-badge pantry">Pantry</span>
+                <span class="lot-qty">12 oz</span>
+                <span class="lot-variant">Sisters Coffee</span>
+                <span class="lot-expires">exp Jun 12</span>
+              </div>
+              <div class="lot-row">
+                <span class="lot-storage-badge pantry">Pantry</span>
+                <span class="lot-qty">12 oz</span>
+                <span class="lot-variant">Sisters Coffee</span>
+                <span class="lot-expires">exp Aug 1</span>
+              </div>
+            </div>
+
+            <div class="add-lot-btn"><svg><use href="#i-plus"/></svg> Add lot</div>
+
+            <div class="expand-cta-row" style="margin-top: 12px;">
+              <div class="expand-cta-button"><svg><use href="#i-plus"/></svg> Add to grocery list</div>
+              <div class="expand-cta-link">Search coffee in <svg><use href="#i-book"/></svg> Recipes →</div>
+            </div>
+            <div class="expand-footer">
+              <span>Open detail <svg style="width:10px;height:10px;display:inline-block;"><use href="#i-chev-r"/></svg></span>
+              <span class="location-pill">Track: Lots · Pantry</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <h3>Coffee — lots + status, fully decoupled</h3>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>v1's three model variants collapsed to one.</strong> Per your direction (Q-W2/Q-W4/Q-W10): "users aren't going to keep active track of how much is left in a bag, but want to click a button saying low or critical."</li>
+        <li><strong>No per-lot fill_level / no usage_level on the lots themselves.</strong> Lots are inventory facts. Status is the judgment signal.</li>
+        <li><strong>Tap badge to cycle</strong> (in_stock → low → critical → out → in_stock). User signals "we're low" without touching qty.</li>
+        <li><strong>The decision Tom made on Q-W11 holds:</strong> <code>supplies.usage_level</code> stays as a column for non-lot supplies (the 5-circle status indicator for olive oil, etc.). For lot supplies, usage_level is unused — status alone drives everything.</li>
+      </ul>
+    </div>
+
+    <div class="note-info">
+      <strong>What the user does:</strong> When they're getting low on coffee, they tap the badge once to flip it to amber/Low. Doesn't matter if there's a sealed bag in the pantry or not — the status is "we should buy more before we're out." When they buy more, they add a lot (or check off a need that auto-creates one). Status flips back to in_stock automatically (auto-restock on lot add — see Tab 10).
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V6 — auto-restock on lot add:</strong> when a tracks_lots supply is in <code>low</code>/<code>critical</code>/<code>out</code> status and a lot is added, status auto-flips to <code>in_stock</code>. Lean: yes, this matches user expectation ("I just bought more — we're not low anymore"). Edge case: user manually adds a lot but supply is genuinely still low (only added 1 small lot). Solution: show a confirmation toast "Status updated to In stock — undo?" with 5s auto-dismiss.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 6: SUPPLY DETAIL ========== -->
+<div class="panel" id="t6">
+  <div>
+    <div class="phone"><div class="phone-inner" style="min-height: 880px;">
+      <div class="phone-statusbar"><span>10:34</span><span></span></div>
+      <div class="phone-header"><div style="display: flex; align-items: center; gap: 10px;"><div class="phone-header-back"><svg style="width: 18px; height: 18px;"><path d="M11 4l-6 5 6 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="phone-title-mid">Chicken thighs</div></div>
+        <div style="font-size: 18px; color: var(--text-secondary); letter-spacing: 1px;">···</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-row-flex">
+          <div>
+            <div class="detail-value">4 packs · 8.75 lb total</div>
+            <div class="detail-value-muted" style="margin-top: 2px;">Oldest expires Jul 5</div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <svg style="width:16px;height:16px;color:var(--brand-priority);"><use href="#i-star"/></svg>
+            <svg style="width:14px;height:14px;color:var(--brand-teal);"><use href="#i-bookmark"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Status</div>
+        <div class="segmented">
+          <div class="segmented-btn active">In stock</div>
+          <div class="segmented-btn">Low</div>
+          <div class="segmented-btn">Critical</div>
+          <div class="segmented-btn">Out</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-row-flex" style="margin-bottom: 10px;">
+          <div class="detail-label" style="margin-bottom: 0;">Lots · 4</div>
+          <span style="font-size: 12px; color: var(--brand-teal); font-weight: 500; display: inline-flex; align-items: center; gap: 3px;"><svg style="width:11px;height:11px;"><use href="#i-plus"/></svg> Add lot</span>
+        </div>
+
+        <div class="lot-detail-row">
+          <div class="lot-line-1">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="lot-storage-badge freezer">Freezer</span>
+              <span style="font-size: 14px; font-weight: 500;">1.25 lb · bone-in skin-on</span>
+            </div>
+            <span class="lot-edit-icon">✎</span>
+          </div>
+          <div class="lot-line-2">
+            <span>Acquired May 1 · 4-pack · Costco</span>
+            <span>Expires Jul 5</span>
+          </div>
+        </div>
+
+        <div class="lot-detail-row">
+          <div class="lot-line-1">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="lot-storage-badge freezer">Freezer</span>
+              <span style="font-size: 14px; font-weight: 500;">2.5 lb · bone-in skin-on</span>
+            </div>
+            <span class="lot-edit-icon">✎</span>
+          </div>
+          <div class="lot-line-2">
+            <span>Acquired May 1 · 6-pack · Costco</span>
+            <span>Expires Jul 5</span>
+          </div>
+        </div>
+
+        <div class="lot-detail-row">
+          <div class="lot-line-1">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="lot-storage-badge freezer">Freezer</span>
+              <span style="font-size: 14px; font-weight: 500;">1.25 lb · boneless skinless</span>
+            </div>
+            <span class="lot-edit-icon">✎</span>
+          </div>
+          <div class="lot-line-2">
+            <span>Acquired May 4 · 4-pack · Costco</span>
+            <span>Expires Aug 10</span>
+          </div>
+        </div>
+
+        <div class="lot-detail-row">
+          <div class="lot-line-1">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="lot-storage-badge freezer">Freezer</span>
+              <span style="font-size: 14px; font-weight: 500;">1.25 lb · boneless skinless</span>
+            </div>
+            <span class="lot-edit-icon">✎</span>
+          </div>
+          <div class="lot-line-2">
+            <span>Acquired May 4 · 4-pack · Costco</span>
+            <span>Expires Aug 10</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Tracking</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Track quantity / lots</div>
+            <div class="toggle-help">Inventory tracking on. Disable to use simple status only.</div>
+          </div>
+          <div class="toggle"></div>
+        </div>
+        <div class="toggle-row" style="border-top: 1px solid var(--border); padding-top: 14px;">
+          <div>
+            <div class="toggle-label">Restock automatically</div>
+            <div class="toggle-help">When you run out, auto-add to your needs.</div>
+          </div>
+          <div class="toggle"></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Default storage</div>
+        <div class="segmented">
+          <div class="segmented-btn">Fridge</div>
+          <div class="segmented-btn active">Freezer</div>
+          <div class="segmented-btn">Pantry</div>
+          <div class="segmented-btn">Counter</div>
+        </div>
+        <div class="help-text" style="margin-top: 6px;">New lots default to this storage. Existing lots unaffected.</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Stores</div>
+        <div>
+          <span class="chip">Costco<span class="x">×</span></span>
+          <span class="chip add">+ Add</span>
+        </div>
+      </div>
+
+      <div class="detail-section no-border">
+        <div class="detail-label">Activity</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">
+          <div>May 4 · Added 2 boneless lots from Costco</div>
+          <div>May 1 · Added 2 bone-in lots from Costco</div>
+          <div>Apr 18 · Used 1.25 lb in chicken katsu</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <h3>Supply detail — full lots editor</h3>
+
+    <div class="note-changed">
+      <strong>Changed from v1:</strong> minor — the activity log now references lot operations specifically. Otherwise structurally same as v1 (which Tom confirmed).
+    </div>
+
+    <div class="note-info">
+      <strong>Per Q-W12 confirmation (option c):</strong> the "Track quantity / lots" toggle is hidden when lots exist. To turn it off, user must first archive all lots (overflow menu → "Archive all lots") then toggle off. Avoids a destructive confirmation modal.
+    </div>
+
+    <div class="note-info">
+      <strong>"Default storage" is now scoped help text:</strong> "New lots default to this storage. Existing lots unaffected." Removes confusion about whether changing this setting bulk-edits existing lots.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V7 — lot edit affordance:</strong> tapping ✎ on a lot row should open a lot edit sheet. Fields: storage, qty + unit, variant_label, brand, acquired_at, expires_at (computed default + override), notes, mark consumed. Confirm scope. (I didn't draw this sheet — it's a straightforward sheet pattern that we can spec at build time.)
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V8 — overflow menu (⋯) contents:</strong> Archive supply / Delete supply / Archive all expired lots (Q-W14). Anything else? Lean: also "Mark all out" for a quick "we used the last of this" action.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 7: SUPPLY CREATE ========== -->
+<div class="panel" id="t7">
+  <div>
+    <div class="subtoggle" data-group="t7-sub">
+      <button class="subtoggle-btn active" data-sub="t7a">Off (default)</button>
+      <button class="subtoggle-btn" data-sub="t7b">On (lot inputs)</button>
+    </div>
+
+    <div class="subvariant active" id="t7a">
+      <div class="phone"><div class="phone-inner" style="min-height: 580px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="sheet-frame">
+          <div class="sheet-handle"></div>
+          <div class="sheet-header">
+            <span style="font-size: 14px; color: var(--text-tertiary);">Cancel</span>
+            <span class="sheet-title">Add supply</span>
+            <span class="sheet-action">Save</span>
+          </div>
+          <div class="sheet-body">
+            <div class="input-row">
+              <div class="label">Item</div>
+              <div class="value">Eggs</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Initial status</div>
+              <div class="segmented" style="margin-top: 4px;">
+                <div class="segmented-btn active">In stock</div>
+                <div class="segmented-btn">Low</div>
+                <div class="segmented-btn">Out</div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="toggle-row" style="padding: 0;">
+                <div>
+                  <div class="toggle-label">Track quantity / lots</div>
+                  <div class="toggle-help">Track exact qty, storage, and expiration.</div>
+                </div>
+                <div class="toggle off"></div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Default storage</div>
+              <div class="segmented" style="margin-top: 4px;">
+                <div class="segmented-btn active">Fridge</div>
+                <div class="segmented-btn">Freezer</div>
+                <div class="segmented-btn">Pantry</div>
+                <div class="segmented-btn">Counter</div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="toggle-row" style="padding: 0;">
+                <div>
+                  <div class="toggle-label">Restock automatically</div>
+                  <div class="toggle-help">Add to needs when you run out.</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="toggle-row" style="padding: 0;">
+                <div>
+                  <div class="toggle-label">Priority</div>
+                  <div class="toggle-help">Mark as low when only 1 left.</div>
+                </div>
+                <div class="toggle off"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t7b">
+      <div class="phone"><div class="phone-inner" style="min-height: 700px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="sheet-frame">
+          <div class="sheet-handle"></div>
+          <div class="sheet-header">
+            <span style="font-size: 14px; color: var(--text-tertiary);">Cancel</span>
+            <span class="sheet-title">Add supply</span>
+            <span class="sheet-action">Save</span>
+          </div>
+          <div class="sheet-body">
+            <div class="input-row">
+              <div class="label">Item</div>
+              <div class="value">Chicken thighs</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Initial status</div>
+              <div class="segmented" style="margin-top: 4px;">
+                <div class="segmented-btn active">In stock</div>
+                <div class="segmented-btn">Low</div>
+                <div class="segmented-btn">Out</div>
+              </div>
+            </div>
+
+            <div class="input-row" style="background: var(--bg-muted); margin: 0 -16px; padding: 12px 16px;">
+              <div class="toggle-row" style="padding: 0;">
+                <div>
+                  <div class="toggle-label">Track quantity / lots</div>
+                  <div class="toggle-help">Track exact qty, storage, and expiration.</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                <div class="label">First lot</div>
+
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                  <div class="input-mock" style="flex: 1;">1.25</div>
+                  <div class="input-mock" style="flex: 1; min-width: 80px;">lb <svg style="width:8px;height:8px;display:inline-block;"><use href="#i-chev-d"/></svg></div>
+                </div>
+
+                <div style="margin-top: 10px;">
+                  <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">Storage</div>
+                  <div class="segmented">
+                    <div class="segmented-btn">Fridge</div>
+                    <div class="segmented-btn active">Freezer</div>
+                    <div class="segmented-btn">Pantry</div>
+                    <div class="segmented-btn">Counter</div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                  <div style="flex: 1;">
+                    <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">Variant (optional)</div>
+                    <div class="input-mock">bone-in skin-on</div>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px;">Expires</div>
+                    <div class="input-mock">Jul 5 (auto)</div>
+                  </div>
+                </div>
+
+                <div style="font-size: 11px; color: var(--brand-teal-dark); margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;"><svg style="width:10px;height:10px;"><use href="#i-plus"/></svg> Add another lot</div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="toggle-row" style="padding: 0;">
+                <div>
+                  <div class="toggle-label">Restock automatically</div>
+                  <div class="toggle-help">Add to needs when you run out.</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Supply create — tracks_lots toggle</h3>
+    <p>Effectively unchanged from v1 (you confirmed direction). Minor polish: emoji removal, chevron icon swap-in.</p>
+
+    <div class="note-info">
+      <strong>Per Q-W16 confirmation:</strong> when user types an existing supply name, T1 search detects it and routes directly to "+ Add lot" pre-populated state on SupplyDetail. Faster than re-entering all create-sheet fields. Saves one screen for the common case.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V9 — receipt-scan path entry:</strong> the receipt scan flow (post-F&F per P8R-D22) needs its own bulk surface that does NOT route through SupplyCreateSheet. It would be a separate sheet that shows N detected receipt lines with edit-per-line + bulk-confirm. Not in scope here, just confirming the architectural separation.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 8: SEARCH ========== -->
+<div class="panel" id="t8">
+  <div>
+    <div class="subtoggle" data-group="t8-sub">
+      <button class="subtoggle-btn active" data-sub="t8a">"blueberries"</button>
+      <button class="subtoggle-btn" data-sub="t8b">"chicken"</button>
+      <button class="subtoggle-btn" data-sub="t8c">"berries"</button>
+      <button class="subtoggle-btn" data-sub="t8d">"frozen gluten free pizza"</button>
+    </div>
+
+    <div class="subvariant active" id="t8a">
+      <div class="phone"><div class="phone-inner" style="min-height: 480px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div class="phone-title">My Pantry</div>
+          <div class="phone-header-right">
+            <span class="space-pill"><svg><use href="#i-home"/></svg> Home</span>
+            <svg class="pantry-icon"><use href="#i-pantry"/></svg>
+          </div>
+        </div>
+
+        <div class="search-bar"><svg><use href="#i-search"/></svg><span style="color: var(--text-primary);">blueberries</span></div>
+
+        <div class="section-label"><span>RESULTS · 1 supply</span></div>
+
+        <div class="row-card expanded">
+          <div class="row-flex">
+            <div class="accent-bar low"></div>
+            <div class="lot-badge low">2<svg><use href="#u-container"/></svg></div>
+            <div class="row-name"><div class="name">blueberries</div><div class="meta">fresh exp 3d · frozen ok</div></div>
+            <div class="row-status-text low">Low</div>
+          </div>
+          <div class="expand-panel">
+            <div class="lots-list" style="margin-top: 0;">
+              <div class="lot-row warn">
+                <span class="lot-storage-badge fridge">Fridge</span>
+                <span class="lot-qty">2 pints</span>
+                <span class="lot-variant">fresh</span>
+                <span class="lot-expires warn">exp in 3d</span>
+              </div>
+              <div class="lot-row">
+                <span class="lot-storage-badge freezer">Freezer</span>
+                <span class="lot-qty">1 bag</span>
+                <span class="lot-variant">frozen</span>
+                <span class="lot-expires">exp in 9 mo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t8b">
+      <div class="phone"><div class="phone-inner" style="min-height: 580px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div class="phone-title">My Pantry</div>
+          <div class="phone-header-right">
+            <span class="space-pill"><svg><use href="#i-home"/></svg> Home</span>
+            <svg class="pantry-icon"><use href="#i-pantry"/></svg>
+          </div>
+        </div>
+
+        <div class="search-bar"><svg><use href="#i-search"/></svg><span style="color: var(--text-primary);">chicken</span></div>
+
+        <div class="section-label"><span>RESULTS · 2 supplies</span></div>
+
+        <div class="row-card">
+          <div class="accent-bar good"></div>
+          <div class="lot-badge good">4<svg><use href="#u-pack"/></svg></div>
+          <div class="row-name"><div class="name">chicken thighs</div><div class="meta">freezer · 2 variants <span class="match-pill">name</span></div></div>
+          <div class="row-status-text good">In stock</div>
+          <div class="row-bookmark"><svg><use href="#i-bookmark"/></svg></div>
+        </div>
+
+        <div class="row-card">
+          <div class="accent-bar good"></div>
+          <div class="status-icon lvl-5"><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div></div>
+          <div class="row-name"><div class="name">whole chickens</div><div class="meta"><span class="match-pill">name</span></div></div>
+          <div class="row-status-text good">In stock</div>
+        </div>
+
+        <div class="section-label" style="padding-top: 18px;"><span>CATALOG · NOT IN PANTRY</span></div>
+        <div class="catalog-suggestion">
+          <div class="plus-icon"><svg style="width:11px;height:11px;color:var(--text-tertiary);"><use href="#i-plus"/></svg></div>
+          <div class="info"><div class="name">chicken breasts</div><div class="meta">add as supply</div></div>
+        </div>
+        <div class="catalog-suggestion">
+          <div class="plus-icon"><svg style="width:11px;height:11px;color:var(--text-tertiary);"><use href="#i-plus"/></svg></div>
+          <div class="info"><div class="name">chicken stock</div><div class="meta">add as supply</div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t8c">
+      <div class="phone"><div class="phone-inner" style="min-height: 540px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div class="phone-title">My Pantry</div>
+          <div class="phone-header-right">
+            <span class="space-pill"><svg><use href="#i-home"/></svg> Home</span>
+            <svg class="pantry-icon"><use href="#i-pantry"/></svg>
+          </div>
+        </div>
+
+        <div class="search-bar"><svg><use href="#i-search"/></svg><span style="color: var(--text-primary);">berries</span></div>
+
+        <div class="section-label"><span>RESULTS · 2 supplies</span></div>
+
+        <div class="row-card">
+          <div class="accent-bar low"></div>
+          <div class="lot-badge low">2<svg><use href="#u-container"/></svg></div>
+          <div class="row-name"><div class="name">blueberries</div><div class="meta">fresh exp 3d · frozen ok <span class="match-pill">family</span></div></div>
+          <div class="row-status-text low">Low</div>
+        </div>
+
+        <div class="row-card">
+          <div class="accent-bar good"></div>
+          <div class="status-icon lvl-3"><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div></div>
+          <div class="row-name"><div class="name">strawberries</div><div class="meta"><span class="match-pill">family</span></div></div>
+          <div class="row-status-text good">In stock</div>
+        </div>
+
+        <div class="section-label" style="padding-top: 18px;"><span>CATALOG · NOT IN PANTRY</span></div>
+        <div class="catalog-suggestion">
+          <div class="plus-icon"><svg style="width:11px;height:11px;color:var(--text-tertiary);"><use href="#i-plus"/></svg></div>
+          <div class="info"><div class="name">raspberries</div><div class="meta">add as supply</div></div>
+        </div>
+        <div class="catalog-suggestion">
+          <div class="plus-icon"><svg style="width:11px;height:11px;color:var(--text-tertiary);"><use href="#i-plus"/></svg></div>
+          <div class="info"><div class="name">blackberries</div><div class="meta">add as supply</div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t8d">
+      <div class="phone"><div class="phone-inner" style="min-height: 560px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div class="phone-title">My Pantry</div>
+          <div class="phone-header-right">
+            <span class="space-pill"><svg><use href="#i-home"/></svg> Home</span>
+            <svg class="pantry-icon"><use href="#i-pantry"/></svg>
+          </div>
+        </div>
+
+        <div class="search-bar"><svg><use href="#i-search"/></svg><span style="color: var(--text-primary);">frozen gluten free pizza</span></div>
+
+        <div class="small-emphasis">3 tokens · "frozen" + "gluten free" + "pizza"</div>
+
+        <div class="section-label"><span>RESULTS · 1 supply · 1 lot match</span></div>
+
+        <div class="row-card expanded">
+          <div class="row-flex">
+            <div class="accent-bar good"></div>
+            <div class="lot-badge good">2<svg><use href="#u-pack"/></svg></div>
+            <div class="row-name"><div class="name">pizza</div><div class="meta">freezer · 2 variants <span class="match-pill">name · storage</span></div></div>
+            <div class="row-status-text good">In stock</div>
+          </div>
+          <div class="expand-panel">
+            <div class="lots-list" style="margin-top: 0;">
+              <div class="lot-row match">
+                <span class="lot-storage-badge freezer">Freezer</span>
+                <span class="lot-qty">1</span>
+                <span class="lot-variant">gluten free <span class="match-pill" style="background:#dbeafe; color: #1e3a8a;">tag</span></span>
+                <span class="for-user-mini">M</span>
+                <span class="lot-expires">exp Aug 1</span>
+              </div>
+              <div class="lot-row" style="opacity: 0.5;">
+                <span class="lot-storage-badge freezer">Freezer</span>
+                <span class="lot-qty">1</span>
+                <span class="lot-variant">regular</span>
+                <span class="for-user-mini">T</span>
+                <span class="lot-expires">exp Aug 1</span>
+              </div>
+            </div>
+            <div class="help-text" style="text-align: center; margin-top: 6px;">Dimmed lot didn't match all tokens.</div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Search — multi-token AND across all dimensions</h3>
+
+    <div class="note-changed">
+      <strong>Tab 8d is new (per Q-W20).</strong> Demonstrates the frozen pizza scenario: search "frozen gluten free pizza" tokenizes into 3 tokens; each must match at least one dimension on the result.
+    </div>
+
+    <div class="note-info">
+      <strong>Match dimensions surfaced via match pills:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li><strong>name</strong> = matched ingredient.name or plural_name or supply.custom_name</li>
+        <li><strong>family</strong> = matched ingredient.family ("Berries" matched "berries")</li>
+        <li><strong>storage</strong> = matched display synonym for storage_location ("frozen" → freezer)</li>
+        <li><strong>tag</strong> = matched a tag attached to supply or lot ("gluten free" tag)</li>
+        <li><strong>brand</strong> = matched brand on supply or lot</li>
+        <li><strong>variant</strong> = matched lot.variant_label</li>
+      </ul>
+      Match pills render small + colored to differentiate. Multiple matches join with " · " separator.
+    </div>
+
+    <div class="note-info">
+      <strong>Lot-level match highlighting:</strong> when only some lots within a supply match, the matching lot has a yellow background and the non-matching lots are dimmed. This makes "show me Mary's gluten-free pizza" answerable at a glance.
+    </div>
+
+    <div class="note-info">
+      <strong>For-user mini badges</strong> ("M" / "T") are part of the visible meta — when supply or lot has a non-empty <code>for_user_ids</code>, render the corresponding member's initial. For-user is also a search dimension (search "Mary" → matches lots with for_user_ids containing Mary's ID).
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V10 — search infrastructure:</strong> implementation question, not design. To support this, we need either (a) a tsvector on supplies materialized from all dimensions on write (heavy but performant) or (b) client-side multi-token AND filter on already-loaded supplies + lots (simpler for F&F, scales to ~hundreds of supplies). Lean: (b) for F&F, server-side denormalization post-launch.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V11 — storage synonym map:</strong> "frozen" → freezer; "fridge" / "refrigerated" / "cold" → fridge; "pantry" → pantry; "room temp" / "counter" → counter. Static client-side mapping. Confirm completeness, or add others?
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 9: COOK DEPLETION (NEW) ========== -->
+<div class="panel" id="t9">
+  <div>
+    <div class="subtoggle" data-group="t9-sub">
+      <button class="subtoggle-btn active" data-sub="t9a">A · Default (oldest)</button>
+      <button class="subtoggle-btn" data-sub="t9b">B · Override view</button>
+    </div>
+
+    <div class="subvariant active" id="t9a">
+      <div class="phone"><div class="phone-inner" style="min-height: 540px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div style="display: flex; align-items: center; gap: 10px;"><div class="phone-header-back"><svg style="width: 18px; height: 18px;"><path d="M11 4l-6 5 6 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="phone-title-mid">Logged a cook</div></div></div>
+
+        <div class="banner">
+          <div class="banner-title">Deplete pantry?</div>
+          <div class="banner-sub">You cooked <strong>chicken thighs katsu</strong>. Deplete used ingredients from your pantry?</div>
+
+          <div class="banner-row">
+            <div style="flex: 1;">
+              <div style="font-size: 13px;">Chicken thighs · 1.25 lb</div>
+              <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">From: 1.25 lb bone-in pack (oldest, exp Jul 5)</div>
+            </div>
+            <div style="font-size: 12px; color: var(--brand-teal); cursor: pointer;">Change ▾</div>
+          </div>
+
+          <div class="banner-row">
+            <div style="flex: 1;">
+              <div style="font-size: 13px;">Olive oil · 2 tbsp</div>
+              <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">Status only — no lots</div>
+            </div>
+          </div>
+
+          <div class="banner-row">
+            <div style="flex: 1;">
+              <div style="font-size: 13px;">Eggs · 2</div>
+              <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">From: 12-egg lot in fridge → becomes 10</div>
+            </div>
+          </div>
+
+          <div class="banner-actions">
+            <div class="banner-btn primary">Deplete all</div>
+            <div class="banner-btn secondary">Skip</div>
+          </div>
+          <div class="banner-link">Customize each →</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t9b">
+      <div class="phone"><div class="phone-inner" style="min-height: 600px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div style="display: flex; align-items: center; gap: 10px;"><div class="phone-header-back"><svg style="width: 18px; height: 18px;"><path d="M11 4l-6 5 6 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="phone-title-mid">Pick a chicken thigh lot</div></div></div>
+
+        <div style="padding: 16px;">
+          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Drawing 1.25 lb. Pick which lot(s) to use:</div>
+
+          <div class="banner-override-row selected">
+            <div class="check">✓</div>
+            <span class="lot-storage-badge freezer">Freezer</span>
+            <span style="font-size: 13px; flex: 1;">1.25 lb · bone-in skin-on</span>
+            <span style="font-size: 11.5px; color: var(--text-tertiary);">exp Jul 5 (oldest)</span>
+          </div>
+          <div class="banner-override-row" style="margin-top: 6px;">
+            <div class="check"></div>
+            <span class="lot-storage-badge freezer">Freezer</span>
+            <span style="font-size: 13px; flex: 1;">2.5 lb · bone-in skin-on</span>
+            <span style="font-size: 11.5px; color: var(--text-tertiary);">exp Jul 5</span>
+          </div>
+          <div class="banner-override-row" style="margin-top: 6px;">
+            <div class="check"></div>
+            <span class="lot-storage-badge freezer">Freezer</span>
+            <span style="font-size: 13px; flex: 1;">1.25 lb · boneless skinless</span>
+            <span style="font-size: 11.5px; color: var(--text-tertiary);">exp Aug 10</span>
+          </div>
+          <div class="banner-override-row" style="margin-top: 6px;">
+            <div class="check"></div>
+            <span class="lot-storage-badge freezer">Freezer</span>
+            <span style="font-size: 13px; flex: 1;">1.25 lb · boneless skinless</span>
+            <span style="font-size: 11.5px; color: var(--text-tertiary);">exp Aug 10</span>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 14px;">
+            <div class="banner-btn primary" style="flex: 1;">Use selected (1.25 lb)</div>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-tertiary); margin-top: 6px; text-align: center;">Selected lots will be archived after this cook.</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Cook depletion — against lots</h3>
+
+    <div class="note-new">
+      <strong>New surface in v2.</strong> Banner pattern matches existing CookDepletionBanner (already shipped pre-8R). The lot-aware behavior is what's new.
+    </div>
+
+    <div class="note-info">
+      <strong>Variant A — default (oldest-first):</strong>
+      <ul style="margin: 6px 0 0;">
+        <li>For each ingredient cooked, the system determines the lot to draw from.</li>
+        <li><strong>Default rule (per Q8):</strong> oldest-expiring lot whose qty + unit is compatible. Show which lot was picked: "From: 1.25 lb bone-in pack (oldest, exp Jul 5)."</li>
+        <li><strong>Cross-unit:</strong> the unitConverter handles oz ↔ lb, cups ↔ ml, etc. (existing service; reused).</li>
+        <li><strong>Cross-lot decrement:</strong> if no single lot has enough, draw from oldest first, then next-oldest. Shown as "From: 0.5 lb of bone-in (last) + 0.75 lb of boneless." (Not visualized here — edge case.)</li>
+        <li><strong>"Change"</strong> on a row opens variant B picker.</li>
+      </ul>
+    </div>
+
+    <div class="note-info">
+      <strong>Variant B — override:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li>Multi-select lot picker, scoped to the recipe ingredient.</li>
+        <li>Selecting multiple = cross-lot draw (e.g., user knows they used the boneless ones).</li>
+        <li>Confirm button shows total qty being drawn: "Use selected (1.25 lb)" — must equal or exceed recipe qty.</li>
+      </ul>
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V12 — auto-archive policy:</strong> when a lot reaches qty=0 from depletion, auto-archive (consumed_at = NOW). Per Q12. Confirm: this happens silently in the depletion flow; user can undo via the banner's existing undo affordance.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V13 — non-lot supply in same cook:</strong> "Olive oil · 2 tbsp" is a non-lot supply (status-only). Default behavior: usage_level decrements per existing rules (not changed). Just shown alongside lot supplies in the banner.
+    </div>
+  </div>
+</div>
+
+<!-- ========== TAB 10: GROCERY ACQUIRE → LOT (NEW) ========== -->
+<div class="panel" id="t10">
+  <div>
+    <div class="subtoggle" data-group="t10-sub">
+      <button class="subtoggle-btn active" data-sub="t10a">Default acquire</button>
+      <button class="subtoggle-btn" data-sub="t10b">Edit lot post-acquire</button>
+    </div>
+
+    <div class="subvariant active" id="t10a">
+      <div class="phone"><div class="phone-inner" style="min-height: 600px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="phone-header"><div style="display: flex; align-items: center; gap: 10px;"><div class="phone-header-back"><svg style="width: 18px; height: 18px;"><path d="M11 4l-6 5 6 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="phone-title-mid">Tonight's grocery</div></div></div>
+
+        <div class="search-bar" style="margin: 0 12px 8px;"><svg><use href="#i-search"/></svg><span>Type to add…</span></div>
+
+        <div class="sub-label" style="padding: 4px 14px;">Today</div>
+        <div class="need-row">
+          <div class="need-checkbox in-cart">✓</div>
+          <div style="flex: 1;">
+            <div class="need-name" style="text-decoration: line-through; color: var(--text-tertiary);">eggs</div>
+            <div class="need-name-meta" style="color: var(--text-tertiary);">12 ct · in cart</div>
+          </div>
+        </div>
+        <div class="need-row">
+          <div class="need-checkbox"></div>
+          <div style="flex: 1;">
+            <div class="need-name">chicken thighs</div>
+            <div class="need-name-meta">1.25 lb · bone-in</div>
+          </div>
+          <div class="need-qty">1.25 lb</div>
+        </div>
+
+        <div class="acquire-toast">
+          <div class="acquire-toast-title">Acquired: eggs</div>
+          <div class="acquire-toast-row">
+            <div>
+              <div style="font-size: 13px;">12 ct · added to fridge</div>
+              <div class="acquire-toast-info">Expires May 22 (auto, 21 days fridge)</div>
+            </div>
+          </div>
+          <div class="acquire-actions">
+            <span class="a">Edit lot</span>
+            <span class="b">·</span>
+            <span class="b">Undo</span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="subvariant" id="t10b">
+      <div class="phone"><div class="phone-inner" style="min-height: 700px;">
+        <div class="phone-statusbar"><span>10:34</span><span></span></div>
+        <div class="sheet-frame">
+          <div class="sheet-handle"></div>
+          <div class="sheet-header">
+            <span style="font-size: 14px; color: var(--text-tertiary);">Cancel</span>
+            <span class="sheet-title">Edit lot</span>
+            <span class="sheet-action">Save</span>
+          </div>
+          <div class="sheet-body">
+            <div class="input-row">
+              <div class="label">Supply</div>
+              <div class="value">Eggs (linked)</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Quantity</div>
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <div class="input-mock" style="flex: 1;">12</div>
+                <div class="input-mock" style="flex: 1; min-width: 80px;">ct <svg style="width:8px;height:8px;display:inline-block;"><use href="#i-chev-d"/></svg></div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Storage</div>
+              <div class="segmented" style="margin-top: 4px;">
+                <div class="segmented-btn active">Fridge</div>
+                <div class="segmented-btn">Freezer</div>
+                <div class="segmented-btn">Pantry</div>
+                <div class="segmented-btn">Counter</div>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Expires</div>
+              <div class="input-mock">May 22 (auto)</div>
+              <div class="help-text">Computed from acquired date + fridge shelf life. Tap to override.</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Brand (optional)</div>
+              <div class="input-mock">Vital Farms</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Variant (optional)</div>
+              <div class="input-mock">large brown</div>
+            </div>
+
+            <div class="input-row">
+              <div class="label">Notes</div>
+              <div class="input-mock">—</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h3>Grocery acquire → lot create</h3>
+
+    <div class="note-new">
+      <strong>New surface in v2.</strong> Per Q9 confirmation: default-create with reasonable inferred values + edit affordance.
+    </div>
+
+    <div class="note-info">
+      <strong>Variant A — default flow:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li>User checks off "eggs" need (qty 12, no unit specified).</li>
+        <li>System creates lot on the linked supply: qty=12, unit="ct" (from ingredient.typical_unit), storage=fridge (supply default), acquired_at=NOW, expires_at=NOW+21d (computed).</li>
+        <li>If supply was in <code>low</code>/<code>critical</code>/<code>out</code> status, auto-flips to <code>in_stock</code> (per Q-V6).</li>
+        <li><strong>Toast at bottom</strong> shows what happened with Edit / Undo affordances. 5s auto-dismiss.</li>
+        <li>"Edit lot" opens the sheet in Variant B for fine adjustment.</li>
+      </ul>
+    </div>
+
+    <div class="note-info">
+      <strong>Variant B — edit lot sheet:</strong>
+      <ul style="margin: 6px 0 0;">
+        <li>Same fields as the create-lot sheet (per Q-V7).</li>
+        <li>Supply is linked and read-only — can't be changed at this point. (To re-route to a different supply, undo + re-acquire.)</li>
+      </ul>
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V14 — receipt-scan parallel:</strong> when receipt scan ships, the same toast/edit-lot pattern can be used per-line. Bulk-confirm acquires N at once with sensible defaults; per-line edit available. Architectural compatibility check: confirm.
+    </div>
+
+    <div class="note-q">
+      <strong>Q-V15 — non-tracks_lots supply acquire:</strong> if user acquires a need linked to a non-tracks_lots supply (olive oil), no lot is created — just status flips to in_stock + last_confirmed_at bumped. Existing behavior, unchanged. Toast still fires but says "Restocked: olive oil" without lot info.
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById(t.dataset.tab).classList.add('active');
+    });
+  });
+  document.querySelectorAll('.subtoggle-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const group = b.parentElement;
+      group.querySelectorAll('.subtoggle-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const panel = b.closest('.panel');
+      panel.querySelectorAll('.subvariant').forEach(x => x.classList.remove('active'));
+      panel.querySelector('#' + b.dataset.sub).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

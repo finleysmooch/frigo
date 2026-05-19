@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,9 +7,15 @@ import {
 } from 'react-native';
 import InlineEditableIngredient from '../InlineEditableIngredient';
 import MarkupText from '../MarkupText';
-import { PantryItemWithIngredient } from '../../lib/types/pantry';
 import { ViewMode } from '../../lib/services/recipeAnnotationsService';
 import { UnitSystem } from '../../lib/services/unitConverter';
+import { MatchedIngredient } from '../../lib/services/pantryMatchingService';
+import { SupplyWithTags } from '../../lib/types/supplies';
+import { StepIngredient } from '../../lib/types/cooking';
+import IngredientTapSheet, {
+  TapSheetState,
+  MatchedSupplyInfo,
+} from './IngredientTapSheet';
 
 interface Ingredient {
   id: string;
@@ -138,12 +144,50 @@ function splitIngredientParts(
   return { prefix, ingredientName: remainder, preparation: '' };
 }
 
+// 8D-CP3: derive the tap-sheet state from a match entry. An absent match means
+// the ingredient is in matchResult.missing[]. always_available rows never reach
+// here (they are non-tappable). Matched rows map by supply status.
+function deriveTapSheetState(match: MatchedIngredient | undefined): TapSheetState {
+  if (!match) return 'missing';
+  if (match.supplyStatus === 'low') return 'matched_low';
+  if (match.supplyStatus === 'critical') return 'matched_critical';
+  return 'matched_in_stock';
+}
+
+// 8D-CP3: best-effort ingredient → prep-step resolution for the "Which step?"
+// action. stepIngredients is keyed by 1-indexed step number; we return the
+// first (lowest) 0-based step index whose ingredient list name-matches, or null
+// when the ingredient is not tied to any step. Name matching is loose because
+// step-ingredient names are parsed from recipe prose, not the catalog.
+function findStepIndexForIngredient(
+  ingredientName: string,
+  stepIngredients: Map<number, StepIngredient[]>,
+): number | null {
+  const target = ingredientName.trim().toLowerCase();
+  if (!target) return null;
+  let best: number | null = null;
+  for (const [stepNumber, items] of stepIngredients) {
+    const hit = items.some((si) => {
+      const n = (si.name || '').trim().toLowerCase();
+      if (!n) return false;
+      return n.includes(target) || target.includes(n);
+    });
+    if (hit && (best === null || stepNumber < best)) {
+      best = stepNumber;
+    }
+  }
+  return best === null ? null : best - 1;
+}
+
 interface IngredientsSectionProps {
   displayIngredients: Ingredient[];
   currentScale: number;
   currentUnitSystem: UnitSystem;
   convertedIngredients: any[];
-  pantryItems: PantryItemWithIngredient[];
+  // 8D-CP2: 4-level match result keyed by recipe ingredient_id. L4 (no match)
+  // ingredients are absent from the map. Levels: exact / always_available →
+  // ✓; form_variant / substitute → ⚠/≈ with a reason sub-line.
+  ingredientMatches: Map<string, MatchedIngredient>;
   missingCount: number;
   isEditMode: boolean;
   viewMode: ViewMode;
@@ -154,6 +198,17 @@ interface IngredientsSectionProps {
   onShowMissingListModal: () => void;
   onShowAllListModal: () => void;
   onHeaderLayout?: (absoluteY: number) => void;
+  // 8D-CP3: inline tap-sheet wiring. Rows become tappable; the tap-sheet
+  // renders inline below the tapped row. These props feed its actions.
+  recipeId: string;
+  spaceId: string;
+  userId: string | null;
+  suppliesById: Map<string, SupplyWithTags>;
+  stepIngredients: Map<number, StepIngredient[]>;
+  onAddNeed: () => void;
+  onOpenSupplyCreate: (ingredientName: string) => void;
+  onScrollToStep: (stepIndex: number) => void;
+  onNavigateToOtherRecipes: (ingredientName: string) => void;
 }
 
 export default function IngredientsSection({
@@ -161,7 +216,7 @@ export default function IngredientsSection({
   currentScale,
   currentUnitSystem,
   convertedIngredients,
-  pantryItems,
+  ingredientMatches,
   missingCount,
   isEditMode,
   viewMode,
@@ -172,7 +227,19 @@ export default function IngredientsSection({
   onShowMissingListModal,
   onShowAllListModal,
   onHeaderLayout,
+  recipeId,
+  spaceId,
+  userId,
+  suppliesById,
+  stepIngredients,
+  onAddNeed,
+  onOpenSupplyCreate,
+  onScrollToStep,
+  onNavigateToOtherRecipes,
 }: IngredientsSectionProps) {
+
+  // 8D-CP3: which row's inline tap-sheet is open (one at a time).
+  const [expandedIngredientId, setExpandedIngredientId] = useState<string | null>(null);
 
   // Group ingredients by group_name (recipe-author grouping)
   const groups: { name: string | null; number: number | null; ingredients: Ingredient[] }[] = [];
@@ -223,12 +290,10 @@ export default function IngredientsSection({
     return <Text style={styles.ingredientText}>{displayText}</Text>;
   };
 
-  // Compute pantry count
-  const haveCount = displayIngredients.filter(ingredient => {
-    const scaledAmount = (ingredient.quantity_amount || 0) * currentScale;
-    const inPantry = pantryItems.find(item => item.ingredient_id === ingredient.id);
-    return inPantry && (inPantry.quantity_display || 0) >= scaledAmount;
-  }).length;
+  // Compute pantry count (8D-CP2: any non-L4 level — L1/L2/L3/always_available)
+  const haveCount = displayIngredients.filter((ingredient) =>
+    ingredientMatches.has(ingredient.id)
+  ).length;
   const totalCount = displayIngredients.length;
   const containerOffsetRef = useRef(0);
 
@@ -272,9 +337,9 @@ export default function IngredientsSection({
             {group.ingredients.map((ingredient, idx) => {
               const globalIndex = displayIngredients.indexOf(ingredient);
 
-              const scaledAmount = (ingredient.quantity_amount || 0) * currentScale;
-              const inPantry = pantryItems.find(item => item.ingredient_id === ingredient.id);
-              const hasSufficient = inPantry && (inPantry.quantity_display || 0) >= scaledAmount;
+              const match = ingredientMatches.get(ingredient.id);
+              const matchLevel = match?.level;
+              const hasSufficient = !!match;
 
               // Get display text
               let displayText: string;
@@ -302,14 +367,25 @@ export default function IngredientsSection({
               // Markup mode
               const showMarkup = viewMode === 'markup' && ingredient._annotation;
 
-              return (
-                <View
-                  key={`ingredient-${ingredient.id}-${globalIndex}-${idx}`}
-                  style={styles.ingredientRow}
-                >
-                  {/* Have indicator — green checkmark */}
+              // 8D-CP3: always_available rows (water, ice) are non-tappable —
+              // no useful actions. Edit mode keeps rows non-tappable so the
+              // tap-sheet doesn't compete with inline editing.
+              const isAlwaysAvailable = matchLevel === 'always_available';
+              const isTappable = !isEditMode && !isAlwaysAvailable;
+              const isExpanded = expandedIngredientId === ingredient.id;
+
+              // Row body is identical whether wrapped in a View or a
+              // TouchableOpacity — additive only, no visual change (CP3
+              // Preservation Contract).
+              const rowBody = (
+                <>
+                  {/* Match indicator — ✓ exact/always-available, ⚠ form variant, ≈ substitute (8D-CP2) */}
                   <View style={styles.indicatorContainer}>
-                    {hasSufficient && <Text style={styles.haveCheck}>✓</Text>}
+                    {(matchLevel === 'exact' || matchLevel === 'always_available') && (
+                      <Text style={styles.haveCheck}>✓</Text>
+                    )}
+                    {matchLevel === 'form_variant' && <Text style={styles.warnMark}>⚠</Text>}
+                    {matchLevel === 'substitute' && <Text style={styles.substituteMark}>≈</Text>}
                   </View>
 
                   {/* Ingredient text with bold quantity */}
@@ -325,6 +401,11 @@ export default function IngredientsSection({
                     ) : (
                       renderIngredientText(ingredient, displayText)
                     )}
+                    {match && (matchLevel === 'form_variant' || matchLevel === 'substitute') && (
+                      <Text style={styles.matchSubLine} numberOfLines={1}>
+                        {match.reason}
+                      </Text>
+                    )}
                   </View>
 
                   {/* Edit button */}
@@ -336,25 +417,96 @@ export default function IngredientsSection({
                       <Text style={styles.editButtonText}>✏️</Text>
                     </TouchableOpacity>
                   )}
-                </View>
+                </>
+              );
+
+              // 8D-CP3: tap-sheet props for the expanded row.
+              let tapSheet: React.ReactNode = null;
+              if (isExpanded) {
+                const supply = match?.supplyId
+                  ? suppliesById.get(match.supplyId)
+                  : undefined;
+                const matchedSupply: MatchedSupplyInfo | null = supply
+                  ? {
+                      id: supply.id,
+                      displayName:
+                        supply.custom_name ||
+                        supply.ingredient?.name ||
+                        'your supply',
+                      status: supply.status,
+                    }
+                  : null;
+                tapSheet = (
+                  <IngredientTapSheet
+                    ingredient={{
+                      id: ingredient.id,
+                      name: ingredient.name,
+                      quantityDisplay: ingredient.displayText,
+                      preparation: ingredient.preparation ?? null,
+                      quantityAmount: ingredient.quantity_amount ?? null,
+                      quantityUnit: ingredient.quantity_unit ?? null,
+                    }}
+                    state={deriveTapSheetState(match)}
+                    matchedSupply={matchedSupply}
+                    recipeId={recipeId}
+                    spaceId={spaceId}
+                    userId={userId}
+                    stepIndex={findStepIndexForIngredient(
+                      ingredient.name,
+                      stepIngredients,
+                    )}
+                    onClose={() => setExpandedIngredientId(null)}
+                    onAddNeed={onAddNeed}
+                    onOpenSupplyCreate={() => onOpenSupplyCreate(ingredient.name)}
+                    onScrollToStep={onScrollToStep}
+                    onNavigateToOtherRecipes={() =>
+                      onNavigateToOtherRecipes(ingredient.name)
+                    }
+                  />
+                );
+              }
+
+              const rowKey = `ingredient-${ingredient.id}-${globalIndex}-${idx}`;
+              return (
+                <React.Fragment key={rowKey}>
+                  {isTappable ? (
+                    <TouchableOpacity
+                      style={styles.ingredientRow}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        setExpandedIngredientId((cur) =>
+                          cur === ingredient.id ? null : ingredient.id,
+                        )
+                      }
+                    >
+                      {rowBody}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.ingredientRow}>{rowBody}</View>
+                  )}
+                  {tapSheet}
+                </React.Fragment>
               );
             })}
           </View>
         ))}
       </View>
 
-      {/* Grocery list actions */}
+      {/* Grocery list actions — CP6d-Recipe (Gap-G38b) dual CTAs.
+          Primary: "Add N missing →" (only when missing > 0).
+          Secondary: "Add all N". Total uses displayIngredients length so the
+          count matches what the user sees on the screen. */}
       <View style={styles.groceryListActions}>
         {missingCount > 0 && (
           <TouchableOpacity style={styles.groceryListBox} onPress={onShowMissingListModal}>
             <Text style={styles.groceryListBoxText}>
-              🛒  Add missing ({missingCount}) to Grocery List
+              + Add {missingCount} missing →
             </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.groceryListAllLink} onPress={onShowAllListModal}>
           <Text style={styles.groceryListAllText}>
-            Add all to Grocery List
+            + Add all {displayIngredients.length}
           </Text>
         </TouchableOpacity>
       </View>
@@ -417,6 +569,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#22c55e',
     fontWeight: '600',
+  },
+  // 8D-CP2 — L2 form-variant + L3 substitute indicators. Amber, distinct
+  // glyphs (⚠ vs ≈). Hardcoded hex to match this file's existing convention.
+  warnMark: {
+    fontSize: 14,
+    color: '#d97706',
+    fontWeight: '600',
+  },
+  substituteMark: {
+    fontSize: 15,
+    color: '#d97706',
+    fontWeight: '700',
+  },
+  matchSubLine: {
+    fontSize: 12,
+    color: '#92400e',
+    marginTop: 2,
   },
   ingredientContent: {
     flex: 1,

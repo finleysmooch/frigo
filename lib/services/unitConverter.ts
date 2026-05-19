@@ -285,6 +285,38 @@ function decimalToFraction(decimal: number): string | null {
 }
 
 /**
+ * CP6e-Services-a: convert `amount` of `fromUnit` into `toUnit`. Returns null
+ * when units are unknown or not bridgeable (e.g., a weight unit and a volume
+ * unit, or two unrelated count units). Same-unit returns amount unchanged.
+ *
+ * Used by lotsService for cross-lot deduction unit-compatibility checks
+ * (D8R-Q52 / S3 cross-lot rules) and lot aggregation (canonical_unit pick).
+ * Different from `convertUnit` which targets a unit-system (metric/imperial);
+ * this one targets a specific destination unit.
+ */
+export async function convertBetween(
+  amount: number,
+  fromUnit: string,
+  toUnit: string
+): Promise<number | null> {
+  const from = await findUnit(fromUnit);
+  const to = await findUnit(toUnit);
+
+  if (!from || !to) return null;
+  if (from.id === to.id) return amount;
+
+  if (from.metric_g != null && to.metric_g != null) {
+    return amount * (from.metric_g / to.metric_g);
+  }
+
+  if (from.metric_ml != null && to.metric_ml != null) {
+    return amount * (from.metric_ml / to.metric_ml);
+  }
+
+  return null;
+}
+
+/**
  * Convert all ingredients in a recipe to target system
  */
 export async function convertRecipeIngredients(

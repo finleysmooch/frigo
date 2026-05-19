@@ -21,6 +21,9 @@ import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
 import { completePlanItem } from '../lib/services/mealPlanService';
 import { createDishPost, updateTimesCooked, computeMealType } from '../lib/services/postService';
+import { runPostCookDepletion } from '../lib/cookDepletionService';
+import { useActiveSpaceId } from '../contexts/SpaceContext';
+import { useCookDepletionBanner } from '../contexts/CookDepletionBannerContext';
 import { addParticipantsToPost } from '../lib/services/postParticipantsService';
 import MadeOtherDishesSheet from '../components/MadeOtherDishesSheet';
 import LogCookSheet from '../components/LogCookSheet';
@@ -56,6 +59,8 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function CookingScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const { recipe, planItemId, mealId, mealTitle } = route.params;
+  const activeSpaceId = useActiveSpaceId();
+  const { showBanner } = useCookDepletionBanner();
 
   useKeepAwake();
 
@@ -266,6 +271,13 @@ export default function CookingScreen({ route, navigation }: Props) {
       try {
         await updateTimesCooked(recipe.id, (recipe.times_cooked || 0) + 1);
       } catch (_) {}
+
+      // Phase 8B-CP4: cook-post pantry depletion (fire-and-forget; doesn't block the flow).
+      if (post?.id) {
+        runPostCookDepletion(post.id, activeSpaceId).then((plan) => {
+          if (plan) showBanner(plan);
+        });
+      }
 
       if (planItemId && post?.id) {
         await completePlanItem(planItemId, session.user.id, post.id);

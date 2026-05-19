@@ -48,7 +48,6 @@ tmpclaude-*
 supabase/.temp/
 
 # Dev artifacts
-External documents/
 assets/svg-source/
 test-*.ps1
 recipe_classification_*.json
@@ -61,3 +60,20 @@ claude_project_upload/
 supabase/functions/extract-recipe-v[0-9]*/
 supabase/functions/extract-recipe-v10.*/
 supabase/functions/extract-recipe-v10-2/
+
+# Claude.ai project knowledge sync staging — populated by CC, cleared after upload
+_pk_sync/*
+!_pk_sync/.gitkeep
+
+# Incoming CC prompt files from Claude.ai planning sessions
+external_documents/
+
+# Ephemeral Claude.ai session context — see _claudeai_context/README.md
+_claudeai_context/*
+!_claudeai_context/.gitkeep
+!_claudeai_context/README.md
+
+# Local runtime / dev artifacts (2026-05-19 close-out)
+metro.log
+set-mary-password.js
+.claude/settings.local.json

@@ -3,7 +3,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_API_KEY } from '@env';
-import { StorageLocation } from '../types/pantry';
+
+// Inlined post-8R-CP4 (lib/types/pantry.ts deleted; this enum lives only here now).
+type StorageLocation = 'fridge' | 'freezer' | 'pantry' | 'counter';
 
 const anthropic = new Anthropic({
   apiKey: ANTHROPIC_API_KEY,

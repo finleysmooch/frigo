@@ -1,1245 +1,418 @@
 // ============================================
-// FRIGO - PANTRY SCREEN (SPACE-AWARE)
+// FRIGO - PANTRY SCREEN (Phase 8R-CP6d-Pantry)
 // ============================================
-// Main pantry inventory screen with shared pantry support
+// Header redesign: "My Pantry" title left, subtle home + profile icon group
+// right (home-icon shows space label, profile-icon opens space switcher).
+// Multi-purpose search bar moves into the screen header level (Gap-P1).
+// StaleItemsBanner mounts above SuppliesSection (Gap-NEED-5).
 // Location: screens/PantryScreen.tsx
-// Updated: December 17, 2025 - Added space context integration
+// ============================================
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
-  ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert
+  View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
-// Theme system
+import { PantryStackParamList } from '../App';
+import PantryOutline from '../components/icons/PantryOutline';
 import { useTheme } from '../lib/theme/ThemeContext';
-import { typography, spacing, borderRadius, shadows } from '../lib/theme';
-import {
-  getPantryItemsBySpace,
-  updatePantryItem,
-  deletePantryItem,
-  addPantryItemToSpace
-} from '../lib/pantryService';
-import { PantryItemWithIngredient, StorageLocation } from '../lib/types/pantry';
-import {
-  groupItemsByFamilyAndType,
-  getExpiringItems,
-  convertToFamilySections,
-  calculateNewExpiration,
-  FamilySection,
-  groupItemsByStorageAndFamily,
-  StorageSection
-} from '../utils/pantryHelpers';
-import { getTypeIcon, getFamilyIcon, getTypeIconComponent, getFamilyIconComponent, getStorageIconComponent } from '../constants/pantry';
-import { VegetablesIcon, WarningIcon } from '../components/icons';
-
-// Space Context
-import { useSpace, useActiveSpaceId, useSpacePermissions } from '../contexts/SpaceContext';
-
-// Components
-import PantryItemRow from '../components/PantryItemRow';
-import CategoryHeader from '../components/CategoryHeader';
-import QuantityPicker from '../components/QuantityPicker';
-import StoragePicker from '../components/StoragePicker';
-import ExpirationPicker from '../components/ExpirationPicker';
-import StorageChangePrompt from '../components/StorageChangePrompt';
-import RemainderPrompt, { RemainderAction } from '../components/RemainderPrompt';
-import AddPantryItemModal from '../components/AddPantryItemModal';
-import QuickAddModal from '../components/QuickAddModal';
-
-// Space Components
-import SpaceSwitcher from '../components/SpaceSwitcher';
+import { typography, spacing, borderRadius } from '../lib/theme';
+import { useSpace, useActiveSpaceId, useSpaceSwitcher } from '../contexts/SpaceContext';
+import SpaceSwitcherInline from '../components/SpaceSwitcherInline';
 import CreateSpaceModal from '../components/CreateSpaceModal';
 import PendingSpaceInvitations from '../components/PendingSpaceInvitations';
+import SuppliesSection, {
+  SuppliesSectionRef,
+} from '../components/pantry/SuppliesSection';
+import PantrySearchBar from '../components/pantry/PantrySearchBar';
+import StaleItemsBanner from '../components/pantry/StaleItemsBanner';
+import SupplyQuickEditModal from '../components/pantry/SupplyQuickEditModal';
+import SupplyCreateSheet from '../components/SupplyCreateSheet';
+import { SupplyWithTags } from '../lib/types/supplies';
+import { supabase } from '../lib/supabase';
 
-// Phase 8B-CP2 — staples grid
-import StaplesGrid from '../components/pantry/StaplesGrid';
+type Props = NativeStackScreenProps<PantryStackParamList, 'Pantry'>;
 
-// Helper function to get storage location icon
-const getStorageIcon = (storage: string): string => {
-  const icons: { [key: string]: string } = {
-    'fridge': '🧊',
-    'freezer': '❄️',
-    'pantry': '🥫',
-    'counter': '🏠',
-  };
-  return icons[storage.toLowerCase()] || '📦';
-};
-
-type Props = NativeStackScreenProps<any, 'Pantry'>;
+// ============================================
+// SCREEN
+// ============================================
 
 export default function PantryScreen({ navigation }: Props) {
-  // ============================================
-  // THEME
-  // ============================================
-
-  const { colors, functionalColors } = useTheme();
-
-  // Dynamic styles based on theme
-  const styles = useMemo(() => StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background.secondary,
-    },
-    headerContainer: {
-      backgroundColor: colors.background.card,
-      paddingHorizontal: 20,
-      paddingTop: 60,
-      paddingBottom: 15,
-    },
-    headerTop: {
-      marginBottom: spacing.sm,
-    },
-    headerBottom: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    header: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: colors.text.primary,
-    },
-    invitationsContainer: {
-      paddingHorizontal: 15,
-      paddingTop: spacing.sm,
-    },
-    viewToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.background.secondary,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      gap: 6,
-    },
-    viewToggleText: {
-      fontSize: 13,
-      color: colors.text.secondary,
-      fontWeight: typography.weights.medium,
-    },
-    viewToggleIcon: {
-      fontSize: 10,
-      color: colors.text.tertiary,
-    },
-    viewDropdownMenu: {
-      position: 'absolute',
-      top: 135,
-      right: 20,
-      backgroundColor: colors.background.card,
-      borderRadius: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 5,
-      minWidth: 180,
-      zIndex: 1000,
-    },
-    viewDropdownOption: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border.light,
-    },
-    viewDropdownOptionActive: {
-      backgroundColor: colors.background.secondary,
-    },
-    viewDropdownOptionText: {
-      fontSize: 14,
-      color: colors.text.primary,
-    },
-    viewDropdownOptionTextActive: {
-      fontWeight: typography.weights.semibold,
-      color: colors.primary,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background.primary,
-    },
-    loadingText: {
-      marginTop: spacing.md,
-      fontSize: typography.sizes.md,
-      color: colors.text.secondary,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 15,
-      paddingBottom: 20,
-    },
-    section: {
-      paddingTop: spacing.md,
-      paddingBottom: 0,
-    },
-    sectionCard: {
-      backgroundColor: colors.background.card,
-      borderRadius: 12,
-      padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    sectionCompact: {
-      paddingTop: spacing.xs,
-      paddingBottom: 0,
-    },
-    expiringHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
-    },
-    expiringTitle: {
-      fontSize: typography.sizes.lg,
-      fontWeight: typography.weights.bold,
-      color: functionalColors.warning,
-    },
-    expiringCount: {
-      fontSize: typography.sizes.sm,
-      color: colors.text.tertiary,
-    },
-    storageHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    storageHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      flex: 1,
-    },
-    storageEmoji: {
-      fontSize: typography.sizes.xl,
-    },
-    storageTitle: {
-      fontSize: typography.sizes.lg,
-      fontWeight: typography.weights.semibold,
-      color: colors.text.primary,
-    },
-    storageCount: {
-      fontSize: typography.sizes.md,
-      color: colors.text.tertiary,
-    },
-    storageHeaderRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    addButton: {
-      width: 28,
-      height: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.sm,
-    },
-    addButtonText: {
-      fontSize: typography.sizes.md,
-      color: colors.background.card,
-      fontWeight: typography.weights.bold,
-    },
-    collapseIcon: {
-      fontSize: typography.sizes.xs,
-      color: colors.text.tertiary,
-      width: 20,
-      textAlign: 'center',
-    },
-    expiringBadge: {
-      fontSize: typography.sizes.xs,
-      fontWeight: typography.weights.semibold,
-      color: functionalColors.warning,
-      backgroundColor: functionalColors.warningLight,
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.sm,
-    },
-    itemsContainer: {
-      marginTop: spacing.md,
-    },
-    typeSection: {
-      marginBottom: spacing.md,
-    },
-    typeSectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      backgroundColor: colors.background.secondary,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderRadius: borderRadius.sm,
-      marginBottom: spacing.xs,
-    },
-    typeSectionHeaderExpanded: {
-      borderBottomLeftRadius: 0,
-      borderBottomRightRadius: 0,
-      marginBottom: 0,
-    },
-    typeItemsContainer: {
-      backgroundColor: colors.background.secondary,
-      borderTopLeftRadius: 0,
-      borderTopRightRadius: 0,
-      borderBottomLeftRadius: borderRadius.sm,
-      borderBottomRightRadius: borderRadius.sm,
-      padding: spacing.sm,
-      paddingTop: spacing.xs,
-    },
-    typeSectionTitle: {
-      fontSize: typography.sizes.sm,
-      fontWeight: typography.weights.semibold,
-      color: colors.text.secondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    typeCollapseIcon: {
-      fontSize: typography.sizes.xs,
-      color: colors.text.tertiary,
-    },
-    fab: {
-      position: 'absolute',
-      right: spacing.lg,
-      bottom: spacing.lg,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...shadows.large,
-    },
-    fabText: {
-      fontSize: typography.sizes.xxxl,
-      color: colors.background.card,
-      fontWeight: typography.weights.bold,
-    },
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.xxl,
-    },
-    emptyStateEmoji: {
-      fontSize: 64,
-      marginBottom: spacing.lg,
-    },
-    emptyStateTitle: {
-      fontSize: typography.sizes.xl,
-      fontWeight: typography.weights.bold,
-      color: colors.text.primary,
-      marginBottom: spacing.sm,
-      textAlign: 'center',
-    },
-    emptyStateText: {
-      fontSize: typography.sizes.md,
-      color: colors.text.tertiary,
-      textAlign: 'center',
-      marginBottom: spacing.xl,
-    },
-    emptyStateButton: {
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.xxl,
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.md,
-    },
-    emptyStateButtonText: {
-      fontSize: typography.sizes.md,
-      fontWeight: typography.weights.semibold,
-      color: colors.background.card,
-    },
-  }), [colors, functionalColors]);
-
-  // ============================================
-  // SPACE CONTEXT
-  // ============================================
-
-  const {
-    activeSpace,
-    isLoading: spaceLoading,
-    isSwitching,
-    refreshSpaces
-  } = useSpace();
+  const { colors } = useTheme();
+  const { activeSpace, isLoading: spaceLoading, isSwitching, refreshSpaces } =
+    useSpace();
+  const { currentSpace } = useSpaceSwitcher();
   const activeSpaceId = useActiveSpaceId();
-  const { canDeleteItems } = useSpacePermissions();
 
-  // ============================================
-  // STATE
-  // ============================================
-  
-  const [items, setItems] = useState<PantryItemWithIngredient[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [staplesRefreshTrigger, setStaplesRefreshTrigger] = useState(0);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
-  // Expanded/collapsed state for families
-  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
-  
-  // Expanded/collapsed state for type subsections (e.g., "Proteins-POULTRY")
-  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
-  
-  // View mode toggle
-  const [viewMode, setViewMode] = useState<'family' | 'storage'>('family');
-  const [showViewDropdown, setShowViewDropdown] = useState(false);
-  
-  // Modal states
-  const [showQuantityPicker, setShowQuantityPicker] = useState(false);
-  const [showStoragePicker, setShowStoragePicker] = useState(false);
-  const [showExpirationPicker, setShowExpirationPicker] = useState(false);
-  const [showStorageChangePrompt, setShowStorageChangePrompt] = useState(false);
-  const [showRemainderPrompt, setShowRemainderPrompt] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showCreateSpaceModal, setShowCreateSpaceModal] = useState(false);
-  
-  // Current item being edited
-  const [selectedItem, setSelectedItem] = useState<PantryItemWithIngredient | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedIngredientId, setSelectedIngredientId] = useState<string | null>(null);
-  const [selectedIngredientName, setSelectedIngredientName] = useState<string | null>(null);
-  
-  // Storage change flow state
-  const [newStorageLocation, setNewStorageLocation] = useState<StorageLocation>('fridge');
-  const [moveQuantity, setMoveQuantity] = useState<number>(0);
-  const [moveExpirationDays, setMoveExpirationDays] = useState<number>(7);
+  const [supplyCreateSheetOpen, setSupplyCreateSheetOpen] = useState(false);
+  const [createSheetInitialQuery, setCreateSheetInitialQuery] = useState<
+    string | undefined
+  >(undefined);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSpaceSwitcherSheet, setShowSpaceSwitcherSheet] = useState(false);
+  // CP6d-SmokeFix-1 (P32): long-press quick-edit modal.
+  const [quickEditSupply, setQuickEditSupply] = useState<SupplyWithTags | null>(null);
 
-  // ============================================
-  // EFFECTS
-  // ============================================
+  const suppliesRef = useRef<SuppliesSectionRef>(null);
 
-  useEffect(() => {
-    getCurrentUser();
-  }, []);
-
-  // Reload pantry when space changes
-  useEffect(() => {
-    if (currentUserId && activeSpaceId) {
-      loadPantryData();
-    }
-  }, [currentUserId, activeSpaceId]);
-
-  // ============================================
-  // DATA LOADING
-  // ============================================
-
-  const getCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-    } catch (error) {
-      console.error('❌ Error getting user:', error);
-    }
-  };
-
-  const loadPantryData = async () => {
-    if (!currentUserId || !activeSpaceId) return;
-
-    try {
-      setLoading(true);
-      console.log('🔍 Loading pantry data for space:', activeSpaceId);
-      
-      // Use space-aware pantry query
-      const allItems = await getPantryItemsBySpace(activeSpaceId);
-      setItems(allItems);
-      
-      console.log('✅ Loaded', allItems.length, 'pantry items from space');
-
-    } catch (error) {
-      console.error('❌ Error loading pantry:', error);
-      Alert.alert('Error', 'Failed to load pantry items');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    setStaplesRefreshTrigger((n) => n + 1); // signals StaplesGrid to reload
-    await loadPantryData();
-    setRefreshing(false);
-  }, [currentUserId, activeSpaceId]);
-
-  // 8B-CP3a Part 6: reload staples whenever the screen regains focus (e.g.,
-  // after returning from ManageStaplesScreen). Fires on initial mount too —
-  // harmless (one extra StaplesGrid reload).
+  // CP6d-SmokeFix-3 (V33 auto-refresh): re-pull supplies when the screen
+  // gains focus, so navigating back from BulkAcquire / SupplyDetail / etc.
+  // surfaces newly-created supplies immediately. SuppliesSection reacts to
+  // refreshTrigger by re-fetching getSuppliesForSpace.
   useFocusEffect(
     useCallback(() => {
-      setStaplesRefreshTrigger((n) => n + 1);
+      setRefreshTrigger((n) => n + 1);
     }, [])
   );
 
-  // ============================================
-  // DATA ORGANIZATION
-  // ============================================
-
-  const expiringItems = getExpiringItems(items);
-  
-  // Family view data
-  const groupedByFamily = groupItemsByFamilyAndType(items);
-  const familySections = convertToFamilySections(groupedByFamily);
-  
-  // Storage view data
-  const storageSections = groupItemsByStorageAndFamily(items);
-
-  // ============================================
-  // HANDLERS - ITEM ACTIONS
-  // ============================================
-
-  const handleTapQuantity = (item: PantryItemWithIngredient) => {
-    console.log('📊 Tapped quantity for:', item.ingredient.name);
-    setSelectedItem(item);
-    setShowQuantityPicker(true);
-  };
-
-  const handleTapStorage = (item: PantryItemWithIngredient) => {
-    console.log('📍 Tapped storage for:', item.ingredient.name);
-    setSelectedItem(item);
-    setShowStoragePicker(true);
-  };
-
-  const handleTapExpiration = (item: PantryItemWithIngredient) => {
-    console.log('📅 Tapped expiration for:', item.ingredient.name);
-    setSelectedItem(item);
-    setShowExpirationPicker(true);
-  };
-
-  const handleTapRecipes = (item: PantryItemWithIngredient) => {
-    console.log('🔍 Finding recipes with:', item.ingredient.name);
-    // TODO: Navigate to recipes filtered by this ingredient
-    Alert.alert('Coming Soon', 'Recipe search functionality coming soon!');
-  };
-
-  const handleTapItem = (item: PantryItemWithIngredient) => {
-    console.log('👆 Tapped item (full expand):', item.ingredient.name);
-    // TODO: Show full item details modal or expanded view
-    Alert.alert('Item Details', 'Full item details view coming soon!');
-  };
-
-  // ============================================
-  // HANDLERS - PICKERS
-  // ============================================
-
-  const handleSaveQuantity = async (newQuantity: number) => {
-    if (!selectedItem || !currentUserId) return;
-
-    try {
-      console.log('💾 Updating quantity:', selectedItem.ingredient.name, newQuantity);
-      
-      if (newQuantity === 0) {
-        // Check if user can delete (guests cannot)
-        if (!canDeleteItems) {
-          Alert.alert('Permission Denied', 'Guests cannot delete items from shared pantries');
-          return;
-        }
-        // Delete item if quantity is 0
-        await deletePantryItem(selectedItem.id, currentUserId);
-      } else {
-        await updatePantryItem(
-          selectedItem.id,
-          { quantity_display: newQuantity },
-          currentUserId
-        );
+  // CP6d-SmokeFix-2 (Task 5): clear search when the user re-taps the Pantry
+  // tab while already focused on this screen. `getParent()` walks up to the
+  // bottom-tab navigator that owns the tabPress event.
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsubscribe = parent.addListener('tabPress', () => {
+      if (navigation.isFocused()) {
+        setSearchQuery('');
       }
-      
-      await loadPantryData();
-      console.log('✅ Quantity updated');
-    } catch (error) {
-      console.error('❌ Error updating quantity:', error);
-      Alert.alert('Error', 'Failed to update quantity');
-    }
-  };
-
-  const handleSaveStorage = async (newStorage: StorageLocation) => {
-    if (!selectedItem || !currentUserId) return;
-
-    // If storage is different, show storage change prompt
-    if (newStorage !== selectedItem.storage_location) {
-      console.log('🔄 Storage changed, showing prompt');
-      setNewStorageLocation(newStorage);
-      setShowStorageChangePrompt(true);
-    }
-  };
-
-  const handleSaveExpiration = async (expirationDays: number) => {
-    if (!selectedItem || !currentUserId) return;
-
-    try {
-      console.log('💾 Updating expiration:', selectedItem.ingredient.name, expirationDays, 'days');
-      
-      const newExpirationDate = calculateNewExpiration(
-        selectedItem.storage_location,
-        expirationDays
-      );
-      
-      await updatePantryItem(
-        selectedItem.id,
-        { expiration_date: newExpirationDate },
-        currentUserId
-      );
-      
-      await loadPantryData();
-      console.log('✅ Expiration updated');
-    } catch (error) {
-      console.error('❌ Error updating expiration:', error);
-      Alert.alert('Error', 'Failed to update expiration');
-    }
-  };
-
-  // ============================================
-  // HANDLERS - STORAGE CHANGE FLOW
-  // ============================================
-
-  const handleConfirmStorageChange = async (quantity: number, expirationDays: number) => {
-    if (!selectedItem || !currentUserId) return;
-
-    setMoveQuantity(quantity);
-    setMoveExpirationDays(expirationDays);
-
-    // Check if it's a partial move
-    if (quantity < selectedItem.quantity_display) {
-      // Show remainder prompt
-      console.log('📦 Partial move, showing remainder prompt');
-      setShowRemainderPrompt(true);
-    } else {
-      // Full move, just update the item
-      await executeStorageMove(quantity, expirationDays, 'keep');
-    }
-  };
-
-  const handleRemainderAction = async (action: RemainderAction) => {
-    await executeStorageMove(moveQuantity, moveExpirationDays, action);
-  };
-
-  const executeStorageMove = async (
-    quantity: number,
-    expirationDays: number,
-    remainderAction: RemainderAction
-  ) => {
-    if (!selectedItem || !currentUserId || !activeSpaceId) return;
-
-    try {
-      console.log('🚚 Executing storage move:', {
-        item: selectedItem.ingredient.name,
-        quantity,
-        to: newStorageLocation,
-        remainderAction
-      });
-
-      const newExpirationDate = calculateNewExpiration(newStorageLocation, expirationDays);
-      const isPartialMove = quantity < selectedItem.quantity_display;
-
-      if (!isPartialMove) {
-        // Full move - just update the item
-        await updatePantryItem(
-          selectedItem.id,
-          {
-            storage_location: newStorageLocation,
-            expiration_date: newExpirationDate
-          },
-          currentUserId
-        );
-      } else {
-        // Partial move - need to handle remainder
-        const remainingQuantity = selectedItem.quantity_display - quantity;
-
-        if (remainderAction === 'keep') {
-          // Create new item in new location (using space-aware function)
-          await addPantryItemToSpace(
-            {
-              ingredient_id: selectedItem.ingredient_id,
-              quantity_display: quantity,
-              unit_display: selectedItem.unit_display,
-              storage_location: newStorageLocation,
-              purchase_date: new Date().toISOString().split('T')[0],
-              expiration_date: newExpirationDate,
-              is_opened: selectedItem.is_opened,
-            },
-            activeSpaceId,
-            currentUserId
-          );
-
-          // Update old item with remaining quantity
-          await updatePantryItem(
-            selectedItem.id,
-            { quantity_display: remainingQuantity },
-            currentUserId
-          );
-        } else if (remainderAction === 'used' || remainderAction === 'discarded') {
-          // Create new item in new location
-          await addPantryItemToSpace(
-            {
-              ingredient_id: selectedItem.ingredient_id,
-              quantity_display: quantity,
-              unit_display: selectedItem.unit_display,
-              storage_location: newStorageLocation,
-              purchase_date: new Date().toISOString().split('T')[0],
-              expiration_date: newExpirationDate,
-              is_opened: selectedItem.is_opened,
-            },
-            activeSpaceId,
-            currentUserId
-          );
-
-          // Delete old item
-          await deletePantryItem(selectedItem.id, currentUserId);
-          
-          // TODO: Track used/discarded in analytics
-        }
-      }
-
-      await loadPantryData();
-      console.log('✅ Storage move complete');
-    } catch (error) {
-      console.error('❌ Error during storage move:', error);
-      Alert.alert('Error', 'Failed to move item');
-    }
-  };
-
-  // ============================================
-  // HANDLERS - CATEGORY ACTIONS
-  // ============================================
-
-  const toggleFamily = (family: string) => {
-    setExpandedFamilies(prev => {
-      const next = new Set(prev);
-      if (next.has(family)) {
-        next.delete(family);
-      } else {
-        next.add(family);
-      }
-      return next;
     });
-  };
+    return unsubscribe;
+  }, [navigation]);
 
-  const toggleType = (family: string, type: string) => {
-    const key = `${family}-${type}`;
-    setExpandedTypes(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    })();
+  }, []);
 
-  const handleAddToFamily = (family: string) => {
-    console.log('➕ Adding item to family:', family);
-    setSelectedCategory(family);
-    setShowQuickAddModal(true);
-  };
+  // CP6d-SmokeFix-4 follow-up: routing into SpaceSettings is now ONLY via
+  // SpaceSwitcherInline's per-space "edit" pill. The previous direct nav
+  // path (home-icon tap → SpaceSettings) was removed.
 
-  const handleQuickAddSelect = (ingredientId: string, ingredientName: string) => {
-    setSelectedIngredientId(ingredientId);
-    setSelectedIngredientName(ingredientName);
-    setShowQuickAddModal(false);
-    setShowAddModal(true);
-  };
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshTrigger((n) => n + 1);
+    setTimeout(() => setRefreshing(false), 400);
+  }, []);
 
-  const handleCloseAddModal = () => {
-    setShowAddModal(false);
-    setSelectedCategory(null);
-    setSelectedIngredientId(null);
-    setSelectedIngredientName(null);
-  };
+  const handleOpenDetail = useCallback(
+    (supply: SupplyWithTags) => {
+      navigation.navigate('SupplyDetail', { supplyId: supply.id });
+    },
+    [navigation]
+  );
 
-  // ============================================
-  // HANDLERS - SPACE ACTIONS
-  // ============================================
+  const handleAddNewTap = useCallback(() => {
+    setCreateSheetInitialQuery(undefined);
+    setSupplyCreateSheetOpen(true);
+  }, []);
 
-  const handleManageSpaces = () => {
-    if (activeSpaceId) {
-      navigation.navigate('SpaceSettings', { spaceId: activeSpaceId });
-    }
-  };
+  const handleSearchAddNew = useCallback((query: string) => {
+    setCreateSheetInitialQuery(query);
+    setSupplyCreateSheetOpen(true);
+  }, []);
 
-  // ============================================
-  // RENDER
-  // ============================================
+  const handleSupplyCreated = useCallback(() => {
+    setSupplyCreateSheetOpen(false);
+    setCreateSheetInitialQuery(undefined);
+    setRefreshTrigger((n) => n + 1);
+  }, []);
 
-  // Show loading while space context initializes
-  if (spaceLoading || loading) {
+  const noExactMatch =
+    searchQuery.trim().length > 0 &&
+    !(suppliesRef.current?.hasExactMatch(searchQuery) ?? false);
+
+  // CP6d-SmokeFix-2 (Task 4): family-match count for the recommendations hint.
+  const matchedFamilyCount =
+    searchQuery.trim().length >= 2
+      ? suppliesRef.current?.getFilteredFamilyCount(searchQuery) ?? 0
+      : 0;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background.secondary,
+        },
+        headerContainer: {
+          backgroundColor: colors.background.card,
+          paddingHorizontal: 20,
+          paddingTop: 60,
+          paddingBottom: 4,
+        },
+        headerRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        headerTitle: {
+          fontSize: typography.sizes.xxl,
+          fontWeight: typography.weights.bold,
+          color: colors.text.primary,
+        },
+        headerRightRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        },
+        whatCanICookCta: {
+          borderWidth: 1,
+          borderColor: colors.primary,
+          borderRadius: 10,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          marginHorizontal: 16,
+          marginTop: 12,
+          marginBottom: 4,
+          alignItems: 'center',
+        },
+        whatCanICookCtaText: {
+          fontSize: 15,
+          fontWeight: '600',
+          color: colors.primary,
+        },
+        headerIconButton: {
+          padding: 6,
+        },
+        spacePill: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: borderRadius.lg,
+          backgroundColor: colors.background.secondary,
+          maxWidth: 180,
+        },
+        spacePillChevron: {
+          fontSize: 11,
+          color: colors.text.tertiary,
+          fontWeight: typography.weights.bold,
+        },
+        spacePillEmoji: {
+          fontSize: 14,
+        },
+        spacePillText: {
+          fontSize: typography.sizes.sm,
+          color: colors.text.primary,
+          fontWeight: typography.weights.medium,
+          flexShrink: 1,
+        },
+        searchBarWrapper: {
+          backgroundColor: colors.background.card,
+          paddingBottom: 8,
+        },
+        invitationsContainer: {
+          paddingHorizontal: 20,
+        },
+        loadingContainer: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background.primary,
+        },
+        loadingText: {
+          marginTop: 12,
+          fontSize: typography.sizes.sm,
+          color: colors.text.secondary,
+        },
+        // Switcher modal
+        switcherModalOverlay: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.4)',
+          justifyContent: 'flex-end',
+        },
+        switcherModalCard: {
+          backgroundColor: colors.background.card,
+          borderTopLeftRadius: borderRadius.xl,
+          borderTopRightRadius: borderRadius.xl,
+          paddingBottom: 32,
+        },
+      }),
+    [colors]
+  );
+
+  if (spaceLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        {spaceLoading && (
-          <Text style={styles.loadingText}>Loading your spaces...</Text>
-        )}
+        <Text style={styles.loadingText}>Loading your spaces...</Text>
       </View>
     );
   }
 
-  // Show switching indicator
   if (isSwitching) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Switching to {activeSpace?.name}...</Text>
-      </View>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <View style={styles.container}>
-        {/* Header with Space Switcher */}
-        <View style={styles.headerContainer}>
-          <SpaceSwitcher
-            onCreateSpace={() => setShowCreateSpaceModal(true)}
-            onManageSpaces={handleManageSpaces}
-          />
-          <Text style={styles.header}>My Pantry</Text>
-        </View>
-
-        {/* Pending Invitations */}
-        <View style={styles.invitationsContainer}>
-          <PendingSpaceInvitations compact onInvitationResponded={refreshSpaces} />
-        </View>
-
-        <View style={styles.emptyState}>
-          <VegetablesIcon size={72} color={colors.text.tertiary} />
-          <Text style={styles.emptyStateTitle}>
-            {activeSpace?.is_default ? 'Pantry is Empty' : `${activeSpace?.name} Pantry is Empty`}
-          </Text>
-          <Text style={styles.emptyStateText}>
-            {activeSpace?.is_default 
-              ? 'Start tracking your ingredients to get personalized recipe recommendations'
-              : `Add ingredients to your shared ${activeSpace?.name} pantry`
-            }
-          </Text>
-          <TouchableOpacity
-            style={styles.emptyStateButton}
-            onPress={() => setShowQuickAddModal(true)}
-          >
-            <Text style={styles.emptyStateButtonText}>Add First Item</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Create Space Modal */}
-        <CreateSpaceModal
-          visible={showCreateSpaceModal}
-          onClose={() => setShowCreateSpaceModal(false)}
-        />
-
-        {/* Quick Add Modal */}
-        <QuickAddModal
-          visible={showQuickAddModal}
-          onClose={() => {
-            setShowQuickAddModal(false);
-            setSelectedCategory(null);
-          }}
-          onSelectIngredient={handleQuickAddSelect}
-          categoryFilter={selectedCategory}
-        />
-
-        {/* Add Pantry Item Modal */}
-        <AddPantryItemModal
-          visible={showAddModal}
-          onClose={handleCloseAddModal}
-          onSave={() => {
-            handleCloseAddModal();
-            loadPantryData();
-          }}
-          preSelectedCategory={selectedCategory}
-          preSelectedIngredientId={selectedIngredientId}
-          preSelectedIngredientName={selectedIngredientName}
-          spaceId={activeSpaceId}
-        />
+        <Text style={styles.loadingText}>
+          Switching to {activeSpace?.name}...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header with Space Switcher and View Toggle */}
       <View style={styles.headerContainer}>
-        <View style={styles.headerTop}>
-          <SpaceSwitcher
-            onCreateSpace={() => setShowCreateSpaceModal(true)}
-            onManageSpaces={handleManageSpaces}
-          />
-        </View>
-        <View style={styles.headerBottom}>
-          <Text style={styles.header}>My Pantry</Text>
-          
-          {/* View mode dropdown */}
-          <TouchableOpacity
-            style={styles.viewToggle}
-            onPress={() => setShowViewDropdown(!showViewDropdown)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.viewToggleText}>
-              View: {viewMode === 'family' ? 'Family' : 'Storage'}
-            </Text>
-            <Text style={styles.viewToggleIcon}>{showViewDropdown ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Dropdown menu */}
-        {showViewDropdown && (
-          <View style={styles.viewDropdownMenu}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>My Pantry</Text>
+          {/* Right side, single row: [ ▾ {emoji} Name ] [ Pantry icon ].
+              The space-name pill IS the dropdown trigger now (down-arrow
+              signals the dropdown affordance); tapping either opens the
+              space switcher. SpaceSettings is reachable only from the
+              "edit" pill inside the switcher modal (per Tom's call). */}
+          <View style={styles.headerRightRow}>
+            {currentSpace && (
+              <TouchableOpacity
+                style={styles.spacePill}
+                onPress={() => setShowSpaceSwitcherSheet(true)}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                accessibilityLabel={`Current space: ${currentSpace.name}. Tap to switch.`}
+              >
+                <Text style={styles.spacePillChevron}>▾</Text>
+                <Text style={styles.spacePillEmoji}>{currentSpace.emoji}</Text>
+                <Text style={styles.spacePillText} numberOfLines={1}>
+                  {currentSpace.name}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={[
-                styles.viewDropdownOption,
-                viewMode === 'family' && styles.viewDropdownOptionActive
-              ]}
-              onPress={() => {
-                setViewMode('family');
-                setShowViewDropdown(false);
-              }}
+              style={styles.headerIconButton}
+              onPress={() => setShowSpaceSwitcherSheet(true)}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel="Switch space"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={[
-                styles.viewDropdownOptionText,
-                viewMode === 'family' && styles.viewDropdownOptionTextActive
-              ]}>
-                Ingredient Family
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.viewDropdownOption,
-                viewMode === 'storage' && styles.viewDropdownOptionActive
-              ]}
-              onPress={() => {
-                setViewMode('storage');
-                setShowViewDropdown(false);
-              }}
-            >
-              <Text style={[
-                styles.viewDropdownOptionText,
-                viewMode === 'storage' && styles.viewDropdownOptionTextActive
-              ]}>
-                Storage Location
-              </Text>
+              <PantryOutline size={24} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
-        )}
+        </View>
       </View>
 
-      {/* Pending Space Invitations */}
-      <View style={styles.invitationsContainer}>
-        <PendingSpaceInvitations compact onInvitationResponded={refreshSpaces} />
+      <View style={styles.searchBarWrapper}>
+        <PantrySearchBar
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          noExactMatch={noExactMatch}
+          onAddNew={handleSearchAddNew}
+          matchedFamilyCount={matchedFamilyCount}
+        />
       </View>
-      
+
+      <View style={styles.invitationsContainer}>
+        <PendingSpaceInvitations
+          compact
+          onInvitationResponded={refreshSpaces}
+        />
+      </View>
+
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* Staples Grid (Phase 8B-CP2) — sits above Expiring Soon */}
-        <StaplesGrid
-          spaceId={activeSpaceId}
-          refreshTrigger={staplesRefreshTrigger}
-          onStapleLabelTap={() =>
-            Alert.alert('Ingredient Detail', 'Coming in 8C-CP5')
+        {/* 8D-CP4: "What can I cook?" CTA → WhatCanICookScreen (Recipes
+            stack — cross-stack nav via the parent tab navigator). */}
+        <TouchableOpacity
+          style={styles.whatCanICookCta}
+          activeOpacity={0.7}
+          onPress={() =>
+            (navigation.getParent() as any)?.navigate('RecipesStack', {
+              screen: 'WhatCanICook',
+            })
           }
+        >
+          <Text style={styles.whatCanICookCtaText}>What can I cook?</Text>
+        </TouchableOpacity>
+
+        <StaleItemsBanner spaceId={activeSpaceId} refreshTrigger={refreshTrigger} />
+        <SuppliesSection
+          ref={suppliesRef}
+          spaceId={activeSpaceId}
+          refreshTrigger={refreshTrigger}
+          searchQuery={searchQuery}
+          onOpenDetail={handleOpenDetail}
+          onAddNewTap={handleAddNewTap}
+          onLongPressSupply={(supply) => setQuickEditSupply(supply)}
+          userId={currentUserId}
+          onShadowTap={(candidate) => {
+            // CP6d-SmokeFix-4 Task 2: shadow → real supply via SupplyCreateSheet.
+            setCreateSheetInitialQuery(
+              candidate.plural_name && candidate.plural_name.length > 0
+                ? candidate.name // use singular when typing into search-by-name field
+                : candidate.name
+            );
+            setSupplyCreateSheetOpen(true);
+          }}
         />
-
-        {/* Expiring Soon Section */}
-        {expiringItems.length > 0 && (
-          <View style={[styles.section, styles.sectionCompact]}>
-            <View style={styles.sectionCard}>
-              <View style={styles.expiringHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                  <WarningIcon size={24} color={functionalColors.warning} />
-                  <Text style={styles.expiringTitle}>Expiring Soon</Text>
-                </View>
-                <Text style={styles.expiringCount}>{expiringItems.length} items</Text>
-              </View>
-              {expiringItems.map(item => (
-                <PantryItemRow
-                  key={item.id}
-                  item={item}
-                  onTapQuantity={handleTapQuantity}
-                  onTapStorage={handleTapStorage}
-                  onTapExpiration={handleTapExpiration}
-                  onTapRecipes={handleTapRecipes}
-                  onTapItem={handleTapItem}
-                  isExpiring={true}
-                  compact={true}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Family Sections or Storage Sections */}
-        {viewMode === 'family' ? (
-          // INGREDIENT FAMILY VIEW
-          familySections.map(section => {
-            const isExpanded = expandedFamilies.has(section.family);
-            
-            return (
-              <View key={section.family} style={styles.section}>
-                <View style={styles.sectionCard}>
-                  <CategoryHeader
-                    section={section}
-                    isExpanded={isExpanded}
-                    onToggle={() => toggleFamily(section.family)}
-                    onAdd={() => handleAddToFamily(section.family)}
-                  />
-
-                {isExpanded && (
-                  <View style={styles.itemsContainer}>
-                    {section.types.map(typeSection => {
-                      const typeKey = `${section.family}-${typeSection.type}`;
-                      const isTypeExpanded = expandedTypes.has(typeKey);
-                      const typeIcon = getTypeIcon(typeSection.type);
-                      const TypeIconComp = getTypeIconComponent(typeSection.type);
-
-                      return (
-                        <View key={typeSection.type} style={styles.typeSection}>
-                          <TouchableOpacity
-                            style={[
-                              styles.typeSectionHeader,
-                              isTypeExpanded && styles.typeSectionHeaderExpanded
-                            ]}
-                            onPress={() => toggleType(section.family, typeSection.type)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.xs }}>
-                              {TypeIconComp
-                                ? <TypeIconComp size={21} color={colors.text.secondary} />
-                                : <Text style={styles.typeSectionTitle}>{typeIcon}</Text>}
-                              <Text style={styles.typeSectionTitle}>{typeSection.type} ({typeSection.items.length})</Text>
-                            </View>
-                            <Text style={styles.typeCollapseIcon}>
-                              {isTypeExpanded ? '▼' : '▶'}
-                            </Text>
-                          </TouchableOpacity>
-                          
-                          {isTypeExpanded && (
-                            <View style={styles.typeItemsContainer}>
-                              {typeSection.items.map(item => (
-                                <PantryItemRow
-                                  key={item.id}
-                                  item={item}
-                                  onTapQuantity={handleTapQuantity}
-                                  onTapStorage={handleTapStorage}
-                                  onTapExpiration={handleTapExpiration}
-                                  onTapRecipes={handleTapRecipes}
-                                  onTapItem={handleTapItem}
-                                />
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          // STORAGE LOCATION VIEW
-          storageSections.map(section => {
-            const storageKey = section.storage;
-            const isExpanded = expandedFamilies.has(storageKey);
-            const storageIcon = getStorageIcon(section.storage);
-            const StorageIconComp = getStorageIconComponent(section.storage);
-
-            return (
-              <View key={section.storage} style={styles.section}>
-                <View style={styles.sectionCard}>
-                  {/* Storage Location Header */}
-                  <TouchableOpacity
-                    style={styles.storageHeader}
-                    onPress={() => toggleFamily(storageKey)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.storageHeaderLeft}>
-                      {StorageIconComp
-                        ? <StorageIconComp size={33} color={colors.text.primary} />
-                        : <Text style={styles.storageEmoji}>{storageIcon}</Text>}
-                      <Text style={styles.storageTitle}>
-                        {section.storage.charAt(0).toUpperCase() + section.storage.slice(1)}
-                      </Text>
-                      <Text style={styles.storageCount}>({section.totalCount})</Text>
-                      {section.expiringCount > 0 && (
-                        <Text style={styles.expiringBadge}>
-                          {section.expiringCount} expiring
-                        </Text>
-                      )}
-                    </View>
-                    <View style={styles.storageHeaderRight}>
-                      <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleAddToFamily(storageKey);
-                        }}
-                      >
-                        <Text style={styles.addButtonText}>+</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.collapseIcon}>
-                        {isExpanded ? '▼' : '▶'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {isExpanded && (
-                    <View style={styles.itemsContainer}>
-                      {section.families.map(familySection => {
-                        const familyKey = `${storageKey}-${familySection.family}`;
-                        const isFamilyExpanded = expandedTypes.has(familyKey);
-                        const familyIcon = getFamilyIcon(familySection.family);
-                        const FamilyIconComp = getFamilyIconComponent(familySection.family);
-
-                        return (
-                          <View key={familySection.family} style={styles.typeSection}>
-                            <TouchableOpacity
-                              style={[
-                                styles.typeSectionHeader,
-                                isFamilyExpanded && styles.typeSectionHeaderExpanded
-                              ]}
-                              onPress={() => toggleType(storageKey, familySection.family)}
-                              activeOpacity={0.7}
-                            >
-                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.xs }}>
-                                {FamilyIconComp
-                                  ? <FamilyIconComp size={21} color={colors.text.secondary} />
-                                  : <Text style={styles.typeSectionTitle}>{familyIcon}</Text>}
-                                <Text style={styles.typeSectionTitle}>{familySection.family} ({familySection.items.length})</Text>
-                              </View>
-                              <Text style={styles.typeCollapseIcon}>
-                                {isFamilyExpanded ? '▼' : '▶'}
-                              </Text>
-                            </TouchableOpacity>
-                            
-                            {isFamilyExpanded && (
-                              <View style={styles.typeItemsContainer}>
-                                {familySection.items.map(item => (
-                                  <PantryItemRow
-                                    key={item.id}
-                                    item={item}
-                                    onTapQuantity={handleTapQuantity}
-                                    onTapStorage={handleTapStorage}
-                                    onTapExpiration={handleTapExpiration}
-                                    onTapRecipes={handleTapRecipes}
-                                    onTapItem={handleTapItem}
-                                  />
-                                ))}
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          })
-        )}
-
-        {/* Bottom padding */}
-        <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Floating Add Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowQuickAddModal(true)}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-
-      {/* Pickers and Prompts */}
-      <QuantityPicker
-        visible={showQuantityPicker}
-        currentQuantity={selectedItem?.quantity_display || 1}
-        onClose={() => setShowQuantityPicker(false)}
-        onSave={handleSaveQuantity}
-      />
-
-      <StoragePicker
-        visible={showStoragePicker}
-        currentStorage={selectedItem?.storage_location || 'fridge'}
-        onClose={() => setShowStoragePicker(false)}
-        onSave={handleSaveStorage}
-      />
-
-      <ExpirationPicker
-        visible={showExpirationPicker}
-        currentExpiration={selectedItem?.expiration_date || null}
-        onClose={() => setShowExpirationPicker(false)}
-        onSave={handleSaveExpiration}
-      />
-
-      {selectedItem && (
-        <>
-          <StorageChangePrompt
-            visible={showStorageChangePrompt}
-            itemName={selectedItem.ingredient.name}
-            currentQuantity={selectedItem.quantity_display}
-            currentUnit={selectedItem.unit_display}
-            newStorage={newStorageLocation}
-            onClose={() => setShowStorageChangePrompt(false)}
-            onConfirm={handleConfirmStorageChange}
-          />
-
-          <RemainderPrompt
-            visible={showRemainderPrompt}
-            itemName={selectedItem.ingredient.name}
-            remainingQuantity={selectedItem.quantity_display - moveQuantity}
-            unit={selectedItem.unit_display}
-            originalStorage={selectedItem.storage_location}
-            onClose={() => setShowRemainderPrompt(false)}
-            onSelect={handleRemainderAction}
-          />
-        </>
-      )}
-
-      <AddPantryItemModal
-        visible={showAddModal}
-        onClose={handleCloseAddModal}
-        onSave={() => {
-          handleCloseAddModal();
-          loadPantryData();
-        }}
-        preSelectedCategory={selectedCategory}
-        preSelectedIngredientId={selectedIngredientId}
-        preSelectedIngredientName={selectedIngredientName}
-        spaceId={activeSpaceId}
-      />
-
-      <QuickAddModal
-        visible={showQuickAddModal}
-        onClose={() => {
-          setShowQuickAddModal(false);
-          setSelectedCategory(null);
-        }}
-        onSelectIngredient={handleQuickAddSelect}
-        categoryFilter={selectedCategory}
-      />
-
-      {/* Create Space Modal */}
       <CreateSpaceModal
         visible={showCreateSpaceModal}
         onClose={() => setShowCreateSpaceModal(false)}
       />
+
+      {/* CP6d-SmokeFix-4 Task 4: inline-anchored dropdown variant of the
+          space switcher. Replaces the prior bottom-sheet host. The dropdown
+          renders near the home icon (top-right of header). */}
+      <SpaceSwitcherInline
+        visible={showSpaceSwitcherSheet}
+        onClose={() => setShowSpaceSwitcherSheet(false)}
+        onCreateSpace={() => {
+          setShowSpaceSwitcherSheet(false);
+          setShowCreateSpaceModal(true);
+        }}
+        onEditSpace={(spaceId) => {
+          // CP6d-SmokeFix-4 follow-up: only routing into SpaceSettings.
+          navigation.navigate('SpaceSettings', { spaceId });
+        }}
+      />
+
+      {activeSpaceId && currentUserId && (
+        <SupplyCreateSheet
+          visible={supplyCreateSheetOpen}
+          onClose={() => setSupplyCreateSheetOpen(false)}
+          onSaved={handleSupplyCreated}
+          spaceId={activeSpaceId}
+          userId={currentUserId}
+          initialQuery={createSheetInitialQuery}
+        />
+      )}
+
+      <SupplyQuickEditModal
+        visible={quickEditSupply !== null}
+        supply={quickEditSupply}
+        userId={currentUserId}
+        onClose={() => setQuickEditSupply(null)}
+        onSupplyChanged={(next) => {
+          // Keep the modal showing the latest snapshot; SuppliesSection
+          // re-fetches via refreshTrigger when the user closes the modal
+          // anyway, but bumping here keeps the section in sync proactively.
+          setQuickEditSupply(next);
+          setRefreshTrigger((n) => n + 1);
+        }}
+      />
     </View>
   );
 }
-

@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 8R Wireframes — v3 Consolidated</title>
+<style>
+  :root {
+    --bg-page: #f5f4ef;
+    --bg-surface: #ffffff;
+    --bg-muted: #f1efe8;
+    --border: #dedcd6;
+    --border-strong: #c5c3bc;
+    --text-primary: #1a1a19;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --amber-bg: #FAEEDA;
+    --amber-bg-soft: #FBF5E8;
+    --amber-border: #EF9F27;
+    --amber-dark: #854F0B;
+    --red-bg: #FCEBEB;
+    --red-bg-soft: #FCF2F2;
+    --red: #E24B4A;
+    --red-dark: #A32D2D;
+    --teal-bg: #E1F5EE;
+    --teal-good: #1D9E75;
+    --teal-dark: #0F6E56;
+    --blue-bg: #E6F1FB;
+    --blue-dark: #0C447C;
+    --purple-bg: #EEEDFE;
+    --purple-dark: #3C3489;
+    --gray: #888780;
+    --accent: #1a1a19;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-page); color: var(--text-primary); padding: 28px 16px 60px; }
+  .container { max-width: 1180px; margin: 0 auto; }
+  header h1 { font-size: 22px; font-weight: 500; margin: 0 0 4px; }
+  header .sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+  .changelog { background: var(--bg-muted); padding: 12px 14px; border-radius: 6px; margin-bottom: 18px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+  .changelog strong { color: var(--text-primary); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; border-bottom: 0.5px solid var(--border); padding-bottom: 12px; }
+  .tab { background: transparent; border: 0.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer; font-family: inherit; }
+  .tab:hover { background: var(--bg-muted); }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .tab.deprecated { opacity: 0.6; font-style: italic; }
+  .tab.new { border-color: var(--teal-good); color: var(--teal-dark); }
+  .tab.new.active { background: var(--teal-good); color: white; }
+
+  .panel { display: none; }
+  .panel.active { display: grid; grid-template-columns: 420px 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 880px) { .panel.active { grid-template-columns: 1fr; } }
+
+  .phone { width: 380px; background: var(--bg-muted); border-radius: 20px; padding: 16px; margin: 0 auto; }
+  .phone-inner { background: var(--bg-surface); border-radius: 12px; border: 0.5px solid var(--border); overflow: hidden; font-size: 13px; }
+
+  .notes h3 { font-size: 16px; font-weight: 500; margin: 0 0 10px; }
+  .notes h4 { font-size: 14px; font-weight: 500; margin: 18px 0 8px; }
+  .notes p, .notes li { font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
+  .notes p { margin: 0 0 12px; }
+  .notes ul { padding-left: 18px; margin: 0 0 14px; }
+  .notes li { margin-bottom: 5px; }
+  .notes strong { color: var(--text-primary); font-weight: 500; }
+  .notes .try-this { background: var(--teal-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--teal-good); font-size: 12.5px; color: var(--teal-dark); margin: 12px 0; }
+  .notes .flag { background: var(--purple-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--purple-dark); font-size: 12.5px; color: var(--purple-dark); margin: 12px 0; }
+  .notes .open-q { background: var(--amber-bg-soft); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--amber-border); font-size: 12.5px; color: var(--amber-dark); margin: 12px 0; }
+  .notes .schema-flag { background: #FFF1E0; padding: 10px 12px; border-radius: 6px; border-left: 3px solid #BA7517; font-size: 12.5px; color: #633806; margin: 12px 0; }
+  .notes .superseded { background: var(--red-bg-soft); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--red); font-size: 12.5px; color: var(--red-dark); margin: 12px 0; font-weight: 500; }
+  .notes .audit-fix { background: var(--blue-bg); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--blue-dark); font-size: 12.5px; color: var(--blue-dark); margin: 12px 0; }
+  .notes code { background: var(--bg-muted); padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+
+  .subtoggle { display: flex; gap: 4px; margin-bottom: 14px; padding: 4px; background: var(--bg-muted); border-radius: 8px; }
+  .subtoggle-btn { flex: 1; padding: 6px 10px; border: none; background: transparent; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); font-family: inherit; }
+  .subtoggle-btn.active { background: white; color: var(--text-primary); font-weight: 500; }
+  .subvariant { display: none; }
+  .subvariant.active { display: block; }
+
+  /* Screen primitives */
+  .scr-statusbar { height: 22px; padding: 4px 16px 0; font-size: 11px; color: var(--text-tertiary); display: flex; justify-content: space-between; }
+  .scr-title-row { padding: 8px 16px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .scr-title { font-size: 19px; font-weight: 500; }
+  .scr-action { font-size: 22px; font-weight: 300; color: var(--text-primary); cursor: pointer; }
+  .scr-back-row { padding: 14px 16px 6px; display: flex; align-items: center; gap: 12px; }
+  .scr-back { font-size: 18px; color: var(--text-secondary); cursor: pointer; }
+  .scr-back-title { font-size: 17px; font-weight: 500; flex: 1; }
+  .scr-meta-row { padding: 0 16px 14px; font-size: 12px; color: var(--text-tertiary); display: flex; justify-content: space-between; align-items: center; }
+  .scr-meta-row .toggle-link { text-decoration: underline; cursor: pointer; }
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.7px; padding: 4px 16px 6px; }
+
+  /* Search bar (NEW v3) */
+  .search-bar {
+    margin: 0 16px 10px;
+    padding: 8px 12px;
+    background: var(--bg-muted);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+  .search-bar-icon { font-size: 14px; opacity: 0.7; }
+
+  /* View card (Lists home) */
+  .view-card { margin: 6px 16px; padding: 12px 14px; background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: 10px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .view-card:hover { background: var(--bg-muted); }
+  .view-card-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-muted); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .view-card-body { flex: 1; min-width: 0; }
+  .view-card-title { font-size: 14px; font-weight: 500; }
+  .view-card-rule { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+  .view-card-count { font-size: 13px; color: var(--text-secondary); }
+  .new-list-card { margin: 8px 16px 14px; padding: 12px 14px; border: 1px dashed var(--border-strong); border-radius: 10px; text-align: center; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+
+  /* Need rows */
+  .need-row { padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 0.5px solid var(--border); }
+  .need-row:last-child { border-bottom: none; }
+  .need-check { width: 20px; height: 20px; border-radius: 50%; border: 1.2px solid var(--border-strong); flex-shrink: 0; cursor: pointer; }
+  .need-check.checked { background: var(--teal-good); border-color: var(--teal-good); position: relative; }
+  .need-check.checked::after { content: '✓'; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; }
+  .need-body { flex: 1; min-width: 0; }
+  .need-name { font-size: 13.5px; }
+  .need-name .merged-count { font-size: 11.5px; color: var(--text-tertiary); margin-left: 6px; }
+  .need-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; align-items: center; }
+  .recipe-attr { font-size: 11px; color: var(--purple-dark); background: var(--purple-bg); padding: 1px 7px; border-radius: 8px; display: inline-block; margin-top: 2px; }
+  .merged-expand-icon { font-size: 13px; color: var(--text-tertiary); }
+  .merged-children { background: var(--bg-muted); padding: 8px 16px 8px 48px; border-bottom: 0.5px solid var(--border); }
+  .merged-child { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12.5px; }
+  .merged-child + .merged-child { border-top: 0.5px solid var(--border); }
+  .merged-child-check { width: 16px; height: 16px; border-radius: 50%; border: 1.2px solid var(--border-strong); flex-shrink: 0; }
+
+  /* Tag chips */
+  .tag-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 500; background: var(--bg-muted); color: var(--text-secondary); }
+  .tag-chip.recipe { background: var(--purple-bg); color: var(--purple-dark); }
+  .tag-chip.user { background: var(--blue-bg); color: var(--blue-dark); }
+  .tag-chip.urgency-now { background: var(--red-bg-soft); color: var(--red-dark); }
+  .tag-chip.urgency-week { background: var(--amber-bg-soft); color: var(--amber-dark); }
+  .tag-chip.store { background: var(--teal-bg); color: var(--teal-dark); }
+  .tag-chip.removable { cursor: pointer; padding-right: 4px; }
+  .tag-chip .x { opacity: 0.5; margin-left: 2px; }
+
+  /* Group header */
+  .group-header { padding: 14px 16px 6px; display: flex; justify-content: space-between; align-items: baseline; background: var(--bg-page); border-top: 0.5px solid var(--border); }
+  .group-header.collapsible { cursor: pointer; }
+  .group-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; }
+  .group-count { font-size: 11px; color: var(--text-tertiary); }
+  .group-header.first { border-top: none; }
+  .group-caret { font-size: 11px; color: var(--text-tertiary); }
+  .filter-chips-row { padding: 0 16px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .add-need-bar { margin: 10px 16px 14px; padding: 12px 14px; border: 1px dashed var(--border-strong); border-radius: 10px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+  .add-need-hint { font-size: 11.5px; color: var(--text-tertiary); margin-top: 3px; }
+
+  /* Collapsed Regulars strip (DEFAULT on view detail v3) */
+  .regulars-strip {
+    margin: 0; padding: 11px 16px;
+    background: var(--bg-muted);
+    border-bottom: 0.5px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+  }
+  .regulars-summary { font-size: 12.5px; }
+  .regulars-summary .label { color: var(--text-secondary); }
+  .regulars-summary .out-count { color: var(--red-dark); font-weight: 500; }
+  .regulars-summary .low-count { color: var(--amber-dark); font-weight: 500; }
+  .regulars-summary .in-stock-count { color: var(--text-tertiary); }
+  .regulars-toggle { font-size: 11.5px; color: var(--text-secondary); }
+
+  /* Modal sheet */
+  .sheet { background: var(--bg-surface); border-radius: 14px 14px 0 0; overflow: hidden; }
+  .sheet-header { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid var(--border); }
+  .sheet-close { font-size: 18px; color: var(--text-secondary); cursor: pointer; }
+  .sheet-title { font-size: 14px; font-weight: 500; }
+  .sheet-cta { font-size: 13px; color: var(--accent); font-weight: 500; cursor: pointer; }
+  .sheet-cta.disabled { color: var(--text-tertiary); }
+
+  .field-block { padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+  .field-block:last-child { border-bottom: none; }
+  .field-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .field-input { background: var(--bg-muted); border: none; border-radius: 6px; padding: 9px 11px; font-size: 13.5px; width: 100%; color: var(--text-primary); }
+  .field-row { display: flex; gap: 8px; }
+  .field-input.numeric { flex: 0 0 70px; }
+  .field-input.compact { flex: 1; }
+
+  .ac-suggestions { margin-top: 6px; background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .ac-row { padding: 8px 11px; font-size: 13px; cursor: pointer; border-bottom: 0.5px solid var(--border); }
+  .ac-row:last-child { border-bottom: none; }
+  .ac-row.match-supply { background: var(--teal-bg); }
+  .ac-row .supply-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 10px; background: var(--teal-good); color: white; border-radius: 8px; font-weight: 500; }
+  .ac-row .new-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 10px; background: var(--teal-bg); color: var(--teal-dark); border-radius: 8px; }
+  .ac-row .meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+  .for-user-row { display: flex; gap: 6px; }
+  .for-user-pill { flex: 1; padding: 8px; border: 0.5px solid var(--border); border-radius: 8px; text-align: center; font-size: 12.5px; cursor: pointer; }
+  .for-user-pill.active { background: var(--blue-bg); color: var(--blue-dark); border-color: var(--blue-dark); }
+
+  /* Creator form */
+  .creator-section { padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+  .creator-section-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+  .creator-dim { margin-bottom: 14px; }
+  .creator-dim:last-child { margin-bottom: 0; }
+  .creator-dim-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .creator-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .creator-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-primary); padding: 2px 0; }
+  .creator-check .box { width: 16px; height: 16px; border: 1.2px solid var(--border-strong); border-radius: 3px; flex-shrink: 0; background: var(--bg-surface); position: relative; }
+  .creator-check.checked .box { background: var(--accent); border-color: var(--accent); }
+  .creator-check.checked .box::after { content: '✓'; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px; font-weight: 600; }
+  .creator-footnote { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); font-style: italic; }
+  .creator-more { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+  .preview-block { margin: 14px 16px; padding: 12px; background: var(--bg-muted); border-radius: 8px; }
+  .preview-line { padding: 3px 0; font-size: 12.5px; color: var(--text-secondary); }
+  .preview-count { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; }
+  .destructive-row { padding: 14px 16px; border-top: 0.5px solid var(--border); }
+  .destructive-link { color: var(--red-dark); font-size: 13px; text-decoration: underline; cursor: pointer; }
+  .toggle-row { padding: 14px 16px; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .toggle-row-label { font-size: 13px; }
+  .toggle-row-hint { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+  .toggle-switch { width: 36px; height: 20px; border-radius: 10px; background: var(--accent); position: relative; flex-shrink: 0; }
+  .toggle-switch::after { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: white; top: 2px; right: 2px; }
+  .toggle-switch.off { background: var(--border-strong); }
+  .toggle-switch.off::after { right: auto; left: 2px; }
+  .toggle-row-block { padding: 12px 16px; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+
+  /* Recipe-add */
+  .recipe-mock { padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+  .recipe-mock-title { font-size: 17px; font-weight: 500; margin-bottom: 4px; }
+  .recipe-mock-meta { font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .recipe-mock-ing-list { font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; }
+  .recipe-mock-ing-list .have { color: var(--teal-good); }
+  .recipe-mock-ing-list .miss { color: var(--text-primary); }
+  .recipe-cta-row { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 0.5px solid var(--border); }
+  .recipe-cta-primary { flex: 1.5; padding: 11px; background: var(--accent); color: white; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .recipe-cta-secondary { flex: 1; padding: 11px; background: transparent; color: var(--text-primary); border: 0.5px solid var(--border-strong); border-radius: 8px; text-align: center; font-size: 12.5px; cursor: pointer; }
+  .popup-overlay { position: relative; background: rgba(0,0,0,0.4); padding: 60px 16px 16px; }
+  .popup-modal { background: var(--bg-surface); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .popup-header { padding: 14px 16px 6px; border-bottom: 0.5px solid var(--border); }
+  .popup-title { font-size: 14px; font-weight: 500; }
+  .popup-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .popup-body { padding: 12px 16px; }
+  .popup-actions { display: flex; gap: 8px; padding: 8px 12px 12px; }
+  .popup-cancel { flex: 1; padding: 8px; background: transparent; color: var(--text-secondary); text-align: center; font-size: 13px; cursor: pointer; }
+  .popup-confirm { flex: 1.5; padding: 9px; background: var(--accent); color: white; border-radius: 6px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .urgency-picker-row { display: flex; gap: 6px; }
+  .urgency-pick { flex: 1; padding: 9px 6px; border: 0.5px solid var(--border); border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+  .urgency-pick.active { background: var(--red-bg-soft); border-color: var(--red); color: var(--red-dark); font-weight: 500; }
+
+  /* Supplies grid */
+  .supply-section-header { padding: 10px 16px 6px; background: var(--bg-page); border-top: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; cursor: pointer; }
+  .supply-section-header.first { border-top: none; }
+  .supply-section-title { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .supply-section-meta { font-size: 10.5px; color: var(--text-tertiary); }
+  /* Status sub-label inside attention block (v3 NEW) */
+  .supply-substatus-label {
+    padding: 6px 16px 2px;
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    background: var(--bg-page);
+  }
+  .supply-substatus-label.out { color: var(--red-dark); }
+  .supply-substatus-label.low { color: var(--amber-dark); }
+
+  .supply-row-list { display: flex; align-items: center; padding: 6px 16px; cursor: pointer; font-size: 12.5px; border-bottom: 0.5px solid var(--border); gap: 10px; }
+  .supply-row-list:hover { background: var(--bg-muted); }
+  .supply-row-list .dot-tap { width: 16px; height: 16px; border-radius: 50%; background: var(--gray); flex-shrink: 0; cursor: pointer; border: 1.5px solid var(--bg-surface); box-shadow: 0 0 0 1px var(--border); }
+  .supply-row-list.in-stock .dot-tap { background: var(--teal-good); }
+  .supply-row-list.low .dot-tap { background: var(--amber-border); }
+  .supply-row-list.critical .dot-tap { background: var(--amber-border); box-shadow: 0 0 0 2px var(--amber-border); }
+  .supply-row-list.out .dot-tap { background: var(--red); }
+  .supply-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .supply-row-list.low .supply-row-name { color: var(--amber-dark); font-weight: 500; }
+  .supply-row-list.critical .supply-row-name { color: var(--amber-dark); font-weight: 600; }
+  .supply-row-list.out .supply-row-name { color: var(--red-dark); font-weight: 600; }
+  .supply-row-status { font-size: 10.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+  .supply-row-list.low .supply-row-status { color: var(--amber-dark); }
+  .supply-row-list.critical .supply-row-status { color: var(--amber-dark); }
+  .supply-row-list.out .supply-row-status { color: var(--red-dark); }
+  .supply-user-mini { width: 14px; height: 14px; border-radius: 50%; background: var(--blue-bg); color: var(--blue-dark); font-size: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; border: 1px solid var(--blue-dark); flex-shrink: 0; }
+  .supply-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 12px 8px; }
+  .supply-cell { padding: 6px 8px; border-radius: 6px; background: var(--bg-muted); display: flex; align-items: center; justify-content: space-between; gap: 4px; border-left: 2px solid transparent; cursor: pointer; min-height: 28px; }
+  .supply-cell.in-stock { background: var(--bg-muted); }
+  .supply-cell.low { background: var(--amber-bg-soft); border-left-color: var(--amber-border); }
+  .supply-cell.critical { background: var(--amber-bg); border-left-color: var(--amber-border); }
+  .supply-cell.out { background: var(--red-bg-soft); border-left-color: var(--red); }
+  .supply-cell-name { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .supply-cell.low .supply-cell-name { color: var(--amber-dark); font-weight: 500; }
+  .supply-cell.critical .supply-cell-name { color: var(--amber-dark); font-weight: 600; }
+  .supply-cell.out .supply-cell-name { color: var(--red-dark); font-weight: 600; }
+  .supply-cell-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); flex-shrink: 0; }
+  .supply-cell.in-stock .supply-cell-dot { background: var(--teal-good); }
+  .supply-cell.low .supply-cell-dot { background: var(--amber-border); }
+  .supply-cell.critical .supply-cell-dot { background: var(--amber-border); }
+  .supply-cell.out .supply-cell-dot { background: var(--red); }
+
+  /* "+ N more" expand link (v3) */
+  .more-in-section {
+    padding: 6px 16px 10px;
+    font-size: 11.5px; color: var(--text-secondary);
+    text-decoration: underline;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  /* Supply detail */
+  .supply-state-cycle { display: flex; margin: 12px 16px; border: 0.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .supply-state-step { flex: 1; padding: 10px 4px; font-size: 11px; text-align: center; cursor: pointer; color: var(--text-tertiary); background: var(--bg-surface); border-right: 0.5px solid var(--border); }
+  .supply-state-step:last-child { border-right: none; }
+  .supply-state-step.active.in-stock { background: var(--teal-bg); color: var(--teal-dark); font-weight: 600; }
+  .supply-state-step.active.low { background: var(--amber-bg-soft); color: var(--amber-dark); font-weight: 600; }
+  .supply-state-step.active.critical { background: var(--amber-bg); color: var(--amber-dark); font-weight: 600; }
+  .supply-state-step.active.out { background: var(--red-bg-soft); color: var(--red-dark); font-weight: 600; }
+  .supply-cta-row { display: flex; gap: 8px; margin: 14px 16px 4px; }
+  .supply-cta-primary { flex: 1.4; padding: 11px; background: var(--accent); color: white; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .supply-cta-secondary { flex: 1; padding: 11px; background: var(--teal-bg); color: var(--teal-dark); border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .detail-section { padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+  .detail-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .detail-value { font-size: 13px; color: var(--text-primary); }
+  .detail-tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .store-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--teal-bg); color: var(--teal-dark); border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .store-chip .x { opacity: 0.5; margin-left: 1px; cursor: pointer; }
+  .store-chip.add { background: var(--bg-muted); color: var(--text-secondary); font-weight: 400; }
+  .brand-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--purple-bg); color: var(--purple-dark); border-radius: 12px; font-size: 12px; cursor: pointer; }
+  .brand-chip .x { opacity: 0.5; margin-left: 1px; cursor: pointer; }
+  .brand-chip.add { background: var(--bg-muted); color: var(--text-secondary); }
+  .tag-chip-other { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: var(--bg-muted); color: var(--text-secondary); border-radius: 12px; font-size: 11.5px; cursor: pointer; }
+  .tag-chip-other .x { opacity: 0.5; margin-left: 1px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 0.5px solid var(--border); cursor: pointer; font-size: 13px; }
+  .settings-row:hover { background: var(--bg-muted); }
+  .settings-row-label-block { display: flex; flex-direction: column; gap: 2px; }
+  .settings-row-label { font-size: 13px; }
+  .settings-row-sub { font-size: 11.5px; color: var(--text-tertiary); }
+  .settings-row-value { font-size: 12.5px; color: var(--text-secondary); }
+  .settings-row-chev { color: var(--text-tertiary); font-size: 14px; }
+  .for-user-summary { display: flex; align-items: center; gap: 6px; }
+  .for-user-list { padding: 6px 0; }
+  .for-user-row-pick { display: flex; align-items: center; gap: 12px; padding: 11px 16px; cursor: pointer; border-bottom: 0.5px solid var(--border); }
+  .for-user-row-pick:last-child { border-bottom: none; }
+  .for-user-row-pick .check-box { width: 18px; height: 18px; border-radius: 4px; border: 1.2px solid var(--border-strong); flex-shrink: 0; background: var(--bg-surface); position: relative; }
+  .for-user-row-pick.checked .check-box { background: var(--accent); border-color: var(--accent); }
+  .for-user-row-pick.checked .check-box::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 11px; font-weight: 600; }
+  .for-user-row-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--blue-bg); color: var(--blue-dark); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; border: 1px solid var(--blue-dark); flex-shrink: 0; }
+  .for-user-row-name { flex: 1; font-size: 13.5px; }
+  .history-row-mini { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 12px; color: var(--text-secondary); }
+  .history-row-mini .date { flex: 0 0 75px; font-size: 11px; color: var(--text-tertiary); }
+  .history-row-mini .text { flex: 1; }
+
+  /* Toast */
+  .toast { margin: 12px 16px; padding: 12px 14px; background: var(--accent); color: white; border-radius: 10px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .toast-text-block { flex: 1; }
+  .toast-text { font-size: 13px; }
+  .toast-sub { font-size: 11.5px; opacity: 0.7; margin-top: 2px; }
+  .toast-action { color: white; font-size: 12.5px; font-weight: 500; text-decoration: underline; cursor: pointer; }
+  .edit-modal-section { padding: 12px 16px; border-bottom: 0.5px solid var(--border); }
+  .edit-modal-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+  /* Expanded regulars */
+  .regulars-list-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; cursor: pointer; font-size: 13px; border-bottom: 0.5px solid var(--border); }
+  .regulars-list-row:hover { background: var(--bg-muted); }
+  .regulars-list-row .check { width: 18px; height: 18px; border-radius: 4px; border: 1.2px solid var(--border-strong); background: var(--bg-surface); flex-shrink: 0; position: relative; }
+  .regulars-list-row.selected .check { background: var(--accent); border-color: var(--accent); }
+  .regulars-list-row.selected .check::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 11px; font-weight: 600; }
+  .regulars-list-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); flex-shrink: 0; }
+  .regulars-list-row.out .dot { background: var(--red); }
+  .regulars-list-row.low .dot { background: var(--amber-border); }
+  .regulars-list-row.critical .dot { background: var(--amber-border); box-shadow: 0 0 0 2px var(--amber-border); }
+  .regulars-list-row .name { flex: 1; }
+  .regulars-list-row.out .name { color: var(--red-dark); font-weight: 500; }
+  .regulars-list-row.low .name { color: var(--amber-dark); font-weight: 500; }
+  .regulars-list-row .meta { font-size: 11px; color: var(--text-tertiary); }
+  .commit-bar { position: sticky; bottom: 0; background: white; border-top: 0.5px solid var(--border); padding: 12px 16px; display: flex; gap: 10px; align-items: center; }
+  .commit-bar-text { flex: 1; font-size: 12.5px; color: var(--text-secondary); }
+  .commit-bar-cta { padding: 9px 14px; background: var(--accent); color: white; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .add-new-supply { margin: 10px 16px; padding: 11px 14px; border: 1px dashed var(--border-strong); border-radius: 10px; text-align: center; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+
+  /* State picker for supply create (Tab 12) */
+  .state-pick-row { display: flex; gap: 4px; }
+  .state-pick-btn {
+    flex: 1; padding: 8px 4px;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    text-align: center; font-size: 11.5px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .state-pick-btn .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--gray);
+  }
+  .state-pick-btn.in-stock .dot { background: var(--teal-good); }
+  .state-pick-btn.low .dot { background: var(--amber-border); }
+  .state-pick-btn.critical .dot { background: var(--amber-border); box-shadow: 0 0 0 2px var(--amber-border); }
+  .state-pick-btn.out .dot { background: var(--red); }
+  .state-pick-btn.active.in-stock { background: var(--teal-bg); color: var(--teal-dark); border-color: var(--teal-good); font-weight: 500; }
+  .state-pick-btn.active.low { background: var(--amber-bg-soft); color: var(--amber-dark); border-color: var(--amber-border); font-weight: 500; }
+  .state-pick-btn.active.out { background: var(--red-bg-soft); color: var(--red-dark); border-color: var(--red); font-weight: 500; }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Phase 8R Wireframes — v3 Consolidated</h1>
+    <p class="sub">12 surfaces · 30+ design decisions captured (D8R-Q1 through Q34 in PHASE_8R_UNIFIED_NEEDS.md) · v3 incorporates audit fixes 2026-04-29.</p>
+  </header>
+
+  <div class="changelog">
+    <strong>v3 changes from v1 consolidated:</strong> Audit instance flagged 8 substantive issues + 1 gap. Fixed: (1) Tabs 2/3 use the <strong>collapsed Regulars strip</strong> as the default state (the expanded chip strip was ambiguous); (2) Tab 4 drops "aisle" from More dimensions (aisle is a render mode, not a user tag); (3) Tab 4 notes clarify Status default is Need-only with multi-status permitted; (4) Tab 6 notes capture explicit recipe combine logic; (5) Tab 7 + Tab 10 add a search bar at top + visual sub-section labels for Out and Low + "+ N more" expand-in-place pattern; (6) Tab 8 notes document the intentional state-cycle UI split (list = tap-to-cycle; detail = tap-to-set); (7) Tab 9 notes document hide-toggle-when-no-supply behavior; (8) Tab 10 "+ Add new regular" → "+ Add new supply" routing to <strong>NEW Tab 12</strong>; (9) Tab 11 notes document "Everyone" = empty <code>for_user_ids</code> array semantics. Cold-start states deferred post-F&amp;F per Tom's call (P8R-D11).
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="t1">1 · Lists home</button>
+    <button class="tab" data-tab="t2">2 · View — All needs</button>
+    <button class="tab" data-tab="t3">3 · View — Costco</button>
+    <button class="tab" data-tab="t4">4 · List creator + edit</button>
+    <button class="tab deprecated" data-tab="t5">5 · Add-to-needs (superseded)</button>
+    <button class="tab" data-tab="t6">6 · Recipe-add</button>
+    <button class="tab" data-tab="t7">7 · Supplies grid</button>
+    <button class="tab" data-tab="t8">8 · Supply detail</button>
+    <button class="tab" data-tab="t9">9 · Spawn toast + edit</button>
+    <button class="tab" data-tab="t10">10 · Expanded Regulars</button>
+    <button class="tab" data-tab="t11">11 · Add-to-needs (configure-once)</button>
+    <button class="tab new" data-tab="t12">12 · Supply create (NEW)</button>
+  </div>
+
+  <!-- ========== TAB 1: LISTS HOME ========== -->
+  <div class="panel active" id="t1">
+    <div>
+      <div class="phone"><div class="phone-inner">
+        <div class="scr-statusbar"><span>9:41</span><span>Mary &amp; Tom's home</span></div>
+        <div class="scr-title-row"><div class="scr-title">Lists</div><div class="scr-action">+</div></div>
+        <div class="section-label">Default</div>
+        <div class="view-card"><div class="view-card-icon">⏱</div><div class="view-card-body"><div class="view-card-title">Tonight</div><div class="view-card-rule">urgency: today</div></div><div class="view-card-count">3</div></div>
+        <div class="view-card"><div class="view-card-icon">📅</div><div class="view-card-body"><div class="view-card-title">This week</div><div class="view-card-rule">urgency: this week (incl. today)</div></div><div class="view-card-count">8</div></div>
+        <div class="view-card"><div class="view-card-icon">📋</div><div class="view-card-body"><div class="view-card-title">All needs</div><div class="view-card-rule">everything to buy</div></div><div class="view-card-count">12</div></div>
+        <div class="view-card"><div class="view-card-icon">🛒</div><div class="view-card-body"><div class="view-card-title">In cart</div><div class="view-card-rule">status: in cart</div></div><div class="view-card-count">3</div></div>
+        <div class="section-label" style="margin-top: 10px;">My lists</div>
+        <div class="view-card"><div class="view-card-icon">🟢</div><div class="view-card-body"><div class="view-card-title">Costco</div><div class="view-card-rule">store: Costco</div></div><div class="view-card-count">6</div></div>
+        <div class="view-card"><div class="view-card-icon">🔵</div><div class="view-card-body"><div class="view-card-title">Fred Meyer</div><div class="view-card-rule">store: Fred Meyer · urgency: this week</div></div><div class="view-card-count">4</div></div>
+        <div class="new-list-card">+ Create new list</div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>Lists home (D8R-Q19, Q2)</h3>
+      <p>Landing page for the grocery side. 4 default views + custom views, each with rule subtitle (P8R-D6 settled). Per <strong>D8R-Q2</strong>, presented as "lists" using familiar terminology.</p>
+      <p>Defaults: Tonight · This week · All needs · In cart. Hidable but not deletable (Tab 4 Variant C). Custom views deletable.</p>
+    </div>
+  </div>
+
+  <!-- ========== TAB 2: VIEW — ALL NEEDS ========== -->
+  <div class="panel" id="t2">
+    <div>
+      <div class="subtoggle" data-group="t2-sub">
+        <button class="subtoggle-btn active" data-sub="t2a">A · Tier (urgency)</button>
+        <button class="subtoggle-btn" data-sub="t2b">B · Aisle (urgency pills)</button>
+        <button class="subtoggle-btn" data-sub="t2c">C · Flat with tags</button>
+      </div>
+
+      <div class="subvariant active" id="t2a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">All needs</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>12 needs</span><span class="toggle-link">View: Tier ▾</span></div>
+
+          <div class="regulars-strip">
+            <div class="regulars-summary">
+              <span class="label">Regulars · </span>
+              <span class="out-count">3 out</span>
+              <span class="label"> · </span>
+              <span class="low-count">4 low</span>
+              <span class="label"> · </span>
+              <span class="in-stock-count">12 in stock</span>
+            </div>
+            <span class="regulars-toggle">Open ▸</span>
+          </div>
+
+          <div class="group-header first"><span class="group-title">Tonight</span><span class="group-count">3</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Cream cheese — 8 oz</div><div class="recipe-attr">from Cheesecake</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Lemons — 2</div><div class="recipe-attr">from Cheesecake</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Heavy cream — 1 cup</div><div class="recipe-attr">from Pasta sauce</div></div></div>
+
+          <div class="group-header"><span class="group-title">This week</span><span class="group-count">5</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Chicken thighs — 2 lb</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Olive oil — 1 bottle</div><div class="need-tags"><span class="tag-chip store">Costco</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Onions — 1 lb</div></div></div>
+
+          <div class="group-header"><span class="group-title">No rush</span><span class="group-count">4</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Toilet paper</div><div class="need-tags"><span class="tag-chip store">Costco</span></div></div></div>
+
+          <div class="add-need-bar">+ Add need</div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t2b">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">All needs</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>12 needs</span><span class="toggle-link">View: Aisle ▾</span></div>
+
+          <div class="regulars-strip">
+            <div class="regulars-summary">
+              <span class="label">Regulars · </span>
+              <span class="out-count">3 out</span>
+              <span class="label"> · </span>
+              <span class="low-count">4 low</span>
+              <span class="label"> · </span>
+              <span class="in-stock-count">12 in stock</span>
+            </div>
+            <span class="regulars-toggle">Open ▸</span>
+          </div>
+
+          <div class="group-header first"><span class="group-title">Produce</span><span class="group-count">3</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Lemons — 2</div><div class="need-tags"><span class="tag-chip urgency-now">tonight</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Onions — 1 lb</div><div class="need-tags"><span class="tag-chip urgency-week">this wk</span></div></div></div>
+
+          <div class="group-header"><span class="group-title">Dairy</span><span class="group-count">2</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Cream cheese — 8 oz</div><div class="need-tags"><span class="tag-chip urgency-now">tonight</span><span class="recipe-attr" style="margin-top: 0;">Cheesecake</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Heavy cream — 1 cup</div><div class="need-tags"><span class="tag-chip urgency-now">tonight</span></div></div></div>
+
+          <div class="group-header"><span class="group-title">Meat</span><span class="group-count">1</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Chicken thighs — 2 lb</div><div class="need-tags"><span class="tag-chip urgency-week">this wk</span></div></div></div>
+
+          <div class="group-header"><span class="group-title">Pantry</span><span class="group-count">4</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Olive oil — 1 bottle</div><div class="need-tags"><span class="tag-chip urgency-week">this wk</span><span class="tag-chip store">Costco</span></div></div></div>
+
+          <div class="add-need-bar">+ Add need</div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t2c">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">All needs</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>12 needs</span><span class="toggle-link">View: Flat ▾</span></div>
+
+          <div class="regulars-strip">
+            <div class="regulars-summary">
+              <span class="label">Regulars · </span>
+              <span class="out-count">3 out</span>
+              <span class="label"> · </span>
+              <span class="low-count">4 low</span>
+              <span class="label"> · </span>
+              <span class="in-stock-count">12 in stock</span>
+            </div>
+            <span class="regulars-toggle">Open ▸</span>
+          </div>
+
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Cream cheese — 8 oz</div><div class="need-tags"><span class="tag-chip urgency-now">tonight</span><span class="tag-chip recipe">Cheesecake</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Lemons — 2</div><div class="need-tags"><span class="tag-chip urgency-now">tonight</span><span class="tag-chip recipe">Cheesecake</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Olive oil — 1 bottle</div><div class="need-tags"><span class="tag-chip urgency-week">this wk</span><span class="tag-chip store">Costco</span></div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Toilet paper</div><div class="need-tags"><span class="tag-chip store">Costco</span></div></div></div>
+
+          <div class="add-need-bar">+ Add need</div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>View detail — All needs (D8R-Q25, Q20)</h3>
+
+      <div class="audit-fix">
+        <strong>v3 fix (audit C1):</strong> default Regulars state on view detail is now the <strong>collapsed strip</strong> ("Regulars · 3 out · 4 low · 12 in stock · Open ▸"). v1 showed the expanded chip strip as default which contradicted Tab 10's collapsed-default Variant B. The chip strip was misleading at scale (Tom + Mary will have 30+ Costco-tagged supplies; horizontal-scroll chips become unbounded). Tap "Open ▸" launches the multi-select modal in Tab 10.
+      </div>
+
+      <h4>Render modes (D8R-Q25)</h4>
+      <ul>
+        <li><strong>Tier</strong> — default for All needs; "what should I buy?"</li>
+        <li><strong>Aisle</strong> — at-store; urgency pills inline default-on</li>
+        <li><strong>Flat</strong> — power-user density; tags inline</li>
+      </ul>
+
+      <h4>Recipe attribution + merge (D8R-Q12, refined Q28)</h4>
+      <p>Same identity + same unit + same store tags + same <code>for_user_ids</code> needs display-merge. Different stores or user-subsets do NOT merge (different routing intent). Merge rule made explicit per audit C4 — see Tab 6 notes.</p>
+    </div>
+  </div>
+
+  <!-- ========== TAB 3: VIEW — COSTCO ========== -->
+  <div class="panel" id="t3">
+    <div>
+      <div class="subtoggle" data-group="t3-sub">
+        <button class="subtoggle-btn active" data-sub="t3a">A · Implicit filter</button>
+        <button class="subtoggle-btn" data-sub="t3b">B · Visible filter chips</button>
+      </div>
+
+      <div class="subvariant active" id="t3a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Costco</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>6 needs</span><span class="toggle-link">View: Aisle ▾</span></div>
+
+          <div class="regulars-strip">
+            <div class="regulars-summary">
+              <span class="label">Costco regulars · </span>
+              <span class="out-count">3 out</span>
+              <span class="label"> · </span>
+              <span class="low-count">2 low</span>
+              <span class="label"> · </span>
+              <span class="in-stock-count">14 in stock</span>
+            </div>
+            <span class="regulars-toggle">Open ▸</span>
+          </div>
+
+          <div class="group-header first"><span class="group-title">Dairy</span><span class="group-count">1</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Eggs — 2 dozen</div></div></div>
+          <div class="group-header"><span class="group-title">Meat</span><span class="group-count">1</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Salmon fillets — 4</div></div></div>
+          <div class="group-header"><span class="group-title">Pantry</span><span class="group-count">3</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Olive oil — 2 L</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Almonds — 3 lb</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Greek yogurt</div></div></div>
+          <div class="group-header"><span class="group-title">Household</span><span class="group-count">1</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Toilet paper</div></div></div>
+
+          <div class="add-need-bar">
+            + Add need
+            <div class="add-need-hint">Will be tagged <strong>store: Costco</strong></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t3b">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Costco</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>6 needs</span><span class="toggle-link">View: Aisle ▾</span></div>
+          <div class="filter-chips-row"><span class="tag-chip store">store: Costco</span><span style="font-size: 11px; color: var(--text-tertiary);">+ filter</span></div>
+
+          <div class="group-header first"><span class="group-title">Dairy</span><span class="group-count">1</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Eggs — 2 dozen</div></div></div>
+          <div class="group-header"><span class="group-title">Pantry</span><span class="group-count">3</span></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Olive oil — 2 L</div></div></div>
+
+          <div class="add-need-bar">
+            + Add need
+            <div class="add-need-hint">Will be tagged <strong>store: Costco</strong></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>View detail — Costco (P8R-D6 settled)</h3>
+      <p>Same shape as All needs; filtered to <code>store: Costco</code>. Regulars strip filters to Costco-tagged supplies — "Costco regulars" labeling makes the filtering native.</p>
+
+      <div class="audit-fix">
+        <strong>v3 fix:</strong> collapsed strip default matches Tab 2. Tap "Open ▸" → Tab 10 expanded view filtered to Costco supplies.
+      </div>
+
+      <h4>Variant A — Implicit filter (recommended)</h4>
+      <p>Title alone signals filter. Filter rules accessible via <code>⋯</code> → View settings.</p>
+
+      <h4>Cross-list mental model</h4>
+      <p>Need tagged both <code>store: Costco</code> AND <code>store: Fred Meyer</code> shows in both views' lists AND both Regulars summaries. Today's <code>CrossListPrompt</code> problem dissolves.</p>
+    </div>
+  </div>
+
+  <!-- ========== TAB 4: LIST CREATOR + EDIT ========== -->
+  <div class="panel" id="t4">
+    <div>
+      <div class="subtoggle" data-group="t4-sub">
+        <button class="subtoggle-btn active" data-sub="t4a">A · New list</button>
+        <button class="subtoggle-btn" data-sub="t4b">B · Edit (custom)</button>
+        <button class="subtoggle-btn" data-sub="t4c">C · Edit (default)</button>
+      </div>
+
+      <div class="subvariant active" id="t4a">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">New list</span><span class="sheet-cta">Save</span></div>
+            <div class="field-block"><div class="field-label">Name</div><input class="field-input" value="Costco" /></div>
+
+            <div class="creator-section">
+              <div class="creator-section-label">Show items tagged</div>
+
+              <div class="creator-dim">
+                <div class="creator-dim-label">Store</div>
+                <div class="creator-checks">
+                  <div class="creator-check checked"><span class="box"></span>Costco</div>
+                  <div class="creator-check"><span class="box"></span>Fred Meyer</div>
+                </div>
+              </div>
+
+              <div class="creator-dim">
+                <div class="creator-dim-label">Urgency</div>
+                <div class="creator-checks">
+                  <div class="creator-check"><span class="box"></span>today</div>
+                  <div class="creator-check"><span class="box"></span>this week</div>
+                  <div class="creator-check"><span class="box"></span>no rush</div>
+                </div>
+                <div class="creator-footnote">"this week" includes today.</div>
+              </div>
+
+              <div class="creator-more">▾ More dimensions: event, storage</div>
+            </div>
+
+            <div class="creator-section">
+              <div class="creator-section-label">Status</div>
+              <div class="creator-checks">
+                <div class="creator-check checked"><span class="box"></span>Need</div>
+                <div class="creator-check"><span class="box"></span>In cart</div>
+                <div class="creator-check"><span class="box"></span>Acquired</div>
+              </div>
+              <div class="creator-footnote">Most lists filter to Need only. Multi-status views are advanced — use for audit / history.</div>
+            </div>
+
+            <div class="preview-block">
+              <div class="preview-count">6 needs match</div>
+              <div class="preview-line">• Olive oil — 2 L</div>
+              <div class="preview-line">• Toilet paper</div>
+              <div class="preview-line" style="color: var(--text-tertiary);">+ 4 more</div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t4b">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Edit Costco</span><span class="sheet-cta">Save</span></div>
+            <div class="field-block"><div class="field-label">Name</div><input class="field-input" value="Costco" /></div>
+
+            <div class="creator-section">
+              <div class="creator-section-label">Show items tagged</div>
+              <div class="creator-dim">
+                <div class="creator-dim-label">Store</div>
+                <div class="creator-checks">
+                  <div class="creator-check checked"><span class="box"></span>Costco</div>
+                  <div class="creator-check"><span class="box"></span>Fred Meyer</div>
+                </div>
+              </div>
+              <div class="creator-more">▾ More dimensions: event, storage</div>
+            </div>
+
+            <div class="creator-section">
+              <div class="creator-section-label">Status</div>
+              <div class="creator-checks">
+                <div class="creator-check checked"><span class="box"></span>Need</div>
+                <div class="creator-check"><span class="box"></span>In cart</div>
+                <div class="creator-check"><span class="box"></span>Acquired</div>
+              </div>
+            </div>
+
+            <div class="destructive-row"><span class="destructive-link">Delete this list</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t4c">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Tonight</span><span class="sheet-cta">Done</span></div>
+
+            <div style="padding: 16px; background: var(--bg-muted); font-size: 12px; color: var(--text-secondary); border-bottom: 0.5px solid var(--border);">
+              Tonight is a default list. Its rules can't be changed, but you can hide it from your home.
+            </div>
+
+            <div class="field-block" style="opacity: 0.5;">
+              <div class="field-label">Rules (read only)</div>
+              <div style="font-size: 13px; color: var(--text-secondary);">Status: Need · Urgency: today</div>
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-row-label">Show on Lists home</div>
+                <div class="toggle-row-hint">Hide if you don't use it.</div>
+              </div>
+              <div class="toggle-switch"></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>List creator + edit (D8R-Q3 refined)</h3>
+
+      <div class="audit-fix">
+        <strong>v3 fixes (audit C2 + C7):</strong>
+        <ul style="margin: 6px 0 0;">
+          <li><strong>Aisle dropped from "More dimensions"</strong> — aisle is a render mode (Tab 2 Variant B), not a user tag. It's derived from <code>ingredients.typical_store_section</code> — system-managed. Including in creator was confusing. "More dimensions" now: event, storage only.</li>
+          <li><strong>Status footnote added</strong> — clarifies Need-only is the recommended pattern; multi-status is advanced (audit/history).</li>
+        </ul>
+      </div>
+
+      <h4>Variant A — New list</h4>
+      <p>Three sections: Name · Show items tagged (per-dimension checkboxes) · Status (separate, default Need). Multi-select within dimension = "store: Costco OR Fred Meyer" works as one predicate. Cross-dimension is AND-only per <strong>D8R-Q16</strong>.</p>
+
+      <h4>Variant B — Edit custom list</h4>
+      <p>Same form prefilled. Adds Delete this list. Custom views are deletable.</p>
+
+      <h4>Variant C — Edit default list</h4>
+      <p>Rules read-only. Toggle: Show on Lists home. Hide-not-delete for defaults.</p>
+
+      <div class="schema-flag">
+        <strong>For CP1 schema:</strong> aisle is computed (not a tag dimension). Tag schema scopes <code>store</code>, <code>urgency</code>, <code>event</code>, <code>storage</code>, <code>recipe</code>. The view-filters table doesn't include aisle as filterable.
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 5: ADD-TO-NEEDS BASIC (SUPERSEDED) ========== -->
+  <div class="panel" id="t5">
+    <div>
+      <div class="phone"><div class="phone-inner">
+        <div class="sheet">
+          <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Add to Costco</span><span class="sheet-cta">Add</span></div>
+
+          <div class="field-block">
+            <div class="field-label">What</div>
+            <input class="field-input" value="olive oil" />
+            <div class="ac-suggestions">
+              <div class="ac-row"><strong>Olive oil</strong></div>
+              <div class="ac-row">+ "olive oil" <span class="new-tag">new</span></div>
+            </div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Quantity</div>
+            <div class="field-row"><input class="field-input numeric" value="2" /><input class="field-input compact" value="L" /></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Tags</div>
+            <div class="need-tags"><span class="tag-chip store removable">store: Costco<span class="x">×</span></span></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">For</div>
+            <div class="for-user-row">
+              <div class="for-user-pill active">Anyone</div>
+              <div class="for-user-pill">Tom</div>
+              <div class="for-user-pill">Mary</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>Add-to-needs basic (superseded)</h3>
+      <div class="superseded">
+        <strong>SUPERSEDED — see Tab 11.</strong> Round-1 design before configure-once-and-done (D8R-Q21) and multi-user for_user_ids (D8R-Q27). Kept as evolution reference. "Anyone" → "Everyone" in v2; pills → settings-row + sub-sheet.
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 6: RECIPE-ADD ========== -->
+  <div class="panel" id="t6">
+    <div>
+      <div class="subtoggle" data-group="t6-sub">
+        <button class="subtoggle-btn active" data-sub="t6a">A · Recipe detail (CTAs)</button>
+        <button class="subtoggle-btn" data-sub="t6b">B · Popup modal</button>
+        <button class="subtoggle-btn" data-sub="t6c">C · Merged view (after add)</button>
+      </div>
+
+      <div class="subvariant active" id="t6a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Cheesecake</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+
+          <div class="recipe-mock">
+            <div class="recipe-mock-title">Classic cheesecake</div>
+            <div class="recipe-mock-meta">25 min · serves 8 · 5 ingredients</div>
+            <ul class="recipe-mock-ing-list" style="padding-left: 16px;">
+              <li class="have">✓ Graham crackers — 1½ cups</li>
+              <li class="miss">Cream cheese — 8 oz</li>
+              <li class="miss">Sugar — 1 cup</li>
+              <li class="miss">Lemons — 2</li>
+              <li class="miss">Vanilla — 1 tsp</li>
+            </ul>
+          </div>
+
+          <div class="recipe-cta-row">
+            <div class="recipe-cta-primary">Add 4 missing →</div>
+            <div class="recipe-cta-secondary">Add all 5</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t6b">
+        <div class="phone"><div class="phone-inner">
+          <div style="filter: blur(0.5px); opacity: 0.5;">
+            <div class="scr-statusbar"><span>9:41</span><span></span></div>
+            <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Cheesecake</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+            <div class="recipe-mock"><div class="recipe-mock-title">Classic cheesecake</div></div>
+          </div>
+
+          <div class="popup-overlay" style="margin-top: -100px; min-height: 280px;">
+            <div class="popup-modal">
+              <div class="popup-header">
+                <div class="popup-title">Add 4 ingredients to needs</div>
+                <div class="popup-subtitle">Cream cheese · Sugar · Lemons · Vanilla</div>
+              </div>
+              <div class="popup-body">
+                <div class="urgency-picker-row">
+                  <div class="urgency-pick active">Tonight</div>
+                  <div class="urgency-pick">This week</div>
+                  <div class="urgency-pick">No rush</div>
+                </div>
+              </div>
+              <div class="popup-actions">
+                <div class="popup-cancel">Cancel</div>
+                <div class="popup-confirm">Add</div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t6c">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Tonight</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+          <div class="scr-meta-row"><span>5 needs</span><span style="text-decoration: underline; cursor: pointer;">View: Tier ▾</span></div>
+
+          <div class="group-header first"><span class="group-title">Tonight</span><span class="group-count">5</span></div>
+
+          <div class="need-row">
+            <div class="need-check"></div>
+            <div class="need-body">
+              <div class="need-name">Cream cheese — 12 oz <span class="merged-count">2 recipes</span></div>
+              <div class="need-tags">
+                <span class="recipe-attr">Cheesecake</span>
+                <span class="recipe-attr">Cinnamon rolls</span>
+              </div>
+            </div>
+            <div class="merged-expand-icon">▾</div>
+          </div>
+
+          <div class="merged-children">
+            <div class="merged-child"><div class="merged-child-check"></div><div style="flex: 1;">8 oz · Cheesecake</div></div>
+            <div class="merged-child"><div class="merged-child-check"></div><div style="flex: 1;">4 oz · Cinnamon rolls</div></div>
+          </div>
+
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Sugar — 1 cup</div><div class="recipe-attr">Cheesecake</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Lemons — 2</div><div class="recipe-attr">Cheesecake</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Vanilla — 1 tsp</div><div class="recipe-attr">Cheesecake</div></div></div>
+          <div class="need-row"><div class="need-check"></div><div class="need-body"><div class="need-name">Heavy cream — 1 cup</div><div class="recipe-attr">Cinnamon rolls</div></div></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Recipe-add flow (D8R-Q24)</h3>
+      <p>Inline buttons on recipe detail + popup modal with urgency picker. Three taps: Add missing → Tonight → Add. Matches today's UX with light enhancement.</p>
+
+      <h4>Variant A — Recipe detail CTAs</h4>
+      <p>"Add N missing →" (primary) + "Add all N" (secondary). Missing = ingredients not present as <code>in_stock</code> supplies.</p>
+
+      <h4>Variant B — Popup modal</h4>
+      <p>Small overlay (NOT full sheet). Urgency picker only. Default Tonight.</p>
+
+      <h4>Variant C — Merged view</h4>
+      <p>Per <strong>D8R-Q12</strong>: separate at add-time, merge at view-time. "Cream cheese — 12 oz · 2 recipes" with expand-children.</p>
+
+      <div class="audit-fix">
+        <strong>v3 — Recipe combine rule made explicit (audit C4):</strong> two needs merge in views when ALL match:
+        <ul style="margin: 6px 0 0;">
+          <li>Same identity (<code>ingredient_id</code> or <code>custom_name</code>)</li>
+          <li>Same unit (no cross-unit conversion at v1)</li>
+          <li>Same store tags (as set — different stores = different routing intent, don't merge)</li>
+          <li>Same <code>for_user_ids</code> (Tom's yogurt + Mary's yogurt don't merge even if same ingredient)</li>
+        </ul>
+        Recipe attribution does NOT block merge (the whole point: buy once for two recipes). Urgency tags don't block merge (rendered as recipe-attribution chips). Recipe attribution from both recipes is preserved on the merged view row. Captured as D8R-Q28.
+      </div>
+
+      <div class="open-q">
+        <strong>P8R-D9:</strong> auto-select urgency from meal calendar. If recipe is on tonight's calendar, default Tonight; this week, default This week. Polish; not blocking.
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 7: SUPPLIES GRID ========== -->
+  <div class="panel" id="t7">
+    <div>
+      <div class="subtoggle" data-group="t7-sub">
+        <button class="subtoggle-btn active" data-sub="t7a">A · List view</button>
+        <button class="subtoggle-btn" data-sub="t7b">B · 3-col grid</button>
+      </div>
+
+      <div class="subvariant active" id="t7a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span>Mary &amp; Tom's home</span></div>
+          <div class="scr-title-row"><div class="scr-title">Pantry</div><div class="scr-action">+</div></div>
+          <div class="scr-meta-row"><span>67 supplies</span><span style="text-decoration: underline; cursor: pointer;">List ▾</span></div>
+
+          <div class="search-bar">
+            <span class="search-bar-icon">🔍</span>
+            <span>Search supplies</span>
+          </div>
+
+          <div class="supply-section-header first"><span class="supply-section-title">Out (3) · Low (5)</span><span class="supply-section-meta">▾</span></div>
+
+          <div class="supply-substatus-label out">Out</div>
+          <div class="supply-row-list out"><div class="dot-tap"></div><div class="supply-row-name">Olive oil</div><div class="supply-row-status">Out</div></div>
+          <div class="supply-row-list out"><div class="dot-tap"></div><div class="supply-row-name">Toilet paper</div><div class="supply-row-status">Out</div></div>
+          <div class="supply-row-list out"><div class="dot-tap"></div><div class="supply-row-name">Coffee beans</div><div class="supply-row-status">Out</div></div>
+
+          <div class="supply-substatus-label low">Low</div>
+          <div class="supply-row-list low"><div class="dot-tap"></div><div class="supply-row-name">Eggs</div><div class="supply-row-status">Low</div></div>
+          <div class="supply-row-list low"><div class="dot-tap"></div><div class="supply-row-name">Greek yogurt</div><div class="supply-user-mini">M</div><div class="supply-row-status">Low</div></div>
+          <div class="supply-row-list low"><div class="dot-tap"></div><div class="supply-row-name">Soy sauce</div><div class="supply-row-status">Low</div></div>
+          <div class="supply-row-list low"><div class="dot-tap"></div><div class="supply-row-name">Butter</div><div class="supply-row-status">Low</div></div>
+          <div class="supply-row-list low"><div class="dot-tap"></div><div class="supply-row-name">Olive oil — extra virgin</div><div class="supply-user-mini">T</div><div class="supply-row-status">Low</div></div>
+
+          <div class="supply-section-header"><span class="supply-section-title">Pantry (15)</span><span class="supply-section-meta">▾</span></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Almonds</div></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Salt</div></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Black pepper</div></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Pasta — penne</div></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Pasta — spaghetti</div></div>
+          <div class="supply-row-list in-stock"><div class="dot-tap"></div><div class="supply-row-name">Rice — basmati</div></div>
+          <div class="more-in-section">+ 9 more</div>
+
+          <div class="supply-section-header"><span class="supply-section-title">Dairy (8) ▸</span><span class="supply-section-meta">collapsed</span></div>
+          <div class="supply-section-header"><span class="supply-section-title">Produce (12) ▸</span><span class="supply-section-meta">collapsed</span></div>
+          <div class="supply-section-header"><span class="supply-section-title">Household (6) ▸</span><span class="supply-section-meta">collapsed</span></div>
+          <div class="supply-section-header"><span class="supply-section-title">Freezer (4) ▸</span><span class="supply-section-meta">collapsed</span></div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t7b">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span>Mary &amp; Tom's home</span></div>
+          <div class="scr-title-row"><div class="scr-title">Pantry</div><div class="scr-action">+</div></div>
+          <div class="scr-meta-row"><span>67 supplies</span><span style="text-decoration: underline; cursor: pointer;">Grid ▾</span></div>
+
+          <div class="search-bar">
+            <span class="search-bar-icon">🔍</span>
+            <span>Search supplies</span>
+          </div>
+
+          <div class="supply-section-header first"><span class="supply-section-title">Out (3) · Low (5)</span><span class="supply-section-meta">▾</span></div>
+          <div class="supply-substatus-label out">Out</div>
+          <div class="supply-grid-3">
+            <div class="supply-cell out"><span class="supply-cell-name">Olive oil</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell out"><span class="supply-cell-name">TP</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell out"><span class="supply-cell-name">Coffee</span><span class="supply-cell-dot"></span></div>
+          </div>
+          <div class="supply-substatus-label low">Low</div>
+          <div class="supply-grid-3">
+            <div class="supply-cell low"><span class="supply-cell-name">Eggs</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell low"><span class="supply-cell-name">Yogurt</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell low"><span class="supply-cell-name">Soy sauce</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell low"><span class="supply-cell-name">Butter</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell low"><span class="supply-cell-name">Olive oil EV</span><span class="supply-cell-dot"></span></div>
+          </div>
+
+          <div class="supply-section-header"><span class="supply-section-title">Pantry (15)</span><span class="supply-section-meta">▾</span></div>
+          <div class="supply-grid-3">
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Almonds</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Salt</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Pepper</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Penne</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Spaghetti</span><span class="supply-cell-dot"></span></div>
+            <div class="supply-cell in-stock"><span class="supply-cell-name">Basmati</span><span class="supply-cell-dot"></span></div>
+          </div>
+          <div class="more-in-section">+ 9 more</div>
+
+          <div class="supply-section-header"><span class="supply-section-title">Dairy (8) ▸</span><span class="supply-section-meta">collapsed</span></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Supplies grid (D8R-Q26)</h3>
+
+      <div class="audit-fix">
+        <strong>v3 changes (audit C6 + C12 + Q2 from Tom):</strong>
+        <ul style="margin: 6px 0 0;">
+          <li><strong>Search bar at top</strong> — confirmed F&amp;F-prereq per Tom. At 67 supplies, name search is critical for "where's my olive oil?" speed.</li>
+          <li><strong>Visual sub-section labels</strong> for Out and Low within the attention block. Same color-coding as before, but explicit "Out" / "Low" labels reinforce that they're different urgency states. Out items are auto-spawned-need-already; Low items are warnings.</li>
+          <li><strong>"+ N more" expand-in-place</strong> link at the bottom of each category section. Default shows ~6 items; tap "+ 9 more" expands the section to show all 15 in-stock pantry items inline. Other categories collapsed by default.</li>
+        </ul>
+      </div>
+
+      <h4>Variant A — List view (recommended)</h4>
+      <p>Single line per supply. Best scaling for many items. Tap dot to cycle status; tap name → Supply detail (Tab 8).</p>
+
+      <h4>Variant B — 3-col grid</h4>
+      <p>Tighter visual scan; truncates names. Better for users with strong position memory.</p>
+
+      <h4>Tap behavior</h4>
+      <ul>
+        <li><strong>Tap status dot</strong> → cycle state in place (D8R-Q7)</li>
+        <li><strong>Tap name / row</strong> → Supply detail (Tab 8)</li>
+        <li>On <code>out</code> transition, spawn-toast fires (Tab 9)</li>
+      </ul>
+
+      <p><strong>P8R-D7 RESOLVED</strong> as F&amp;F-prereq. Search bar ships at CP5.</p>
+    </div>
+  </div>
+
+  <!-- ========== TAB 8: SUPPLY DETAIL ========== -->
+  <div class="panel" id="t8">
+    <div>
+      <div class="subtoggle" data-group="t8-sub">
+        <button class="subtoggle-btn active" data-sub="t8a">A · Two CTAs</button>
+        <button class="subtoggle-btn" data-sub="t8b">B · One CTA</button>
+        <button class="subtoggle-btn" data-sub="t8c">C · For-user sheet</button>
+      </div>
+
+      <div class="subvariant active" id="t8a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Olive oil</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+
+          <div class="supply-state-cycle">
+            <div class="supply-state-step in-stock">In stock</div>
+            <div class="supply-state-step low">Low</div>
+            <div class="supply-state-step active critical">Critical</div>
+            <div class="supply-state-step out">Out</div>
+          </div>
+
+          <div class="supply-cta-row">
+            <div class="supply-cta-primary">+ Add to needs</div>
+            <div class="supply-cta-secondary">Restock</div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-label">Stores</div>
+            <div class="detail-tag-row">
+              <span class="store-chip">Costco<span class="x">×</span></span>
+              <span class="store-chip">Fred Meyer<span class="x">×</span></span>
+              <span class="store-chip add">+ Add store</span>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-label">Brands</div>
+            <div class="detail-tag-row">
+              <span class="brand-chip">Kirkland<span class="x">×</span></span>
+              <span class="brand-chip">California Olive Ranch<span class="x">×</span></span>
+              <span class="brand-chip add">+ Add brand</span>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-label">Other tags</div>
+            <div class="detail-tag-row">
+              <span class="tag-chip-other">storage: pantry<span class="x">×</span></span>
+              <span class="tag-chip-other">+ Add tag</span>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-label-block"><div class="settings-row-label">For</div></div>
+            <div class="for-user-summary">
+              <div class="settings-row-value">Everyone</div>
+              <div class="settings-row-chev">›</div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-label">Activity</div>
+            <div class="history-row-mini"><span class="date">2 days ago</span><span class="text">Marked critical</span></div>
+            <div class="history-row-mini"><span class="date">5 days ago</span><span class="text">Used in Caesar dressing</span></div>
+            <div class="history-row-mini"><span class="date">2 weeks ago</span><span class="text">Restocked · 2 L Kirkland from Costco</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t8b">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span></span></div>
+          <div class="scr-back-row"><div class="scr-back">←</div><div class="scr-back-title">Olive oil</div><div class="scr-action" style="font-size: 18px;">⋯</div></div>
+
+          <div class="supply-state-cycle">
+            <div class="supply-state-step in-stock">In stock</div>
+            <div class="supply-state-step low">Low</div>
+            <div class="supply-state-step active critical">Critical</div>
+            <div class="supply-state-step out">Out</div>
+          </div>
+
+          <div class="supply-cta-row">
+            <div class="supply-cta-primary" style="flex: 1;">+ Add to needs (will tag store: Costco)</div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-label">Stores</div>
+            <div class="detail-tag-row">
+              <span class="store-chip">Costco<span class="x">×</span></span>
+              <span class="store-chip">Fred Meyer<span class="x">×</span></span>
+              <span class="store-chip add">+ Add store</span>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-label-block"><div class="settings-row-label">For</div></div>
+            <div class="for-user-summary">
+              <div class="settings-row-value">Everyone</div>
+              <div class="settings-row-chev">›</div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t8c">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">For who</span><span class="sheet-cta">Done</span></div>
+
+            <div style="padding: 12px 16px; background: var(--bg-muted); font-size: 12px; color: var(--text-secondary); border-bottom: 0.5px solid var(--border);">
+              Pick one or more household members. Selecting all = "Everyone."
+            </div>
+
+            <div class="for-user-list">
+              <div class="for-user-row-pick checked">
+                <div class="check-box"></div>
+                <div class="for-user-row-avatar" style="background: var(--bg-muted); color: var(--text-primary); border-color: var(--border-strong);">★</div>
+                <div class="for-user-row-name">Everyone</div>
+              </div>
+              <div class="for-user-row-pick checked">
+                <div class="check-box"></div>
+                <div class="for-user-row-avatar">T</div>
+                <div class="for-user-row-name">Tom</div>
+              </div>
+              <div class="for-user-row-pick checked">
+                <div class="check-box"></div>
+                <div class="for-user-row-avatar">M</div>
+                <div class="for-user-row-name">Mary</div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div style="font-size: 11.5px; color: var(--text-tertiary); margin-top: 8px; text-align: center;">Sub-sheet from "For" row in Variants A/B.</div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Supply detail (D8R-Q22)</h3>
+      <p>Stores + Brands as first-class sections. For-user demoted to settings-row + multi-select sub-sheet (D8R-Q27).</p>
+
+      <div class="audit-fix">
+        <strong>v3 — state-cycle UI consistency note (audit C8):</strong> two state-cycle interaction patterns coexist intentionally:
+        <ul style="margin: 6px 0 0;">
+          <li><strong>List view dot (Tab 7)</strong> = tap-to-cycle (one tap advances to next state in the cycle). Compact, fast — for "I just used some" updates.</li>
+          <li><strong>Detail view 4-step strip (this Tab)</strong> = tap-to-set (tap any step to set state directly). Precise — for "I want to mark this exactly low/critical/out."</li>
+        </ul>
+        Different mental models for different contexts. Document at CP5 build that the intentional split is a feature, not a bug. Captured as D8R-Q30.
+      </div>
+
+      <h4>Stores section</h4>
+      <p>Multi-select tag chips. Supply tagged with multiple stores → appears in multiple views' Regulars summaries.</p>
+
+      <h4>Brands section</h4>
+      <p>Free-form list. Captures preference memory. F&amp;F: just a tag list. Per-store brand preferences post-F&amp;F (P8-2).</p>
+
+      <div class="schema-flag">
+        <strong>D8R-Q27 (LOCKED):</strong> <code>for_user_ids UUID[]</code>. Empty array = household-shared (rendered as "Everyone"). All-current-members array = explicit subset that happens to include everyone now (rendered as "Everyone" too — UI collapses these). Per audit C5: NO "everyone" flag column. Captured as D8R-Q31.
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 9: SPAWN TOAST + EDIT ========== -->
+  <div class="panel" id="t9">
+    <div>
+      <div class="subtoggle" data-group="t9-sub">
+        <button class="subtoggle-btn active" data-sub="t9a">A · Toast</button>
+        <button class="subtoggle-btn" data-sub="t9b">B · Edit modal (with parent supply)</button>
+        <button class="subtoggle-btn" data-sub="t9c">C · Edit modal (no parent)</button>
+      </div>
+
+      <div class="subvariant active" id="t9a">
+        <div class="phone"><div class="phone-inner">
+          <div class="scr-statusbar"><span>9:41</span><span>Mary &amp; Tom's home</span></div>
+          <div class="scr-title-row"><div class="scr-title">Pantry</div><div class="scr-action">+</div></div>
+          <div class="scr-meta-row"><span>67 supplies</span><span style="text-decoration: underline; cursor: pointer;">List ▾</span></div>
+
+          <div class="supply-section-header first"><span class="supply-section-title">Out (3) · Low (5)</span><span class="supply-section-meta">▾</span></div>
+          <div class="supply-substatus-label out">Out</div>
+          <div class="supply-row-list out"><div class="dot-tap"></div><div class="supply-row-name">Olive oil</div><div class="supply-row-status">Out</div></div>
+          <div class="supply-row-list out"><div class="dot-tap"></div><div class="supply-row-name">Toilet paper</div><div class="supply-row-status">Out</div></div>
+
+          <div class="toast">
+            <div class="toast-text-block">
+              <div class="toast-text">Olive oil → out · added to needs</div>
+              <div class="toast-sub">Tagged store: Costco</div>
+            </div>
+            <span class="toast-action">Edit</span>
+            <span style="opacity: 0.4;">·</span>
+            <span class="toast-action">Undo</span>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t9b">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Edit need · Olive oil</span><span class="sheet-cta">Save</span></div>
+
+            <div class="edit-modal-section">
+              <div class="edit-modal-label">Quantity</div>
+              <div class="field-row">
+                <input class="field-input numeric" value="2" />
+                <input class="field-input compact" value="L" />
+              </div>
+            </div>
+
+            <div class="edit-modal-section">
+              <div class="edit-modal-label">Lists / tags</div>
+              <div class="detail-tag-row">
+                <span class="store-chip">Costco<span class="x">×</span></span>
+                <span class="store-chip add">+ Fred Meyer</span>
+                <span class="store-chip add">+ Safeway</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 6px;">Currently routes to Costco list.</div>
+            </div>
+
+            <div class="toggle-row-block">
+              <div>
+                <div class="toggle-row-label">Update default routing</div>
+                <div class="toggle-row-hint">Future spawns of olive oil will use these tags too.</div>
+              </div>
+              <div class="toggle-switch off"></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t9c">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Edit need · Hatch chiles</span><span class="sheet-cta">Save</span></div>
+
+            <div class="edit-modal-section">
+              <div class="edit-modal-label">Quantity</div>
+              <div class="field-row">
+                <input class="field-input numeric" value="1" />
+                <input class="field-input compact" value="lb" />
+              </div>
+            </div>
+
+            <div class="edit-modal-section">
+              <div class="edit-modal-label">Lists / tags</div>
+              <div class="detail-tag-row">
+                <span class="store-chip">Costco<span class="x">×</span></span>
+                <span class="store-chip add">+ Add store</span>
+              </div>
+            </div>
+
+            <div style="padding: 14px 16px; font-size: 11.5px; color: var(--text-tertiary); border-top: 0.5px solid var(--border); font-style: italic;">
+              No update-default toggle — this need has no parent supply.
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Spawn-need toast + edit modal (D8R-Q23)</h3>
+      <p>Toast surfaces auto-spawn-on-out (D8R-Q10). Edit modal lets user adjust spawned need + optionally update supply's default routing.</p>
+
+      <div class="audit-fix">
+        <strong>v3 fix (audit C6):</strong> the "Update default routing" toggle is conditionally hidden. Variant B (parent supply exists) shows the toggle. Variant C (manually-created need with no parent supply, e.g., one-off "hatch chiles" without saving as regular) hides the toggle entirely with a footnote explaining why. Cleaner than greying out. Captured as D8R-Q34.
+      </div>
+
+      <h4>Variant A — Toast</h4>
+      <p>Edit + Undo actions. Toast dismissible after ~5s.</p>
+
+      <h4>Variant B — Edit modal (parent supply)</h4>
+      <p>Three sections: Quantity · Lists/tags · Update default routing toggle (visible).</p>
+
+      <h4>Variant C — Edit modal (no parent supply)</h4>
+      <p>Same structure minus the toggle. Need has no supply to update.</p>
+
+      <div class="try-this">
+        <strong>The "update default" toggle is what makes the system feel like it's learning.</strong> User edits once, supply routing is fixed. Subsequent spawns route correctly.
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 10: EXPANDED REGULARS ========== -->
+  <div class="panel" id="t10">
+    <div>
+      <div class="phone"><div class="phone-inner">
+        <div class="sheet">
+          <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Regulars · Costco</span><span class="sheet-cta">Done</span></div>
+
+          <div class="search-bar">
+            <span class="search-bar-icon">🔍</span>
+            <span>Search Costco regulars</span>
+          </div>
+
+          <div class="supply-section-header first"><span class="supply-section-title">Out (3)</span><span class="supply-section-meta">all selected</span></div>
+          <div class="regulars-list-row out selected"><div class="check"></div><div class="dot"></div><div class="name">Olive oil</div><div class="meta">2 L · Costco</div></div>
+          <div class="regulars-list-row out selected"><div class="check"></div><div class="dot"></div><div class="name">Toilet paper</div><div class="meta">1 pack · Costco</div></div>
+          <div class="regulars-list-row out selected"><div class="check"></div><div class="dot"></div><div class="name">Coffee beans</div><div class="meta">2 lb · Costco</div></div>
+
+          <div class="supply-section-header"><span class="supply-section-title">Low (4)</span><span class="supply-section-meta">▾</span></div>
+          <div class="regulars-list-row low selected"><div class="check"></div><div class="dot"></div><div class="name">Eggs</div><div class="meta">2 dozen</div></div>
+          <div class="regulars-list-row low"><div class="check"></div><div class="dot"></div><div class="name">Greek yogurt</div><div class="meta">32 oz</div></div>
+          <div class="regulars-list-row low"><div class="check"></div><div class="dot"></div><div class="name">Butter</div><div class="meta">1 lb</div></div>
+          <div class="regulars-list-row low"><div class="check"></div><div class="dot"></div><div class="name">Soy sauce</div><div class="meta">16 oz</div></div>
+
+          <div class="supply-section-header"><span class="supply-section-title">In stock — Pantry (8)</span><span class="supply-section-meta">▾</span></div>
+          <div class="regulars-list-row"><div class="check"></div><div class="dot"></div><div class="name">Almonds</div><div class="meta">3 lb</div></div>
+          <div class="regulars-list-row selected"><div class="check"></div><div class="dot"></div><div class="name">Salt</div><div class="meta">1 box</div></div>
+          <div class="regulars-list-row"><div class="check"></div><div class="dot"></div><div class="name">Pasta — penne</div><div class="meta">2 lb</div></div>
+          <div class="regulars-list-row"><div class="check"></div><div class="dot"></div><div class="name">Honey</div><div class="meta">12 oz</div></div>
+          <div class="more-in-section">+ 4 more in Pantry</div>
+
+          <div class="supply-section-header"><span class="supply-section-title">In stock — Dairy (5) ▸</span><span class="supply-section-meta">collapsed</span></div>
+          <div class="supply-section-header"><span class="supply-section-title">In stock — Household (3) ▸</span><span class="supply-section-meta">collapsed</span></div>
+
+          <div class="add-new-supply">+ Add new supply</div>
+
+          <div class="commit-bar">
+            <span class="commit-bar-text">5 selected · will tag store: Costco</span>
+            <span class="commit-bar-cta">Add to needs →</span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>Expanded Regulars (D8R-Q20)</h3>
+
+      <div class="audit-fix">
+        <strong>v3 changes (audit C9 + Q2):</strong>
+        <ul style="margin: 6px 0 0;">
+          <li><strong>Search bar at top</strong> — confirmed F&amp;F-prereq.</li>
+          <li><strong>"+ N more in [Category]"</strong> expand-in-place link in each in-stock category.</li>
+          <li><strong>"+ Add new regular" → "+ Add new supply"</strong> routes to <strong>Tab 12</strong> (supply-create flow), NOT Tab 11 (add-to-needs). Captures the case "I want to start tracking eggs but Tom + Mary haven't run out yet" — supply-create only, no need created. Captured as D8R-Q33.</li>
+        </ul>
+      </div>
+
+      <h4>Workflow</h4>
+      <p>Saturday Costco prep: collapsed strip on Costco view → tap Open → 3 out items pre-selected → scan Low (check 2) → tap "Add to needs →." 5 needs created in 4 taps total.</p>
+
+      <h4>Search behavior</h4>
+      <p>Filters supplies inline as user types. Useful when 16+ in-stock + 4+ low + 3 out = ~25 supplies in a single view's regulars.</p>
+
+      <h4>Pre-selection</h4>
+      <p>All Out items pre-selected on open (you're definitionally going to buy these). Low + In stock default unchecked. Per <strong>P8R-D10</strong>: this is opinionated; per-user setting post-F&amp;F if testers prefer fully-unchecked default.</p>
+    </div>
+  </div>
+
+  <!-- ========== TAB 11: ADD-TO-NEEDS V2 ========== -->
+  <div class="panel" id="t11">
+    <div>
+      <div class="subtoggle" data-group="t11-sub">
+        <button class="subtoggle-btn active" data-sub="t11a">A · Existing supply (fast)</button>
+        <button class="subtoggle-btn" data-sub="t11b">B · New item (configure)</button>
+      </div>
+
+      <div class="subvariant active" id="t11a">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Add to Costco</span><span class="sheet-cta">Add</span></div>
+
+            <div class="field-block">
+              <div class="field-label">What</div>
+              <input class="field-input" value="olive oil" />
+              <div class="ac-suggestions">
+                <div class="ac-row match-supply">
+                  <strong>Olive oil</strong> <span class="supply-tag">your supply</span>
+                  <div class="meta">2 L · last bought 2 weeks ago · status: out</div>
+                </div>
+                <div class="ac-row">+ "olive oil" as new item</div>
+              </div>
+            </div>
+
+            <div style="padding: 12px 16px; background: var(--teal-bg); font-size: 12.5px; color: var(--teal-dark); border-top: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border);">
+              <strong>Picking your supply:</strong> quantity (2 L), store (Costco), and storage tags fill in automatically.
+            </div>
+
+            <div class="field-block" style="opacity: 0.85;">
+              <div class="field-label">Inherited from supply</div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="font-size: 12.5px;">Quantity</span>
+                <span style="font-size: 12.5px; color: var(--text-secondary);">2 L</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="font-size: 12.5px;">Tags</span>
+                <span class="need-tags"><span class="tag-chip store">store: Costco</span></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="font-size: 12.5px;">For</span>
+                <span style="font-size: 12.5px; color: var(--text-secondary);">Everyone</span>
+              </div>
+              <div style="font-size: 11px; text-decoration: underline; color: var(--text-secondary); cursor: pointer; margin-top: 6px;">▾ Adjust this once</div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="subvariant" id="t11b">
+        <div class="phone"><div class="phone-inner">
+          <div class="sheet">
+            <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">Add to Costco</span><span class="sheet-cta">Add</span></div>
+
+            <div class="field-block">
+              <div class="field-label">What</div>
+              <input class="field-input" value="hatch chiles" />
+              <div class="ac-suggestions">
+                <div class="ac-row">+ "hatch chiles" as new item</div>
+              </div>
+            </div>
+
+            <div class="field-block">
+              <div class="field-label">Quantity</div>
+              <div class="field-row">
+                <input class="field-input numeric" value="1" />
+                <input class="field-input compact" value="lb" />
+              </div>
+            </div>
+
+            <div class="field-block">
+              <div class="field-label">Tags</div>
+              <div class="need-tags">
+                <span class="tag-chip store removable">store: Costco<span class="x">×</span></span>
+                <span class="tag-chip removable" style="background: var(--bg-muted);">+ Add tag</span>
+              </div>
+            </div>
+
+            <div class="settings-row" style="border-top: 0.5px solid var(--border);">
+              <div class="settings-row-label-block"><div class="settings-row-label">For</div></div>
+              <div class="for-user-summary">
+                <div class="settings-row-value">Everyone</div>
+                <div class="settings-row-chev">›</div>
+              </div>
+            </div>
+
+            <div class="toggle-row-block">
+              <div>
+                <div class="toggle-row-label">Save as regular</div>
+                <div class="toggle-row-hint">Adds to your supplies. Future adds will be one tap.</div>
+              </div>
+              <div class="toggle-switch off"></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Add-to-needs configure-once (D8R-Q21)</h3>
+      <p>Context-aware: existing supply → fast path; new item → full configure with optional Save-as-regular.</p>
+
+      <h4>Variant A — Existing supply</h4>
+      <p>Autocomplete identifies match. Inherits defaults: quantity, tags, for-user. Tap Add → done. "▾ Adjust this once" expands fields if user wants to override (override does NOT change supply).</p>
+
+      <h4>Variant B — New item</h4>
+      <p>Full fields + Save-as-regular toggle. ON → creates supply behind the scenes; future adds use Variant A's fast path.</p>
+
+      <div class="schema-flag">
+        <strong>"Everyone" semantics (D8R-Q31, audit C5):</strong> in <code>for_user_ids UUID[]</code> column, both empty array AND explicit-all-current-members array render as "Everyone." UI logic: if array length = household member count, show "Everyone"; if &lt; count, show "Tom + Mary"-style summary. NO synthetic "everyone" flag in schema. Note: empty vs. explicit-all-members differ in semantics when household composition changes (post-F&amp;F nuance; doesn't matter for Tom + Mary's 2-member space).
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TAB 12: SUPPLY CREATE (NEW) ========== -->
+  <div class="panel" id="t12">
+    <div>
+      <div class="phone"><div class="phone-inner">
+        <div class="sheet">
+          <div class="sheet-header"><span class="sheet-close">✕</span><span class="sheet-title">New supply</span><span class="sheet-cta">Save</span></div>
+
+          <div class="field-block">
+            <div class="field-label">What</div>
+            <input class="field-input" value="eggs" />
+            <div class="ac-suggestions">
+              <div class="ac-row"><strong>Eggs</strong></div>
+              <div class="ac-row">+ "eggs" as new item</div>
+            </div>
+          </div>
+
+          <div class="field-block">
+            <div class="field-label">Current state</div>
+            <div class="state-pick-row">
+              <div class="state-pick-btn active in-stock"><span class="dot"></span>In stock</div>
+              <div class="state-pick-btn low"><span class="dot"></span>Low</div>
+              <div class="state-pick-btn out"><span class="dot"></span>Out</div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 6px; font-style: italic;">If "Out," a need will be added to your lists too.</div>
+          </div>
+
+          <div class="field-block">
+            <div class="field-label">Stores</div>
+            <div class="detail-tag-row">
+              <span class="store-chip">Costco<span class="x">×</span></span>
+              <span class="store-chip add">+ Add store</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 6px;">Costco added because you're in the Costco list.</div>
+          </div>
+
+          <div class="field-block">
+            <div class="field-label">Brands (optional)</div>
+            <div class="detail-tag-row">
+              <span class="brand-chip add">+ Add brand</span>
+            </div>
+          </div>
+
+          <div class="settings-row" style="border-top: 0.5px solid var(--border);">
+            <div class="settings-row-label-block"><div class="settings-row-label">For</div></div>
+            <div class="for-user-summary">
+              <div class="settings-row-value">Everyone</div>
+              <div class="settings-row-chev">›</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>Supply create flow (NEW v3, D8R-Q33)</h3>
+
+      <div class="audit-fix">
+        <strong>New tab — addresses audit C8.</strong> The "+ Add new regular" affordance on Tab 10 used to route to add-to-needs, which forced creation of a need. The case "I want to start tracking eggs but Tom + Mary haven't run out yet" needed a supply-create-only path. This tab is that path.
+      </div>
+
+      <h4>Triggered from</h4>
+      <ul>
+        <li><strong>Pantry tab "+" button</strong> (Tab 7 header)</li>
+        <li><strong>"+ Add new supply"</strong> on Expanded Regulars (Tab 10)</li>
+      </ul>
+
+      <h4>Fields</h4>
+      <ul>
+        <li><strong>What</strong> — autocomplete from ingredients table OR custom name (e.g., "Toilet paper")</li>
+        <li><strong>Current state</strong> — In stock (default) / Low / Out. If user picks "Out," a need gets auto-spawned on save (consistent with D8R-Q10) — surfaced via inline footnote.</li>
+        <li><strong>Stores</strong> — multi-select chips. Auto-prefills from current view context if invoked from a store-filtered view (e.g., from Costco view → store: Costco prefilled).</li>
+        <li><strong>Brands</strong> — optional list. Captures preference memory.</li>
+        <li><strong>For</strong> — multi-select sub-sheet (Tab 8 Variant C reused).</li>
+      </ul>
+
+      <h4>What this differs from Tab 11</h4>
+      <ul>
+        <li>No <strong>quantity</strong> field — supplies don't have quantity in F&amp;F (only state enum per D8R-Q15).</li>
+        <li>No <strong>need creation</strong> by default — only the supply is created. Exception: if user picks "Out," need auto-spawns on save.</li>
+        <li>No <strong>"Save as regular"</strong> toggle — this IS the save-as-regular path.</li>
+      </ul>
+
+      <div class="try-this">
+        <strong>Common case:</strong> Tom + Mary realize they should track Greek yogurt. They open Pantry → tap "+" → type "Greek yogurt" → state: In stock → store: Costco → Save. Supply now appears in pantry grid + as regular in Costco view's Regulars zone. No need created. When it later runs out, auto-spawn fires.
+      </div>
+
+      <div class="schema-flag">
+        <strong>For CP1/CP5:</strong> save action writes <code>supplies</code> row with status, identity, and tag memberships. If state=out picked, also writes <code>needs</code> row + supply→need link via the same auto-spawn function used for cook-flow depletion.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById(t.dataset.tab).classList.add('active');
+    });
+  });
+  const subgroups = document.querySelectorAll('.subtoggle');
+  subgroups.forEach(group => {
+    const btns = group.querySelectorAll('.subtoggle-btn');
+    btns.forEach(b => {
+      b.addEventListener('click', () => {
+        const targetSub = b.dataset.sub;
+        const parent = group.parentElement;
+        const subs = parent.querySelectorAll('.subvariant');
+        btns.forEach(x => x.classList.remove('active'));
+        subs.forEach(s => s.classList.remove('active'));
+        b.classList.add('active');
+        document.getElementById(targetSub).classList.add('active');
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

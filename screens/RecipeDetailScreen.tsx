@@ -2,7 +2,7 @@
 // Phase 6B redesign — NYT Cooking-style layout
 // Sub-components in components/recipe/: RecipeHeader, IngredientsSection, PreparationSection, ScaleConvertControls
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,11 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
-import { getPantryItems } from '../lib/pantryService';
-import { PantryItemWithIngredient } from '../lib/types/pantry';
+import { getSuppliesForSpace } from '../lib/services/suppliesService';
+import { SupplyWithTags } from '../lib/types/supplies';
+import { calculateRecipeSupplyMatch, PantryMatchResult, MatchedIngredient } from '../lib/services/pantryMatchingService';
 import { getInstructionSections } from '../lib/services/instructionSectionsService';
 import { InstructionSection } from '../lib/types/recipeExtraction';
-import AddRecipeToListModal from '../components/AddRecipeToListModal';
+import AddRecipeToNeedsModal from '../components/AddRecipeToNeedsModal';
+import SupplyCreateSheet from '../components/SupplyCreateSheet';
 import IngredientPopup from '../components/IngredientPopup';
 import SelectMealForRecipeModal from '../components/SelectMealForRecipeModal';
 import CreateMealModal from '../components/CreateMealModal';
@@ -49,6 +51,9 @@ import TimesMadeModal from '../components/TimesMadeModal';
 import LogCookSheet from '../components/LogCookSheet';
 import type { LogCookData } from '../components/LogCookSheet';
 import { createDishPost, updateTimesCooked, computeMealType, computeMealTypeFromHour, getMostRecentDishPost } from '../lib/services/postService';
+import { runPostCookDepletion } from '../lib/cookDepletionService';
+import { useActiveSpaceId } from '../contexts/SpaceContext';
+import { useCookDepletionBanner } from '../contexts/CookDepletionBannerContext';
 import { addParticipantsToPost } from '../lib/services/postParticipantsService';
 import { wrapDishIntoNewMeal, addDishesToMeal } from '../lib/services/mealService';
 import MealPicker from '../components/MealPicker';
@@ -188,14 +193,23 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [instructionSections, setInstructionSections] = useState<InstructionSection[]>([]);
+  const activeSpaceId = useActiveSpaceId();
+  const { showBanner } = useCookDepletionBanner();
   const [loading, setLoading] = useState(true);
-  const [pantryItems, setPantryItems] = useState<PantryItemWithIngredient[]>([]);
+  const [supplies, setSupplies] = useState<SupplyWithTags[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<Ingredient[]>([]);
+  // 8D-CP1: recipe ↔ pantry match result from pantryMatchingService.
+  const [matchResult, setMatchResult] = useState<PantryMatchResult | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [currentUnitSystem, setCurrentUnitSystem] = useState<UnitSystem>('original');
   const [convertedIngredients, setConvertedIngredients] = useState<any[]>([]);
   const [showListModal, setShowListModal] = useState(false);
   const [listModalMode, setListModalMode] = useState<'missing' | 'all'>('all');
+  // 8D-CP3: SupplyCreateSheet lifted here for the tap-sheet "Add to supplies"
+  // action. Holds the pre-populated query (ingredient name) or null when closed.
+  const [supplyCreateQuery, setSupplyCreateQuery] = useState<string | null>(null);
+  // 8D-CP3: transient confirmation toast after a tap-sheet "+ Need now".
+  const [needToastVisible, setNeedToastVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [nutritionExpanded, setNutritionExpanded] = useState(false);
   const [stepIngredients, setStepIngredients] = useState<Map<number, StepIngredient[]>>(new Map());
@@ -280,9 +294,30 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     loadRecipeDetails();
-    loadPantryItems();
+    loadSupplies();
     checkForPublishedDishPost();
   }, [recipePreview.id]);
+
+  // 8D-CP1: compute recipe ↔ pantry match via the matching primitive. Re-runs
+  // when the recipe or the active space changes. Drives the IngredientsSection
+  // ✓ marks and missing count.
+  useEffect(() => {
+    if (!activeSpaceId) {
+      setMatchResult(null);
+      return;
+    }
+    let cancelled = false;
+    calculateRecipeSupplyMatch(recipePreview.id, activeSpaceId)
+      .then((result) => {
+        if (!cancelled) setMatchResult(result);
+      })
+      .catch((err) => {
+        console.error('Error computing pantry match:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recipePreview.id, activeSpaceId]);
 
   useEffect(() => {
     if (ingredients.length > 0) {
@@ -425,14 +460,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  const loadPantryItems = async () => {
+  const loadSupplies = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       setCurrentUserId(user.id);
-      const items = await getPantryItems(user.id);
-      setPantryItems(items);
+
+      if (activeSpaceId) {
+        const data = await getSuppliesForSpace(activeSpaceId);
+        setSupplies(data);
+      }
 
       // Check Cook Soon status
       try {
@@ -440,7 +478,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         setIsCookSoon(saved);
       } catch (_) {}
     } catch (error) {
-      console.error('Error loading pantry:', error);
+      console.error('Error loading supplies:', error);
     }
   };
 
@@ -453,21 +491,40 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
     setConvertedIngredients(converted);
   };
 
+  // 8D-CP1: availability is sourced from the pantryMatchingService result.
+  // The set holds recipe ingredient_ids with any non-L4 match — used by the
+  // sticky counter + the missing-ingredients derivation.
+  const availableIngredientIds = useMemo(() => {
+    return new Set<string>(matchResult?.matched.map((m) => m.ingredientId) ?? []);
+  }, [matchResult]);
+
+  // 8D-CP2: per-ingredient 4-level match, keyed by recipe ingredient_id.
+  // Feeds IngredientsSection's L1/L2/L3 rendering. L4 ingredients are absent.
+  const ingredientMatches = useMemo(() => {
+    const m = new Map<string, MatchedIngredient>();
+    matchResult?.matched.forEach((mi) => m.set(mi.ingredientId, mi));
+    return m;
+  }, [matchResult]);
+
+  // 8D-CP3: supplies indexed by id, so the ingredient tap-sheet can show the
+  // matched supply's display name + status.
+  const suppliesById = useMemo(() => {
+    const m = new Map<string, SupplyWithTags>();
+    supplies.forEach((s) => m.set(s.id, s));
+    return m;
+  }, [supplies]);
+
   useEffect(() => {
-    if (ingredients.length > 0 && pantryItems.length > 0) {
-      const missing = ingredients.filter(ingredient => {
-        const scaled = (ingredient.quantity_amount || 0) * currentScale;
-        const inPantry = pantryItems.find(item => item.ingredient_id === ingredient.id);
-        
-        if (!inPantry) return true;
-        
-        const pantryQuantity = inPantry.quantity_display || 0;
-        return pantryQuantity < scaled;
-      });
-      
-      setMissingIngredients(missing);
+    if (ingredients.length === 0) {
+      setMissingIngredients([]);
+      return;
     }
-  }, [ingredients, pantryItems, currentScale]);
+    const missing = ingredients.filter((ingredient) => {
+      if (!ingredient.id) return true;
+      return !availableIngredientIds.has(ingredient.id);
+    });
+    setMissingIngredients(missing);
+  }, [ingredients, availableIngredientIds]);
 
   const handleBookPress = () => {
     if (recipe?.book_id) {
@@ -745,6 +802,13 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
       setHasPublishedDishPost(true);
 
+      // Phase 8B-CP4: cook-post pantry depletion (fire-and-forget; doesn't block sheet close).
+      if (newPost?.id) {
+        runPostCookDepletion(newPost.id, activeSpaceId).then((plan) => {
+          if (plan) showBanner(plan);
+        });
+      }
+
       // Increment times_cooked
       try {
         const newCount = (recipe!.times_cooked || 0) + 1;
@@ -883,6 +947,33 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
   const handleStepLayout = (stepKey: string, y: number) => {
     stepPositionsRef.current.set(stepKey, y);
+  };
+
+  // 8D-CP3: tap-sheet "Which step?" — scroll to (and focus) the prep step that
+  // references the tapped ingredient. stepIndex is 0-based into stepKeys.
+  const handleScrollToStep = (stepIndex: number) => {
+    const key = stepKeys[stepIndex];
+    if (!key) return;
+    setFocusedStepKey(key);
+    const stepY = stepPositionsRef.current.get(key);
+    if (stepY !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: Math.max(0, stepY - 80), animated: true });
+    }
+  };
+
+  // 8D-CP3: tap-sheet "Other recipes" — same-stack jump to the recipe list
+  // filtered by the ingredient. SupplyDetailScreen.handleFindRecipes does the
+  // cross-stack variant (Pantry → Recipes); here we are already in the Recipes
+  // stack, so a plain navigation.navigate is the correct equivalent.
+  const handleNavigateToOtherRecipes = (ingredientName: string) => {
+    if (!ingredientName) return;
+    navigation.navigate('RecipeList', { initialIngredient: ingredientName });
+  };
+
+  // 8D-CP3: tap-sheet "+ Need now" success — show the confirmation toast.
+  const handleTapSheetAddNeed = () => {
+    setNeedToastVisible(true);
+    setTimeout(() => setNeedToastVisible(false), 4000);
   };
 
   const focusedIdx = focusedStepKey ? stepKeys.indexOf(focusedStepKey) : -1;
@@ -1115,11 +1206,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
                   INGREDIENTS
                   {displayIngredients.length > 0 && (
                     <Text style={styles.stickyPantryCount}>
-                      {'  '}{displayIngredients.filter(ing => {
-                        const scaled = (ing.quantity_amount || 0) * currentScale;
-                        const inPantry = pantryItems.find(p => p.ingredient_id === ing.id);
-                        return inPantry && (inPantry.quantity_display || 0) >= scaled;
-                      }).length}/{displayIngredients.length}
+                      {'  '}{displayIngredients.filter(ing => availableIngredientIds.has(ing.id)).length}/{displayIngredients.length}
                     </Text>
                   )}
                 </Text>
@@ -1181,6 +1268,28 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onTitleLayout={(y) => setTitleBottomY(y)}
         />
 
+        {/* 8D-CP3 (CP5 bundled): match % banner — shown only when the recipe
+            isn't fully covered by the pantry. Tap → AddRecipeToNeedsModal in
+            mode='missing'. Additive: appears above the existing surface, does
+            not displace anything. */}
+        {matchResult !== null &&
+          matchResult.matchPercentage < 1.0 &&
+          matchResult.missing.length > 0 && (
+            <TouchableOpacity
+              style={styles.matchBanner}
+              activeOpacity={0.7}
+              onPress={() => {
+                setListModalMode('missing');
+                setShowListModal(true);
+              }}
+            >
+              <Text style={styles.matchBannerText}>
+                {Math.round(matchResult.matchPercentage * 100)}% in pantry ·{' '}
+                {matchResult.missing.length} missing →
+              </Text>
+            </TouchableOpacity>
+          )}
+
         {/* Nutrition — expandable row below metadata */}
         <TouchableOpacity
           style={styles.nutritionRow}
@@ -1209,8 +1318,8 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           currentScale={currentScale}
           currentUnitSystem={currentUnitSystem}
           convertedIngredients={convertedIngredients}
-          pantryItems={pantryItems}
-          missingCount={missingIngredients.length}
+          ingredientMatches={ingredientMatches}
+          missingCount={matchResult?.missing.length ?? 0}
           isEditMode={isEditMode}
           viewMode={viewMode}
           editingIngredientIndex={editingIngredientIndex}
@@ -1226,6 +1335,15 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             setShowListModal(true);
           }}
           onHeaderLayout={(y) => setIngredientsHeaderY(y)}
+          recipeId={recipe.id}
+          spaceId={activeSpaceId || ''}
+          userId={currentUserId}
+          suppliesById={suppliesById}
+          stepIngredients={stepIngredients}
+          onAddNeed={handleTapSheetAddNeed}
+          onOpenSupplyCreate={(name) => setSupplyCreateQuery(name)}
+          onScrollToStep={handleScrollToStep}
+          onNavigateToOtherRecipes={handleNavigateToOtherRecipes}
         />
 
         {/* Preparation Section */}
@@ -1423,15 +1541,32 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         onClose={() => setIngredientPopup({ ...ingredientPopup, visible: false })}
       />
 
-      {/* Add to List Modal */}
-      <AddRecipeToListModal
+      {/* Add to Needs Modal */}
+      <AddRecipeToNeedsModal
         visible={showListModal}
         onClose={() => setShowListModal(false)}
         recipe={recipe}
         ingredients={listModalMode === 'missing' ? missingIngredients : ingredients}
         scale={currentScale}
-        userId={currentUserId || ''}
+        spaceId={activeSpaceId || ''}
+        mode={listModalMode}
       />
+
+      {/* 8D-CP3: SupplyCreateSheet — opened by the tap-sheet "Add to supplies"
+          action, pre-populated with the tapped ingredient's name. */}
+      {currentUserId && activeSpaceId && (
+        <SupplyCreateSheet
+          visible={supplyCreateQuery !== null}
+          onClose={() => setSupplyCreateQuery(null)}
+          onSaved={() => {
+            setSupplyCreateQuery(null);
+            loadSupplies();
+          }}
+          spaceId={activeSpaceId}
+          userId={currentUserId}
+          initialQuery={supplyCreateQuery ?? ''}
+        />
+      )}
 
       {/* Add to Meal Modal */}
       {currentUserId && recipe && (
@@ -1516,6 +1651,13 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             setPublishedMealType(null);
           }}
         />
+      )}
+
+      {/* 8D-CP3: "+ Need now" confirmation toast */}
+      {needToastVisible && (
+        <View style={styles.needToast}>
+          <Text style={styles.needToastText}>Added to needs · this week</Text>
+        </View>
       )}
 
       {/* After-wrap toast (4.5 / D39) */}
@@ -1982,6 +2124,45 @@ const styles = StyleSheet.create({
     color: '#0F6E56',
   },
   // Wrap toast (4.5)
+  // 8D-CP3 — match % banner. Teal-bordered, centered, tappable.
+  matchBanner: {
+    borderWidth: 1,
+    borderColor: '#0d9488',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    alignItems: 'center',
+  },
+  matchBannerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0d9488',
+    textAlign: 'center',
+  },
+  // 8D-CP3 — "+ Need now" confirmation toast.
+  needToast: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 44 : 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  needToastText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
   wrapToast: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 44 : 20,

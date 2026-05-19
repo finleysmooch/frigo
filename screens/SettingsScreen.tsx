@@ -410,6 +410,17 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
           <TouchableOpacity
             style={styles.row}
+            onPress={() => navigation.navigate('Admin')}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>🛠️</Text>
+              <Text style={styles.rowTitle}>Admin Tools</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
             onPress={() => {
               Alert.alert(
                 'Backfill Chef IDs',

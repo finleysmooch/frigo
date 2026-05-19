@@ -1,0 +1,3422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 8 — System prototype v5</title>
+<style>
+  :root {
+    --bg-page: #f5f4ef;
+    --bg-surface: #ffffff;
+    --bg-muted: #f1efe8;
+    --border: #dedcd6;
+    --border-strong: #c5c3bc;
+    --text-primary: #1a1a19;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --amber-bg: #FAEEDA;
+    --amber-bg-soft: #FBF5E8;
+    --amber-border: #EF9F27;
+    --amber-dark: #854F0B;
+    --red-bg: #FCEBEB;
+    --red-bg-soft: #FCF2F2;
+    --red: #E24B4A;
+    --red-dark: #A32D2D;
+    --teal-bg: #E1F5EE;
+    --teal-good: #1D9E75;
+    --teal-dark: #0F6E56;
+    --blue-fridge: #378ADD;
+    --blue-bg: #E6F1FB;
+    --blue-dark: #0C447C;
+    --purple-freezer: #AFA9EC;
+    --purple-bg: #EEEDFE;
+    --purple-dark: #3C3489;
+    --gray-pantry: #888780;
+    --green-counter: #97C459;
+    --accent: #1a1a19;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    padding: 28px 16px 60px;
+  }
+  .container { max-width: 1120px; margin: 0 auto; }
+
+  header h1 { font-size: 22px; font-weight: 500; margin: 0 0 4px; }
+  header .sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    max-width: 320px;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    border-bottom: 0.5px solid var(--border);
+    padding-bottom: 12px;
+  }
+  .tab {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tab:hover { background: var(--bg-muted); }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .panel { display: none; }
+  .panel.active { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 820px) { .panel.active { grid-template-columns: 1fr; } }
+
+  .phone { width: 380px; background: var(--bg-muted); border-radius: 20px; padding: 16px; margin: 0 auto; }
+  .phone-inner { background: var(--bg-surface); border-radius: 12px; border: 0.5px solid var(--border); overflow: hidden; font-size: 13px; }
+
+  .notes h3 { font-size: 16px; font-weight: 500; margin: 0 0 10px; }
+  .notes h4 { font-size: 14px; font-weight: 500; margin: 16px 0 8px; }
+  .notes p, .notes li { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+  .notes p { margin: 0 0 12px; }
+  .notes ul { padding-left: 18px; margin: 0 0 14px; }
+  .notes li { margin-bottom: 6px; }
+  .notes strong { color: var(--text-primary); font-weight: 500; }
+  .notes .try-this {
+    background: var(--teal-bg);
+    padding: 10px 12px;
+    border-radius: 6px;
+    border-left: 3px solid var(--teal-good);
+    font-size: 13px;
+    color: var(--teal-dark);
+    margin: 12px 0;
+  }
+  .notes .flag {
+    background: var(--purple-bg);
+    padding: 10px 12px;
+    border-radius: 6px;
+    border-left: 3px solid var(--purple-dark);
+    font-size: 13px;
+    color: var(--purple-dark);
+    margin: 12px 0;
+  }
+
+  /* Sub-toggle (within-tab option switch) */
+  .subtoggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+    padding: 4px;
+    background: var(--bg-muted);
+    border-radius: 8px;
+  }
+  .subtoggle-btn {
+    flex: 1;
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-family: inherit;
+  }
+  .subtoggle-btn.active { background: white; color: var(--text-primary); font-weight: 500; }
+  .subvariant { display: none; }
+  .subvariant.active { display: block; }
+
+  /* Screen primitives */
+  .scr-header { padding: 12px 16px 0; display: flex; justify-content: space-between; align-items: center; }
+  .scr-header .space { font-size: 12px; color: var(--text-secondary); }
+  .scr-header .meta { font-size: 11px; color: var(--text-tertiary); }
+  .scr-title { padding: 8px 16px 12px; font-size: 18px; font-weight: 500; }
+  .scr-title-row { padding: 8px 16px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .section-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .section-hint { font-size: 11px; color: var(--text-tertiary); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-sm { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .dot-good { background: var(--teal-good); }
+  .dot-low { background: var(--amber-border); }
+  .dot-out { background: var(--red); }
+  .fab { display: inline-block; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: white; text-align: center; line-height: 40px; font-size: 20px; font-weight: 500; cursor: pointer; }
+  .fab-row { text-align: right; padding: 14px 16px; }
+  .primary-button { display: block; width: calc(100% - 32px); margin: 0 16px; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; }
+  .secondary-button { display: block; width: calc(100% - 32px); margin: 0 16px; background: transparent; color: var(--text-primary); border: 0.5px solid var(--border-strong); border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; }
+
+  .c-header { padding: 14px 16px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .c-header-back { font-size: 18px; color: var(--text-secondary); cursor: pointer; }
+  .c-header-title { font-size: 15px; font-weight: 500; }
+
+  /* ============ PANTRY — SOFTER STAPLES, SPLIT TAPS ============ */
+  .p-staples-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .p-staple {
+    border-radius: 8px;
+    padding: 8px 4px 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-muted);
+  }
+  .p-staple.low {
+    background: var(--amber-bg-soft);
+    border-left: 2px solid var(--amber-border);
+    padding-left: 8px;
+  }
+  .p-staple.out {
+    background: var(--red-bg-soft);
+    border-left: 2px solid var(--red);
+    padding-left: 8px;
+  }
+  .p-staple-label {
+    flex: 1;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .p-staple.low .p-staple-label { color: var(--amber-dark); font-weight: 500; }
+  .p-staple.out .p-staple-label { color: var(--red-dark); font-weight: 500; }
+  .p-staple-label:hover { text-decoration: underline; }
+  .p-staple-dot-tap {
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+  .p-staple-dot-tap:hover { background: rgba(0,0,0,0.04); }
+
+  .p-staples-footer { text-align: center; padding: 8px 0 0; }
+  .p-staples-footer span { font-size: 12px; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+
+  .p-thawing {
+    margin: 0 16px 14px;
+    background: var(--purple-bg);
+    border-left: 2px solid var(--purple-dark);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .p-thawing-left { display: flex; flex-direction: column; gap: 2px; }
+  .p-thawing-title { font-size: 13px; font-weight: 500; color: var(--purple-dark); }
+  .p-thawing-detail { font-size: 11px; color: var(--purple-dark); opacity: 0.8; }
+  .p-thawing-cta { font-size: 12px; color: var(--purple-dark); }
+
+  .p-usesoon {
+    background: var(--amber-bg);
+    border: 0.5px solid var(--amber-border);
+    border-radius: 8px;
+  }
+  .p-usesoon-header { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .p-usesoon-title { font-size: 13px; font-weight: 500; color: var(--amber-dark); }
+  .p-usesoon-cta { font-size: 12px; color: var(--amber-dark); cursor: pointer; }
+  .p-usesoon-list { background: var(--bg-surface); padding: 4px 0; }
+  .p-usesoon-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  .p-usesoon-row + .p-usesoon-row { border-top: 0.5px solid var(--border); }
+  .p-usesoon-row.selected { background: var(--teal-bg); }
+  .p-usesoon-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: transparent;
+  }
+  .p-usesoon-row.selected .p-usesoon-check {
+    background: var(--teal-good);
+    border-color: var(--teal-good);
+    color: white;
+  }
+  .p-usesoon-name { flex: 1; font-size: 13px; }
+  .p-usesoon-qty { color: var(--text-tertiary); font-size: 12px; }
+  .p-usesoon-exp { font-size: 12px; font-weight: 500; }
+  .p-usesoon-action-bar {
+    padding: 10px 12px;
+    background: var(--teal-bg);
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 0.5px solid var(--teal-good);
+  }
+  .p-usesoon-action-bar.show { display: flex; }
+  .p-usesoon-action-bar-text { font-size: 12px; color: var(--teal-dark); }
+  .p-usesoon-action-bar-btn {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--teal-dark);
+    cursor: pointer;
+  }
+
+  .p-cat-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-muted);
+    border-top: 0.5px solid var(--border);
+    cursor: pointer;
+  }
+  .p-cat-header-title { font-size: 14px; font-weight: 500; }
+  .p-cat-header-title.muted { color: var(--text-secondary); }
+  .p-cat-plus { font-size: 16px; color: var(--text-tertiary); }
+  .p-cat-body { padding: 6px 16px; display: none; }
+  .p-cat-body.open { display: block; }
+
+  .p-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 8px;
+    border-bottom: 0.5px solid var(--border);
+    cursor: pointer;
+  }
+  .p-row:last-child { border-bottom: none; }
+  .p-row-name { font-size: 13px; }
+  .p-row-qty { font-size: 12px; color: var(--text-tertiary); }
+  .p-row-exp { font-size: 12px; color: var(--text-secondary); }
+  .p-row-exp-warn { font-size: 12px; color: var(--amber-dark); font-weight: 500; background: var(--amber-bg); padding: 2px 6px; border-radius: 4px; }
+  .p-row-exp-crit { font-size: 12px; color: var(--red-dark); font-weight: 500; background: var(--red-bg); padding: 2px 6px; border-radius: 4px; }
+
+  .p-legend { padding: 0 16px 14px; font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
+  .p-legend span.dot-inline { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+  /* ============ GROCERY — 3-TIER ============ */
+  .g-list-card {
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .g-list-card:hover { border-color: var(--border-strong); }
+  .g-list-card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .g-list-card-title { font-size: 14px; font-weight: 500; }
+  .g-list-card-count { font-size: 12px; color: var(--text-tertiary); }
+  .g-list-card-meta { font-size: 12px; color: var(--text-secondary); }
+  .g-list-card-progress { height: 4px; background: var(--bg-muted); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .g-list-card-progress-bar { height: 100%; background: var(--teal-good); }
+  .g-list-card-badge {
+    display: inline-block;
+    font-size: 10px;
+    background: var(--red-bg);
+    color: var(--red-dark);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+
+  .g-tier-heading {
+    padding: 14px 16px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .g-tier-title { font-size: 13px; font-weight: 500; }
+  .g-tier-title.now { color: var(--red-dark); }
+  .g-tier-title.wait { color: var(--amber-dark); }
+  .g-tier-title.cart { color: var(--teal-dark); }
+  .g-tier-count { font-size: 11px; color: var(--text-tertiary); }
+  .g-tier-hint { font-size: 11px; color: var(--text-tertiary); padding: 0 16px 8px; }
+
+  .g-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 0.5px solid var(--border);
+    cursor: pointer;
+  }
+  .g-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: transparent;
+  }
+  .g-row.checked .g-check { background: var(--teal-good); border-color: var(--teal-good); color: white; }
+  .g-row.checked .g-row-name { color: var(--text-tertiary); text-decoration: line-through; }
+  .g-row-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .g-row-name { font-size: 13px; }
+  .g-row-crosslist {
+    font-size: 11px;
+    color: var(--blue-dark);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .g-row-reason {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .g-row-tag {
+    font-size: 10px;
+    background: var(--bg-muted);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+  .g-row-tag.gf { background: var(--teal-bg); color: var(--teal-dark); }
+  .g-row-tag.brand { background: var(--blue-bg); color: var(--blue-dark); }
+  .g-row-tag.out { background: var(--red-bg); color: var(--red-dark); }
+  .g-row-tag.low { background: var(--amber-bg); color: var(--amber-dark); }
+
+  .g-progress-bar {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-muted);
+    border-bottom: 0.5px solid var(--border);
+  }
+  .g-progress-label { font-size: 13px; font-weight: 500; }
+  .g-progress-count { font-size: 12px; color: var(--text-secondary); }
+
+  .g-bottom-action {
+    padding: 12px 16px;
+    background: var(--teal-bg);
+    border-top: 0.5px solid var(--teal-good);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .g-bottom-action-text { font-size: 13px; color: var(--teal-dark); }
+  .g-bottom-action-btn { font-size: 13px; font-weight: 500; color: var(--teal-dark); cursor: pointer; }
+
+  /* ============ RECIPE ============ */
+  .r-title { padding: 20px 16px 6px; }
+  .r-title h2 { font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  .r-title-meta { font-size: 12px; color: var(--text-secondary); }
+  .r-match-banner {
+    margin: 12px 16px;
+    padding: 10px 12px;
+    background: var(--teal-bg);
+    border: 0.5px solid var(--teal-good);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .r-match-text { font-size: 13px; color: var(--teal-dark); font-weight: 500; }
+  .r-match-cta { font-size: 12px; color: var(--teal-dark); cursor: pointer; text-decoration: underline; }
+  .r-ingredients-header { padding: 18px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .r-ingredients-title { font-size: 16px; font-weight: 500; }
+  .r-ingredients-scale { font-size: 12px; color: var(--text-secondary); }
+  .r-ingredient {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 0.5px solid var(--border);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .r-ingredient.have { color: var(--text-primary); }
+  .r-ingredient.low { background: var(--amber-bg-soft); border-left: 2px solid var(--amber-border); }
+  .r-ingredient.missing { background: var(--red-bg-soft); border-left: 2px solid var(--red); }
+  .r-ingredient-status { font-size: 14px; text-align: center; font-weight: 500; }
+  .r-ingredient-status.have { color: var(--teal-good); }
+  .r-ingredient-status.low { color: var(--amber-dark); }
+  .r-ingredient-status.missing { color: var(--red-dark); }
+  .r-ingredient-text strong { font-weight: 500; }
+  .r-ingredient-qty { font-size: 12px; color: var(--text-tertiary); }
+  .r-ingredient-action {
+    font-size: 11px;
+    color: var(--red-dark);
+    background: white;
+    border: 0.5px solid var(--red);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .r-ingredient-action.low { color: var(--amber-dark); border-color: var(--amber-border); }
+  .r-ingredient-action.added {
+    color: var(--teal-dark);
+    border-color: var(--teal-good);
+    background: var(--teal-bg);
+  }
+  .r-cook-cta { padding: 16px; border-top: 0.5px solid var(--border); margin-top: 20px; }
+
+  /* ============ COOK POST variants ============ */
+  .cp-compose {
+    padding: 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .cp-compose-field {
+    background: var(--bg-muted);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+  .cp-compose-field.filled { color: var(--text-primary); }
+  .cp-compose-recipe {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    background: var(--bg-muted);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .cp-compose-recipe-img { width: 40px; height: 40px; background: var(--border); border-radius: 4px; }
+
+  .cp-deplete-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg-muted);
+  }
+  .cp-toggle-left { display: flex; flex-direction: column; gap: 2px; }
+  .cp-toggle-label { font-size: 13px; font-weight: 500; }
+  .cp-toggle-sub { font-size: 11px; color: var(--text-secondary); }
+  .c-toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--border-strong);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .c-toggle.on { background: var(--teal-good); }
+  .c-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.15s;
+  }
+  .c-toggle.on::after { left: 18px; }
+
+  .cp-post-banner {
+    margin: 12px 16px;
+    background: var(--teal-bg);
+    border: 0.5px solid var(--teal-good);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .cp-post-banner-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .cp-post-banner-text { font-size: 13px; color: var(--teal-dark); font-weight: 500; }
+  .cp-post-banner-sub { font-size: 12px; color: var(--teal-dark); padding-top: 4px; }
+  .cp-post-banner-actions { display: flex; gap: 8px; padding-top: 8px; }
+  .cp-post-banner-btn {
+    font-size: 12px;
+    color: var(--teal-dark);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .cp-pantry-banner {
+    margin: 12px 16px;
+    background: var(--purple-bg);
+    border-left: 2px solid var(--purple-dark);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .cp-pantry-banner-text { font-size: 13px; color: var(--purple-dark); font-weight: 500; margin-bottom: 4px; }
+  .cp-pantry-banner-sub { font-size: 11px; color: var(--purple-dark); opacity: 0.85; margin-bottom: 8px; }
+  .cp-pantry-banner-btns { display: flex; gap: 8px; }
+  .cp-pantry-banner-btn-primary {
+    font-size: 12px;
+    background: var(--purple-dark);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .cp-pantry-banner-btn-secondary {
+    font-size: 12px;
+    background: transparent;
+    color: var(--purple-dark);
+    border: 0.5px solid var(--purple-dark);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .cp-post-footer {
+    padding: 14px 16px;
+    display: flex;
+    gap: 8px;
+  }
+  .cp-post-footer button {
+    flex: 1;
+    padding: 11px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .cp-post-footer .skip { background: transparent; border: 0.5px solid var(--border-strong); color: var(--text-primary); }
+  .cp-post-footer .confirm { background: var(--accent); border: none; color: white; }
+
+  /* ============ RECIPE DISCOVERY ============ */
+  .filter-pills {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-pill {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 16px;
+    border: 0.5px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    flex-shrink: 0;
+  }
+  .filter-pill:hover { background: var(--bg-muted); }
+  .filter-pill.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .filter-pill .x { margin-left: 4px; opacity: 0.7; }
+
+  .segmented { display: flex; gap: 4px; padding: 0 16px 12px; }
+  .segmented-option {
+    flex: 1;
+    padding: 8px;
+    font-size: 12px;
+    text-align: center;
+    background: var(--bg-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .segmented-option.active { background: var(--accent); color: white; }
+
+  .section-heading {
+    padding: 14px 16px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .section-heading-title { font-size: 14px; font-weight: 500; }
+  .section-heading-count { font-size: 11px; color: var(--text-tertiary); margin-left: 6px; }
+  .section-heading-link { font-size: 12px; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+
+  .rec-card {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 0.5px solid var(--border);
+    cursor: pointer;
+  }
+  .rec-card:hover { background: var(--bg-muted); }
+  .rec-card-img { width: 48px; height: 48px; background: var(--border); border-radius: 6px; flex-shrink: 0; }
+  .rec-card-body { flex: 1; min-width: 0; }
+  .rec-card-title { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .rec-card-book { font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; }
+  .rec-card-meta-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .rec-card-time { font-size: 11px; color: var(--text-secondary); }
+  .match-badge-100 { font-size: 11px; background: var(--teal-bg); color: var(--teal-dark); padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+  .match-badge-partial { font-size: 11px; background: var(--amber-bg); color: var(--amber-dark); padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+  .rec-card-social { font-size: 11px; color: var(--blue-dark); padding-top: 2px; }
+  .rec-card-expires { font-size: 11px; color: var(--amber-dark); padding-top: 2px; }
+  .rec-card-classic { font-size: 11px; color: var(--teal-dark); padding-top: 2px; }
+  .rec-card-new { font-size: 11px; color: var(--blue-dark); padding-top: 2px; }
+
+  /* ============ INGREDIENT DETAIL ============ */
+  .ing-hero {
+    padding: 20px 16px 12px;
+    background: var(--bg-muted);
+  }
+  .ing-hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .ing-hero-name { font-size: 22px; font-weight: 500; margin: 0; }
+  .ing-hero-type {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+  }
+  .ing-hero-state {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .ing-hero-state.low { color: var(--amber-dark); }
+  .ing-hero-state.out { color: var(--red-dark); }
+  .ing-hero-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .ing-hero-btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 8px 10px;
+    background: white;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    text-align: center;
+  }
+  .ing-hero-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .ing-tabs {
+    display: flex;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .ing-tab {
+    flex: 1;
+    padding: 12px;
+    font-size: 12px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+  }
+  .ing-tab.active {
+    color: var(--text-primary);
+    font-weight: 500;
+    border-bottom-color: var(--accent);
+  }
+  .ing-tabcontent { display: none; }
+  .ing-tabcontent.active { display: block; }
+
+  .ing-section-acc {
+    border-top: 0.5px solid var(--border);
+  }
+  .ing-section-acc-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .ing-section-acc-header.open { background: var(--bg-muted); }
+  .ing-section-acc-title { font-size: 13px; font-weight: 500; }
+  .ing-section-acc-title.muted { color: var(--text-secondary); }
+  .ing-section-acc-count { font-size: 11px; color: var(--text-tertiary); }
+  .ing-section-acc-body { display: none; }
+  .ing-section-acc-body.open { display: block; }
+
+  .ing-info-row {
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+  }
+  .ing-info-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .ing-info-value { font-size: 13px; }
+  .ing-info-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ing-info-chip {
+    font-size: 11px;
+    padding: 4px 8px;
+    background: var(--bg-muted);
+    border-radius: 12px;
+    color: var(--text-secondary);
+  }
+
+  .ing-brand-row {
+    padding: 10px 16px;
+    border-top: 0.5px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ing-brand-name { font-size: 13px; font-weight: 500; }
+  .ing-brand-who { font-size: 11px; color: var(--text-tertiary); }
+  .ing-brand-meta { font-size: 11px; color: var(--text-secondary); }
+
+  .ing-history-stat {
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .ing-history-stat-label { font-size: 12px; color: var(--text-secondary); }
+  .ing-history-stat-value { font-size: 15px; font-weight: 500; }
+
+  /* ============ BROWSE TILES — Option 1 ============ */
+  .br-prompt {
+    padding: 24px 16px 8px;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .br-prompt-sub {
+    padding: 0 16px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .br-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 0 16px 16px;
+  }
+  .br-tile {
+    background: var(--bg-muted);
+    border-radius: 8px;
+    padding: 16px 12px;
+    cursor: pointer;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .br-tile:hover { background: var(--border); }
+  .br-tile-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .br-tile-title { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .br-tile-sub { font-size: 11px; color: var(--text-secondary); }
+
+  .br-tile.quick .br-tile-icon { background: var(--blue-bg); color: var(--blue-dark); }
+  .br-tile.expiring .br-tile-icon { background: var(--amber-bg); color: var(--amber-dark); }
+  .br-tile.new .br-tile-icon { background: var(--purple-bg); color: var(--purple-dark); }
+  .br-tile.classic .br-tile-icon { background: var(--teal-bg); color: var(--teal-dark); }
+  .br-tile.friends .br-tile-icon { background: var(--red-bg); color: var(--red-dark); }
+  .br-tile.all .br-tile-icon { background: var(--bg-muted); color: var(--text-secondary); border: 0.5px solid var(--border); }
+
+  /* ============ BROWSE SEARCH — Option 3 ============ */
+  .br-search-wrap {
+    padding: 12px 16px 8px;
+  }
+  .br-search-input {
+    width: 100%;
+    background: var(--bg-muted);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-family: inherit;
+  }
+
+  /* ============ FREEZER CLEANOUT ============ */
+  .fr-hint {
+    margin: 12px 16px;
+    padding: 10px 12px;
+    background: var(--purple-bg);
+    border-left: 2px solid var(--purple-dark);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--purple-dark);
+  }
+  .fr-hint strong { font-weight: 500; }
+
+  .fr-item {
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+  }
+  .fr-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .fr-item-name { font-size: 14px; font-weight: 500; }
+  .fr-item-age { font-size: 11px; color: var(--amber-dark); font-weight: 500; }
+  .fr-item-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fr-item-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .fr-item-btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 7px 8px;
+    background: white;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+  }
+  .fr-item-btn:hover { background: var(--bg-muted); }
+  .fr-item-btn.thaw { border-color: var(--purple-dark); color: var(--purple-dark); }
+  .fr-item-btn.toss { border-color: var(--red); color: var(--red-dark); }
+
+  .fr-thawing-tray {
+    margin: 14px 16px;
+    background: var(--bg-muted);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .fr-thawing-title { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .fr-thawing-empty { font-size: 13px; color: var(--text-tertiary); }
+  .fr-thawing-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-top: 0.5px solid var(--border);
+    font-size: 12px;
+  }
+  .fr-thawing-item:first-of-type { border-top: none; }
+  .fr-thawing-item-name { font-weight: 500; }
+  .fr-thawing-item-when { color: var(--purple-dark); }
+
+  .fr-multiselect-bar {
+    padding: 12px 16px;
+    background: var(--teal-bg);
+    border-top: 0.5px solid var(--teal-good);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .fr-multiselect-text { font-size: 12px; color: var(--teal-dark); }
+  .fr-multiselect-btn { font-size: 12px; font-weight: 500; color: var(--teal-dark); cursor: pointer; }
+
+  /* demo pills */
+  .demo-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+  .demo-actions button {
+    background: white;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text-primary);
+  }
+  .demo-actions button:hover { background: var(--bg-muted); }
+
+  /* ============ V4 ADDITIONS ============ */
+
+  /* View toggle (appears on multiple surfaces) */
+  .view-toggle-bar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 16px 10px;
+    background: var(--bg-surface);
+  }
+  .view-toggle-btn {
+    flex: 1;
+    padding: 6px;
+    font-size: 11px;
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .view-toggle-btn:hover { background: var(--bg-muted); }
+  .view-toggle-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Bottom sheet — full width, appears above content */
+  .sheet-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    display: none;
+    z-index: 10;
+  }
+  .sheet-overlay.show { display: block; }
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-surface);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    padding: 16px;
+    z-index: 11;
+    display: none;
+    animation: slideUp 0.2s ease-out;
+  }
+  .sheet.show { display: block; }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .sheet-handle {
+    width: 32px;
+    height: 3px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+  .sheet-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .sheet-title { font-size: 17px; font-weight: 500; }
+  .sheet-state { font-size: 12px; color: var(--text-secondary); }
+  .sheet-state.have { color: var(--teal-dark); }
+  .sheet-state.low { color: var(--amber-dark); }
+  .sheet-state.missing { color: var(--red-dark); }
+  .sheet-subtitle { font-size: 12px; color: var(--text-tertiary); margin-bottom: 14px; }
+  .sheet-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .sheet-action {
+    padding: 10px;
+    font-size: 12px;
+    background: var(--bg-muted);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+  .sheet-action.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .sheet-action:hover:not(.primary) { background: var(--border); }
+  .sheet-close {
+    text-align: center;
+    padding: 10px 0;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  /* Recipe chip bar (grocery list) */
+  .g-recipe-chip-bar {
+    padding: 10px 16px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg-muted);
+  }
+  .g-recipe-chip {
+    font-size: 11px;
+    padding: 5px 10px;
+    background: white;
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .g-recipe-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .g-row-recipe-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .g-row-recipe-meta strong {
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .g-row-qty {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-muted);
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+
+  /* Natural search styles */
+  .ns-hero {
+    padding: 20px 16px 14px;
+    background: var(--bg-muted);
+  }
+  .ns-hero-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .ns-input-wrap {
+    display: flex;
+    gap: 8px;
+  }
+  .ns-input {
+    flex: 1;
+    background: white;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-primary);
+    line-height: 1.4;
+    resize: none;
+    min-height: 60px;
+  }
+  .ns-mic-btn {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    align-self: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ns-submit {
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ns-parse-header {
+    padding: 14px 16px 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .ns-chips-wrap {
+    padding: 0 16px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ns-chip {
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .ns-chip.cuisine { background: var(--purple-bg); color: var(--purple-dark); }
+  .ns-chip.ingredient { background: var(--teal-bg); color: var(--teal-dark); }
+  .ns-chip.chef { background: var(--blue-bg); color: var(--blue-dark); }
+  .ns-chip.pantry { background: var(--amber-bg); color: var(--amber-dark); }
+  .ns-chip .ns-chip-x { opacity: 0.6; margin-left: 2px; font-size: 14px; }
+  .ns-parse-result {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: var(--bg-muted);
+    border-top: 0.5px solid var(--border);
+  }
+  .ns-example-prompts {
+    padding: 12px 16px;
+  }
+  .ns-example-prompts-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .ns-example {
+    display: block;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: var(--bg-muted);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .ns-example:hover { background: var(--border); }
+
+  /* Freezer cleanout — collapsed rows */
+  .fr-row-collapsed {
+    display: grid;
+    grid-template-columns: 10px 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+    cursor: pointer;
+  }
+  .fr-row-collapsed.expanded {
+    background: var(--bg-muted);
+  }
+  .fr-row-collapsed .fr-row-name { font-size: 13px; font-weight: 500; }
+  .fr-row-collapsed .fr-row-qty { font-size: 12px; color: var(--text-tertiary); }
+  .fr-row-collapsed .fr-row-age-chip {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--amber-dark);
+    background: var(--amber-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .fr-row-collapsed .fr-row-age-chip.critical {
+    color: var(--red-dark);
+    background: var(--red-bg);
+  }
+
+  .fr-expanded-actions {
+    display: none;
+    padding: 8px 16px 14px;
+    gap: 6px;
+    background: var(--bg-muted);
+    border-top: 0.5px solid var(--border);
+  }
+  .fr-expanded-actions.show {
+    display: flex;
+  }
+  .fr-expanded-actions .fr-item-btn {
+    flex: 1;
+  }
+
+  .fr-section-heading {
+    padding: 12px 16px 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--bg-surface);
+  }
+
+  /* Browse v4 — search + tiles + full list */
+  .br-search-prominent {
+    padding: 14px 16px 12px;
+  }
+  .br-search-prominent .br-search-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  .br-search-row {
+    display: flex;
+    gap: 8px;
+  }
+  .br-search-mic {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    align-self: flex-start;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .br-divider {
+    text-align: center;
+    padding: 4px 16px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    position: relative;
+  }
+  .br-divider::before, .br-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 30%;
+    height: 0.5px;
+    background: var(--border);
+  }
+  .br-divider::before { left: 16px; }
+  .br-divider::after { right: 16px; }
+
+  .br-full-list-header {
+    padding: 18px 16px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-top: 0.5px solid var(--border);
+    margin-top: 14px;
+    background: var(--bg-muted);
+  }
+  .br-full-list-title { font-size: 14px; font-weight: 500; }
+  .br-full-list-count { font-size: 11px; color: var(--text-secondary); }
+
+  /* ============ V5 ADDITIONS ============ */
+
+  /* Unknown staple state — blank / never confirmed */
+  .p-staple.unknown {
+    background: transparent;
+    border: 0.5px dashed var(--border-strong);
+    padding: 8px 10px;
+  }
+  .p-staple.unknown .p-staple-label {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+  .p-staple.unknown .dot {
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    width: 8px;
+    height: 8px;
+  }
+
+  /* Out state slightly bolder — keep tint but darker text */
+  .p-staple.out .p-staple-label {
+    font-weight: 500;
+  }
+
+  /* Existing-layout recipe ingredients (NYT-style) */
+  .r6-ingredient {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 16px;
+    gap: 10px;
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .r6-ingredient:hover { background: var(--bg-muted); }
+  .r6-ingredient:last-child { border-bottom: none; }
+  .r6-check {
+    width: 16px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--teal-good);
+    line-height: 1.4;
+    text-align: center;
+  }
+  .r6-check.missing { color: var(--red-dark); }
+  .r6-check.low { color: var(--amber-dark); }
+  .r6-check.empty { color: var(--text-tertiary); }
+  .r6-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-primary);
+  }
+  .r6-text .qty {
+    color: var(--text-secondary);
+  }
+  .r6-text .name {
+    font-weight: 500;
+  }
+  .r6-text .prep {
+    color: var(--text-secondary);
+  }
+  .r6-group-header {
+    padding: 14px 16px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Compact tap sheet — lighter than full bottom sheet */
+  .tapsheet {
+    background: var(--bg-muted);
+    border-top: 0.5px solid var(--border);
+    border-bottom: 0.5px solid var(--border);
+    padding: 12px 16px;
+    display: none;
+  }
+  .tapsheet.show { display: block; }
+  .tapsheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .tapsheet-name { font-size: 14px; font-weight: 500; }
+  .tapsheet-state { font-size: 11px; color: var(--text-secondary); }
+  .tapsheet-state.have { color: var(--teal-dark); }
+  .tapsheet-state.low { color: var(--amber-dark); }
+  .tapsheet-state.missing { color: var(--red-dark); }
+  .tapsheet-detail {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
+  .tapsheet-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .tapsheet-action {
+    background: white;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    text-align: center;
+  }
+  .tapsheet-action:hover { background: var(--bg-muted); }
+  .tapsheet-action.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Locked filter chips — visible distinction from user chips */
+  .filter-pill.locked {
+    background: var(--bg-muted);
+    border-color: var(--border);
+    color: var(--text-secondary);
+    cursor: default;
+    padding-left: 8px;
+  }
+  .filter-pill.locked::before {
+    content: '🔒';
+    margin-right: 4px;
+    font-size: 9px;
+    opacity: 0.5;
+  }
+  .filter-pill.user {
+    background: var(--blue-bg);
+    border-color: #85B7EB;
+    color: var(--blue-dark);
+  }
+  .filter-pill.user .x { opacity: 0.7; }
+
+  /* Subset page search bar */
+  .subset-search-bar {
+    padding: 10px 16px;
+    background: var(--bg-muted);
+    border-bottom: 0.5px solid var(--border);
+  }
+  .subset-search-input {
+    width: 100%;
+    background: white;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-primary);
+  }
+
+  /* Collapsed filter row for browse */
+  .br-filter-collapsed {
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-muted);
+    border-bottom: 0.5px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .br-filter-collapsed:hover { background: var(--border); }
+  .br-filter-collapsed-label {
+    color: var(--text-secondary);
+  }
+  .br-filter-collapsed-label strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .br-filter-collapsed-icon {
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+  .br-filter-expanded {
+    display: none;
+  }
+  .br-filter-expanded.show {
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<div class="container">
+  <header>
+    <h1>Phase 8 — System prototype v5</h1>
+    <p class="sub">v5 changes: unknown state for staples, bolder "out" treatment with auto-sort, recipe tab uses existing IngredientsSection layout with added tap-sheet, locked filter chips on subset pages, collapsed filter row on browse. v4 preserved for comparison.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-target="p-pantry">Pantry</button>
+    <button class="tab" data-target="p-grocery-lists">Grocery lists</button>
+    <button class="tab" data-target="p-grocery-detail">Inside a list</button>
+    <button class="tab" data-target="p-recipe">Recipe</button>
+    <button class="tab" data-target="p-cook">Cook post options</button>
+    <button class="tab" data-target="p-whatcancook">What can I cook?</button>
+    <button class="tab" data-target="p-ingdetail">Ingredient detail</button>
+    <button class="tab" data-target="p-browse">Browse recipes</button>
+    <button class="tab" data-target="p-natsearch">Natural search</button>
+    <button class="tab" data-target="p-freezer">Freezer cleanout</button>
+  </nav>
+
+  <!-- ============ PANTRY ============ -->
+  <section id="p-pantry" class="panel active">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="scr-header">
+          <span class="space">Home ▾</span>
+          <span class="meta">pantry</span>
+        </div>
+        <div class="scr-title">My pantry</div>
+
+        <div style="padding: 0 16px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+            <span class="section-label">Staples</span>
+            <span class="section-hint">tap dot · tap label</span>
+          </div>
+          <div class="p-staples-grid" id="staples-grid">
+            <div class="p-staple out" data-staple="Cholula">
+              <span class="p-staple-label" onclick="openIngDetail('Cholula')">Cholula · out</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-out"></span></span>
+            </div>
+            <div class="p-staple low" data-staple="Butter">
+              <span class="p-staple-label" onclick="openIngDetail('Butter')">Butter · low</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-low"></span></span>
+            </div>
+            <div class="p-staple good" data-staple="Olive oil">
+              <span class="p-staple-label" onclick="openIngDetail('Olive oil')">Olive oil</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-good"></span></span>
+            </div>
+            <div class="p-staple good" data-staple="Salt">
+              <span class="p-staple-label" onclick="openIngDetail('Salt')">Salt</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-good"></span></span>
+            </div>
+            <div class="p-staple good" data-staple="Basmati rice">
+              <span class="p-staple-label" onclick="openIngDetail('Basmati rice')">Basmati rice</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-good"></span></span>
+            </div>
+            <div class="p-staple good" data-staple="Banza pasta">
+              <span class="p-staple-label" onclick="openIngDetail('Banza pasta')">Banza pasta</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-good"></span></span>
+            </div>
+            <div class="p-staple good" data-staple="Peanut butter">
+              <span class="p-staple-label" onclick="openIngDetail('Peanut butter')">Peanut butter</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot dot-good"></span></span>
+            </div>
+            <div class="p-staple unknown" data-staple="Paprika">
+              <span class="p-staple-label" onclick="openIngDetail('Paprika')">Paprika</span>
+              <span class="p-staple-dot-tap" onclick="cycleStaple(this)"><span class="dot"></span></span>
+            </div>
+          </div>
+          <div class="p-staples-footer">
+            <span>See all 14 staples · Add new</span>
+          </div>
+        </div>
+
+        <div class="p-thawing" onclick="switchTab('p-freezer')">
+          <div class="p-thawing-left">
+            <span class="p-thawing-title">Thawing · 1</span>
+            <span class="p-thawing-detail">Whole chicken · planned for Sat</span>
+          </div>
+          <span class="p-thawing-cta">plan →</span>
+        </div>
+
+        <div style="padding: 0 16px 14px;">
+          <div class="p-usesoon">
+            <div class="p-usesoon-header">
+              <span class="p-usesoon-title">Use soon · 3</span>
+              <span class="p-usesoon-cta" onclick="switchTab('p-whatcancook')">cook with all →</span>
+            </div>
+            <div class="p-usesoon-list">
+              <div class="p-usesoon-row" onclick="toggleUseSoon(this)">
+                <span class="p-usesoon-check">✓</span>
+                <span class="p-usesoon-name">Cilantro <span class="p-usesoon-qty">· 1 bunch</span></span>
+                <span class="p-usesoon-exp" style="color: var(--red-dark);">3d</span>
+              </div>
+              <div class="p-usesoon-row" onclick="toggleUseSoon(this)">
+                <span class="p-usesoon-check">✓</span>
+                <span class="p-usesoon-name">Greek yogurt <span class="p-usesoon-qty">· 0.5 qt</span></span>
+                <span class="p-usesoon-exp" style="color: var(--amber-dark);">5d</span>
+              </div>
+              <div class="p-usesoon-row" onclick="toggleUseSoon(this)">
+                <span class="p-usesoon-check">✓</span>
+                <span class="p-usesoon-name">Eggs <span class="p-usesoon-qty">· 6 ct</span></span>
+                <span class="p-usesoon-exp" style="color: var(--amber-dark);">6d</span>
+              </div>
+            </div>
+            <div class="p-usesoon-action-bar" id="use-soon-action">
+              <span class="p-usesoon-action-bar-text" id="use-soon-count">0 selected</span>
+              <span class="p-usesoon-action-bar-btn" onclick="findMultiRecipes()">Find recipes with these →</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="padding: 0 16px 6px; display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="section-label">Pantry shelf</span>
+            <span class="section-hint">21 items</span>
+          </div>
+
+          <div class="view-toggle-bar">
+            <button class="view-toggle-btn active" onclick="showToast('→ Group by ingredient family')">Category</button>
+            <button class="view-toggle-btn" onclick="showToast('→ Group by fridge/freezer/pantry')">Storage</button>
+            <button class="view-toggle-btn" onclick="showToast('→ Sort by expiration, no grouping')">Expiry</button>
+          </div>
+
+          <div class="p-cat-header" onclick="toggleCat('cat-veg')">
+            <span class="p-cat-header-title">Vegetables (6) ▾</span>
+            <span class="p-cat-plus">+</span>
+          </div>
+          <div class="p-cat-body open" id="cat-veg">
+            <div class="p-row" onclick="openIngDetail('Cilantro')">
+              <span class="dot-sm" style="background: var(--blue-fridge); justify-self: center;"></span>
+              <span class="p-row-name">Cilantro</span>
+              <span class="p-row-qty">1 bunch</span>
+              <span class="p-row-exp-crit">3d</span>
+            </div>
+            <div class="p-row" onclick="openIngDetail('Mixed greens')">
+              <span class="dot-sm" style="background: var(--blue-fridge); justify-self: center;"></span>
+              <span class="p-row-name">Mixed greens</span>
+              <span class="p-row-qty">1 bag</span>
+              <span class="p-row-exp">7d</span>
+            </div>
+            <div class="p-row" onclick="openIngDetail('Red onion')">
+              <span class="dot-sm" style="background: var(--blue-fridge); justify-self: center;"></span>
+              <span class="p-row-name">Red onion</span>
+              <span class="p-row-qty">2</span>
+              <span class="p-row-exp">14d</span>
+            </div>
+            <div class="p-row" onclick="openIngDetail('Garlic')">
+              <span class="dot-sm" style="background: var(--gray-pantry); justify-self: center;"></span>
+              <span class="p-row-name">Garlic</span>
+              <span class="p-row-qty">1 head</span>
+              <span class="p-row-exp">30d</span>
+            </div>
+          </div>
+
+          <div class="p-cat-header" onclick="toggleCat('cat-protein')">
+            <span class="p-cat-header-title muted">Protein (3) ▸</span>
+            <span class="p-cat-plus">+</span>
+          </div>
+          <div class="p-cat-body" id="cat-protein"></div>
+
+          <div class="p-cat-header" onclick="toggleCat('cat-dairy')">
+            <span class="p-cat-header-title muted">Dairy (4) ▸</span>
+            <span class="p-cat-plus">+</span>
+          </div>
+          <div class="p-cat-body" id="cat-dairy"></div>
+
+          <div class="p-cat-header" onclick="toggleCat('cat-grains')">
+            <span class="p-cat-header-title muted">Grains (3) ▸</span>
+            <span class="p-cat-plus">+</span>
+          </div>
+          <div class="p-cat-body" id="cat-grains"></div>
+        </div>
+
+        <div style="padding: 18px 0 10px;">
+          <button class="primary-button" onclick="switchTab('p-whatcancook')">What can I cook?</button>
+        </div>
+
+        <div class="fab-row">
+          <span class="fab" onclick="showToast('→ Add item — ingredient or custom')">+</span>
+        </div>
+
+        <div class="p-legend">
+          <span class="dot-inline" style="background: var(--blue-fridge);"></span>Fridge
+          &nbsp;&nbsp;<span class="dot-inline" style="background: var(--purple-freezer);"></span>Freezer
+          &nbsp;&nbsp;<span class="dot-inline" style="background: var(--gray-pantry);"></span>Pantry
+          &nbsp;&nbsp;<span class="dot-inline" style="background: var(--green-counter);"></span>Counter
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Pantry — updated</h3>
+      <p>Softer staple colors (border-left accent instead of full fill), split tap zones, multi-select on Use soon card, thawing tray above Use soon when active.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Tap a <strong>staple's dot</strong> (not the label) to cycle state.<br>
+        • Tap a <strong>staple's label</strong> (or any pantry row) to jump to the new Ingredient Detail screen.<br>
+        • Check multiple <strong>Use soon</strong> items — action bar appears with "Find recipes with these →".<br>
+        • Tap the <strong>Thawing</strong> tray to see freezer cleanout.
+      </div>
+      <h4>Changes from v2</h4>
+      <ul>
+        <li><strong>Staple colors softer</strong> — low/out use subtle tint + colored border-left instead of full background fill. Dot stays saturated as the indicator.</li>
+        <li><strong>Split taps</strong> — dot zone = state cycle, label zone = ingredient detail. Dot-tap zone is 28px square for reliable mobile tapping.</li>
+        <li><strong>Thawing tray</strong> — purple accent, shows when any item is marked "thawing." Empty by default (your chicken is there from the freezer cleanout).</li>
+        <li><strong>Use soon multi-select</strong> — checkboxes on each row, action bar appears when any selected. Cook with 1, 2, or all 3 — not forced to all.</li>
+        <li><strong>"Cook with all →"</strong> still available when you don't want to select individually.</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-ingdetail')">Open ingredient detail →</button>
+        <button onclick="switchTab('p-freezer')">See freezer cleanout →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GROCERY LISTS ============ -->
+  <section id="p-grocery-lists" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="scr-header">
+          <span class="space">Home ▾</span>
+          <span class="meta">grocery lists</span>
+        </div>
+        <div class="scr-title">Grocery lists</div>
+
+        <div style="padding: 0 16px 10px;">
+          <div class="g-list-card" onclick="switchTab('p-grocery-detail')">
+            <div class="g-list-card-title-row">
+              <span class="g-list-card-title">This week<span class="g-list-card-badge">2 now</span></span>
+              <span class="g-list-card-count">8 / 19</span>
+            </div>
+            <div class="g-list-card-meta">2 need now · 9 could wait · 8 in cart</div>
+            <div class="g-list-card-progress"><div class="g-list-card-progress-bar" style="width: 42%;"></div></div>
+          </div>
+
+          <div class="g-list-card" onclick="showToast('→ Opens Costco list')">
+            <div class="g-list-card-title-row">
+              <span class="g-list-card-title">Costco run</span>
+              <span class="g-list-card-count">0 / 42</span>
+            </div>
+            <div class="g-list-card-meta">Standing batch · staples + household</div>
+            <div class="g-list-card-progress"><div class="g-list-card-progress-bar" style="width: 0%;"></div></div>
+          </div>
+
+          <div class="g-list-card" onclick="showToast('→ Opens meal event list')">
+            <div class="g-list-card-title-row">
+              <span class="g-list-card-title">Dinner w/ Tyler — Sat</span>
+              <span class="g-list-card-count">0 / 6</span>
+            </div>
+            <div class="g-list-card-meta">From recipe: Chicken marbella</div>
+            <div class="g-list-card-progress"><div class="g-list-card-progress-bar" style="width: 0%;"></div></div>
+          </div>
+
+          <div style="padding: 12px 0; text-align: center;">
+            <span style="font-size: 12px; color: var(--text-secondary); text-decoration: underline; cursor: pointer;">Templates · Regular items</span>
+          </div>
+        </div>
+
+        <div class="fab-row">
+          <span class="fab" onclick="showToast('→ New list')">+</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Grocery lists — with tier preview</h3>
+      <p>Small change from v2: "This week" card now shows a tier breakdown at-a-glance. "2 now" badge surfaces the acute count. Description line shows all three tiers: 2 need now · 9 could wait · 8 in cart.</p>
+      <ul>
+        <li><strong>"2 now" badge</strong> — only shows if there are any acute items. Visual red flag on the lists screen itself.</li>
+        <li><strong>Tier summary line</strong> replaces the previous category list ("Produce · Dairy · Dry goods · Misc"). Category info is inside the list.</li>
+        <li><strong>Costco run unchanged</strong> — standing batch, no tier concept needed.</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-grocery-detail')">Open "This week" →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INSIDE A LIST — 3 TIERS + RECIPE CHIPS ============ -->
+  <section id="p-grocery-detail" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-grocery-lists')">←</span>
+          <span class="c-header-title">This week</span>
+        </div>
+
+        <div class="g-progress-bar">
+          <span class="g-progress-label">11 to get · 8 in cart</span>
+          <span class="g-progress-count">42%</span>
+        </div>
+
+        <div class="g-recipe-chip-bar">
+          <span class="g-recipe-chip active" onclick="showToast('→ Show all items')">All · 19</span>
+          <span class="g-recipe-chip" onclick="showToast('→ Filter to Tyler dinner items')">Tyler's dinner · 6</span>
+          <span class="g-recipe-chip" onclick="showToast('→ Filter to Banza pasta items')">Banza pasta · 4</span>
+          <span class="g-recipe-chip" onclick="showToast('→ Non-recipe items')">Household · 3</span>
+        </div>
+
+        <div class="g-tier-heading">
+          <div><span class="g-tier-title now">● Now</span><span class="g-tier-count" style="margin-left: 6px;">2</span></div>
+        </div>
+        <div class="g-tier-hint">Acute — out of a staple, needed for a recipe this week</div>
+
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Cholula</span>
+            <span class="g-row-reason">staple · out</span>
+            <span class="g-row-crosslist">→ also on Costco run</span>
+          </div>
+          <span class="g-row-tag out">out</span>
+        </div>
+
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Cilantro</span>
+            <span class="g-row-recipe-meta">
+              <strong>Tyler's dinner</strong> · Sat
+            </span>
+          </div>
+          <span class="g-row-qty">½ bunch</span>
+        </div>
+
+        <div class="g-tier-heading" style="border-top: 0.5px solid var(--border); margin-top: 14px;">
+          <div><span class="g-tier-title wait">● Could wait</span><span class="g-tier-count" style="margin-left: 6px;">9</span></div>
+          <span class="section-heading-link">sort ↕</span>
+        </div>
+        <div class="g-tier-hint">Low but fine for now · prefer Costco where marked</div>
+
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Butter</span>
+            <span class="g-row-reason">staple · running low</span>
+            <span class="g-row-crosslist">→ prefer Costco</span>
+          </div>
+          <span class="g-row-tag low">low</span>
+        </div>
+
+        <div style="padding: 2px 16px 0 50px; font-size: 11px; color: var(--text-tertiary);">Produce</div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Garlic</span>
+            <span class="g-row-recipe-meta">
+              <strong>Tyler's dinner</strong> · 4 cloves
+            </span>
+          </div>
+          <span class="g-row-qty">4 cloves</span>
+        </div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Red onion</span>
+            <span class="g-row-recipe-meta">
+              <strong>Tyler's dinner</strong> · 1
+            </span>
+          </div>
+          <span class="g-row-qty">1</span>
+        </div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Onion</span>
+          </div>
+        </div>
+
+        <div style="padding: 8px 16px 0 50px; font-size: 11px; color: var(--text-tertiary);">Dairy</div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Full fat yogurt</span>
+          </div>
+        </div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">0% yogurt</span>
+          </div>
+        </div>
+
+        <div style="padding: 8px 16px 0 50px; font-size: 11px; color: var(--text-tertiary);">Dry goods</div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Mayo</span>
+          </div>
+        </div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Toasted sesame oil</span>
+          </div>
+        </div>
+
+        <div style="padding: 8px 16px 0 50px; font-size: 11px; color: var(--text-tertiary);">Household</div>
+        <div class="g-row" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main">
+            <span class="g-row-name">Duct tape</span>
+          </div>
+          <span class="g-row-tag">custom</span>
+        </div>
+
+        <div class="g-tier-heading" style="border-top: 0.5px solid var(--border); margin-top: 14px;">
+          <div><span class="g-tier-title cart">● In cart</span><span class="g-tier-count" style="margin-left: 6px;">8</span></div>
+        </div>
+
+        <div class="g-row checked" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main"><span class="g-row-name">GF bread</span></div>
+          <span class="g-row-tag gf">Mary · GF</span>
+        </div>
+        <div class="g-row checked" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main"><span class="g-row-name">Eggs</span></div>
+        </div>
+        <div class="g-row checked" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main"><span class="g-row-name">Bananas</span></div>
+        </div>
+        <div class="g-row checked" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main"><span class="g-row-name">Mixed greens</span></div>
+        </div>
+        <div class="g-row checked" onclick="toggleCheck(this)">
+          <span class="g-check">✓</span>
+          <div class="g-row-main"><span class="g-row-name">Cream cheese</span></div>
+          <span class="g-row-tag brand">Philly</span>
+        </div>
+
+        <div class="g-bottom-action">
+          <span class="g-bottom-action-text">8 items in cart</span>
+          <span class="g-bottom-action-btn" onclick="showToast('→ Moves 8 items to pantry with default storage')">Send to pantry →</span>
+        </div>
+
+        <div class="fab-row">
+          <span class="fab" onclick="showToast('→ Add item — ingredient or custom')">+</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Inside a list — recipe chip filter + linked quantities</h3>
+      <p>Recipe chips at top let you slice the list by which recipe/meal each item is for. Tap "Tyler's dinner · 6" to filter the list to just those 6 items. Recipe-linked rows show the recipe name + specific quantity.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Tap recipe chips at top to filter (currently show-only).<br>
+        • Notice <strong>Cilantro</strong>, <strong>Garlic</strong>, <strong>Red onion</strong> now show "Tyler's dinner" + their recipe quantity on the right (½ bunch, 4 cloves, 1).<br>
+        • Non-recipe items (Onion, Yogurt, etc.) stay minimal.
+      </div>
+      <h4>What the recipe link enables</h4>
+      <ul>
+        <li><strong>Quantity from recipe</strong> — recipe says 4 cloves garlic, that's what's shown. No user data entry.</li>
+        <li><strong>Quantity doubling</strong> — user goes to Tyler's dinner (meal event), changes serving from 4 → 8. Grocery list auto-updates to 8 cloves garlic. Quantity-editing stays in the meal context, not the grocery list.</li>
+        <li><strong>Recipe filter view</strong> — shopping for Saturday's dinner specifically, filter to just those 6 items. Don't accidentally skip a "could wait" recipe ingredient thinking it's non-urgent.</li>
+        <li><strong>When checked off</strong> — depletion credits the recipe's quantity, not the full amount you bought.</li>
+      </ul>
+      <h4>Out of scope for v1</h4>
+      <ul>
+        <li>Drag-to-reorder within a recipe group</li>
+        <li>Recipe substitution from grocery list ("swap cilantro for parsley in Tyler's dinner")</li>
+        <li>Shopping mode that hides filtered-out items</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-grocery-lists')">← Back to lists</button>
+        <button onclick="switchTab('p-recipe')">Back to recipe</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECIPE — EXISTING LAYOUT + TAP SHEET ============ -->
+  <section id="p-recipe" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-pantry')">←</span>
+          <span class="c-header-title">Recipe</span>
+        </div>
+        <div class="r-title">
+          <h2>Salmon with herb yogurt</h2>
+          <div class="r-title-meta">Plenty · Ottolenghi · p. 88</div>
+        </div>
+        <div class="r-match-banner">
+          <span class="r-match-text">85% in your pantry · 1 missing</span>
+          <span class="r-match-cta" onclick="addMissingToGrocery()">add missing →</span>
+        </div>
+
+        <div class="r-ingredients-header">
+          <span class="r-ingredients-title">Ingredients</span>
+          <span class="r-ingredients-scale">Serves 4 · ▾</span>
+        </div>
+
+        <div class="r6-group-header">FOR THE FISH</div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Salmon fillet', 'have', '1 lb · in pantry — freezer')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">1 lb</span> <span class="name">salmon fillet</span></div>
+        </div>
+        <div id="sheet-Salmon_fillet" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Salmon fillet</span><span class="tapsheet-state have">in pantry</span></div>
+          <div class="tapsheet-detail">1 lb · in pantry — freezer</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Update pantry state'); closeAllSheets();">Update pantry</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Jump to step 3 (uses salmon)'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Finds recipes with salmon'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Olive oil', 'have', 'staple')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">2 tbsp</span> <span class="name">olive oil</span></div>
+        </div>
+        <div id="sheet-Olive_oil" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Olive oil</span><span class="tapsheet-state have">staple · have</span></div>
+          <div class="tapsheet-detail">Preferred Costco · last purchased 3w ago</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Mark running low'); closeAllSheets();">Mark low</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Jump to step 2 (uses olive oil)'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Finds recipes with olive oil'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Salt', 'have', 'staple')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">to taste</span> <span class="name">salt</span></div>
+        </div>
+        <div id="sheet-Salt" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Salt</span><span class="tapsheet-state have">staple · have</span></div>
+          <div class="tapsheet-detail">Used in most of your cooking</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Mark running low'); closeAllSheets();">Mark low</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Jump to step 3'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Other recipes'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Lemon', 'have', '1 · in pantry')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">1</span> <span class="name">lemon</span><span class="prep">, zested + juiced</span></div>
+        </div>
+        <div id="sheet-Lemon" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Lemon</span><span class="tapsheet-state have">in pantry</span></div>
+          <div class="tapsheet-detail">1 · fresh · ~5d old</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Mark used up'); closeAllSheets();">Mark used</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Jump to step 2'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Other recipes'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-group-header">FOR THE HERB YOGURT</div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Greek yogurt', 'have', '1 cup · expires 5d')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">1 cup</span> <span class="name">greek yogurt</span><span class="prep">, full-fat</span></div>
+        </div>
+        <div id="sheet-Greek_yogurt" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Greek yogurt</span><span class="tapsheet-state have">in pantry · expires 5d</span></div>
+          <div class="tapsheet-detail">0.5 qt · fridge</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Update quantity'); closeAllSheets();">Update qty</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Which steps'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Other recipes'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Cilantro', 'have', '½ bunch · expires 3d')">
+          <span class="r6-check">✓</span>
+          <div class="r6-text"><span class="qty">½ bunch</span> <span class="name">cilantro</span><span class="prep">, chopped</span></div>
+        </div>
+        <div id="sheet-Cilantro" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Cilantro</span><span class="tapsheet-state have">in pantry · expires 3d</span></div>
+          <div class="tapsheet-detail">1 bunch · fridge · use soon</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); switchTab('p-ingdetail')">See more</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Update quantity'); closeAllSheets();">Update qty</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Which steps'); closeAllSheets();">Which step?</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Other cilantro recipes'); closeAllSheets();">Other recipes</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Butter', 'low', '2 tbsp · running low')">
+          <span class="r6-check low">◐</span>
+          <div class="r6-text"><span class="qty">2 tbsp</span> <span class="name">butter</span><span class="prep">, softened</span></div>
+        </div>
+        <div id="sheet-Butter" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Butter</span><span class="tapsheet-state low">staple · running low</span></div>
+          <div class="tapsheet-detail">Currently on grocery · prefer Costco</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Added to grocery · Now tier'); closeAllSheets();">+ Grocery now</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Mark back to good'); closeAllSheets();">Actually have</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Mark out'); closeAllSheets();">Mark out</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+          </div>
+        </div>
+
+        <div class="r6-ingredient" onclick="openInlineSheet(this, 'Dill', 'missing', '2 tbsp chopped · not in pantry')">
+          <span class="r6-check missing">✗</span>
+          <div class="r6-text"><span class="qty">2 tbsp</span> <span class="name">dill</span><span class="prep">, chopped</span></div>
+        </div>
+        <div id="sheet-Dill" class="tapsheet">
+          <div class="tapsheet-header"><span class="tapsheet-name">Dill</span><span class="tapsheet-state missing">not in pantry</span></div>
+          <div class="tapsheet-detail">2 tbsp chopped · fresh dill</div>
+          <div class="tapsheet-actions">
+            <button class="tapsheet-action primary" onclick="event.stopPropagation(); showToast('→ Added to grocery · Now tier'); closeAllSheets();">+ Grocery now</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Alternatives: parsley, fennel fronds'); closeAllSheets();">Substitute</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ I actually have some'); closeAllSheets();">Add to pantry</button>
+            <button class="tapsheet-action" onclick="event.stopPropagation(); showToast('→ Opens Ingredient Detail'); closeAllSheets();">See more</button>
+          </div>
+        </div>
+
+        <div class="r-cook-cta">
+          <button class="primary-button" style="width: 100%; margin: 0;" onclick="switchTab('p-cook')">Log this cook →</button>
+          <div style="padding-top: 8px;">
+            <button class="secondary-button" style="width: 100%; margin: 0;" onclick="showToast('→ Cook in step-by-step mode')">Cook in steps</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Recipe — existing layout preserved, tap-to-sheet added</h3>
+      <p>This is the Phase 6G IngredientsSection layout as it exists today — group headers, <code style="font-size:12px; background:var(--bg-muted); padding:1px 4px;">✓ quantity unit <strong>name</strong>, preparation</code> row format, flat list, no bordered cards. The only visual addition is the tap-to-open sheet that appears inline below the tapped row.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Tap any ingredient row — inline sheet appears directly below with 4 actions.<br>
+        • Tap the same row again or another row to dismiss/switch.<br>
+        • Check out the different sheet content per ingredient state: <strong>Salmon fillet</strong> (have), <strong>Butter</strong> (low — has actions like "Mark out" and "+ Grocery now"), <strong>Dill</strong> (missing — has "Substitute" option).
+      </div>
+      <h4>What's different from v4</h4>
+      <ul>
+        <li><strong>Existing layout fully preserved</strong> — group headers ("FOR THE FISH"), row format <code style="font-size:12px; background:var(--bg-muted); padding:1px 4px;">✓ 1 lb <strong>salmon fillet</strong></code>, no bordered cards.</li>
+        <li><strong>Sheet is inline, not an overlay</strong> — slides in below the tapped row rather than covering the screen. Preserves scroll position, recipe stays readable.</li>
+        <li><strong>Actions are contextual</strong> — butter (low) offers "Actually have" to bump back to good. Dill (missing) offers "Substitute." Olive oil (staple) offers "Mark low." Each row's sheet tailors to its state.</li>
+        <li><strong>"Which step?" action</strong> — implements the deferred D6-18 feature from Phase 6G. Tap to jump to the step where this ingredient is used.</li>
+      </ul>
+      <h4>Sheet action variations by state</h4>
+      <ul>
+        <li><strong>Have (tracked):</strong> See more / Update qty / Which step? / Other recipes</li>
+        <li><strong>Have (staple):</strong> See more / Mark low / Which step? / Other recipes</li>
+        <li><strong>Low (staple):</strong> + Grocery now / Actually have / Mark out / See more</li>
+        <li><strong>Missing:</strong> + Grocery now / Substitute / Add to pantry / See more</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-ingdetail')">See full Ingredient Detail →</button>
+        <button onclick="switchTab('p-grocery-detail')">Check grocery (recipe chips) →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COOK POST — 3 OPTIONS ============ -->
+  <section id="p-cook" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-recipe')">←</span>
+          <span class="c-header-title">Log this cook</span>
+        </div>
+
+        <div style="padding: 12px 16px 0;">
+          <div class="subtoggle">
+            <button class="subtoggle-btn active" data-variant="cp-a" onclick="switchSubvariant(this, 'cp-')">A · Banner after</button>
+            <button class="subtoggle-btn" data-variant="cp-b" onclick="switchSubvariant(this, 'cp-')">B · Inline toggle</button>
+            <button class="subtoggle-btn" data-variant="cp-c" onclick="switchSubvariant(this, 'cp-')">C · Ask later</button>
+          </div>
+        </div>
+
+        <!-- OPTION A -->
+        <div class="subvariant active" id="sv-cp-a">
+          <div class="cp-compose">
+            <div class="cp-compose-recipe">
+              <div class="cp-compose-recipe-img"></div>
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">Salmon with herb yogurt</div>
+                <div style="font-size: 11px; color: var(--text-secondary);">Cooked tonight · serves 4</div>
+              </div>
+            </div>
+            <div class="cp-compose-field filled">How'd it go? ★★★★★</div>
+            <div class="cp-compose-field">Add a note (optional)</div>
+            <div class="cp-compose-field">Tag cooking partners</div>
+            <div class="cp-compose-field">+ Add photo</div>
+          </div>
+
+          <div class="cp-post-banner">
+            <div class="cp-post-banner-row">
+              <span class="cp-post-banner-text">✓ Posted to your feed</span>
+            </div>
+            <div class="cp-post-banner-sub">We updated your pantry · 4 items</div>
+            <div class="cp-post-banner-actions">
+              <span class="cp-post-banner-btn" onclick="showToast('→ Opens depletion review')">review</span>
+              <span class="cp-post-banner-btn" onclick="showToast('→ Undoes depletion')">undo</span>
+            </div>
+          </div>
+
+          <div class="cp-post-footer">
+            <button class="confirm" onclick="showToast('→ Returns to feed')">Done</button>
+          </div>
+        </div>
+
+        <!-- OPTION B -->
+        <div class="subvariant" id="sv-cp-b">
+          <div class="cp-compose">
+            <div class="cp-compose-recipe">
+              <div class="cp-compose-recipe-img"></div>
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">Salmon with herb yogurt</div>
+                <div style="font-size: 11px; color: var(--text-secondary);">Cooked tonight · serves 4</div>
+              </div>
+            </div>
+            <div class="cp-compose-field filled">How'd it go? ★★★★★</div>
+            <div class="cp-compose-field">Add a note (optional)</div>
+            <div class="cp-compose-field">Tag cooking partners</div>
+            <div class="cp-compose-field">+ Add photo</div>
+          </div>
+
+          <div class="cp-deplete-toggle">
+            <div class="cp-toggle-left">
+              <span class="cp-toggle-label">Update pantry · 4 items</span>
+              <span class="cp-toggle-sub">Salmon · yogurt · cilantro · lemon</span>
+            </div>
+            <div class="c-toggle on" onclick="toggleStaple(this)"></div>
+          </div>
+
+          <div class="cp-post-footer">
+            <button class="skip" onclick="showToast('→ Skip posting')">Skip</button>
+            <button class="confirm" onclick="showToast('→ Posts + updates pantry')">Post</button>
+          </div>
+        </div>
+
+        <!-- OPTION C -->
+        <div class="subvariant" id="sv-cp-c">
+          <div class="cp-compose">
+            <div class="cp-compose-recipe">
+              <div class="cp-compose-recipe-img"></div>
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">Salmon with herb yogurt</div>
+                <div style="font-size: 11px; color: var(--text-secondary);">Cooked tonight · serves 4</div>
+              </div>
+            </div>
+            <div class="cp-compose-field filled">How'd it go? ★★★★★</div>
+            <div class="cp-compose-field">Add a note (optional)</div>
+            <div class="cp-compose-field">Tag cooking partners</div>
+            <div class="cp-compose-field">+ Add photo</div>
+          </div>
+
+          <div class="cp-post-footer">
+            <button class="confirm" onclick="showToast('→ Posts · no depletion UI here')">Post</button>
+          </div>
+
+          <div style="padding: 20px 16px 10px; border-top: 0.5px solid var(--border); background: var(--bg-muted);">
+            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">next time you open pantry</div>
+          </div>
+
+          <div class="cp-pantry-banner">
+            <div class="cp-pantry-banner-text">You cooked Salmon yesterday</div>
+            <div class="cp-pantry-banner-sub">Ready to update pantry? · 4 items would deplete</div>
+            <div class="cp-pantry-banner-btns">
+              <button class="cp-pantry-banner-btn-primary" onclick="showToast('→ Opens review sheet')">Review</button>
+              <button class="cp-pantry-banner-btn-secondary" onclick="showToast('→ Dismisses without depletion')">Skip</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Cook post depletion — three options</h3>
+      <p>All three respect your "passive, not forced" direction. Differences are where depletion happens in the flow and how much agency the user has at each step.</p>
+
+      <h4>Option A · Banner after post <span style="font-weight: 400; color: var(--text-tertiary);">(recommended)</span></h4>
+      <ul>
+        <li>Cook post flow is unchanged. Post as you would today.</li>
+        <li>After success, a banner appears: "✓ Posted · We updated your pantry · 4 items · review / undo"</li>
+        <li>Silent action by default. Two escape hatches (review / undo).</li>
+        <li>Assumes the common case ("yes, deplete what the recipe called for") and trusts the user to undo if wrong.</li>
+      </ul>
+
+      <h4>Option B · Inline toggle at post</h4>
+      <ul>
+        <li>One small row at the bottom of compose: "Update pantry · 4 items" with toggle.</li>
+        <li>User sees what's being affected without having to tap through a sheet.</li>
+        <li>Toggle defaults on. Tap the row to expand what will be depleted.</li>
+        <li>More visible than A, but adds a UI element to every post.</li>
+      </ul>
+
+      <h4>Option C · Ask later (post-first)</h4>
+      <ul>
+        <li>Cook post flow has no depletion UI at all. Post and move on.</li>
+        <li>Next time user opens Pantry, a banner: "You cooked X yesterday · Review / Skip"</li>
+        <li>Most passive. But creates a time gap where pantry state is out of date.</li>
+        <li>If user never opens pantry after cooking, depletion never happens.</li>
+      </ul>
+
+      <div class="try-this">
+        <strong>Try it:</strong> Toggle between A / B / C with the sub-toggle at the top of the phone mockup. Notice how A is the fastest flow (cook → post → done), B is most explicit, C is most deferrable.
+      </div>
+      <h4>My take</h4>
+      <p>A wins for most users — fast, trust-based, reversible. C is great for power users or passive cookers (Mary logs a cook she forgot about, doesn't want to think about pantry). B is the safe middle. If you pick one for v1 I'd do <strong>A</strong>; if you want to offer choice, Pantry settings could let users switch the default.</p>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-whatcancook')">What can I cook? →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT CAN I COOK ============ -->
+  <section id="p-whatcancook" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-pantry')">←</span>
+          <span class="c-header-title">What can I cook?</span>
+        </div>
+
+        <div class="subset-search-bar">
+          <input class="subset-search-input" placeholder="Refine: e.g., thai style, under 30 min…" onclick="switchTab('p-natsearch')" readonly>
+        </div>
+
+        <div style="padding: 10px 16px 4px; font-size: 11px; color: var(--text-tertiary);">
+          Filters applied to this view
+        </div>
+        <div class="filter-pills">
+          <button class="filter-pill locked">Pantry match ≥ 60%</button>
+          <button class="filter-pill locked">Excludes staples</button>
+          <button class="filter-pill">+ Add filter</button>
+        </div>
+
+        <div class="section-heading" onclick="showToast('→ Opens Ready now filter · 3 recipes')" style="cursor: pointer;">
+          <div><span class="section-heading-title">Ready now</span><span class="section-heading-count">3</span></div>
+          <span class="section-heading-link">see all →</span>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Salmon with herb yogurt</div>
+            <div class="rec-card-book">Plenty · p. 88</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 25 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Chickpea stew with yogurt</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 30 min</span></div>
+          </div>
+        </div>
+
+        <div class="section-heading" onclick="showToast('→ Opens Uses expiring filter · 2 recipes')" style="cursor: pointer;">
+          <div><span class="section-heading-title">Uses what's expiring</span><span class="section-heading-count">2</span></div>
+          <span class="section-heading-link">see all →</span>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Cilantro chicken rice</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 40 min</span></div>
+            <div class="rec-card-expires">uses cilantro · expires 3d</div>
+          </div>
+        </div>
+
+        <div class="section-heading" onclick="showToast('→ Opens Your classics filter · 2 recipes')" style="cursor: pointer;">
+          <div><span class="section-heading-title">Your classics</span><span class="section-heading-count">2</span></div>
+          <span class="section-heading-link">see all →</span>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Weeknight fish tacos</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 25 min</span></div>
+            <div class="rec-card-classic">★ cooked 8 times</div>
+          </div>
+        </div>
+
+        <div class="section-heading" onclick="showToast('→ Opens Friends cooked filter · 2 recipes')" style="cursor: pointer;">
+          <div><span class="section-heading-title">Friends cooked this week</span><span class="section-heading-count">2</span></div>
+          <span class="section-heading-link">see all →</span>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Spatchcock chicken</div>
+            <div class="rec-card-book">Cook This Book</div>
+            <div class="rec-card-meta-row"><span class="match-badge-partial">87% · 2 missing</span><span class="rec-card-time">· 70 min</span></div>
+            <div class="rec-card-social">Tyler cooked · 2d ago · 5 ★</div>
+          </div>
+        </div>
+
+        <div style="padding: 16px; border-top: 0.5px solid var(--border); margin-top: 8px;">
+          <button class="secondary-button" style="width: 100%; margin: 0;" onclick="showToast('→ All 23 matches')">See all 23 →</button>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>What can I cook? — unchanged from v2</h3>
+      <p>Pantry-filtered recipe list organized into 5 sections. Unchanged except the header padding is slightly tighter and the list is shown shorter in this view for vertical budget.</p>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-ingdetail')">Ingredient detail →</button>
+        <button onclick="switchTab('p-browse')">Browse recipes →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INGREDIENT DETAIL — HERO + TABS ============ -->
+  <section id="p-ingdetail" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-pantry')">←</span>
+          <span class="c-header-title">Ingredient</span>
+        </div>
+
+        <div class="ing-hero">
+          <div class="ing-hero-top">
+            <h2 class="ing-hero-name" id="ing-name">Cilantro</h2>
+            <span class="ing-hero-type">herb</span>
+          </div>
+          <div class="ing-hero-state">1 bunch · fridge · expires 3d</div>
+          <div class="ing-hero-actions">
+            <button class="ing-hero-btn primary" onclick="showToast('→ Finds recipes using cilantro')">Find recipes</button>
+            <button class="ing-hero-btn" onclick="showToast('→ Add to grocery')">+ Grocery</button>
+            <button class="ing-hero-btn" onclick="showToast('→ Add to pantry')">+ Pantry</button>
+          </div>
+        </div>
+
+        <div class="ing-tabs">
+          <div class="ing-tab active" data-ingtab="ing-recipes" onclick="switchIngTab(this)">Recipes</div>
+          <div class="ing-tab" data-ingtab="ing-info" onclick="switchIngTab(this)">Info</div>
+          <div class="ing-tab" data-ingtab="ing-brands" onclick="switchIngTab(this)">Brands</div>
+          <div class="ing-tab" data-ingtab="ing-history" onclick="switchIngTab(this)">History</div>
+        </div>
+
+        <!-- TAB: RECIPES -->
+        <div class="ing-tabcontent active" id="ing-recipes">
+
+          <div class="subset-search-bar">
+            <input class="subset-search-input" placeholder="Refine: e.g., thai style, under 30 min…" onclick="switchTab('p-natsearch')" readonly>
+          </div>
+
+          <div style="padding: 10px 16px 4px; font-size: 11px; color: var(--text-tertiary);">
+            Filters applied to this view
+          </div>
+          <div class="filter-pills" style="padding-bottom: 10px;">
+            <button class="filter-pill locked" id="ing-recipes-locked-chip">Uses cilantro</button>
+            <button class="filter-pill">+ Add filter</button>
+          </div>
+
+          <div class="ing-section-acc">
+            <div class="ing-section-acc-header open" onclick="toggleAccSection(this)">
+              <span class="ing-section-acc-title">Ready right now <span class="ing-section-acc-count">· 4</span></span>
+              <span>▾</span>
+            </div>
+            <div class="ing-section-acc-body open">
+              <div class="rec-card">
+                <div class="rec-card-img"></div>
+                <div class="rec-card-body">
+                  <div class="rec-card-title">Cilantro chicken rice</div>
+                  <div class="rec-card-book">That Sounds So Good</div>
+                  <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 40 min</span></div>
+                </div>
+              </div>
+              <div class="rec-card">
+                <div class="rec-card-img"></div>
+                <div class="rec-card-body">
+                  <div class="rec-card-title">Salmon with herb yogurt</div>
+                  <div class="rec-card-book">Plenty · p. 88</div>
+                  <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 25 min</span></div>
+                </div>
+              </div>
+              <div class="rec-card">
+                <div class="rec-card-img"></div>
+                <div class="rec-card-body">
+                  <div class="rec-card-title">Cilantro lime shrimp</div>
+                  <div class="rec-card-book">Simple</div>
+                  <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 20 min</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ing-section-acc">
+            <div class="ing-section-acc-header" onclick="toggleAccSection(this)">
+              <span class="ing-section-acc-title muted">Your classics <span class="ing-section-acc-count">· 2</span></span>
+              <span>▸</span>
+            </div>
+            <div class="ing-section-acc-body"></div>
+          </div>
+
+          <div class="ing-section-acc">
+            <div class="ing-section-acc-header" onclick="toggleAccSection(this)">
+              <span class="ing-section-acc-title muted">Friends cooked recently <span class="ing-section-acc-count">· 2</span></span>
+              <span>▸</span>
+            </div>
+            <div class="ing-section-acc-body"></div>
+          </div>
+
+          <div class="ing-section-acc">
+            <div class="ing-section-acc-header" onclick="toggleAccSection(this)">
+              <span class="ing-section-acc-title muted">From a new cookbook <span class="ing-section-acc-count">· 3</span></span>
+              <span>▸</span>
+            </div>
+            <div class="ing-section-acc-body"></div>
+          </div>
+
+          <div class="ing-section-acc">
+            <div class="ing-section-acc-header" onclick="toggleAccSection(this)">
+              <span class="ing-section-acc-title muted">Never cooked yet <span class="ing-section-acc-count">· 5</span></span>
+              <span>▸</span>
+            </div>
+            <div class="ing-section-acc-body"></div>
+          </div>
+
+          <div style="padding: 14px 16px;">
+            <button class="secondary-button" style="width: 100%; margin: 0;" onclick="showToast('→ All 34 cilantro recipes')">See all 34 →</button>
+          </div>
+        </div>
+
+        <!-- TAB: INFO -->
+        <div class="ing-tabcontent" id="ing-info">
+          <div class="ing-info-row">
+            <div class="ing-info-label">Nutrition · per ½ cup fresh</div>
+            <div class="ing-info-value">1 cal · 0.2g protein · 0.2g carbs · vitamin K</div>
+          </div>
+          <div class="ing-info-row">
+            <div class="ing-info-label">Common prep</div>
+            <div class="ing-info-chips">
+              <span class="ing-info-chip">chopped fine</span>
+              <span class="ing-info-chip">whole leaves</span>
+              <span class="ing-info-chip">stems + leaves</span>
+              <span class="ing-info-chip">as garnish</span>
+            </div>
+          </div>
+          <div class="ing-info-row">
+            <div class="ing-info-label">Storage</div>
+            <div class="ing-info-value">Fridge · stems in water like a bouquet · 7-10 days</div>
+          </div>
+          <div class="ing-info-row">
+            <div class="ing-info-label">Try instead</div>
+            <div class="ing-info-chips">
+              <span class="ing-info-chip">Parsley (less bold)</span>
+              <span class="ing-info-chip">Thai basil</span>
+              <span class="ing-info-chip">Mint (for cooling)</span>
+            </div>
+          </div>
+          <div class="ing-info-row">
+            <div class="ing-info-label">Pairs well with</div>
+            <div class="ing-info-chips">
+              <span class="ing-info-chip">Lime</span>
+              <span class="ing-info-chip">Garlic</span>
+              <span class="ing-info-chip">Cumin</span>
+              <span class="ing-info-chip">Jalapeño</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: BRANDS -->
+        <div class="ing-tabcontent" id="ing-brands">
+          <div style="padding: 12px 16px; background: var(--purple-bg); font-size: 12px; color: var(--purple-dark); border-left: 2px solid var(--purple-dark);">
+            <strong style="font-weight: 500;">Preview</strong> · Full brand discovery coming post-launch. Data captured starting now.
+          </div>
+
+          <div class="ing-info-label" style="padding: 14px 16px 6px;">WHAT YOU BUY</div>
+          <div class="ing-brand-row">
+            <div>
+              <div class="ing-brand-name">Trader Joe's · bunched</div>
+              <div class="ing-brand-meta">last · 4 days ago · seek out</div>
+            </div>
+            <span class="ing-brand-who">you</span>
+          </div>
+          <div class="ing-brand-row">
+            <div>
+              <div class="ing-brand-name">Whole Foods · loose stems</div>
+              <div class="ing-brand-meta">occasional · for big cooks</div>
+            </div>
+            <span class="ing-brand-who">you</span>
+          </div>
+
+          <div class="ing-info-label" style="padding: 14px 16px 6px;">WHAT MARY BUYS</div>
+          <div class="ing-brand-row">
+            <div>
+              <div class="ing-brand-name">Trader Joe's · bunched</div>
+              <div class="ing-brand-meta">every trip · 2+ years</div>
+            </div>
+            <span class="ing-brand-who">Mary</span>
+          </div>
+
+          <div style="padding: 14px 16px; margin-top: 14px; background: var(--bg-muted); font-size: 12px; color: var(--text-secondary);">
+            <strong style="color: var(--text-primary); font-weight: 500;">Post-launch:</strong> see which brands other users seek out vs settle for, how long they've used, community ratings. Friends-first visibility.
+          </div>
+        </div>
+
+        <!-- TAB: HISTORY -->
+        <div class="ing-tabcontent" id="ing-history">
+          <div class="ing-history-stat">
+            <span class="ing-history-stat-label">Times cooked with</span>
+            <span class="ing-history-stat-value">14</span>
+          </div>
+          <div class="ing-history-stat">
+            <span class="ing-history-stat-label">Different recipes used</span>
+            <span class="ing-history-stat-value">8</span>
+          </div>
+          <div class="ing-history-stat">
+            <span class="ing-history-stat-label">Avg days between purchases</span>
+            <span class="ing-history-stat-value">9</span>
+          </div>
+          <div class="ing-history-stat">
+            <span class="ing-history-stat-label">Last purchased</span>
+            <span class="ing-history-stat-value">4d ago</span>
+          </div>
+          <div class="ing-history-stat">
+            <span class="ing-history-stat-label">Last cooked with</span>
+            <span class="ing-history-stat-value">2 weeks ago</span>
+          </div>
+          <div style="padding: 14px 16px; margin-top: 14px; background: var(--bg-muted); font-size: 12px; color: var(--text-secondary);">
+            <strong style="color: var(--text-primary); font-weight: 500;">Most-cooked recipes with cilantro:</strong><br>
+            Weeknight fish tacos (8×) · Cilantro chicken rice (3×) · Salmon herb yogurt (3×)
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Ingredient Detail — new surface</h3>
+      <p>Hero + 4 tabs. Replaces the old "Ingredient drill" with something richer. Same section pattern for recipes, but Recipes is one tab of four. Info / Brands / History provide the "deeper windows" you described.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Switch between the 4 tabs below the hero.<br>
+        • On Recipes tab, tap section headings to accordion-expand (only "Ready right now" is open by default).<br>
+        • Notice Brands tab has a post-F&F preview badge — we're surfacing the concept but explicitly flagging full discovery as deferred.
+      </div>
+
+      <h4>Tab contents</h4>
+      <ul>
+        <li><strong>Recipes</strong> — section accordion with Ready / Your classics / Friends cooked / From a new cookbook / Never cooked yet. One open at a time by default. Same data shape as "What can I cook?" but ingredient-scoped.</li>
+        <li><strong>Info</strong> — nutrition summary, common prep methods, storage tips, alternatives (chip row), pairs-well-with. Freeform-cooking aid.</li>
+        <li><strong>Brands</strong> — preview UX. What you buy and what Mary buys, with seek-out vs settle markers. Full community-scale discovery flagged post-F&F.</li>
+        <li><strong>History</strong> — personal usage stats. Times cooked with, different recipes, avg days between purchases, last purchased, most-cooked recipes. The "am I buying paprika too often?" question answered.</li>
+      </ul>
+
+      <div class="flag">
+        <strong>Post-F&F scope:</strong> full brand discovery (community aggregation, seek-out frequency, how-long, ratings), ingredient substitution with nutrition comparison, seasonal data surfacing. Preview shown on Brands tab captures some value without full build.
+      </div>
+
+      <div class="demo-actions">
+        <button onclick="switchTab('p-pantry')">← Back to pantry</button>
+        <button onclick="switchTab('p-browse')">Browse recipes →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BROWSE RECIPES v4 — SEARCH + TILES + FULL LIST ============ -->
+  <section id="p-browse" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="scr-header">
+          <span class="space">Home ▾</span>
+          <span class="meta">browse recipes</span>
+        </div>
+        <div class="scr-title">Recipes</div>
+
+        <!-- PROMINENT SEARCH -->
+        <div class="br-search-prominent">
+          <div class="br-search-row">
+            <input class="br-search-input" placeholder="Try: thai chicken from ottolenghi, lots from my pantry" onclick="switchTab('p-natsearch')" readonly>
+            <button class="br-search-mic" onclick="showToast('→ Voice search (uses OS dictation)')">🎙</button>
+          </div>
+        </div>
+
+        <!-- TILES -->
+        <div class="br-prompt" style="padding: 8px 16px 4px; font-size: 14px;">What are you looking for?</div>
+        <div class="br-tile-grid">
+          <div class="br-tile quick" onclick="showToast('→ Quick tonight filter')">
+            <div class="br-tile-icon">⏱</div>
+            <div>
+              <div class="br-tile-title">Quick tonight</div>
+              <div class="br-tile-sub">Under 30 min · 18</div>
+            </div>
+          </div>
+          <div class="br-tile expiring" onclick="switchTab('p-whatcancook')">
+            <div class="br-tile-icon">◐</div>
+            <div>
+              <div class="br-tile-title">Use expiring</div>
+              <div class="br-tile-sub">Cilantro · yogurt · 8</div>
+            </div>
+          </div>
+          <div class="br-tile new" onclick="showToast('→ New from cookbooks')">
+            <div class="br-tile-icon">✦</div>
+            <div>
+              <div class="br-tile-title">Something new</div>
+              <div class="br-tile-sub">Cook This Book · 6</div>
+            </div>
+          </div>
+          <div class="br-tile classic" onclick="showToast('→ Your most-cooked')">
+            <div class="br-tile-icon">★</div>
+            <div>
+              <div class="br-tile-title">A classic</div>
+              <div class="br-tile-sub">Cooked 3+ times · 89</div>
+            </div>
+          </div>
+          <div class="br-tile friends" onclick="showToast('→ Friends cooking')">
+            <div class="br-tile-icon">◇</div>
+            <div>
+              <div class="br-tile-title">Friends cook</div>
+              <div class="br-tile-sub">This week · 5</div>
+            </div>
+          </div>
+          <div class="br-tile all" onclick="scrollToFullList()">
+            <div class="br-tile-icon">↓</div>
+            <div>
+              <div class="br-tile-title">Scroll all</div>
+              <div class="br-tile-sub">Below · 475</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FULL LIST HEADER -->
+        <div class="br-full-list-header" id="full-list-anchor">
+          <span class="br-full-list-title">All recipes</span>
+          <span class="br-full-list-count">475</span>
+        </div>
+
+        <!-- COLLAPSED FILTER ROW -->
+        <div class="br-filter-collapsed" onclick="toggleBrowseFilter()">
+          <span class="br-filter-collapsed-label">
+            Sort: <strong>Pantry %</strong> · 0 filters
+          </span>
+          <span class="br-filter-collapsed-icon">Filter &amp; sort ▸</span>
+        </div>
+
+        <div class="br-filter-expanded" id="br-filter-expanded">
+          <div class="view-toggle-bar">
+            <button class="view-toggle-btn active" onclick="showToast('→ Sort by pantry match')">Pantry %</button>
+            <button class="view-toggle-btn" onclick="showToast('→ Sort by recency')">Recent</button>
+            <button class="view-toggle-btn" onclick="showToast('→ Sort by rating')">Rating</button>
+            <button class="view-toggle-btn" onclick="showToast('→ Sort by cook time')">Time</button>
+          </div>
+
+          <div class="filter-pills">
+            <button class="filter-pill">+ Filter</button>
+            <button class="filter-pill">Cookbook</button>
+            <button class="filter-pill">Meal</button>
+            <button class="filter-pill">Cuisine</button>
+          </div>
+        </div>
+
+        <!-- SAMPLE LIST -->
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Salmon with herb yogurt</div>
+            <div class="rec-card-book">Plenty · p. 88</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 25 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Chickpea stew with yogurt</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 30 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Cilantro chicken rice</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 40 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Weeknight fish tacos</div>
+            <div class="rec-card-book">That Sounds So Good</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 25 min</span></div>
+            <div class="rec-card-classic">★ cooked 8 times</div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Roasted eggplant with tahini</div>
+            <div class="rec-card-book">Plenty · p. 42</div>
+            <div class="rec-card-meta-row"><span class="match-badge-partial">95%</span><span class="rec-card-time">· 45 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Miso-glazed cod</div>
+            <div class="rec-card-book">Cook This Book</div>
+            <div class="rec-card-meta-row"><span class="match-badge-partial">88%</span><span class="rec-card-time">· 35 min</span></div>
+            <div class="rec-card-new">added 5 days ago</div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Spatchcock chicken</div>
+            <div class="rec-card-book">Cook This Book</div>
+            <div class="rec-card-meta-row"><span class="match-badge-partial">87% · 2 missing</span><span class="rec-card-time">· 70 min</span></div>
+            <div class="rec-card-social">Tyler · 2d ago · 5 ★</div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Banza cacio e pepe</div>
+            <div class="rec-card-book">Simple</div>
+            <div class="rec-card-meta-row"><span class="match-badge-100">100%</span><span class="rec-card-time">· 15 min</span></div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Saffron rice pudding</div>
+            <div class="rec-card-book">Plenty · p. 201</div>
+            <div class="rec-card-meta-row"><span class="match-badge-partial">67%</span><span class="rec-card-time">· 40 min</span></div>
+          </div>
+        </div>
+
+        <div style="padding: 14px 16px; text-align: center; border-top: 0.5px solid var(--border); background: var(--bg-muted);">
+          <span style="font-size: 12px; color: var(--text-secondary);">466 more · keep scrolling</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Browse recipes — v4 structure</h3>
+      <p>Three zones stacked: <strong>search</strong> (with mic for voice) at top, <strong>tiles</strong> in the middle, <strong>full scrollable list</strong> below with view toggle + filter chips. No more empty feeling.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Tap the search bar → jumps to Natural search tab.<br>
+        • Tap a tile → filtered drill-in (toast).<br>
+        • Tap "Scroll all" tile → scrolls to the full list.<br>
+        • View toggle at the full list: Pantry % / Recent / Rating / Time — user picks what matters.
+      </div>
+      <h4>Why all three coexist</h4>
+      <ul>
+        <li><strong>Search-led user:</strong> types or talks what they want, gets parsed results.</li>
+        <li><strong>Mood-led user:</strong> doesn't know exactly what, taps "Quick tonight" or "Something new."</li>
+        <li><strong>Scroll-led user:</strong> scrolls past tiles, lands in a sortable list with familiar filter pills.</li>
+      </ul>
+      <p>Tiles stay because they're the fastest answer to "I have a general feeling but no specific query." Raw scroll stays because sometimes you just want to browse. Search elevated because it's the fastest path for users who know what they want — and with natural language, that's far more people than today.</p>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-natsearch')">Try natural search →</button>
+        <button onclick="switchTab('p-whatcancook')">What can I cook →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FREEZER CLEANOUT v4 — COLLAPSED ROWS + VIEW TOGGLE ============ -->
+  <section id="p-freezer" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-pantry')">←</span>
+          <span class="c-header-title">Freezer cleanout</span>
+        </div>
+
+        <div class="fr-hint">
+          <strong>6 items</strong> untouched 60+ days. Tap to expand · plan to thaw and the app will remind you.
+        </div>
+
+        <div class="view-toggle-bar">
+          <button class="view-toggle-btn active" onclick="showToast('→ Group by age')">By age</button>
+          <button class="view-toggle-btn" onclick="showToast('→ Group by category')">By category</button>
+          <button class="view-toggle-btn" onclick="showToast('→ Group by storage location')">By storage</button>
+        </div>
+
+        <div class="fr-section-heading">90+ days · 2</div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Frozen peas</span>
+          <span class="fr-row-qty">1 lb</span>
+          <span class="fr-row-age-chip critical">92d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 31 recipes with peas')">🍳 Recipes</button>
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ Peas used directly from frozen')">Use direct</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Whole chicken</span>
+          <span class="fr-row-qty">4 lb</span>
+          <span class="fr-row-age-chip critical">87d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 12 chicken recipes')">🍳 Recipes</button>
+          <button class="fr-item-btn thaw" onclick="event.stopPropagation(); thawItem(this, 'Chicken')">❄️ Thaw</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-section-heading">60-90 days · 2</div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Cod fillet</span>
+          <span class="fr-row-qty">12 oz</span>
+          <span class="fr-row-age-chip">74d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 8 cod recipes')">🍳 Recipes</button>
+          <button class="fr-item-btn thaw" onclick="event.stopPropagation(); thawItem(this, 'Cod')">❄️ Thaw</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Ground beef</span>
+          <span class="fr-row-qty">1 lb</span>
+          <span class="fr-row-age-chip">61d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 24 beef recipes')">🍳 Recipes</button>
+          <button class="fr-item-btn thaw" onclick="event.stopPropagation(); thawItem(this, 'Ground beef')">❄️ Thaw</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-section-heading">30-60 days · 2</div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Frozen berries</span>
+          <span class="fr-row-qty">1 bag</span>
+          <span class="fr-row-age-chip" style="color: var(--text-secondary); background: var(--bg-muted);">52d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 14 recipes')">🍳 Recipes</button>
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ Direct use (smoothies, baking)')">Use direct</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-row-collapsed" onclick="toggleFreezerRow(this)">
+          <span class="dot-sm" style="background: var(--purple-freezer); justify-self: center;"></span>
+          <span class="fr-row-name">Salmon fillet</span>
+          <span class="fr-row-qty">1 lb</span>
+          <span class="fr-row-age-chip" style="color: var(--text-secondary); background: var(--bg-muted);">41d</span>
+        </div>
+        <div class="fr-expanded-actions">
+          <button class="fr-item-btn" onclick="event.stopPropagation(); showToast('→ 16 salmon recipes')">🍳 Recipes</button>
+          <button class="fr-item-btn thaw" onclick="event.stopPropagation(); thawItem(this, 'Salmon')">❄️ Thaw</button>
+          <button class="fr-item-btn toss" onclick="event.stopPropagation(); showToast('→ Removed')">Toss</button>
+        </div>
+
+        <div class="fr-thawing-tray">
+          <div class="fr-thawing-title">Thawing now · 1</div>
+          <div class="fr-thawing-item" id="thaw-chicken">
+            <span class="fr-thawing-item-name">Whole chicken</span>
+            <span class="fr-thawing-item-when">planned for Sat</span>
+          </div>
+        </div>
+
+        <div class="fr-multiselect-bar">
+          <span class="fr-multiselect-text">Select multiple to plan together</span>
+          <span class="fr-multiselect-btn" onclick="showToast('→ Opens multi-select mode')">Select →</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Freezer cleanout — v4 simplified</h3>
+      <p>List-first. Each row shows name, qty, and age chip. Tap row to expand actions. View toggle at top lets you pick the axis: age / category / storage.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • Tap a row (e.g., Whole chicken) to reveal the action buttons. Tap again to collapse.<br>
+        • Age chips color-coded: 90d+ red, 60-89d amber, 30-59d neutral.<br>
+        • View toggle at top switches grouping — "By age" (current), "By category" (Protein / Veg / Dairy), "By storage" (flat list of all freezer items).
+      </div>
+      <h4>View toggle as pattern</h4>
+      <p>This is the pattern you asked for — minimal default info, let user pick axis. Same idea can apply to:</p>
+      <ul>
+        <li><strong>Pantry shelf</strong> (already in this v4) — Category / Storage / Expiry</li>
+        <li><strong>Browse recipes full list</strong> (in this v4) — Pantry % / Recent / Rating / Time</li>
+        <li><strong>Grocery list</strong> (could add) — By tier (current) / By aisle / By recipe</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-pantry')">← Back to pantry</button>
+        <button onclick="switchTab('p-natsearch')">Try natural search →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NATURAL SEARCH — NEW TAB ============ -->
+  <section id="p-natsearch" class="panel">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="c-header">
+          <span class="c-header-back" onclick="switchTab('p-browse')">←</span>
+          <span class="c-header-title">Search</span>
+        </div>
+
+        <div class="ns-hero">
+          <div class="ns-hero-label">Type, speak, or describe what you want</div>
+          <div class="ns-input-wrap">
+            <textarea class="ns-input" id="ns-query" placeholder="e.g., something thai or indian with chicken from ottolenghi, with most ingredients in my pantry">something thai or indian with chicken from ottolenghi, with most ingredients in my pantry</textarea>
+            <button class="ns-mic-btn" onclick="showToast('→ Uses OS dictation')">🎙</button>
+          </div>
+          <button class="ns-submit" onclick="runNatSearch()">Search</button>
+        </div>
+
+        <div class="ns-parse-header">We understood</div>
+        <div class="ns-chips-wrap" id="ns-chips">
+          <span class="ns-chip cuisine">Thai <span class="ns-chip-x">×</span></span>
+          <span class="ns-chip cuisine">Indian <span class="ns-chip-x">×</span></span>
+          <span class="ns-chip ingredient">Chicken <span class="ns-chip-x">×</span></span>
+          <span class="ns-chip chef">Ottolenghi <span class="ns-chip-x">×</span></span>
+          <span class="ns-chip pantry">60%+ in pantry <span class="ns-chip-x">×</span></span>
+        </div>
+
+        <div class="ns-parse-result">
+          Tap × on any chip to drop it. Found 7 recipes matching all filters.
+        </div>
+
+        <div class="section-heading">
+          <div><span class="section-heading-title">Best matches</span><span class="section-heading-count">3</span></div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Chicken tikka masala</div>
+            <div class="rec-card-book">Plenty · Ottolenghi · p. 122</div>
+            <div class="rec-card-meta-row">
+              <span class="match-badge-partial">80%</span>
+              <span class="rec-card-time">· 45 min · Indian</span>
+            </div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Thai-style chicken curry</div>
+            <div class="rec-card-book">Plenty · Ottolenghi · p. 148</div>
+            <div class="rec-card-meta-row">
+              <span class="match-badge-partial">75%</span>
+              <span class="rec-card-time">· 35 min · Thai</span>
+            </div>
+          </div>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Chicken pad ka prao</div>
+            <div class="rec-card-book">Plenty · Ottolenghi · p. 164</div>
+            <div class="rec-card-meta-row">
+              <span class="match-badge-partial">67%</span>
+              <span class="rec-card-time">· 20 min · Thai</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div><span class="section-heading-title">Partial matches</span><span class="section-heading-count">4</span></div>
+          <span class="section-heading-link">loosen filters</span>
+        </div>
+        <div class="rec-card">
+          <div class="rec-card-img"></div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">Indian lentil dal</div>
+            <div class="rec-card-book">Plenty · Ottolenghi · p. 184</div>
+            <div class="rec-card-meta-row">
+              <span class="match-badge-partial">90%</span>
+              <span class="rec-card-time">· 40 min · Indian</span>
+            </div>
+            <div class="rec-card-classic" style="color: var(--text-tertiary);">no chicken · otherwise matches</div>
+          </div>
+        </div>
+
+        <div class="ns-example-prompts">
+          <div class="ns-example-prompts-label">Try these</div>
+          <span class="ns-example" onclick="loadExample('quick dinner with what\'s expiring')">"quick dinner with what's expiring"</span>
+          <span class="ns-example" onclick="loadExample('vegetarian from simple that mary would like')">"vegetarian from simple that mary would like"</span>
+          <span class="ns-example" onclick="loadExample('something new I\'ve never cooked, under 30 min')">"something new I've never cooked, under 30 min"</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>Natural language search — how it works</h3>
+      <p>Type or dictate free text → Claude Haiku parses into structured filter chips → query runs against existing filter engine → results shown with transparent filter representation.</p>
+      <div class="try-this">
+        <strong>Try it:</strong><br>
+        • The query "something thai or indian with chicken from ottolenghi…" is pre-filled. Tap Search to see the parsed chips.<br>
+        • Tap × on any chip to drop that filter and re-query.<br>
+        • Tap an example prompt at the bottom to see how different queries parse.
+      </div>
+      <h4>Architecture</h4>
+      <ul>
+        <li><strong>Parse layer (Haiku):</strong> free text → structured JSON with known-vocabulary matches (cuisines, chefs, ingredients) + pantry % threshold + free text residual. ~500ms latency. ~$0.0001/call.</li>
+        <li><strong>Execute layer:</strong> reuses existing <code style="font-size:12px; background:var(--bg-muted); padding:1px 4px;">searchService.ts</code> filter object. Same engine as the FilterDrawer.</li>
+        <li><strong>Transparent:</strong> user sees exactly what was parsed. Can correct misreads by tapping ×.</li>
+        <li><strong>Graceful fallback:</strong> if parse fails or returns empty, falls through to existing text search.</li>
+      </ul>
+      <h4>Why this fits Phase 8</h4>
+      <ul>
+        <li>1-2 sessions to build (new parse function + prompt + chip UI + existing engine reuse).</li>
+        <li>Low operational cost — Haiku call per search is negligible.</li>
+        <li>Voice support free — iOS/Android system dictation reads into the textarea.</li>
+        <li>Ships a genuine AI moment without scope creep.</li>
+      </ul>
+      <h4>What's deferred to post-F&F</h4>
+      <ul>
+        <li><strong>Conversational refinement</strong> — "actually make it under 30 min" as a follow-up query. Requires context persistence.</li>
+        <li><strong>Query suggestions / autocomplete</strong> — "did you mean...?" — requires learning from query corpus.</li>
+        <li><strong>Dietary preference injection</strong> — searches for Mary auto-add GF filter. Needs user-profile awareness, small add.</li>
+        <li><strong>Voice-native mode</strong> — app-level voice recording beyond OS dictation.</li>
+      </ul>
+      <div class="demo-actions">
+        <button onclick="switchTab('p-browse')">← Browse recipes</button>
+        <button onclick="switchTab('p-whatcancook')">What can I cook →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ REACTION POINTS ============ -->
+  <section style="margin-top: 40px; padding-top: 24px; border-top: 0.5px solid var(--border);">
+    <h2 style="font-size: 18px; font-weight: 500; margin: 0 0 16px;">V5 changes summary</h2>
+
+    <h3 style="font-size: 15px; font-weight: 500; margin: 16px 0 8px;">1. Unknown state on staples</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">New dashed-border treatment for staples the user hasn't confirmed yet. Tap the dot → confirms as "good" and exits unknown state permanently. See <strong>Paprika</strong> on the Pantry tab — that's the state. Real-world case: you mentioned always re-buying paprika because you couldn't remember if you had any. Now you'd add it to staples list, leave it in unknown state until you check the shelf, tap to confirm.</p>
+
+    <h3 style="font-size: 15px; font-weight: 500; margin: 16px 0 8px;">2. Out prominence — subtle bump</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">Out staples now auto-sort to top-left position (Cholula is first). Label text is 500 weight. Tint kept subtle per earlier feedback. Distinction is "slightly more noticeable" not "alarming."</p>
+
+    <h3 style="font-size: 15px; font-weight: 500; margin: 16px 0 8px;">3. Recipe tab — existing layout preserved</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">Reverted to the Phase 6G NYT-style format: group headers, <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">✓ qty unit <strong>name</strong>, preparation</code> flat row format. No bordered cards. Tap-sheet appears inline below the tapped row (not an overlay). Actions adapt to ingredient state — missing gets "Substitute," low staple gets "Actually have" / "Mark out," etc. Implements the D6-18 deferred feature.</p>
+
+    <h3 style="font-size: 15px; font-weight: 500; margin: 16px 0 8px;">4. Locked filter chips pattern</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">On subset pages (What can I cook, Ingredient Detail Recipes), the page's defining filter shows as a locked chip with a small lock icon — not removable. User-added filters use blue treatment and are removable. Natural-language search bar above the chips accepts refinements that layer on top of locked filters. See <strong>What can I cook</strong> — "Pantry match ≥ 60%" and "Excludes staples" are locked; any free text search starts with those applied.</p>
+
+    <h3 style="font-size: 15px; font-weight: 500; margin: 16px 0 8px;">5. Browse collapsed filter row</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">View toggle + filter pills collapsed into a single line ("Sort: <strong>Pantry %</strong> · 0 filters · Filter &amp; sort ▸"). Tap to expand. Recipes below get more visual weight on initial scroll.</p>
+
+    <h2 style="font-size: 18px; font-weight: 500; margin: 24px 0 16px;">Path B data model prep</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">Per the decision to move toward Path B eventually:</p>
+    <ul style="padding-left: 20px; font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 820px;">
+      <li>Add <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">last_confirmed_at TIMESTAMPTZ</code> to both <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">pantry_items</code> and <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">pantry_staples</code> tables</li>
+      <li>Add <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">staleness_threshold_days</code> per category to user preferences (defaults: fresh produce 7d, dairy 14d, pantry staple 60d, freezer 180d)</li>
+      <li>Update pantryService functions to bump <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">last_confirmed_at</code> on any state change (qty edit, expiration edit, state cycle, cook-post depletion)</li>
+      <li><strong>F&F ships with unknown state visible only for staples</strong> (current prototype behavior) — the underlying data collects during F&F, post-launch we turn on stale treatment for tracked items with 1 session of UI work</li>
+    </ul>
+
+    <h2 style="font-size: 18px; font-weight: 500; margin: 24px 0 16px;">Decisions still open</h2>
+    <ol style="padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--text-secondary); max-width: 820px;">
+      <li><strong style="color: var(--text-primary);">Out position in staples grid.</strong> Current: auto-sort to top-left. Alternative: keep position stable, just make bolder. Flipping is a user-disorientation concern if an item you expect at position X moves. My vote: auto-sort is right — if something's out, it should lead. Your take?</li>
+      <li><strong style="color: var(--text-primary);">Inline tap sheet vs in-place actions.</strong> The sheet appears below the tapped row as a panel. Alternative: inline actions replace the row itself, no separate panel (tap cilantro → row swaps to action buttons). Current approach keeps context; the alternative would use less space. Works as-is?</li>
+      <li><strong style="color: var(--text-primary);">Unknown state entry point.</strong> Prototype shows Paprika as existing-unknown. How does a user add a staple in unknown state in the first place? "Add new staple" → three default state options including unknown, or always starts unknown and user confirms on first check?</li>
+      <li><strong style="color: var(--text-primary);">Locked chip wording.</strong> "Pantry match ≥ 60%" / "Excludes staples" — these are specific. Better as plain English? "Only recipes I can make" / "Ignoring staples"?</li>
+      <li><strong style="color: var(--text-primary);">"Which step?" action in recipe sheet.</strong> Implements D6-18. Is that the right name? Alternatives: "Find in recipe," "Jump to step," "Used in steps." What reads most natural?</li>
+    </ol>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 24px 0 10px;">Scope impact vs v4</h3>
+    <p style="font-size: 14px; line-height: 1.7; color: var(--text-secondary); max-width: 820px;">Net neutral. v5 simplifies in places (recipe tab doesn't need new overlay sheet — uses existing layout with tap-sheet addition). Path B schema prep (0.5 session) is new. Locked chip pattern is reusable (0.5 session). Net: still <strong>16-23 sessions</strong>.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 20px 0 10px;">Compare vs v3 / v4</h3>
+    <p style="font-size: 14px; line-height: 1.7; color: var(--text-secondary); max-width: 820px;">Three prototypes preserved:<br>
+      • <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">phase_8_system_prototype.html</code> — v3 (pre-recipe sheet + tier grocery)<br>
+      • <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">phase_8_system_prototype_v4.html</code> — v4 (added recipe sheet overlay + natural search + grocery chips + freezer collapsed)<br>
+      • <code style="font-size: 12px; background: var(--bg-muted); padding: 1px 4px;">phase_8_system_prototype_v5.html</code> — this file (existing recipe layout + unknown state + locked chips + collapsed browse filter)
+    </p>
+  </section>
+
+</div>
+
+<script>
+  // ============ TAB SWITCHING ============
+  function switchTab(targetId) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabEl = document.querySelector('.tab[data-target="' + targetId + '"]');
+    if (tabEl) tabEl.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.getAttribute('data-target')));
+  });
+
+  // ============ SUB-VARIANT (within-tab option) ============
+  function switchSubvariant(btn, prefix) {
+    const variant = btn.getAttribute('data-variant');
+    // clear all subtoggle buttons in this group
+    btn.parentElement.querySelectorAll('.subtoggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // find all subvariants with this prefix and hide
+    document.querySelectorAll('[id^="sv-' + prefix + '"]').forEach(v => v.classList.remove('active'));
+    document.getElementById('sv-' + variant).classList.add('active');
+  }
+
+  // ============ TOAST ============
+  let toastTimer;
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  // ============ STAPLE STATE CYCLING — DOT ONLY, WITH UNKNOWN ============
+  const stateCycle = ['good', 'low', 'out'];
+  function cycleStaple(dotEl) {
+    const staple = dotEl.closest('.p-staple');
+    const name = staple.getAttribute('data-staple');
+    // Unknown exits cycle permanently — first tap sets to 'good'
+    if (staple.classList.contains('unknown')) {
+      staple.classList.remove('unknown');
+      staple.classList.add('good');
+      const label = staple.querySelector('.p-staple-label');
+      const dot = staple.querySelector('.dot');
+      dot.classList.add('dot-good');
+      label.textContent = name;
+      label.style.fontStyle = '';
+      showToast(name + ' → confirmed (good)');
+      return;
+    }
+    const currentState = stateCycle.find(s => staple.classList.contains(s));
+    const nextIdx = (stateCycle.indexOf(currentState) + 1) % 3;
+    const nextState = stateCycle[nextIdx];
+    staple.classList.remove('good', 'low', 'out');
+    staple.classList.add(nextState);
+    const label = staple.querySelector('.p-staple-label');
+    const dot = staple.querySelector('.dot');
+    dot.classList.remove('dot-good', 'dot-low', 'dot-out');
+    dot.classList.add('dot-' + nextState);
+    if (nextState === 'good') label.textContent = name;
+    else if (nextState === 'low') label.textContent = name + ' · low';
+    else label.textContent = name + ' · out';
+    showToast(name + ' → ' + nextState);
+  }
+
+  // ============ STAPLE LABEL → INGREDIENT DETAIL ============
+  function openIngDetail(name) {
+    const nameEl = document.getElementById('ing-name');
+    if (nameEl) nameEl.textContent = name;
+    // Reset to Recipes tab on open
+    document.querySelectorAll('.ing-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.ing-tab[data-ingtab="ing-recipes"]').classList.add('active');
+    document.querySelectorAll('.ing-tabcontent').forEach(c => c.classList.remove('active'));
+    document.getElementById('ing-recipes').classList.add('active');
+    switchTab('p-ingdetail');
+  }
+
+  // ============ INGREDIENT DETAIL TAB SWITCHING ============
+  function switchIngTab(tab) {
+    const target = tab.getAttribute('data-ingtab');
+    document.querySelectorAll('.ing-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.ing-tabcontent').forEach(c => c.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+  }
+
+  // ============ ACCORDION SECTION TOGGLE ============
+  function toggleAccSection(header) {
+    const body = header.nextElementSibling;
+    const chev = header.querySelector('span:last-child');
+    const title = header.querySelector('.ing-section-acc-title');
+    if (body.classList.contains('open')) {
+      body.classList.remove('open');
+      header.classList.remove('open');
+      if (chev) chev.textContent = '▸';
+      title.classList.add('muted');
+    } else {
+      body.classList.add('open');
+      header.classList.add('open');
+      if (chev) chev.textContent = '▾';
+      title.classList.remove('muted');
+    }
+  }
+
+  // ============ CATEGORY TOGGLE ============
+  function toggleCat(id) {
+    const body = document.getElementById(id);
+    const header = body.previousElementSibling;
+    const title = header.querySelector('.p-cat-header-title');
+    if (body.classList.contains('open')) {
+      body.classList.remove('open');
+      title.textContent = title.textContent.replace('▾', '▸');
+      title.classList.add('muted');
+    } else {
+      body.classList.add('open');
+      title.textContent = title.textContent.replace('▸', '▾');
+      title.classList.remove('muted');
+    }
+  }
+
+  // ============ USE SOON MULTI-SELECT ============
+  function toggleUseSoon(row) {
+    row.classList.toggle('selected');
+    const count = document.querySelectorAll('.p-usesoon-row.selected').length;
+    const bar = document.getElementById('use-soon-action');
+    const countEl = document.getElementById('use-soon-count');
+    if (count > 0) {
+      bar.classList.add('show');
+      countEl.textContent = count + ' selected';
+    } else {
+      bar.classList.remove('show');
+    }
+  }
+  function findMultiRecipes() {
+    const selected = Array.from(document.querySelectorAll('.p-usesoon-row.selected'))
+      .map(r => r.querySelector('.p-usesoon-name').childNodes[0].textContent.trim())
+      .join(' + ');
+    showToast('→ Recipes with ' + selected);
+  }
+
+  // ============ GROCERY CHECK TOGGLE ============
+  function toggleCheck(row) {
+    row.classList.toggle('checked');
+  }
+
+  // ============ RECIPE MISSING → GROCERY ============
+  function addOneToGrocery(btn, name) {
+    btn.classList.add('added');
+    btn.textContent = '✓ added';
+    showToast(name + ' added to "This week · Now"');
+  }
+  function addMissingToGrocery() {
+    document.querySelectorAll('.r-ingredient-action').forEach(btn => {
+      if (!btn.classList.contains('added')) {
+        btn.classList.add('added');
+        btn.textContent = '✓ added';
+      }
+    });
+    showToast('Missing ingredients added');
+  }
+
+  // ============ DEPLETION STAPLE TOGGLE ============
+  function toggleStaple(toggle) {
+    toggle.classList.toggle('on');
+  }
+
+  // ============ FREEZER — THAW ITEM ============
+  function thawItem(btn, name) {
+    btn.textContent = '✓ thawing';
+    btn.style.background = 'var(--purple-bg)';
+    showToast(name + ' added to thawing · plan for next week');
+  }
+
+  // ============ V5 — INLINE RECIPE TAP SHEET ============
+  function openInlineSheet(row, name, state, detail) {
+    const sheetId = 'sheet-' + name.replace(/ /g, '_');
+    const sheet = document.getElementById(sheetId);
+    if (!sheet) return;
+    // If this sheet is already open, close it
+    if (sheet.classList.contains('show')) {
+      sheet.classList.remove('show');
+      return;
+    }
+    // Close all other sheets first
+    closeAllSheets();
+    sheet.classList.add('show');
+  }
+  function closeAllSheets() {
+    document.querySelectorAll('.tapsheet').forEach(s => s.classList.remove('show'));
+  }
+
+  // ============ V5 — BROWSE FILTER TOGGLE ============
+  function toggleBrowseFilter() {
+    const expanded = document.getElementById('br-filter-expanded');
+    expanded.classList.toggle('show');
+  }
+
+  // Deprecated v4 handlers kept as noop for safety
+  function openRecipeIngSheet() {}
+  function closeRecipeSheet() {}
+
+  // ============ V4 — FREEZER COLLAPSED ROW TOGGLE ============
+  function toggleFreezerRow(row) {
+    const actions = row.nextElementSibling;
+    if (actions && actions.classList.contains('fr-expanded-actions')) {
+      actions.classList.toggle('show');
+      row.classList.toggle('expanded');
+    }
+  }
+
+  // ============ V4 — NATURAL SEARCH ============
+  function runNatSearch() {
+    showToast('→ Parsed: Thai + Indian + Chicken + Ottolenghi + 60% pantry');
+  }
+  function loadExample(text) {
+    document.getElementById('ns-query').value = text;
+    showToast('→ Tap Search to parse');
+  }
+
+  // ============ V4 — SCROLL TO FULL LIST ============
+  function scrollToFullList() {
+    const anchor = document.getElementById('full-list-anchor');
+    if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+
+</body>
+</html>

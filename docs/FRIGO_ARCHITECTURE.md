@@ -1,5 +1,5 @@
 # Frigo — Architecture & Codebase Map
-**Last Updated:** April 21, 2026
+**Last Updated:** May 19, 2026
 **Version:** 4.0
 
 ---
@@ -137,6 +137,12 @@ frigo/
 │   │   ├── SectionDots.tsx, ViewModeMenu.tsx
 │   │   ├── StepNoteInput.tsx, StepNoteDisplay.tsx
 │   │   └── PostCookFlow.tsx         ← DEPRECATED in 7B-Rev. Replaced by LogCookSheet full mode.
+│   ├── recipe/                      ← RecipeDetailScreen sub-components
+│   │   ├── RecipeHeader.tsx, ScaleConvertControls.tsx
+│   │   ├── IngredientsSection.tsx   ← 4-level match rows (8D-CP2); rows tappable → inline tap-sheet (8D-CP3)
+│   │   ├── IngredientTapSheet.tsx   ← 8D-CP3: inline tap-sheet rendered below a tapped ingredient row; state-driven actions (+ Need now / See more / Which step? / ...)
+│   │   ├── RecipeCard.tsx           ← 8D-CP4: recipe list card, extracted from RecipeListScreen; shared by RecipeListScreen + WhatCanICookScreen. Owns the `Recipe` card-data type.
+│   │   └── PreparationSection.tsx
 │   ├── icons/
 │   │   ├── index.ts                 ← Barrel export for all icon subdirectories
 │   │   ├── recipe/                  ← 19 SVG components (TimerIcon, FireIcon, SortIcon, PencilIcon, etc.)
@@ -252,6 +258,8 @@ frigo/
 | **cookingService.ts** | Cooking session state, step notes | upsertStepNote, getStepNotes (table: recipe_step_notes) |
 | **unitConverter.ts** | Metric/imperial conversion | convert |
 | **vibeService.ts** | **Phase 7F** — vibe tag formatting + aggregation | **getRecipeVibe**(recipeId), **getVibeFromTags**(tags) — pre-fetched variant to avoid extra query, **computeMealVibe**(mealId) — aggregates dish vibes with most-common-wins + alphabetical tiebreak. Exports `VibeTag` interface (`{emoji, label}`). Internal: `VIBE_EMOJI_MAP` (14 known tags → emoji, `✨` fallback) and `VIBE_LABEL_OVERRIDES` (punctuation/capitalization). |
+| **pantryMatchingService.ts** | **Phase 8D-CP1/CP2** — recipe ↔ supply 4-level matcher | **calculateRecipeSupplyMatch**(recipeId, spaceId), **calculateRecipeSupplyMatchBulk**(recipeIds, spaceId). Fixed 3-query bulk design (recipe_ingredients → supplies → ingredient catalog). Returns `PantryMatchResult` whose `matched: MatchedIngredient[]` carries a `level`: **L1 exact** (same row, or `base_ingredient_id`-linked), **L2 form_variant** (same `ingredient_subtype`, different `form`), **L3 substitute** (same subtype + form), **L4 no match** (→ `missing[]`). `ingredient_subtype='always_available'` (water, ice) is L1 with no supply lookup. `matchPercentage` counts L1+L2+L3+always_available. **CP2 patch:** L2/L3 are whitelist-gated by `SUBSTITUTABLE_SUBTYPES` (~75 subtypes) — non-whitelisted same-subtype matches demote to L4; a null-form wildcard collapses generic-base pairings to silent L1. See `SUBSTITUTION_INTELLIGENCE_ROADMAP.md`. **CP3:** `MatchedIngredient` gained `supplyStatus` (`SupplyStatus \| null`) — populated from the existing supply rows, no extra query — so the recipe ingredient tap-sheet can distinguish in-stock vs low/critical. |
+| **readyToCookService.ts** | **Phase 8D-CP4** — "ready to cook" gate (D8D-Q3) | **isReadyToCook**(recipe, matchResult), **filterReadyToCook**(recipes, matchMap), **resolveHeroToIngredientId**(heroName, recipeIngredients), **getRecipeIngredientNames**(recipeIds), `READY_TO_COOK_THRESHOLD = 0.9`. Single source of truth for the predicate: `matchPercentage >= 0.90` AND every resolvable hero ingredient matched. `getRecipeIngredientNames` is a **new public surface** — batch-loads each recipe's catalog `{id,name}` ingredient pairs from `recipe_ingredients` (needed because `recipes.hero_ingredients` is a bare `text[]` with no catalog ids; heroes are name-resolved at filter time). Unresolvable heroes are a soft pass + permanent `console.warn` for data-quality measurement (T31). |
 
 ### statsService.ts Key Patterns
 
@@ -288,6 +296,16 @@ getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
 
 ---
 
+## Hooks (lib/hooks/)
+
+`lib/hooks/` was created in 8D-CP4 — the project's first standalone-hook directory (prior "hooks" are context providers under `contexts/`).
+
+| Hook | Notes |
+|------|-------|
+| **useReadyToCookRecipes.ts** | **Phase 8D-CP4.** `useReadyToCookRecipes(spaceId)` → loads the user's recipes, bulk-matches against the active space's supplies, applies the `readyToCookService` gate, and returns `{ readyToCookRecipes, matchMap, loading, error, refresh }`. Backs WhatCanICookScreen. |
+
+---
+
 ## Screens (screens/)
 
 | Screen | Notes |
@@ -298,7 +316,8 @@ getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
 | **BookDetailScreen.tsx** | Book stats: progress bar, completion%, most cooked, highest rated, key ingredients, cuisines, methods. |
 | **UserPostsScreen.tsx** | Read-only Strava-style activity cards for other users' posts. |
 | **RecipeDetailScreen.tsx** | Largest screen. RecipeNutritionPanel integrated. Static StyleSheet (dynamic theming removed). Phase 7B/7B-Rev: Primary "Log This Cook" CTA opens LogCookSheet (compact mode). Secondary "Cook in Step-by-Step Mode" text link. Grouped overflow menu with view mode subheader, edit mode toggle (PencilIcon with filled state), delete via recipeService. Edit mode banner with Exit button below sticky bar. Step notes display in "Your Private Notes" section. |
-| RecipeListScreen.tsx | Phase 3A overhaul. Expandable cards, 3 browse modes (All/Cook Again/Try New), 8 sort options, quick filter chips with SVG icons. Accepts initial filter params from stats drill-downs (cuisine, concept, dietary, sortBy). |
+| RecipeListScreen.tsx | Phase 3A overhaul. Expandable cards, 3 browse modes (All/Cook Again/Try New), 8 sort options, quick filter chips with SVG icons. Accepts initial filter params from stats drill-downs (cuisine, concept, dietary, sortBy). **8D-CP4:** card render extracted to `<RecipeCard>`; bulk matcher wired into the load (`pantry_match` populated, `canMakeCount` derived via the ready-to-cook gate); the "X you can make now" badge is tappable → WhatCanICookScreen. |
+| **WhatCanICookScreen.tsx** | **Phase 8D-CP4.** Dedicated surface for the ready-to-cook recipe subset (D8D-Q3 gate: ≥90% pantry match + all hero ingredients on hand). Reachable from RecipeListScreen's "X you can make now" badge and PantryScreen's "What can I cook?" CTA. Load + gate via the `useReadyToCookRecipes` hook; renders `<RecipeCard>` list with search + a temporary locked filter chip (8E-CP3 will formalize). Architectural comment reservation for a future free-form recipe-ideas section. |
 | FeedScreen.tsx | **Phase 7I Checkpoint 4 rewrite — cook-post-centric feed.** Queries `posts` where `post_type='dish'`, hydrates via `cookCardDataService.transformToCookCardData`, groups via `feedGroupingService.buildFeedGroups` into four `FeedGroup` types (`solo`, `linked_meal_event`, `linked_shared_recipe`, legacy fall-through), dispatches to `CookCard` / `NestedMealEventGroup` / `SharedRecipeLinkedGroup` / `LinkedCookStack`. Meal events surface only as L4 preheads or L5 group headers — never as their own feed cards. Tapping a cook card → `CookDetail`; tapping a meal event prehead/header → `MealEventDetail`. **Phase 7G:** sort key switched from `created_at` to `cooked_at` across feed + grouping service. **Phase 7M Fix Pass 1:** stale-data refetch on focus (5s threshold via `useFocusEffect`) so edits made in `EditPostScreen` surface immediately on return. Feed header has no flask debug button as of CP7 cleanup. |
 | **CookDetailScreen.tsx** | **Phase 7I Checkpoint 5 — L6 detail screen** for a single cook post. Reached from every CookCard tap. 14 content blocks (header, hero carousel, author block, title, description, recipe line, cooked-with row, stats grid, highlights pill, mods/notes, cook history, photo gallery, comments preview, sticky engagement bar). **Phase 7M cleanup:** overflow menu collapsed from 6 narrow-scope items to 2 (`Edit post` → `EditPostScreen`, `Delete post` with confirmation); ~508 lines removed (down to ~1527). **Phase 7N polish:** header title promoted into nav bar (P7-90), rating label ternary for own vs. other's post (P7-96 half), inline (non-sticky) engagement bar (P7-98), meal picker enhanced with dates + chronological sort + "Create new meal event" row (P7-91). Uses `fetchSingleCookCardData` + `getCommentsForPost` + `computeHighlightsForFeedBatch` + `getCookHistoryForUserRecipe`. 7M Fix Pass 1 added `useFocusEffect` with `focusCountRef` for stale-data refresh. |
 | **MealEventDetailScreen.tsx** | **Phase 7I Checkpoint 6 — L7 detail screen** for a meal event. Reached from L4 preheads (solo cook + meal event) and L5 group headers (nested meal event). 8 content blocks (header, hero, metadata, stats grid, "what everyone brought" dish rows, "at the table" attendees, shared media grid, "about the evening" comments) + sticky engagement bar. Private per-eater rating pill per dish (D43) via `eaterRatingsService`. Host overflow menu (6 items: Edit title, Edit date/time, Edit location, Edit highlight photo, Manage attendees, Delete event) and attendee overflow menu (3 items: Add photo to shared media, Add event comment, Leave event). Uses `getMealEventDetail` + `getEaterRatingsForMeal` + `getCommentsForPost` + existing `post_likes` (D51). Rating pill text + 5-star picker active state use `colors.primary` (teal). |

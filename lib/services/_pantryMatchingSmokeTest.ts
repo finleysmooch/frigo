@@ -26,6 +26,8 @@ import {
   calculateRecipeSupplyMatch,
   calculateRecipeSupplyMatchBulk,
 } from './pantryMatchingService';
+import type { PantryMatchResult } from './pantryMatchingService';
+import { isReadyToCook, filterReadyToCook } from './readyToCookService';
 
 const PREFIX = '__smoke8d_';
 
@@ -632,6 +634,312 @@ export async function runPantryMatchingSmokeTests(spaceId: string): Promise<void
       }
     } catch (e) {
       setupFail('SMOKE-BULK', e);
+    }
+
+    // ============================================
+    // CP2 — 4-level matcher scenarios (SMOKE-CP2-*)
+    // ============================================
+    // Each cp2() scenario: a synthetic recipe wants `recipeName`; the user
+    // holds a synthetic supply of `supplyName` (or nothing if null). Asserts
+    // the resulting MatchLevel. expectLevel 'L4' = recipe ingredient lands in
+    // missing[]. Catalog rows discovered by name — skipMissing on a gap.
+    const cp2 = async (
+      label: string,
+      recipeName: string,
+      supplyName: string | null,
+      expectLevel: 'exact' | 'form_variant' | 'substitute' | 'always_available' | 'L4'
+    ): Promise<void> => {
+      const ri = await findIngredient(recipeName);
+      const su = supplyName ? await findIngredient(supplyName) : null;
+      if (!ri || (supplyName && !su)) {
+        skipMissing(label, `${recipeName}${supplyName ? ' / ' + supplyName : ''}`);
+        return;
+      }
+      const local: string[] = [];
+      try {
+        const recipe = await makeRecipe(t, userId, label);
+        await addRecipeIngredient(recipe, ri.id, 1);
+        if (su) {
+          local.push(
+            await makeSupply(t, spaceId, userId, { ingredientId: su.id, status: 'in_stock' })
+          );
+        }
+        const r = await calculateRecipeSupplyMatch(recipe, spaceId);
+        const hit = r.matched.find((m) => m.ingredientId === ri.id);
+        const pass =
+          expectLevel === 'L4'
+            ? !hit && r.missing.includes(ri.id)
+            : hit?.level === expectLevel;
+        report(label, pass, `${recipeName} vs ${supplyName ?? '(none)'} → ${expectLevel}`, r);
+      } catch (e) {
+        setupFail(label, e);
+      }
+      await deleteSupplies(t, local);
+    };
+
+    await cp2('SMOKE-CP2-L1a', 'lemon', 'lemon', 'exact');
+    await cp2('SMOKE-CP2-L1b', 'lemon juice', 'lemon', 'exact');
+    await cp2('SMOKE-CP2-L1c', 'lemon zest', 'lemon juice', 'exact');
+    await cp2('SMOKE-CP2-L1d', 'lime juice', 'lemon juice', 'L4');
+    await cp2('SMOKE-CP2-L2a', 'black pepper', 'black peppercorns', 'form_variant');
+    await cp2('SMOKE-CP2-L2b', 'dried basil', 'basil', 'form_variant');
+    await cp2('SMOKE-CP2-L2c', 'dijon mustard', 'mustard seeds', 'form_variant');
+    await cp2('SMOKE-CP2-L3a', 'basmati rice', 'jasmine rice', 'substitute');
+    await cp2('SMOKE-CP2-L3b', 'yellow mustard', 'dijon mustard', 'substitute');
+    await cp2('SMOKE-CP2-L3c', 'chicken broth', 'chicken stock', 'substitute');
+    await cp2('SMOKE-CP2-L4', 'flour', 'rice', 'L4');
+    await cp2('SMOKE-CP2-L4b', 'ras el hanout', 'garam masala', 'L4');
+    await cp2('SMOKE-CP2-AAa', 'water', null, 'always_available');
+    await cp2('SMOKE-CP2-AAb', 'ice', null, 'always_available');
+
+    // ---- SMOKE-CP2-tie: deterministic pick — 2 L3-qualifying supplies. ----
+    {
+      const basmati = await findIngredient('basmati rice');
+      const jasmine = await findIngredient('jasmine rice');
+      if (!basmati || !jasmine) {
+        skipMissing('SMOKE-CP2-tie', 'basmati rice / jasmine rice');
+      } else {
+        const local: string[] = [];
+        try {
+          const recipe = await makeRecipe(t, userId, 'cp2-tie');
+          await addRecipeIngredient(recipe, basmati.id, 1);
+          // Two jasmine-rice supplies — both L3 candidates. created_at DESC
+          // means the second-created supply must win.
+          const s1 = await makeSupply(t, spaceId, userId, { ingredientId: jasmine.id, status: 'in_stock' });
+          const s2 = await makeSupply(t, spaceId, userId, { ingredientId: jasmine.id, status: 'in_stock' });
+          local.push(s1, s2);
+          const r = await calculateRecipeSupplyMatch(recipe, spaceId);
+          const hit = r.matched.find((m) => m.ingredientId === basmati.id);
+          const pass = hit?.level === 'substitute' && hit.supplyId === s2;
+          report('SMOKE-CP2-tie', pass, 'L3 tie → most-recent supply wins', { hit, s1, s2 });
+        } catch (e) {
+          setupFail('SMOKE-CP2-tie', e);
+        }
+        await deleteSupplies(t, local);
+      }
+    }
+
+    // ---- SMOKE-CP2-pct: 4 ingredients, 1 L1 + 1 L2 + 1 L3 + 1 AA → 100%. ----
+    {
+      const lemon = await findIngredient('lemon');
+      const bpepper = await findIngredient('black pepper');
+      const bpeppercorns = await findIngredient('black peppercorns');
+      const basmati = await findIngredient('basmati rice');
+      const jasmine = await findIngredient('jasmine rice');
+      const water = await findIngredient('water');
+      if (!lemon || !bpepper || !bpeppercorns || !basmati || !jasmine || !water) {
+        skipMissing('SMOKE-CP2-pct', 'lemon/black pepper/black peppercorns/basmati/jasmine/water');
+      } else {
+        const local: string[] = [];
+        try {
+          const recipe = await makeRecipe(t, userId, 'cp2-pct');
+          await addRecipeIngredient(recipe, lemon.id, 1);
+          await addRecipeIngredient(recipe, bpepper.id, 2);
+          await addRecipeIngredient(recipe, basmati.id, 3);
+          await addRecipeIngredient(recipe, water.id, 4);
+          local.push(await makeSupply(t, spaceId, userId, { ingredientId: lemon.id, status: 'in_stock' }));
+          local.push(await makeSupply(t, spaceId, userId, { ingredientId: bpeppercorns.id, status: 'in_stock' }));
+          local.push(await makeSupply(t, spaceId, userId, { ingredientId: jasmine.id, status: 'in_stock' }));
+          const r = await calculateRecipeSupplyMatch(recipe, spaceId);
+          const pass = r.matchPercentage === 1 && r.matchedCount === 4 && r.totalCount === 4;
+          report('SMOKE-CP2-pct', pass, '4 ingredients (L1+L2+L3+AA) → 100% / 4 matched', r);
+        } catch (e) {
+          setupFail('SMOKE-CP2-pct', e);
+        }
+        await deleteSupplies(t, local);
+      }
+    }
+
+    // ---- SMOKE-CP2-mix: 5 ingredients, 2 L1 + 1 L4 + 2 AA → 80%. ----
+    {
+      const lemon = await findIngredient('lemon');
+      const oliveOil = await findIngredient('olive oil');
+      const flour = await findIngredient('flour');
+      const water = await findIngredient('water');
+      const ice = await findIngredient('ice');
+      if (!lemon || !oliveOil || !flour || !water || !ice) {
+        skipMissing('SMOKE-CP2-mix', 'lemon/olive oil/flour/water/ice');
+      } else {
+        const local: string[] = [];
+        try {
+          const recipe = await makeRecipe(t, userId, 'cp2-mix');
+          await addRecipeIngredient(recipe, lemon.id, 1);
+          await addRecipeIngredient(recipe, oliveOil.id, 2);
+          await addRecipeIngredient(recipe, flour.id, 3);
+          await addRecipeIngredient(recipe, water.id, 4);
+          await addRecipeIngredient(recipe, ice.id, 5);
+          local.push(await makeSupply(t, spaceId, userId, { ingredientId: lemon.id, status: 'in_stock' }));
+          local.push(await makeSupply(t, spaceId, userId, { ingredientId: oliveOil.id, status: 'in_stock' }));
+          const r = await calculateRecipeSupplyMatch(recipe, spaceId);
+          const pass =
+            Math.abs(r.matchPercentage - 0.8) < 0.001 &&
+            r.matchedCount === 4 &&
+            r.totalCount === 5;
+          report('SMOKE-CP2-mix', pass, '5 ingredients (2 L1 + 1 L4 + 2 AA) → 80% / 4 matched', r);
+        } catch (e) {
+          setupFail('SMOKE-CP2-mix', e);
+        }
+        await deleteSupplies(t, local);
+      }
+    }
+
+    // ============================================
+    // CP2 PATCH — substitution whitelist + null-form wildcard (SMOKE-CP2-WL*/NF*)
+    // ============================================
+    // WL1-4: non-whitelisted subtypes (tropical_fruit, fish, cheese, chile)
+    // demote to L4. WL5-8: whitelisted subtypes still fire L2/L3. NF1-3: the
+    // null-form wildcard collapses a generic-base pairing to a silent L1.
+    await cp2('SMOKE-CP2-WL1', 'mango', 'banana', 'L4');
+    await cp2('SMOKE-CP2-WL2', 'salmon', 'tuna', 'L4');
+    await cp2('SMOKE-CP2-WL3', 'cheddar', 'feta', 'L4');
+    await cp2('SMOKE-CP2-WL4', 'jalapeño', 'habanero', 'L4');
+    await cp2('SMOKE-CP2-WL5', 'maple syrup', 'honey', 'substitute');
+    await cp2('SMOKE-CP2-WL6', 'dijon mustard', 'yellow mustard', 'substitute');
+    await cp2('SMOKE-CP2-WL7', 'chicken stock', 'chicken broth', 'substitute');
+    await cp2('SMOKE-CP2-WL8', 'black pepper', 'black peppercorns', 'form_variant');
+    await cp2('SMOKE-CP2-NF1', 'sugar', 'granulated sugar', 'exact');
+    await cp2('SMOKE-CP2-NF2', 'white wine vinegar', 'vinegar', 'exact');
+    await cp2('SMOKE-CP2-NF3', 'lime juice', 'lime', 'exact');
+
+    // ============================================
+    // CP3 — MatchedIngredient.supplyStatus population (SMOKE-CP3-S*)
+    // ============================================
+    // The just-created synthetic supply is the most recent → pickBestSupply
+    // favours it over any real lemon supply Tom stocks, so the asserted status
+    // is deterministic.
+    {
+      const cp3 = async (
+        label: string,
+        statusToSet: 'in_stock' | 'low'
+      ): Promise<void> => {
+        const ing = await findIngredient('lemon');
+        if (!ing) {
+          skipMissing(label, 'lemon');
+          return;
+        }
+        const local: string[] = [];
+        try {
+          const recipe = await makeRecipe(t, userId, label);
+          await addRecipeIngredient(recipe, ing.id, 1);
+          local.push(
+            await makeSupply(t, spaceId, userId, {
+              ingredientId: ing.id,
+              status: statusToSet,
+            })
+          );
+          const r = await calculateRecipeSupplyMatch(recipe, spaceId);
+          const hit = r.matched.find((m) => m.ingredientId === ing.id);
+          const pass = hit?.supplyStatus === statusToSet;
+          report(
+            label,
+            pass,
+            `lemon supply status=${statusToSet} → supplyStatus==='${statusToSet}'`,
+            hit
+          );
+        } catch (e) {
+          setupFail(label, e);
+        }
+        await deleteSupplies(t, local);
+      };
+      await cp3('SMOKE-CP3-S1', 'in_stock');
+      await cp3('SMOKE-CP3-S2', 'low');
+    }
+
+    // ============================================
+    // CP4 — ready-to-cook gate (SMOKE-CP4-RTC*)
+    // ============================================
+    // Deterministic pure-predicate tests of readyToCookService.isReadyToCook /
+    // filterReadyToCook — constructed PantryMatchResult + ReadyToCookRecipe
+    // literals, NO real matcher call, so they are immune to T27 harness
+    // contamination (the prompt's discovery-based RTC scenarios would not be).
+    {
+      const mkResult = (
+        recipeId: string,
+        matchPercentage: number,
+        missing: string[]
+      ): PantryMatchResult => ({
+        recipeId,
+        matchPercentage,
+        matched: [],
+        missing,
+        totalCount: 0,
+        matchedCount: 0,
+      });
+      // 5-ingredient recipe; hero 'salmon' resolves to id i-salmon.
+      const five = [
+        { id: 'i-salmon', name: 'salmon' },
+        { id: 'i-caper', name: 'capers' },
+        { id: 'i-lemon', name: 'lemon' },
+        { id: 'i-oil', name: 'olive oil' },
+        { id: 'i-dill', name: 'dill' },
+      ];
+
+      // RTC1 — all matched, hero in stock → ready; appears in filterReadyToCook.
+      {
+        const recipe = {
+          id: 'rtc1', title: 'RTC1',
+          hero_ingredients: ['salmon'], ingredients: five,
+        };
+        const res = mkResult('rtc1', 1.0, []);
+        const ready = isReadyToCook(recipe, res);
+        const inFilter = filterReadyToCook(
+          [recipe],
+          new Map([['rtc1', res]])
+        ).length === 1;
+        report('SMOKE-CP4-RTC1', ready === true && inFilter,
+          'all matched + hero in stock → ready, in filterReadyToCook output',
+          { ready, inFilter });
+      }
+
+      // RTC2 — hero 'salmon' is missing → not ready.
+      {
+        const recipe = {
+          id: 'rtc2', title: 'RTC2',
+          hero_ingredients: ['salmon'], ingredients: five,
+        };
+        const res = mkResult('rtc2', 0.8, ['i-salmon']);
+        const ready = isReadyToCook(recipe, res);
+        report('SMOKE-CP4-RTC2', ready === false,
+          'hero in missing[] → not ready', ready);
+      }
+
+      // RTC3 — 90% exactly, hero matched, only a non-hero ingredient missing.
+      {
+        const recipe = {
+          id: 'rtc3', title: 'RTC3',
+          hero_ingredients: ['salmon'], ingredients: five,
+        };
+        const res = mkResult('rtc3', 0.9, ['i-dill']); // non-hero missing
+        const ready = isReadyToCook(recipe, res);
+        report('SMOKE-CP4-RTC3', ready === true,
+          'matchPct 0.90 exactly + hero matched → ready', ready);
+      }
+
+      // RTC4 — under the 0.90 threshold → not ready.
+      {
+        const recipe = {
+          id: 'rtc4', title: 'RTC4',
+          hero_ingredients: ['salmon'], ingredients: five,
+        };
+        const res = mkResult('rtc4', 0.8, []);
+        const ready = isReadyToCook(recipe, res);
+        report('SMOKE-CP4-RTC4', ready === false,
+          'matchPct 0.80 < 0.90 threshold → not ready', ready);
+      }
+
+      // RTC5 — hero name resolves to no recipe ingredient → soft pass
+      // (console.warn '[readyToCookService] hero name unresolved' emitted).
+      {
+        const recipe = {
+          id: 'rtc5', title: 'RTC5',
+          hero_ingredients: ['mystery-unresolvable-hero'], ingredients: five,
+        };
+        const res = mkResult('rtc5', 0.95, []);
+        const ready = isReadyToCook(recipe, res);
+        report('SMOKE-CP4-RTC5', ready === true,
+          'unresolvable hero → soft pass (console.warn emitted), recipe still ready',
+          ready);
+      }
     }
   } catch (err) {
     console.warn('[SMOKE-FATAL]', '❌ setup failed before assertions ran', err);

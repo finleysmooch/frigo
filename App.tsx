@@ -15,6 +15,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
 import RecipeListScreen from './screens/RecipeListScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
+import WhatCanICookScreen from './screens/WhatCanICookScreen';
 import MealDetailScreen from './screens/MealDetailScreen';
 import MyMealsScreen from './screens/MyMealsScreen';
 import { AddRecipeFromPhotoScreen } from './screens/AddRecipeFromPhotoScreen';
@@ -135,12 +136,13 @@ export type RecipesStackParamList = {
     initialIngredient?: string;
     sortBy?: string;
   } | undefined;
-  RecipeDetail: { 
+  RecipeDetail: {
     recipe: any;
     planItemId?: string;   // NEW: Pass-through for meal plan
     mealId?: string;       // NEW: Pass-through for meal plan
     mealTitle?: string;    // NEW: Pass-through for meal plan
   };
+  WhatCanICook: undefined;  // 8D-CP4: ready-to-cook recipe subset
   Cooking: { 
     recipe: any;  // Changed from recipeId to full recipe object
     planItemId?: string;   // NEW: For meal plan integration
@@ -492,10 +494,15 @@ function RecipesStackNavigator() {
       }}
     >
       <RecipesStack.Screen name="RecipeList" component={RecipeListScreen} />
-      <RecipesStack.Screen 
-        name="RecipeDetail" 
+      <RecipesStack.Screen
+        name="RecipeDetail"
         component={RecipeDetailScreen}
         options={{ headerShown: false }}
+      />
+      <RecipesStack.Screen
+        name="WhatCanICook"
+        component={WhatCanICookScreen}
+        options={{ headerShown: true, title: 'Ready to cook' }}
       />
       <RecipesStack.Screen 
         name="Cooking" 

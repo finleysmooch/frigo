@@ -11,8 +11,12 @@
 // pattern used by getRecipeNutritionBatch in nutritionService.
 
 import { supabase } from '../supabase';
-import { calculateBulkPantryMatch } from '../pantryService';
 import type { MealWithDetails } from './mealService';
+
+// Stub: pantryService deleted in 8R-CP4. Highlights pantry-match disabled until 8R rewire.
+// TODO: 8R-CP6 — rewire against suppliesService.getSuppliesForSpace for real matching.
+const calculateBulkPantryMatch = async (..._args: any[]): Promise<Map<string, number>> => new Map();
+const calculateBulkSpacePantryMatch = async (..._args: any[]): Promise<Map<string, number>> => new Map();
 
 // ============================================================================
 // TYPES

@@ -1,54 +1,34 @@
-# Frigo Project Documentation
+# Frigo Documentation
 
-## For Claude Code
+Entry point for the Frigo project documentation. Read top-down — the docs are ordered by priority for a fresh Claude.ai or Claude Code session.
 
-Read these at the start of every session:
+## Living docs (active reference)
 
-| File | Purpose | You Should |
-|------|---------|------------|
-| `FRIGO_ARCHITECTURE.md` | Codebase map, data model, patterns, services | **Read** for context |
-| `SESSION_LOG.md` | Execution reports from Claude Code sessions | **Write** after every session |
+| Doc | Purpose |
+|-----|---------|
+| `PROJECT_CONTEXT.md` | What Frigo is, what works, what's next. Always read first. |
+| `FF_LAUNCH_MASTER_PLAN.md` | F&F launch strategy, phase sequence, scope decisions, risk register |
+| `FRIGO_ARCHITECTURE.md` | Codebase map, services, components, patterns. Claude Code reads this every session. |
+| `DEFERRED_WORK.md` | Master backlog of bugs, tech debt, and deferred items |
+| `DOC_MAINTENANCE_PROCESS.md` | The planning/execution workflow loop, session log format, sync conventions |
+| Active phase doc | Current phase: goals, decisions, progress, deferred items. File name varies (e.g., `PHASE_8_PANTRY_INTELLIGENCE.md`). |
+| `_SESSION_LOG.md` | Active session log — Claude Code writes entries here every execution session |
+| `playbooks/` | Per-feature design rationale and iteration history |
 
-Read these if referenced in prompt:
+## Archive
 
-| File | Purpose | You Should |
-|------|---------|------------|
-| `DEFERRED_WORK.md` | Master backlog of bugs, tech debt, deferred items | **Read** for awareness |
+`archive/` holds completed phase docs, archived session logs, past CC prompts, design decision docs from shipped phases, wireframe artifacts, and historical handoff notes. See `archive/README.md` for the structure.
 
+## Workflow folders (outside `docs/`)
 
-## For Tom
+| Folder | Purpose |
+|--------|---------|
+| `_pk_sync/` (repo root, gitignored) | Where Claude Code stages updated docs intended for upload to Claude.ai project knowledge. After Tom uploads, the folder is cleared. |
+| `external_documents/` (repo root, gitignored) | Incoming CC prompt files from Claude.ai planning sessions |
+
+## Other repo-level docs
 
 | File | Purpose |
 |------|---------|
-| `doc-ecosystem.html` | Visual map of how all docs relate — open in browser |
-| `README.md` | This file |
-
-## File Index
-
-| File | Purpose | Who writes |
-|------|---------|-----------|
-| `FRIGO_ARCHITECTURE.md` | Codebase map and patterns | Claude.ai produces → Tom pushes |
-| `DEFERRED_WORK.md` | Master backlog of bugs, tech debt, ideas | Claude.ai produces at phase completion → Tom pushes |
-| `SESSION_LOG.md` | Execution reports after every Claude Code session | Claude Code |
-| `README.md` | This file | Updated when docs/ changes |
-| `doc-ecosystem.html` | Visual doc map (for Tom, not Claude) | Claude.ai produces → Tom pushes |
-
-## How It Works
-
-Claude.ai (planning) owns the active phase doc and all living docs in project knowledge. Claude Code (execution) reports back via SESSION_LOG. Claude.ai reads the log and reconciles.
-
-**Claude Code's one writing responsibility:** Write a detailed SESSION_LOG entry after every session. Include files changed, decisions made, things deferred, and recommended updates to ARCHITECTURE or other docs. See the entry format template in SESSION_LOG.md.
-
-**Do not edit** FRIGO_ARCHITECTURE.md, DEFERRED_WORK.md, or other living docs directly. Flag recommended changes in your SESSION_LOG entry.
-
-Full process details: see DOC_MAINTENANCE_PROCESS.md in Claude.ai project knowledge.
-
-## What Does NOT Live Here
-
-These live in Claude.ai project knowledge only — Claude Code doesn't need them:
-
-- **Active phase doc** (e.g. PHASE_4_COOKING_STATS.md) — current goals, decisions, progress
-- **PROJECT_CONTEXT** — high-level project overview and onboarding
-- **Historical phase docs** (PHASE_1, PHASE_2, PHASE_3) — archived reference
-- **Feature specs** (MEALS_*, SHARED_PANTRIES_*, etc.)
-- **DOC_MAINTENANCE_PROCESS** — the full documentation workflow
+| `../CLAUDE.md` (repo root) | Claude Code instructions — read first by every CC session |
+| `doc-ecosystem.html` | Visual reference showing how all docs (repo + project knowledge + external) relate |

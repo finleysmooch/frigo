@@ -12,6 +12,7 @@ import {
   TimerIcon, FireIcon, BodybuilderIcon, LevelIcon, PiggyBankIcon,
   BookIcon, AgainIcon, NewIcon, GemIcon, PanIcon, FriendsIcon, PotIcon,
   EasyIcon, SearchIcon, SortIcon, StarIcon, PinIcon, ChefHat2, VegetablesIcon, SoupIcon,
+  PantryOutline,
 } from '../components/icons';
 import { VIBE_TAG_ICONS } from '../constants/vibeIcons';
 import {
@@ -41,12 +42,16 @@ import { AddRecipeModal } from '../components/AddRecipeModal';
 import { searchRecipesByMixedTerms } from '../lib/searchService';
 import { getRecipeNutritionBatch, RecipeNutrition } from '../lib/services/nutritionService';
 import { getCookingHistory, getFriendsCookingInfo, CookingHistory } from '../lib/services/recipeHistoryService';
+import { calculateRecipeSupplyMatchBulk, PantryMatchResult } from '../lib/services/pantryMatchingService';
+import { filterReadyToCook, getRecipeIngredientNames } from '../lib/services/readyToCookService';
+import { RecipeCard } from '../components/recipe/RecipeCard';
+import { useActiveSpaceId } from '../contexts/SpaceContext';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeList'>;
 
 type BrowseMode = 'all' | 'cook_again' | 'try_new';
 
-type SortOption = 'newest' | 'alpha' | 'cal_low' | 'cal_high' | 'protein_high' | 'fastest' | 'most_cooked' | 'highest_rated';
+type SortOption = 'newest' | 'alpha' | 'cal_low' | 'cal_high' | 'protein_high' | 'fastest' | 'most_cooked' | 'highest_rated' | 'pantry_match';
 
 interface Recipe {
   id: string;
@@ -116,12 +121,16 @@ interface QuickFilter {
 
 export default function RecipeListScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
+  const activeSpaceId = useActiveSpaceId();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [searchText, setSearchText] = useState('');
+  // CP6d-SmokeFix-3 (D11): set when initialIngredient route param drives the
+  // search; the next searchText change after this flag triggers handleSearch.
+  const pendingInitialSearchRef = useRef(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [nutritionMap, setNutritionMap] = useState<Map<string, RecipeNutrition>>(new Map());
   const [historyMap, setHistoryMap] = useState<Map<string, CookingHistory>>(new Map());
@@ -137,6 +146,14 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [showSortPicker, setShowSortPicker] = useState(false);
   const [sortAnchor, setSortAnchor] = useState({ top: 0, right: 0 });
   const sortButtonRef = useRef<any>(null);
+
+  // 8D-CP1: bulk recipe ↔ pantry match results, keyed by recipe id.
+  const [matchMap, setMatchMap] = useState<Map<string, PantryMatchResult>>(new Map());
+  // 8D-CP4: per-recipe catalog ingredient {id,name} pairs — needed for the
+  // ready-to-cook hero-resolution gate (recipes.hero_ingredients has no ids).
+  const [recipeIngredientsMap, setRecipeIngredientsMap] = useState<
+    Map<string, Array<{ id: string; name: string }>>
+  >(new Map());
 
   // Selection mode state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -155,7 +172,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
 
   // Smart counts
   const [pinnedCount, setPinnedCount] = useState(0);
-  const [canMakeCount, setCanMakeCount] = useState(0);
+  // 8D-CP4: canMakeCount is now derived (useMemo below), not state.
 
   // ── Derived data ──────────────────────────────────────────────
 
@@ -177,6 +194,29 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       .map(([name]) => name)
       .slice(0, 50);
   }, [recipes]);
+
+  // 8D-CP4: recipes with the real pantry_match % threaded in from the matcher
+  // (was always 0). Derived — never mutates `recipes` state. applyFilters runs
+  // over this so filteredRecipes carry the populated field.
+  const recipesWithMatch = useMemo(
+    () => recipes.map(r => ({
+      ...r,
+      pantry_match: matchMap.get(r.id)?.matchPercentage ?? 0,
+    })),
+    [recipes, matchMap]
+  );
+
+  // 8D-CP4: count of recipes passing the shared ready-to-cook gate. Drives the
+  // "X you can make now" badge. Heroes are name-resolved against each recipe's
+  // catalog ingredients via the readyToCookService gate.
+  const canMakeCount = useMemo(() => {
+    if (recipes.length === 0 || matchMap.size === 0) return 0;
+    const withIngredients = recipes.map(r => ({
+      ...r,
+      ingredients: recipeIngredientsMap.get(r.id) ?? [],
+    }));
+    return filterReadyToCook(withIngredients, matchMap).length;
+  }, [recipes, matchMap, recipeIngredientsMap]);
 
   // Cook Again sections — organises filteredRecipes (already browse-filtered) into smart groups
   const cookAgainSections = useMemo(() => {
@@ -932,6 +972,36 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     getCurrentUser();
   }, []);
 
+  // 8D-CP1: bulk-compute recipe ↔ pantry match for the loaded recipe set.
+  // 8D-CP4: also load each recipe's catalog ingredient {id,name} pairs for the
+  // ready-to-cook hero-resolution gate. Re-runs when recipes / space change.
+  useEffect(() => {
+    if (!activeSpaceId || recipes.length === 0) {
+      setMatchMap(new Map());
+      setRecipeIngredientsMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    const recipeIds = recipes.map((r) => r.id);
+    calculateRecipeSupplyMatchBulk(recipeIds, activeSpaceId)
+      .then((result) => {
+        if (!cancelled) setMatchMap(result);
+      })
+      .catch((err) => {
+        console.error('Error computing bulk pantry match:', err);
+      });
+    getRecipeIngredientNames(recipeIds)
+      .then((result) => {
+        if (!cancelled) setRecipeIngredientsMap(result);
+      })
+      .catch((err) => {
+        console.error('Error loading recipe ingredient names:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recipes, activeSpaceId]);
+
   // Handle selection mode params - check on every focus
   useFocusEffect(
     useCallback(() => {
@@ -958,11 +1028,12 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       initialDietaryFlag,
       initialChefId,
       initialBookId,
+      initialIngredient,
     } = params;
 
     const hasInitialFilter =
       initialBrowseMode || initialCuisine || initialCookingConcept ||
-      initialDietaryFlag || initialChefId || initialBookId;
+      initialDietaryFlag || initialChefId || initialBookId || initialIngredient;
 
     // Handle sortBy param (from stats podium "See all")
     if (params.sortBy === 'cook_count') {
@@ -997,6 +1068,18 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       setAdvancedFilters(prev => ({ ...prev, ...newFilters }));
     }
 
+    // CP6d-SmokeFix-3 (D11): "Find recipes" from SupplyDetail now uses the
+    // full-text search path instead of hero_ingredients. Hero-only filtering
+    // was too narrow (parmesan via heroIngredients = 7 results vs 41 via
+    // free-text search). Force browseMode='all' AND populate searchText so
+    // handleSearch fires the full-text path. Pre-fix this set hero filter +
+    // defaulted to try_new mode.
+    if (initialIngredient) {
+      setBrowseMode('all');
+      setSearchText(initialIngredient);
+      pendingInitialSearchRef.current = true;
+    }
+
     // Clear the initial params so they don't re-apply on re-focus
     navigation.setParams({
       initialBrowseMode: undefined,
@@ -1005,13 +1088,14 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       initialDietaryFlag: undefined,
       initialChefId: undefined,
       initialBookId: undefined,
+      initialIngredient: undefined,
     } as any);
-  }, [route.params?.initialCuisine, route.params?.initialCookingConcept, route.params?.initialDietaryFlag, route.params?.initialBrowseMode, route.params?.initialChefId, route.params?.initialBookId]);
+  }, [route.params?.initialCuisine, route.params?.initialCookingConcept, route.params?.initialDietaryFlag, route.params?.initialBrowseMode, route.params?.initialChefId, route.params?.initialBookId, route.params?.initialIngredient]);
 
   useEffect(() => {
     const runFilters = async () => { await applyFilters(); };
     runFilters();
-  }, [recipes, quickFilters, advancedFilters, browseMode, selectedBook, sortOption]);
+  }, [recipesWithMatch, quickFilters, advancedFilters, browseMode, selectedBook, sortOption, matchMap]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1113,9 +1197,9 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       setFilteredRecipes(enrichedRecipes);
 
       const pinned = enrichedRecipes.filter(r => r.is_pinned).length;
-      const canMake = enrichedRecipes.filter(r => r.pantry_match >= 80).length;
       setPinnedCount(pinned);
-      setCanMakeCount(canMake);
+      // 8D-CP4: canMakeCount is derived via the canMakeCount useMemo (which
+      // runs the shared ready-to-cook gate over matchMap + recipeIngredientsMap).
 
       setLoading(false);
     } catch (error) {
@@ -1125,7 +1209,9 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   };
 
   const applyFilters = async () => {
-    let filtered = [...recipes];
+    // 8D-CP4: filter over recipesWithMatch so filteredRecipes carry the real
+    // pantry_match value (the pantry_match sort still reads matchMap directly).
+    let filtered = [...recipesWithMatch];
 
     // 1. Browse mode (applied first)
     if (browseMode === 'cook_again') {
@@ -1345,6 +1431,15 @@ export default function RecipeListScreen({ navigation, route }: Props) {
           return b.avg_rating - a.avg_rating;
         });
         break;
+      case 'pantry_match':
+        // 8D-CP1: descending by pantry match %. Recipes with no match data
+        // (match not yet computed) sort to the bottom at 0.
+        filtered.sort((a, b) => {
+          const ma = matchMap.get(a.id)?.matchPercentage ?? 0;
+          const mb = matchMap.get(b.id)?.matchPercentage ?? 0;
+          return mb - ma;
+        });
+        break;
     }
 
     setFilteredRecipes(filtered);
@@ -1384,6 +1479,21 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     const advancedCount = Object.keys(advancedFilters).length;
     return quickCount + advancedCount;
   };
+
+  // CP6d-SmokeFix-3 (D11): fire-once effect that runs handleSearch when the
+  // initialIngredient route param has been pushed into searchText. The ref
+  // gate prevents re-fire on subsequent searchText changes.
+  useEffect(() => {
+    if (
+      pendingInitialSearchRef.current &&
+      searchText.trim().length > 0 &&
+      userId
+    ) {
+      pendingInitialSearchRef.current = false;
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText, userId]);
 
   const handleSearch = async () => {
     if (!searchText.trim()) {
@@ -1588,6 +1698,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const renderSortPickerModal = () => {
     const options: { value: SortOption; IconComponent: IconComponent; label: string }[] = [
       { value: 'newest',       IconComponent: AgainIcon,       label: 'Newest' },
+      { value: 'pantry_match', IconComponent: PantryOutline,   label: 'Pantry Match %' },
       { value: 'alpha',        IconComponent: SortIcon,        label: 'A → Z' },
       { value: 'cal_low',      IconComponent: FireIcon,        label: 'Cal: Low → High' },
       { value: 'cal_high',     IconComponent: FireIcon,        label: 'Cal: High → Low' },
@@ -1734,7 +1845,14 @@ export default function RecipeListScreen({ navigation, route }: Props) {
         {canMakeCount > 0 && (
           <>
             <Text style={styles.statusDot}> • </Text>
-            <Text style={styles.statusText}>{canMakeCount} you can make now</Text>
+            {/* 8D-CP4: tappable → WhatCanICookScreen. activeOpacity only, no
+                other visual treatment (Preservation Contract). */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('WhatCanICook')}
+            >
+              <Text style={styles.statusText}>{canMakeCount} you can make now</Text>
+            </TouchableOpacity>
           </>
         )}
       </View>
@@ -1759,219 +1877,22 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     </View>
   );
 
-  const formatRelativeTime = (dateStr: string): string => {
-    const diffDays = Math.floor(
-      (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (diffDays === 0) return 'today';
-    if (diffDays === 1) return 'yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-    return `${Math.floor(diffDays / 365)}y ago`;
-  };
-
-  const buildDietaryBadges = (recipe: Recipe) => {
-    if (recipe.cal_per_serving == null) return [];
-    const badges: { key: string; label: string }[] = [];
-    if (recipe.is_vegan) badges.push({ key: 'vegan', label: 'VG' });
-    else if (recipe.is_vegetarian) badges.push({ key: 'veg', label: 'V' });
-    if (recipe.is_gluten_free) badges.push({ key: 'gf', label: 'GF' });
-    if (recipe.is_dairy_free) badges.push({ key: 'df', label: 'DF' });
-    if (recipe.is_nut_free) badges.push({ key: 'nf', label: 'NF' });
-    return badges;
-  };
-
-  const renderRecipeCard = ({ item }: { item: Recipe }) => {
-    const isExpanded = expandedCardId === item.id;
-    const toggleExpand = () => setExpandedCardId(isExpanded ? null : item.id);
-
-    const timeStr = item.prep_time_min && item.cook_time_min
-      ? `${item.prep_time_min + item.cook_time_min}m`
-      : item.total_time_min
-      ? `${item.total_time_min}m`
-      : item.active_time_min
-      ? `${item.active_time_min}m`
-      : null;
-
-    const showChef = item.chef_name && item.chef_name !== 'Unknown Chef';
-    const dietaryBadges = buildDietaryBadges(item);
-
-    return (
-      <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={toggleExpand} activeOpacity={0.95}>
-
-        {/* ── Collapsed row: left content + right image ── */}
-        <View style={styles.cardRow}>
-
-          {/* Left column */}
-          <View style={styles.cardLeft}>
-
-            {/* Title + chef → navigate to detail */}
-            <TouchableOpacity onPress={() => handleRecipePress(item)} activeOpacity={0.7}>
-              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              {showChef && (
-                <View style={styles.chefLine}>
-                  <ChefHat2 size={12} color={colors.text.secondary} />
-                  <Text style={styles.chefLineText} numberOfLines={1}>{item.chef_name}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Hero ingredient pills */}
-            {item.hero_ingredients?.length > 0 && (
-              <View style={styles.heroRow}>
-                {item.hero_ingredients.slice(0, 4).map(h => (
-                  <View key={h} style={styles.heroPill}>
-                    <Text style={styles.heroPillText}>{h}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Stats line + dietary badges */}
-            <View style={styles.statsLine}>
-              <View style={styles.statsItems}>
-                {timeStr != null && (
-                  <View style={styles.statItem}>
-                    <TimerIcon size={14} color={colors.text.tertiary} />
-                    <Text style={styles.statsLineText}>{timeStr}</Text>
-                  </View>
-                )}
-                {item.cal_per_serving != null && (
-                  <View style={styles.statItem}>
-                    <FireIcon size={14} color={colors.text.tertiary} />
-                    <Text style={styles.statsLineText}>{Math.round(item.cal_per_serving)}</Text>
-                  </View>
-                )}
-                {item.protein_per_serving_g != null && (
-                  <View style={styles.statItem}>
-                    <BodybuilderIcon size={14} color={colors.text.tertiary} />
-                    <Text style={styles.statsLineText}>{Math.round(item.protein_per_serving_g)}g</Text>
-                  </View>
-                )}
-              </View>
-              {dietaryBadges.length > 0 && (
-                <View style={styles.dietaryBadgesGroup}>
-                  {dietaryBadges.map(b => (
-                    <View key={b.key} style={styles.dietaryBadge}>
-                      <Text style={styles.dietaryBadgeText}>{b.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Right column — image navigates, card taps toggle expand */}
-          <View style={styles.cardRight}>
-            <TouchableOpacity onPress={() => handleRecipePress(item)} activeOpacity={0.7}>
-              {item.image_url ? (
-                <Image
-                  source={{ uri: item.image_url }}
-                  style={styles.recipeImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.imagePlaceholder} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Expanded section ── */}
-        {isExpanded && (
-          <View style={styles.expandedSection}>
-            {/* Description */}
-            {!!item.description && (
-              <Text style={styles.descriptionText}>{item.description}</Text>
-            )}
-
-            {/* Macros row: CAL | PROTEIN | FAT | CARBS */}
-            {item.cal_per_serving != null && (
-              <View style={styles.macrosRow}>
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{Math.round(item.cal_per_serving)}</Text>
-                  <Text style={styles.macroLabel}>CAL</Text>
-                </View>
-                <View style={styles.macroDivider} />
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{Math.round(item.protein_per_serving_g ?? 0)}g</Text>
-                  <Text style={styles.macroLabel}>PROTEIN</Text>
-                </View>
-                <View style={styles.macroDivider} />
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{Math.round(item.fat_per_serving_g ?? 0)}g</Text>
-                  <Text style={styles.macroLabel}>FAT</Text>
-                </View>
-                <View style={styles.macroDivider} />
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{Math.round(item.carbs_per_serving_g ?? 0)}g</Text>
-                  <Text style={styles.macroLabel}>CARBS</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Difficulty badge + vibe tags */}
-            {(item.difficulty_level || (item.vibe_tags?.length ?? 0) > 0) && (
-              <View style={styles.expandedDetailsRow}>
-                {item.difficulty_level && (
-                  <View style={styles.difficultyPill}>
-                    <Text style={styles.difficultyPillText}>{item.difficulty_level}</Text>
-                  </View>
-                )}
-                {item.vibe_tags?.map(tag => {
-                  const VibeIcon = VIBE_TAG_ICONS[tag.toLowerCase()];
-                  return (
-                    <View key={tag} style={styles.vibeTag}>
-                      {VibeIcon && <VibeIcon size={11} color={colors.text.tertiary} />}
-                      <Text style={styles.vibeTagText}>{tag}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* Cooking history */}
-            {(item.times_cooked ?? 0) > 0 && (
-              <View style={styles.historyRow}>
-                <PanIcon size={14} color={colors.text.tertiary} />
-                <Text style={styles.historyText}>
-                  {' '}{item.times_cooked}x
-                  {item.last_cooked ? `  ·  ${formatRelativeTime(item.last_cooked)}` : ''}
-                  {item.avg_rating != null ? `  ⭐ ${item.avg_rating.toFixed(1)}` : ''}
-                </Text>
-              </View>
-            )}
-
-            {/* Friends count */}
-            {(item.friends_cooked_count ?? 0) > 0 && (
-              <View style={styles.friendsRow}>
-                <FriendsIcon size={14} color={colors.text.tertiary} />
-                <Text style={styles.friendsText}>
-                  {' '}{item.friends_cooked_count} friend{item.friends_cooked_count !== 1 ? 's' : ''} cooked this
-                </Text>
-              </View>
-            )}
-
-            {/* TODO: Add flavor profile line when recipe-level flavor data is computed */}
-          </View>
-        )}
-
-        {/* Selection mode Select button */}
-        {isSelectionMode && (
-          <TouchableOpacity
-            style={[styles.selectButton, { marginTop: 10, alignSelf: 'flex-end' }]}
-            onPress={() => handleSelectForMeal(item)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.selectButtonText}>Select</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-      </View>
-    );
-  };
+  // 8D-CP4: card rendering extracted to <RecipeCard> (components/recipe/
+  // RecipeCard.tsx) — internal refactor, byte-identical visual output. The
+  // formatRelativeTime + buildDietaryBadges helpers moved there too (the card
+  // was their only consumer).
+  const renderCardItem = ({ item }: { item: Recipe }) => (
+    <RecipeCard
+      recipe={item}
+      isExpanded={expandedCardId === item.id}
+      onToggleExpand={() =>
+        setExpandedCardId(expandedCardId === item.id ? null : item.id)
+      }
+      onPress={handleRecipePress}
+      isSelectionMode={isSelectionMode}
+      onSelectForMeal={handleSelectForMeal}
+    />
+  );
 
   const emptyListComponent = (
     <View style={styles.emptyContainer}>
@@ -2014,7 +1935,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       {browseMode === 'cook_again' ? (
         <SectionList
           sections={cookAgainSections}
-          renderItem={renderRecipeCard}
+          renderItem={renderCardItem}
           renderSectionHeader={renderSectionHeader}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           contentContainerStyle={styles.listContainer}
@@ -2025,7 +1946,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       ) : (
         <FlatList
           data={filteredRecipes}
-          renderItem={renderRecipeCard}
+          renderItem={renderCardItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={emptyListComponent}

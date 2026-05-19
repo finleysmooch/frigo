@@ -53,6 +53,11 @@ import type {
   MealEventContext,
 } from '../lib/types/feed';
 
+// Phase 7P-2: feed pagination. Cursor-based on (cooked_at, id); page size 30
+// chosen per D7P-4 (industry-standard mobile feed range, keeps most
+// cook-partner / meal-event clusters within a single page).
+const FEED_PAGE_SIZE = 30;
+
 type Props = NativeStackScreenProps<FeedStackParamList, 'FeedMain'>;
 
 // ============================================================================
@@ -115,6 +120,25 @@ export default function FeedScreen({ navigation }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 7P-2 pagination state
+  const [cursor, setCursor] = useState<{ cookedAt: string; id: string } | null>(null);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  // Phase 7P closeout: synchronous companion to `loadingMore`. React state
+  // updates are async — FlatList can fire onEndReached a second time before
+  // `setLoadingMore(true)` has flushed through a render, and the second
+  // call's closure reads the stale state. The ref is read+written
+  // synchronously in `loadMoreFeed` so the second call returns early.
+  // `loadingMore` state is still used to drive the footer ActivityIndicator.
+  const loadingMoreRef = useRef<boolean>(false);
+
+  // Accumulated cook cards across pages (option A grouping: buildFeedGroups
+  // re-runs on this full list after each page load per D7P-5). Kept in a ref
+  // rather than state because we never render it directly — only use it as
+  // input to buildFeedGroups — and want fresh reads without stale-closure risk.
+  const accumulatedCardsRef = useRef<CookCardData[]>([]);
 
   const flatListRef = useRef<FlatList<FeedGroup>>(null);
 
@@ -228,7 +252,8 @@ export default function FeedScreen({ navigation }: Props) {
     }, [currentUserId])
   );
 
-  // Feed cap telemetry — one-shot log per feed load (P7-44 sizing signal).
+  // Feed telemetry — one-shot log per feed load. Post-7P-2 it doubles as a
+  // pagination telemetry signal (accumulated post count across pages).
   // Phase 7G: uses cooked_at (not created_at) because that's the new feed
   // sort key. "Oldest post" now means "earliest cook date in the current
   // feed window," which is the sizing signal we actually want.
@@ -245,7 +270,7 @@ export default function FeedScreen({ navigation }: Props) {
       allPosts[0]
     );
     console.log(
-      '[FEED_CAP_TELEMETRY]',
+      '[FEED_TELEMETRY]',
       'groups:', feedGroups.length,
       'total posts:', allPosts.length,
       'oldest post date:', dateKey(oldestPost)
@@ -261,31 +286,60 @@ export default function FeedScreen({ navigation }: Props) {
 
   // ─── Feed load ──────────────────────────────────────────────────────────
 
-  const loadFeed = async () => {
-    console.time('[FeedScreen] loadFeed');
+  // Core fetch+apply used by both page-1 (loadFeed) and next-page
+  // (loadMoreFeed) paths. `mode === 'replace'` resets accumulated state to
+  // only the freshly-fetched page; `mode === 'append'` merges new page data
+  // on top of existing state per D7P-5 / D7P-6.
+  const fetchAndApplyPage = async (
+    mode: 'replace' | 'append',
+    cursorArg: { cookedAt: string; id: string } | null
+  ) => {
+    const tLoadFeed = Date.now();
     try {
-      // Follows
-      console.time('[FeedScreen] loadFollows');
-      const { data: followedUserIds } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', currentUserId);
-      const followedIds = followedUserIds?.map(f => f.following_id) || [];
+      // Follows — only refetch on page-1 loads. loadMoreFeed reuses the
+      // `followingIds` state captured on the initial load; re-fetching on
+      // every paginated page would be wasted IO (the follow graph doesn't
+      // change between onEndReached cycles).
+      let followedIds: string[];
+      if (mode === 'replace') {
+        const tLoadFollows = Date.now();
+        const { data: followedUserIds } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUserId);
+        followedIds = followedUserIds?.map(f => f.following_id) || [];
+        setFollowingIds(followedIds);
+        console.log(`[FeedScreen] loadFollows: ${Date.now() - tLoadFollows}ms`);
+      } else {
+        followedIds = followingIds;
+      }
       const allUserIds = [...followedIds, currentUserId]; // include own posts
-      setFollowingIds(followedIds);
-      console.timeEnd('[FeedScreen] loadFollows');
 
-      // Dish posts → CookCardData[]
-      console.time('[FeedScreen] loadDishPosts');
-      const cookCards = await loadDishPosts(allUserIds);
-      console.timeEnd('[FeedScreen] loadDishPosts');
+      // Dish posts for this page → CookCardData[]
+      const tLoadDishPosts = Date.now();
+      const newCookCards = await loadDishPosts(allUserIds, cursorArg);
+      console.log(`[FeedScreen] loadDishPosts: ${Date.now() - tLoadDishPosts}ms`);
 
-      // Group via buildFeedGroups
-      console.time('[FeedScreen] buildFeedGroups');
-      const groups = await buildFeedGroups(cookCards, currentUserId, followedIds);
-      console.timeEnd('[FeedScreen] buildFeedGroups');
+      // De-dup against accumulated before concatenating. Defense-in-depth
+      // against cursor-overlap from concurrent inserts (D7P-5 defensive
+      // de-dup requirement).
+      const existingIds =
+        mode === 'replace'
+          ? new Set<string>()
+          : new Set(accumulatedCardsRef.current.map(p => p.id));
+      const dedupedNew = newCookCards.filter(p => !existingIds.has(p.id));
+      const accumulated =
+        mode === 'replace' ? [...dedupedNew] : [...accumulatedCardsRef.current, ...dedupedNew];
+      accumulatedCardsRef.current = accumulated;
 
-      // Build postById lookup once per load
+      // Group via buildFeedGroups on the FULL accumulated post set (option A
+      // per D7P-5). Accepts occasional solo→linked reshuffle mid-scroll as
+      // preferable to cross-page clusters silently failing to link.
+      const tBuildFeedGroups = Date.now();
+      const groups = await buildFeedGroups(accumulated, currentUserId, followedIds);
+      console.log(`[FeedScreen] buildFeedGroups: ${Date.now() - tBuildFeedGroups}ms`);
+
+      // Build postById lookup across ALL accumulated posts
       const lookupMap = new Map<string, CookCardData>();
       for (const g of groups) {
         for (const p of g.posts) {
@@ -293,67 +347,198 @@ export default function FeedScreen({ navigation }: Props) {
         }
       }
 
-      // Hydrate engagement for the flat list of post IDs
-      console.time('[FeedScreen] hydrateEngagement');
-      const allPostIds = Array.from(lookupMap.keys());
-      await Promise.all([
-        (async () => {
-          try {
-            const { postHighlights: ph } = await computeHighlightsForFeedBatch(
-              cookCards.map(p => ({
-                id: p.id,
-                user_id: p.user_id,
-                recipe_id: p.recipe_id ?? null,
-                created_at: p.created_at,
-                times_cooked: p.recipe_times_cooked ?? null,
-              })),
-              [], // no meals in the feed anymore
-              currentUserId
-            );
-            setPostHighlights(Object.fromEntries(ph));
-          } catch (hErr) {
-            console.error('Error computing feed highlights:', hErr);
-          }
-        })(),
-        ...(allPostIds.length > 0
-          ? [
-              loadLikesForPosts(allPostIds),
-              loadCommentsForPosts(allPostIds),
-              loadParticipantsForPosts(allPostIds, lookupMap),
-            ]
-          : []),
-      ]);
-      console.timeEnd('[FeedScreen] hydrateEngagement');
+      // Hydrate engagement for NEW page's post IDs only (D7P-5 new-page-only
+      // hydration). Accumulated state for previously-loaded posts is
+      // preserved via the merge setters below. `computeHighlightsForFeedBatch`
+      // also only sees new cards — its internal cache handles any overlap.
+      const newPostIds = dedupedNew.map(p => p.id);
+      const tHydrateEngagement = Date.now();
+      const [newHighlights, newLikes, newComments, newParticipants] =
+        await Promise.all([
+          (async (): Promise<Record<string, Highlight | null>> => {
+            const t = Date.now();
+            try {
+              const result = await computeHighlightsForFeedBatch(
+                dedupedNew.map(p => ({
+                  id: p.id,
+                  user_id: p.user_id,
+                  recipe_id: p.recipe_id ?? null,
+                  created_at: p.created_at,
+                  times_cooked: p.recipe_times_cooked ?? null,
+                })),
+                [], // no meals in the feed anymore
+                currentUserId
+              );
+              return Object.fromEntries(result.postHighlights);
+            } catch (hErr) {
+              console.error('Error computing feed highlights:', hErr);
+              return {};
+            } finally {
+              console.log(`[FeedScreen] hydrate:highlights: ${Date.now() - t}ms`);
+            }
+          })(),
+          newPostIds.length > 0
+            ? (async (): Promise<PostLikes> => {
+                const t = Date.now();
+                try {
+                  return await loadLikesForPosts(newPostIds);
+                } finally {
+                  console.log(`[FeedScreen] hydrate:likes: ${Date.now() - t}ms`);
+                }
+              })()
+            : Promise.resolve({} as PostLikes),
+          newPostIds.length > 0
+            ? (async (): Promise<PostComments> => {
+                const t = Date.now();
+                try {
+                  return await loadCommentsForPosts(newPostIds);
+                } finally {
+                  console.log(`[FeedScreen] hydrate:comments: ${Date.now() - t}ms`);
+                }
+              })()
+            : Promise.resolve({} as PostComments),
+          newPostIds.length > 0
+            ? (async (): Promise<PostParticipants> => {
+                const t = Date.now();
+                try {
+                  return await loadParticipantsForPosts(newPostIds, lookupMap);
+                } finally {
+                  console.log(`[FeedScreen] hydrate:participants: ${Date.now() - t}ms`);
+                }
+              })()
+            : Promise.resolve({} as PostParticipants),
+        ]);
+      console.log(`[FeedScreen] hydrateEngagement: ${Date.now() - tHydrateEngagement}ms`);
 
-      // Pre-fetch prehead context
-      console.time('[FeedScreen] prefetchPreheadContext');
-      const { mealEventCtxMap, cookPartnerMap } = await prefetchPreheadContext(
-        groups,
-        cookCards
+      // Pre-fetch prehead context. Scope to groups containing new posts only
+      // so we don't re-fetch meal event contexts / cook-partner lookups we
+      // already have from prior pages. Merge into state below.
+      const newPostIdSet = new Set(newPostIds);
+      const newGroups = groups.filter(g =>
+        g.posts.some(p => newPostIdSet.has(p.id))
       );
-      console.timeEnd('[FeedScreen] prefetchPreheadContext');
+      const tPrefetchPreheadContext = Date.now();
+      const { mealEventCtxMap, cookPartnerMap } = await prefetchPreheadContext(
+        newGroups,
+        dedupedNew
+      );
+      console.log(
+        `[FeedScreen] prefetchPreheadContext: ${Date.now() - tPrefetchPreheadContext}ms`
+      );
 
+      // Apply state. `postById` and `feedGroups` always reflect the full
+      // accumulated set (lookupMap / groups were built from `accumulated`),
+      // so a plain set is safe in both modes. The four engagement maps and
+      // the two prehead maps merge in 'append' mode, replace in 'replace'.
       setPostById(lookupMap);
-      setMealEventContextMap(mealEventCtxMap);
-      setCookPartnerPreheadMap(cookPartnerMap);
       setFeedGroups(groups);
+      if (mode === 'replace') {
+        setPostHighlights(newHighlights);
+        setPostLikes(newLikes);
+        setPostComments(newComments);
+        setPostParticipants(newParticipants);
+        setMealEventContextMap(mealEventCtxMap);
+        setCookPartnerPreheadMap(cookPartnerMap);
+      } else {
+        setPostHighlights(prev => ({ ...prev, ...newHighlights }));
+        setPostLikes(prev => ({ ...prev, ...newLikes }));
+        setPostComments(prev => ({ ...prev, ...newComments }));
+        setPostParticipants(prev => ({ ...prev, ...newParticipants }));
+        setMealEventContextMap(prev => {
+          const merged = new Map(prev);
+          for (const [k, v] of mealEventCtxMap) merged.set(k, v);
+          return merged;
+        });
+        setCookPartnerPreheadMap(prev => {
+          const merged = new Map(prev);
+          for (const [k, v] of cookPartnerMap) merged.set(k, v);
+          return merged;
+        });
+      }
+
+      // Advance cursor to last post of the fetched page. Use the RAW page
+      // (newCookCards), not the deduped set, so the cursor still advances
+      // even if every row collided with accumulated state. Only advance when
+      // cooked_at is present — the `.not('cooked_at', 'is', null)` filter
+      // makes this defensive, not strictly necessary.
+      if (newCookCards.length > 0) {
+        const last = newCookCards[newCookCards.length - 1];
+        if (last.cooked_at) {
+          setCursor({ cookedAt: last.cooked_at, id: last.id });
+        }
+      }
+      // Page was shorter than requested → no more pages to fetch.
+      setHasMore(newCookCards.length === FEED_PAGE_SIZE);
     } catch (err) {
       console.error('Error loading feed:', err);
     } finally {
+      console.log(`[FeedScreen] loadFeed: ${Date.now() - tLoadFeed}ms`);
+    }
+  };
+
+  const loadFeed = async () => {
+    // D7P-6: page-1 / refresh paths reset accumulated state.
+    //
+    // What we reset synchronously here:
+    //  - `accumulatedCardsRef` (ref) — so any concurrent loadMoreFeed that
+    //    has already passed its guard sees a fresh page-1 context when it
+    //    reaches its synchronous ref-read.
+    //  - `loadingMoreRef` (ref) — if a refresh fires mid-pagination, the
+    //    in-flight loadMoreFeed's finally may not have run yet; reset
+    //    defensively so future onEndReached cycles aren't blocked.
+    //  - `cursor` + `hasMore` (state) — pagination-control state; doesn't
+    //    affect rendering.
+    //
+    // What we intentionally do NOT reset here: `feedGroups`, `postById`,
+    // and the four hydration maps. Clearing them here would flash the
+    // "No posts yet" empty state during the ~1-2s refresh window (feedGroups
+    // = [] → feedGroups.length === 0 → empty-state branch renders). Instead,
+    // fetchAndApplyPage's `mode === 'replace'` branch atomically replaces
+    // those six pieces of state once the new data arrives, so the old
+    // feed stays visible under the RefreshControl spinner until the swap.
+    accumulatedCardsRef.current = [];
+    loadingMoreRef.current = false;
+    setCursor(null);
+    setHasMore(true);
+    try {
+      await fetchAndApplyPage('replace', null);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      console.timeEnd('[FeedScreen] loadFeed');
       lastFeedLoadRef.current = Date.now();
+    }
+  };
+
+  const loadMoreFeed = async () => {
+    // Guards: skip if already loading more (synchronous ref check — see
+    // `loadingMoreRef` declaration for why), already hit the end, initial
+    // load hasn't completed (cursor still null), or the first-mount loading
+    // flag is still true.
+    if (loadingMoreRef.current || !hasMore || cursor === null || loading) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await fetchAndApplyPage('append', cursor);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   };
 
   // ─── Dish post fetch + denormalization ─────────────────────────────────
 
-  const loadDishPosts = async (userIds: string[]): Promise<CookCardData[]> => {
+  const loadDishPosts = async (
+    userIds: string[],
+    cursor: { cookedAt: string; id: string } | null
+  ): Promise<CookCardData[]> => {
     // Phase 7I Checkpoint 4: removed `.is('parent_meal_id', null)` filter.
     // Meal-attached dishes now return to the feed as first-class items
     // with a MealEventPrehead / MealEventGroupHeader above them.
-    const { data: postsData, error } = await supabase
+    // Phase 7P-2: cursor-based pagination on (cooked_at, id) per D7P-3.
+    // `.not('cooked_at', 'is', null)` defensively excludes any legacy row
+    // lacking a cook date — post-7G inserts always set it, but the filter
+    // protects cursor-comparison semantics against unknown legacy data.
+    let query = supabase
       .from('posts')
       .select(
         'id, user_id, title, rating, cooking_method, created_at, cooked_at, photos, recipe_id, modifications, description, notes, post_type, parent_meal_id'
@@ -361,8 +546,23 @@ export default function FeedScreen({ navigation }: Props) {
       .in('user_id', userIds)
       .or('post_type.eq.dish,post_type.is.null')
       .or('visibility.eq.everyone,visibility.eq.followers,visibility.is.null')
+      .not('cooked_at', 'is', null)
       .order('cooked_at', { ascending: false })
-      .limit(200);
+      .order('id', { ascending: false })
+      .limit(FEED_PAGE_SIZE);
+
+    // Tuple-cursor: (cooked_at < c.cookedAt) OR (cooked_at = c.cookedAt AND
+    // id < c.id). `.or()` composes with the two existing `.or()` filters as
+    // separate WHERE conjuncts in PostgREST. `cursor.cookedAt` is an ISO
+    // timestamp and `cursor.id` is a UUID — both safe in `.or()` operand
+    // position without additional escaping.
+    if (cursor) {
+      query = query.or(
+        `cooked_at.lt.${cursor.cookedAt},and(cooked_at.eq.${cursor.cookedAt},id.lt.${cursor.id})`
+      );
+    }
+
+    const { data: postsData, error } = await query;
 
     if (error) throw error;
     if (!postsData || postsData.length === 0) return [];
@@ -488,7 +688,10 @@ export default function FeedScreen({ navigation }: Props) {
 
   // ─── Engagement loaders (mostly unchanged from pre-rewrite) ────────────
 
-  const loadLikesForPosts = async (postIds: string[]) => {
+  // Phase 7P-2: these three loaders now RETURN their built map instead of
+  // calling a setter internally. The caller (`fetchAndApplyPage`) decides
+  // whether to replace or merge-into state based on pagination mode.
+  const loadLikesForPosts = async (postIds: string[]): Promise<PostLikes> => {
     try {
       const { data: likesData, error } = await supabase
         .from('post_likes')
@@ -529,13 +732,16 @@ export default function FeedScreen({ navigation }: Props) {
           })),
         };
       });
-      setPostLikes(likesMap);
+      return likesMap;
     } catch (error) {
       console.error('Error loading likes:', error);
+      return {};
     }
   };
 
-  const loadCommentsForPosts = async (postIds: string[]) => {
+  const loadCommentsForPosts = async (
+    postIds: string[]
+  ): Promise<PostComments> => {
     try {
       const { data: commentsData, error } = await supabase
         .from('post_comments')
@@ -547,16 +753,17 @@ export default function FeedScreen({ navigation }: Props) {
       postIds.forEach(postId => {
         commentsMap[postId] = commentsData?.filter(c => c.post_id === postId).length || 0;
       });
-      setPostComments(commentsMap);
+      return commentsMap;
     } catch (error) {
       console.error('Error loading comments:', error);
+      return {};
     }
   };
 
   const loadParticipantsForPosts = async (
     postIds: string[],
     postLookup: Map<string, CookCardData>
-  ) => {
+  ): Promise<PostParticipants> => {
     try {
       const participantsMap: PostParticipants = {};
 
@@ -623,9 +830,10 @@ export default function FeedScreen({ navigation }: Props) {
           };
         })
       );
-      setPostParticipants(participantsMap);
+      return participantsMap;
     } catch (error) {
       console.error('Error loading participants:', error);
+      return {};
     }
   };
 
@@ -787,6 +995,9 @@ export default function FeedScreen({ navigation }: Props) {
 
   const handleLogoTap = useCallback(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    // D7P-6: logo tap resets to page 1 like pull-to-refresh / useScrollToTop.
+    loadFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Render item dispatch ──────────────────────────────────────────────
@@ -996,6 +1207,15 @@ export default function FeedScreen({ navigation }: Props) {
             }
             contentContainerStyle={styles.listContent}
             initialNumToRender={5}
+            onEndReached={loadMoreFeed}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
           />
         )}
       </View>
