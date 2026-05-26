@@ -22,6 +22,7 @@ import {
   searchRecipesByMixedTerms
 } from '../lib/searchService';
 import { runPantryMatchingSmokeTests } from '../lib/services/_pantryMatchingSmokeTest';
+import { getHeroFrequencyAudit } from '../lib/services/heroIngredientService';
 import { useActiveSpaceId } from '../contexts/SpaceContext';
 
 export default function AdminScreen() {
@@ -586,6 +587,30 @@ export default function AdminScreen() {
     setIsLoading(false);
   };
 
+  // 8R-UX5: dump hero frequency audit to console. Read-only; no mutations.
+  // Output goes to Metro / debugger console — see `🎯 Hero Frequency Audit:`
+  // for the structured JSON dump (top 30 by user_library count + top 30 by
+  // global hero rate + the threshold constants used at decision time).
+  const dumpHeroAudit = async () => {
+    if (!activeSpaceId) {
+      Alert.alert('No Active Space', 'Select a space before running the audit.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const audit = await getHeroFrequencyAudit(activeSpaceId);
+      console.log('🎯 Hero Frequency Audit:', JSON.stringify(audit, null, 2));
+      Alert.alert(
+        'Hero Frequency Audit',
+        `Logged to console — top ${audit.byUserLibrary.length} by user library, top ${audit.byGlobalRate.length} by global rate.`
+      );
+    } catch (err) {
+      Alert.alert('Hero Audit Failed', String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 8D-CP1 Part 3 — run the pantry matching smoke tests (TEMP).
   const runSmokeTests = async () => {
     if (!activeSpaceId) {
@@ -758,6 +783,18 @@ export default function AdminScreen() {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>Run pantry matching smoke tests</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 8R-UX5 — hero frequency audit for tuning */}
+      <View style={styles.buttonSection}>
+        <Text style={styles.sectionTitle}>Hero Ingredients (8R-UX5)</Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#0891b2' }, isLoading && styles.buttonDisabled]}
+          onPress={dumpHeroAudit}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Dump Hero Frequency Audit</Text>
         </TouchableOpacity>
       </View>
 

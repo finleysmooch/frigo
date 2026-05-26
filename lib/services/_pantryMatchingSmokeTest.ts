@@ -679,7 +679,12 @@ export async function runPantryMatchingSmokeTests(spaceId: string): Promise<void
 
     await cp2('SMOKE-CP2-L1a', 'lemon', 'lemon', 'exact');
     await cp2('SMOKE-CP2-L1b', 'lemon juice', 'lemon', 'exact');
-    await cp2('SMOKE-CP2-L1c', 'lemon zest', 'lemon juice', 'exact');
+    // 8D-CP2.1: lemon zest ↔ lemon juice are siblings under the lemon base.
+    // Pre-fix: incorrectly matched as L1 exact via family traversal. Post-fix:
+    // L1 only fires for self or direct base; siblings fall through to the
+    // subtype/whitelist path. `citrus` is NOT in SUBSTITUTABLE_SUBTYPES → L4.
+    // Was: 'exact'. Now: 'L4'.
+    await cp2('SMOKE-CP2-L1c', 'lemon zest', 'lemon juice', 'L4');
     await cp2('SMOKE-CP2-L1d', 'lime juice', 'lemon juice', 'L4');
     await cp2('SMOKE-CP2-L2a', 'black pepper', 'black peppercorns', 'form_variant');
     await cp2('SMOKE-CP2-L2b', 'dried basil', 'basil', 'form_variant');
@@ -800,6 +805,28 @@ export async function runPantryMatchingSmokeTests(spaceId: string): Promise<void
     await cp2('SMOKE-CP2-NF1', 'sugar', 'granulated sugar', 'exact');
     await cp2('SMOKE-CP2-NF2', 'white wine vinegar', 'vinegar', 'exact');
     await cp2('SMOKE-CP2-NF3', 'lime juice', 'lime', 'exact');
+
+    // ============================================
+    // CP2.1 — L1c sibling routing fix (SMOKE-CP2.1-*)
+    // ============================================
+    // Before CP2.1, siblings under a shared base_ingredient_id were incorrectly
+    // matched as L1 exact via family traversal (e.g., brisket ↔ ribeye, both
+    // variants of beef base). After CP2.1, L1 only fires for self or direct
+    // base; siblings fall through to L2/L3 + whitelist. DEMOTE cases verify
+    // non-whitelisted subtypes correctly miss; WHITELIST cases verify
+    // whitelisted siblings still route through; PRESERVED verifies the L1b
+    // path is intact.
+    await cp2('SMOKE-CP2.1-L1c-DEMOTE-BEEF', 'brisket', 'ribeye', 'L4');
+    await cp2('SMOKE-CP2.1-L1c-DEMOTE-CHICKEN', 'chicken thighs', 'chicken breast', 'L4');
+    // basmati ↔ jasmine: siblings under the rice base (or rice subtype) — rice
+    // IS whitelisted. Outcome depends on null-form wildcard given current
+    // catalog state; SMOKE-CP2-L3a already expects 'substitute' for this pair,
+    // so this scenario doubles as an L1c-via-whitelist regression check.
+    await cp2('SMOKE-CP2.1-L1c-WHITELIST-RICE', 'basmati rice', 'jasmine rice', 'substitute');
+    // L1b regression check: recipe is the base, supply is a direct variant.
+    // After CP2.1, L1 must still fire here (variant ↔ direct base relationship
+    // is preserved).
+    await cp2('SMOKE-CP2.1-L1b-PRESERVED', 'salt', 'kosher salt', 'exact');
 
     // ============================================
     // CP3 — MatchedIngredient.supplyStatus population (SMOKE-CP3-S*)

@@ -25,12 +25,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createNeed } from '../lib/services/needsService';
 import { getSuppliesForSpace } from '../lib/services/suppliesService';
+import { getOrCreateTag, getTagsForSpace } from '../lib/services/tagsService';
+import { Tag, TagDimension } from '../lib/types/tags';
 import { ViewWithFilters } from '../lib/types/views';
 import { SupplyStatus, SupplyWithTags } from '../lib/types/supplies';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { supabase } from '../lib/supabase';
 import SupplyCreateSheet from './SupplyCreateSheet';
+
+const URGENCY_SPECIFICITY = ['today', 'this-week', 'this-month'];
 
 interface Props {
   visible: boolean;
@@ -56,6 +60,7 @@ export default function ExpandedRegularsSheet({
   );
 
   const [supplies, setSupplies] = useState<SupplyWithTags[]>([]);
+  const [tagsBySpace, setTagsBySpace] = useState<Tag[]>([]);
   const [activeNeedSupplyIds, setActiveNeedSupplyIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [inStockExpanded, setInStockExpanded] = useState(false);
@@ -76,8 +81,12 @@ export default function ExpandedRegularsSheet({
     setExpandedCategoryKeys(new Set());
     (async () => {
       try {
-        const suppliesData = await getSuppliesForSpace(spaceId);
+        const [suppliesData, tagsData] = await Promise.all([
+          getSuppliesForSpace(spaceId),
+          getTagsForSpace(spaceId),
+        ]);
         setSupplies(suppliesData);
+        setTagsBySpace(tagsData);
 
         // Q48-style dedup prep: query active needs (status need|in_cart) with
         // supply_id set, so we can skip already-active rows on submit.
@@ -213,6 +222,53 @@ export default function ExpandedRegularsSheet({
     }
   };
 
+  // 8R-UX1 follow-up: mirror of InlineAddNeedRow.resolveViewTagIds. Without
+  // this, "Add to {view.name}" created needs with no urgency tag — landing in
+  // Long List instead of the current Short/Medium list. Urgency collapses to
+  // the most specific value when multiple are present. getOrCreateTag handles
+  // values that haven't been materialized yet for this space.
+  const resolveViewTagIds = async (): Promise<string[]> => {
+    if (!view) return [];
+    const tagIds: string[] = [];
+    for (const f of view.filters) {
+      if (f.dimension === 'status') continue;
+      let values = f.values;
+      if (f.dimension === 'urgency' && values.length > 1) {
+        const ranked = values
+          .slice()
+          .sort(
+            (a, b) =>
+              URGENCY_SPECIFICITY.indexOf(a) - URGENCY_SPECIFICITY.indexOf(b)
+          );
+        const winner = ranked.find((v) => URGENCY_SPECIFICITY.includes(v));
+        values = winner ? [winner] : [values[0]];
+      }
+      for (const value of values) {
+        const existing = tagsBySpace.find(
+          (t) =>
+            t.dimension === f.dimension &&
+            t.value.toLowerCase() === value.toLowerCase()
+        );
+        if (existing) {
+          tagIds.push(existing.id);
+        } else {
+          try {
+            const created = await getOrCreateTag(
+              spaceId,
+              f.dimension as TagDimension,
+              value,
+              userId
+            );
+            tagIds.push(created.id);
+          } catch (error) {
+            console.error('❌ ExpandedRegularsSheet view-tag resolve:', error);
+          }
+        }
+      }
+    }
+    return tagIds;
+  };
+
   const handleSubmit = async () => {
     if (submitting) return;
     if (selectedIds.size === 0) return;
@@ -223,6 +279,7 @@ export default function ExpandedRegularsSheet({
     let failedCount = 0;
 
     try {
+      const viewTagIds = await resolveViewTagIds();
       const selectedSupplies = supplies.filter((s) => selectedIds.has(s.id));
       // Sequential to keep error attribution simple at F&F scale; Promise.all
       // would obscure which supply failed.
@@ -244,6 +301,7 @@ export default function ExpandedRegularsSheet({
             supplyId: supply.id,
             addedBy: userId,
             addedFrom: 'manual',
+            tagIds: viewTagIds,
           });
           createdCount++;
         } catch (error) {
@@ -500,7 +558,13 @@ export default function ExpandedRegularsSheet({
 // ============================================
 
 function supplyMatchesView(supply: SupplyWithTags, view: ViewWithFilters): boolean {
-  const tagFilters = view.filters.filter((f) => f.dimension !== 'status');
+  // 8R-UX1: parity with ViewDetailScreen.supplyMatchesView (post CP6d-SmokeFix-4).
+  // Urgency is a need-level concept — supplies don't carry urgency tags by
+  // default, so applying urgency here filters everything out on the default
+  // urgency-based views (Short/Medium/Long). Skipped along with status.
+  const tagFilters = view.filters.filter(
+    (f) => f.dimension !== 'status' && f.dimension !== 'urgency'
+  );
   if (tagFilters.length === 0) return true;
   for (const f of tagFilters) {
     const allowed = expandUrgencyValues(f.dimension, f.values);

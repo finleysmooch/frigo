@@ -1,12 +1,15 @@
 # Substitution Intelligence — Roadmap, Assumptions, and Gaps
 
-**Status as of 2026-05-19:** F&F-ready with hand-validated whitelist gating. Full intelligence is multi-quarter roadmap.
+**Status as of 2026-05-21:** F&F-ready with hand-validated whitelist gating + L1c sibling routing fix (8D-CP2.1). Full intelligence is multi-quarter roadmap.
 
 ## Current implementation (F&F)
 
 The 4-level matcher (`pantryMatchingService.ts`) computes:
 
-- **L1 exact** — same ingredient row OR linked via `base_ingredient_id`
+- **L1 exact** — split into three sub-cases:
+  - **L1a — same row.** `recipe.ingredient_id === supply.ingredient_id`. Always L1.
+  - **L1b — variant ↔ direct base.** Recipe IS the base of supply, OR supply IS the base of recipe. Examples: `olive oil` (base) ↔ `extra-virgin olive oil` (variant); `salt` ↔ `kosher salt`. Always L1.
+  - **L1c — sibling via same base.** Both sides have non-null `base_ingredient_id` pointing to the same row, and neither IS that base (e.g., `brisket` ↔ `ribeye`, both variants of `beef` base). **Routes through L2/L3 + whitelist, NOT L1.** Same-subtype routing decision: matches at L3 (or L2 if forms differ, or silent L1 via the null-form wildcard) when the subtype IS in `SUBSTITUTABLE_SUBTYPES`; demotes to L4 missing otherwise.
 - **L2 form_variant** — same `ingredient_subtype` + different `form` (only for whitelisted subtypes)
 - **L3 substitute** — same `ingredient_subtype` + same `form` (only for whitelisted subtypes)
 - **L4 no_match** — different subtype, or same subtype but NOT in `SUBSTITUTABLE_SUBTYPES`
@@ -15,6 +18,8 @@ The 4-level matcher (`pantryMatchingService.ts`) computes:
 L2 and L3 are surfaced only when `recipe.ingredient_subtype IN SUBSTITUTABLE_SUBTYPES`. The whitelist is hand-curated against the full catalog (113 multi-member subtypes, 604 rows total) and contains ~75 subtypes where substitution semantics are reliable. Non-whitelisted same-subtype matches (cheese, fish, leafy_green, tropical_fruit, etc.) demote to L4 missing.
 
 A null-form wildcard rule applies within whitelisted subtypes: when either side has `form IS NULL`, treat as L1 exact (silent ✓). This handles generic-base rows like `sugar`, `vinegar`, citrus whole fruits.
+
+**L1c routing rationale.** The catalog's `base_ingredient_id` linkage encodes "variant of a parent" semantics — useful for surfacing the base when the user holds a specific variant (and vice versa). It does NOT encode substitutability between siblings. Two variants of the same parent are at most as substitutable as their shared subtype permits; the matcher must therefore route them through the same whitelist gate that governs all other same-subtype pairings. Pre-CP2.1, the matcher conflated "user has the base" with "user has a sibling" and fired L1 for both. Post-CP2.1, only the variant-↔-base axis fires L1; sibling-↔-sibling routes through L3.
 
 ## Whitelist composition (curated 2026-05-19)
 
@@ -130,3 +135,8 @@ To remove a subtype (rare):
 4. Smoke-test that affected recipes correctly demote to L4.
 
 No schema changes required for either operation.
+
+## Changelog
+
+- **2026-05-21 — L1c sibling routing fix (8D-CP2.1).** Was incorrectly firing L1 exact for siblings of the same base; now routes through L2/L3 + whitelist. Matcher logic only; no catalog data changes, no schema changes, no UI changes. Existing `SMOKE-CP2-L1c` expectation updated (`exact` → `L4`, since `citrus` not in whitelist) with comment. New scenarios added: `SMOKE-CP2.1-L1c-DEMOTE-BEEF`, `SMOKE-CP2.1-L1c-DEMOTE-CHICKEN`, `SMOKE-CP2.1-L1c-WHITELIST-RICE`, `SMOKE-CP2.1-L1b-PRESERVED`.
+- **2026-05-19 — F&F whitelist curation.** `SUBSTITUTABLE_SUBTYPES` hand-curated against the full catalog (113 multi-member subtypes, 604 rows). ~75 subtypes in the whitelist; ~40 silent-demoted to L4 pending the G1 post-F&F audit.

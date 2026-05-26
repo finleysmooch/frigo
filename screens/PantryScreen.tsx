@@ -4,7 +4,8 @@
 // Header redesign: "My Pantry" title left, subtle home + profile icon group
 // right (home-icon shows space label, profile-icon opens space switcher).
 // Multi-purpose search bar moves into the screen header level (Gap-P1).
-// StaleItemsBanner mounts above SuppliesSection (Gap-NEED-5).
+// 8R-UX1: StaleItemsBanner removed; stale items folded into SuppliesSection's
+// "Use Soon" top section (alongside expiring lots).
 // Location: screens/PantryScreen.tsx
 // ============================================
 
@@ -12,6 +13,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,6 +26,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { PantryStackParamList } from '../App';
 import PantryOutline from '../components/icons/PantryOutline';
+import TimerIcon from '../components/icons/recipe/TimerIcon';
+import AlertCircleIcon from '../components/icons/AlertCircleIcon';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { useSpace, useActiveSpaceId, useSpaceSwitcher } from '../contexts/SpaceContext';
@@ -33,9 +38,13 @@ import SuppliesSection, {
   SuppliesSectionRef,
 } from '../components/pantry/SuppliesSection';
 import PantrySearchBar from '../components/pantry/PantrySearchBar';
-import StaleItemsBanner from '../components/pantry/StaleItemsBanner';
 import SupplyQuickEditModal from '../components/pantry/SupplyQuickEditModal';
 import SupplyCreateSheet from '../components/SupplyCreateSheet';
+import ListPickerModal from '../components/ListPickerModal';
+import {
+  getHeroFrequency,
+  type HeroFrequencyData,
+} from '../lib/services/heroIngredientService';
 import { SupplyWithTags } from '../lib/types/supplies';
 import { supabase } from '../lib/supabase';
 
@@ -59,13 +68,139 @@ export default function PantryScreen({ navigation }: Props) {
   const [createSheetInitialQuery, setCreateSheetInitialQuery] = useState<
     string | undefined
   >(undefined);
+  // 8R-UX1: when set, SupplyCreateSheet opens with this ingredient already
+  // selected (skips the search-and-pick step). Wired from shadow-row taps.
+  const [createSheetInitialIngredient, setCreateSheetInitialIngredient] =
+    useState<{ id: string; name: string } | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSpaceSwitcherSheet, setShowSpaceSwitcherSheet] = useState(false);
   // CP6d-SmokeFix-1 (P32): long-press quick-edit modal.
   const [quickEditSupply, setQuickEditSupply] = useState<SupplyWithTags | null>(null);
 
+  // 8R-UX1: state lifted from SuppliesSection so the toolbar / action-bar
+  // can sit in the sticky white space below the search bar. Defaults:
+  // groupBy='type' (hierarchical family > type view), merged=true.
+  const [groupBy, setGroupBy] = useState<'family' | 'type' | 'storage'>('type');
+  const [mergeOnHandRegulars, setMergeOnHandRegulars] = useState(true);
+  // 8R-UX1: collapsed by default — a small chevron exposes the full controls.
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActioning, setBulkActioning] = useState(false);
+  const enterSelectionMode = useCallback(() => {
+    setSelectionMode(true);
+    setSelectedIds(new Set());
+  }, []);
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+  const toggleSelection = useCallback((supplyId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(supplyId)) next.delete(supplyId);
+      else next.add(supplyId);
+      return next;
+    });
+  }, []);
+
   const suppliesRef = useRef<SuppliesSectionRef>(null);
+
+  // 8R-UX1: bulk actions are delegated to SuppliesSection via ref — it owns
+  // the supplies data. Parent just collects IDs from selectedIds and asks
+  // the ref to do the work, then exits selection mode.
+  const runBulk = useCallback(
+    async (op: (ids: string[]) => Promise<void>) => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      setBulkActioning(true);
+      try {
+        await op(ids);
+      } finally {
+        setBulkActioning(false);
+        exitSelectionMode();
+      }
+    },
+    [selectedIds, exitSelectionMode]
+  );
+  const handleBulkMarkInStock = useCallback(
+    () => runBulk((ids) => suppliesRef.current?.bulkMarkInStock(ids) ?? Promise.resolve()),
+    [runBulk]
+  );
+  const handleBulkMarkOut = useCallback(
+    () => runBulk((ids) => suppliesRef.current?.bulkMarkOut(ids) ?? Promise.resolve()),
+    [runBulk]
+  );
+  // 8R-UX3: outer tab strip state. Three tabs in StatsScreen toggleRow style.
+  // Default 'everything' = current behavior. Switching outer tab resets the
+  // inner family pill to that outer's default (handled inside SuppliesSection).
+  const [activeOuterTab, setActiveOuterTab] = useState<
+    'everything' | 'use_soon' | 'low_out'
+  >('everything');
+  const [outerCounts, setOuterCounts] = useState<{
+    everything: number;
+    useSoon: number;
+    lowOut: number;
+  }>({ everything: 0, useSoon: 0, lowOut: 0 });
+
+  // 8R-UX5: hero ingredient frequency — loaded once on mount + on every
+  // refreshTrigger bump. Non-blocking; null during load / on failure means
+  // SuppliesSection degrades gracefully (no ⚡ markers, no Heroes pill).
+  const [heroFrequencyData, setHeroFrequencyData] = useState<HeroFrequencyData | null>(null);
+  useEffect(() => {
+    if (!activeSpaceId) return;
+    let cancelled = false;
+    getHeroFrequency(activeSpaceId)
+      .then((data) => {
+        if (!cancelled) setHeroFrequencyData(data);
+      })
+      .catch((err) => {
+        console.error('❌ heroFrequency load failed:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSpaceId, refreshTrigger]);
+
+  // 8R-UX1 continuation: open list picker first; the picker resolves
+  // view-context tag IDs and passes them into bulkAddToGrocery so the new
+  // needs land in the chosen list (Short/Medium/Long/custom). Without the
+  // picker, needs were created untagged → only Long List could see them.
+  const [listPickerOpen, setListPickerOpen] = useState(false);
+  const handleBulkAddToGrocery = useCallback(
+    () => setListPickerOpen(true),
+    []
+  );
+  const handleListPicked = useCallback(
+    async (_view: unknown, tagIds: string[]) => {
+      setListPickerOpen(false);
+      await runBulk(
+        (ids) =>
+          suppliesRef.current?.bulkAddToGrocery(ids, tagIds) ?? Promise.resolve()
+      );
+    },
+    [runBulk]
+  );
+
+  // 8R-UX1: find recipes that use all selected supplies. We pull display
+  // names from the SuppliesSection ref's snapshot of selectedIds → supplies,
+  // then cross-stack-nav into RecipeListScreen with the joined names as
+  // initialIngredient. Live-search there tokenizes on whitespace + ANDs the
+  // tokens across recipe text (ingredient names + original_text), so a
+  // multi-name query lands as an intersection.
+  const handleBulkFindRecipes = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const names = await (suppliesRef.current?.getDisplayNamesForIds?.(ids) ?? Promise.resolve([] as string[]));
+    const joined = names.filter((n) => n.length > 0).join(' ');
+    exitSelectionMode();
+    if (!joined) return;
+    (navigation.getParent() as any)?.navigate('RecipesStack', {
+      screen: 'RecipeList',
+      params: { initialIngredient: joined, initialBrowseMode: 'all' },
+    });
+  }, [selectedIds, exitSelectionMode, navigation]);
 
   // CP6d-SmokeFix-3 (V33 auto-refresh): re-pull supplies when the screen
   // gains focus, so navigating back from BulkAcquire / SupplyDetail / etc.
@@ -128,6 +263,7 @@ export default function PantryScreen({ navigation }: Props) {
   const handleSupplyCreated = useCallback(() => {
     setSupplyCreateSheetOpen(false);
     setCreateSheetInitialQuery(undefined);
+    setCreateSheetInitialIngredient(undefined);
     setRefreshTrigger((n) => n + 1);
   }, []);
 
@@ -172,21 +308,82 @@ export default function PantryScreen({ navigation }: Props) {
         whatCanICookCta: {
           borderWidth: 1,
           borderColor: colors.primary,
-          borderRadius: 10,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
+          borderRadius: 8,
+          paddingVertical: 6,
+          paddingHorizontal: 12,
           marginHorizontal: 16,
-          marginTop: 12,
+          marginTop: 8,
           marginBottom: 4,
           alignItems: 'center',
         },
         whatCanICookCtaText: {
-          fontSize: 15,
+          fontSize: 13,
           fontWeight: '600',
           color: colors.primary,
         },
+        // 8R-UX3: outer tab strip (Everything / Use soon / Low / out)
+        outerTabRow: {
+          flexDirection: 'row',
+          backgroundColor: colors.background.card,
+          paddingHorizontal: 16,
+          gap: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.light,
+        },
+        outerTab: {
+          flex: 1,
+          paddingVertical: 10,
+          alignItems: 'center',
+          position: 'relative',
+        },
+        outerTabLabelRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+        },
+        outerTabText: {
+          fontSize: 14,
+          fontWeight: '500',
+          color: colors.text.tertiary,
+        },
+        outerTabTextActive: {
+          color: colors.text.primary,
+          fontWeight: '700',
+        },
+        outerTabBadge: {
+          minWidth: 22,
+          paddingHorizontal: 6,
+          paddingVertical: 1,
+          borderRadius: 8,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        outerTabBadgeText: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        outerTabCountZero: {
+          fontSize: 12,
+          color: colors.text.tertiary,
+          marginLeft: 2,
+        },
+        outerTabUnderline: {
+          position: 'absolute',
+          bottom: 0,
+          left: 16,
+          right: 16,
+          height: 3,
+          backgroundColor: colors.primary,
+          borderRadius: 1.5,
+        },
         headerIconButton: {
           padding: 6,
+        },
+        // 8R-UX1: header chevron — toggles the view-options toolbar.
+        headerChevron: {
+          fontSize: 14,
+          color: colors.text.secondary,
+          paddingHorizontal: 2,
         },
         spacePill: {
           flexDirection: 'row',
@@ -214,10 +411,116 @@ export default function PantryScreen({ navigation }: Props) {
         },
         searchBarWrapper: {
           backgroundColor: colors.background.card,
-          paddingBottom: 8,
+          paddingTop: 8,
+          paddingBottom: 12,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.light,
         },
         invitationsContainer: {
           paddingHorizontal: 20,
+        },
+        // 8R-UX1: sticky toolbar + action bar styles.
+        stickyToolbarWrap: {
+          backgroundColor: colors.background.card,
+          paddingHorizontal: 16,
+          paddingBottom: 6,
+        },
+        toolbar: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+          paddingVertical: 6,
+        },
+        // 8R-UX1: collapsed state — small chevron, right-aligned, low weight.
+        toolbarCollapsed: {
+          alignItems: 'flex-end',
+          paddingVertical: 4,
+        },
+        toolbarChevron: {
+          fontSize: 14,
+          color: colors.text.tertiary,
+        },
+        toolbarSelectButton: {
+          paddingVertical: 4,
+          paddingRight: 4,
+        },
+        toolbarSelectText: {
+          fontSize: 13,
+          fontWeight: typography.weights.semibold,
+          color: colors.primary,
+        },
+        toolbarPills: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          flexShrink: 1,
+        },
+        pill: {
+          flexDirection: 'row',
+          borderRadius: borderRadius.lg,
+          borderWidth: 1,
+          borderColor: colors.border.medium,
+          overflow: 'hidden',
+        },
+        pillButton: {
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+        },
+        pillButtonOn: {
+          backgroundColor: colors.primary,
+        },
+        pillText: {
+          fontSize: 11,
+          color: colors.text.secondary,
+          fontWeight: typography.weights.medium,
+        },
+        pillTextOn: {
+          color: '#ffffff',
+        },
+        actionBar: {
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          backgroundColor: colors.background.card,
+          borderRadius: borderRadius.md,
+          borderWidth: 1,
+          borderColor: colors.primary,
+        },
+        actionBarTopRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        actionBarCount: {
+          fontSize: 13,
+          fontWeight: typography.weights.semibold,
+          color: colors.text.primary,
+        },
+        actionBarCancel: {
+          fontSize: 13,
+          color: colors.text.secondary,
+          fontWeight: typography.weights.medium,
+        },
+        actionBarButtonsRow: {
+          flexDirection: 'row',
+          gap: 6,
+        },
+        actionBarButton: {
+          flex: 1,
+          paddingVertical: 8,
+          borderRadius: borderRadius.sm,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+        },
+        actionBarButtonDisabled: {
+          opacity: 0.4,
+        },
+        actionBarButtonText: {
+          fontSize: 12,
+          fontWeight: typography.weights.semibold,
+          color: '#ffffff',
         },
         loadingContainer: {
           flex: 1,
@@ -302,18 +605,28 @@ export default function PantryScreen({ navigation }: Props) {
             >
               <PantryOutline size={24} color={colors.text.secondary} />
             </TouchableOpacity>
+            {/* 8R-UX1: view-options chevron. Collapsed by default — tap to
+                show the toolbar (Select / Family / Type / Storage /
+                Split / Merged). Hidden during selection mode (action bar
+                takes over). */}
+            {!selectionMode && (
+              <TouchableOpacity
+                onPress={() => setToolbarExpanded((v) => !v)}
+                activeOpacity={0.6}
+                style={styles.headerIconButton}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  toolbarExpanded ? 'Hide view options' : 'Show view options'
+                }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.headerChevron}>
+                  {toolbarExpanded ? '▴' : '▾'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-      </View>
-
-      <View style={styles.searchBarWrapper}>
-        <PantrySearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          noExactMatch={noExactMatch}
-          onAddNew={handleSearchAddNew}
-          matchedFamilyCount={matchedFamilyCount}
-        />
       </View>
 
       <View style={styles.invitationsContainer}>
@@ -321,6 +634,177 @@ export default function PantryScreen({ navigation }: Props) {
           compact
           onInvitationResponded={refreshSpaces}
         />
+      </View>
+
+      {/* 8R-UX1: sticky toolbar / action-bar — sits between the search bar
+          and the scrollable content so it stays visible regardless of scroll
+          position. Renders the bulk-action bar when in selection mode,
+          otherwise the Select + group-by + split/merge controls. */}
+      {selectionMode ? (
+        <View style={styles.stickyToolbarWrap}>
+          <View style={styles.actionBar}>
+            <View style={styles.actionBarTopRow}>
+              <Text style={styles.actionBarCount}>
+                {selectedIds.size} selected
+              </Text>
+              <TouchableOpacity onPress={exitSelectionMode} activeOpacity={0.7}>
+                <Text style={styles.actionBarCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.actionBarButtonsRow}>
+              {(
+                [
+                  { label: 'In stock', on: handleBulkMarkInStock },
+                  { label: 'Out', on: handleBulkMarkOut },
+                  { label: 'Add to list', on: handleBulkAddToGrocery },
+                  { label: 'Find recipes', on: handleBulkFindRecipes },
+                ] as const
+              ).map((btn) => {
+                const disabled = selectedIds.size === 0 || bulkActioning;
+                return (
+                  <TouchableOpacity
+                    key={btn.label}
+                    style={[
+                      styles.actionBarButton,
+                      disabled && styles.actionBarButtonDisabled,
+                    ]}
+                    onPress={btn.on}
+                    disabled={disabled}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionBarButtonText}>{btn.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      ) : (
+        toolbarExpanded && (
+          <View style={styles.stickyToolbarWrap}>
+            <View style={styles.toolbar}>
+              <TouchableOpacity
+                onPress={enterSelectionMode}
+                activeOpacity={0.7}
+                style={styles.toolbarSelectButton}
+                accessibilityRole="button"
+                accessibilityLabel="Enter multi-select mode"
+              >
+                <Text style={styles.toolbarSelectText}>Select items</Text>
+              </TouchableOpacity>
+              <View style={styles.toolbarPills}>
+                <View style={styles.pill}>
+                  {(['family', 'type', 'storage'] as const).map((mode) => {
+                    const isOn = groupBy === mode;
+                    const label =
+                      mode === 'family'
+                        ? 'Family'
+                        : mode === 'type'
+                        ? 'Type'
+                        : 'Storage';
+                    return (
+                      <TouchableOpacity
+                        key={mode}
+                        style={[styles.pillButton, isOn && styles.pillButtonOn]}
+                        onPress={() => setGroupBy(mode)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[styles.pillText, isOn && styles.pillTextOn]}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={styles.pill}>
+                  {([false, true] as const).map((value) => {
+                    const isOn = mergeOnHandRegulars === value;
+                    return (
+                      <TouchableOpacity
+                        key={String(value)}
+                        style={[styles.pillButton, isOn && styles.pillButtonOn]}
+                        onPress={() => setMergeOnHandRegulars(value)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[styles.pillText, isOn && styles.pillTextOn]}
+                        >
+                          {value ? 'Merged' : 'Split'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </View>
+        )
+      )}
+
+      {/* 8R-UX3: outer tab strip — Everything / Use soon / Low / out.
+          Strava-style underline pattern matching StatsScreen toggleRow. */}
+      <View style={styles.outerTabRow}>
+        {(
+          [
+            { key: 'everything', label: 'Everything', count: null, icon: null, badgeBg: null, badgeText: null },
+            {
+              key: 'use_soon',
+              label: 'Use soon',
+              count: outerCounts.useSoon,
+              icon: <TimerIcon size={14} color="#BA7517" />,
+              badgeBg: '#FAEEDA',
+              badgeText: '#854F0B',
+            },
+            {
+              key: 'low_out',
+              label: 'Low / out',
+              count: outerCounts.lowOut,
+              icon: <AlertCircleIcon size={14} color="#A32D2D" />,
+              badgeBg: '#FCEBEB',
+              badgeText: '#791F1F',
+            },
+          ] as const
+        ).map((t) => {
+          const isActive = activeOuterTab === t.key;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              style={styles.outerTab}
+              onPress={() => setActiveOuterTab(t.key)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.label}${t.count !== null ? `, ${t.count}` : ''}`}
+            >
+              <View style={styles.outerTabLabelRow}>
+                {t.icon}
+                <Text
+                  style={[
+                    styles.outerTabText,
+                    isActive && styles.outerTabTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t.label}
+                </Text>
+                {t.count !== null && t.count > 0 && (
+                  <View
+                    style={[
+                      styles.outerTabBadge,
+                      { backgroundColor: t.badgeBg ?? colors.background.secondary },
+                    ]}
+                  >
+                    <Text style={[styles.outerTabBadgeText, { color: t.badgeText ?? colors.text.secondary }]}>
+                      {t.count}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {isActive && <View style={styles.outerTabUnderline} />}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <ScrollView
@@ -331,6 +815,13 @@ export default function PantryScreen({ navigation }: Props) {
             tintColor={colors.primary}
           />
         }
+        // 8R-UX1 follow-up: 'handled' so taps on background/empty areas
+        // dismiss the keyboard (iOS-standard tap-out behavior). Taps on
+        // Touchable children — including the shadow-row +Track button —
+        // still fire on the first tap because RN routes through the handler
+        // before considering keyboard dismissal. Previous 'always' left users
+        // stuck in keyboard mode with no way out.
+        keyboardShouldPersistTaps="handled"
       >
         {/* 8D-CP4: "What can I cook?" CTA → WhatCanICookScreen (Recipes
             stack — cross-stack nav via the parent tab navigator). */}
@@ -346,7 +837,6 @@ export default function PantryScreen({ navigation }: Props) {
           <Text style={styles.whatCanICookCtaText}>What can I cook?</Text>
         </TouchableOpacity>
 
-        <StaleItemsBanner spaceId={activeSpaceId} refreshTrigger={refreshTrigger} />
         <SuppliesSection
           ref={suppliesRef}
           spaceId={activeSpaceId}
@@ -354,19 +844,58 @@ export default function PantryScreen({ navigation }: Props) {
           searchQuery={searchQuery}
           onOpenDetail={handleOpenDetail}
           onAddNewTap={handleAddNewTap}
-          onLongPressSupply={(supply) => setQuickEditSupply(supply)}
+          onLongPressSupply={(supply) => {
+            // 8R-UX1 continuation: long-press enters multi-select mode AND
+            // pre-selects the long-pressed supply. Equivalent to tapping
+            // "Select items" in the toolbar then ticking this row.
+            setSelectionMode(true);
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.add(supply.id);
+              return next;
+            });
+          }}
           userId={currentUserId}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onToggleSelection={toggleSelection}
+          groupBy={groupBy}
+          mergeOnHandRegulars={mergeOnHandRegulars}
+          activeOuterTab={activeOuterTab}
+          onOuterCountsChange={setOuterCounts}
+          heroFrequencyData={heroFrequencyData}
           onShadowTap={(candidate) => {
-            // CP6d-SmokeFix-4 Task 2: shadow → real supply via SupplyCreateSheet.
-            setCreateSheetInitialQuery(
-              candidate.plural_name && candidate.plural_name.length > 0
-                ? candidate.name // use singular when typing into search-by-name field
-                : candidate.name
-            );
+            // 8R-UX1: pass the candidate as pre-selected so the user lands
+            // on the form view directly. CP6d-SmokeFix-4 used to drop them
+            // onto the search step with a pre-populated query — that
+            // required a redundant re-pick of the same item.
+            setCreateSheetInitialIngredient({
+              id: candidate.id,
+              name: candidate.name,
+            });
+            setCreateSheetInitialQuery(undefined);
             setSupplyCreateSheetOpen(true);
           }}
         />
       </ScrollView>
+
+      {/* 8R-UX1: search bar moved to the bottom of the screen (iOS Safari-
+          style). KeyboardAvoidingView lifts it above the on-screen keyboard
+          when focused. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.searchBarWrapper}>
+          <PantrySearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            noExactMatch={noExactMatch}
+            onAddNew={handleSearchAddNew}
+            matchedFamilyCount={matchedFamilyCount}
+          />
+        </View>
+      </KeyboardAvoidingView>
 
       <CreateSpaceModal
         visible={showCreateSpaceModal}
@@ -392,11 +921,16 @@ export default function PantryScreen({ navigation }: Props) {
       {activeSpaceId && currentUserId && (
         <SupplyCreateSheet
           visible={supplyCreateSheetOpen}
-          onClose={() => setSupplyCreateSheetOpen(false)}
+          onClose={() => {
+            setSupplyCreateSheetOpen(false);
+            setCreateSheetInitialIngredient(undefined);
+            setCreateSheetInitialQuery(undefined);
+          }}
           onSaved={handleSupplyCreated}
           spaceId={activeSpaceId}
           userId={currentUserId}
           initialQuery={createSheetInitialQuery}
+          initialSelectedIngredient={createSheetInitialIngredient}
         />
       )}
 
@@ -413,6 +947,16 @@ export default function PantryScreen({ navigation }: Props) {
           setRefreshTrigger((n) => n + 1);
         }}
       />
+
+      {activeSpaceId && currentUserId && (
+        <ListPickerModal
+          visible={listPickerOpen}
+          spaceId={activeSpaceId}
+          userId={currentUserId}
+          onCancel={() => setListPickerOpen(false)}
+          onPick={handleListPicked}
+        />
+      )}
     </View>
   );
 }

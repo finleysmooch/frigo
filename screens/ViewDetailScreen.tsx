@@ -23,6 +23,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -33,6 +36,10 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ViewsStackParamList } from '../App';
+import GroceryBagIcon from '../components/icons/grocery/GroceryBagIcon';
+import ShoppingCartIcon from '../components/icons/grocery/ShoppingCartIcon';
+import ReceiptIcon from '../components/icons/grocery/ReceiptIcon';
+import CartIcon from '../components/icons/grocery/CartIcon';
 import {
   deleteView,
   getViewById,
@@ -40,8 +47,10 @@ import {
   toggleViewHidden,
 } from '../lib/services/viewsService';
 import {
+  createNeed,
   cycleNeedStatus,
   cycleNeedStatusWithDetails,
+  deleteNeed,
   getNeedDisplayName,
   getNeedsForView,
   mergeNeedsForDisplay,
@@ -59,12 +68,13 @@ import { RenderMode, ViewWithFilters } from '../lib/types/views';
 import { SupplyWithTags } from '../lib/types/supplies';
 import { useActiveSpaceId } from '../contexts/SpaceContext';
 import { useTheme } from '../lib/theme/ThemeContext';
-import { typography, spacing, borderRadius } from '../lib/theme';
+import { typography, spacing, borderRadius, shadows } from '../lib/theme';
 import ViewCreatorModal from '../components/ViewCreatorModal';
 import AddNeedSheet from '../components/AddNeedSheet';
 import ExpandedRegularsSheet from '../components/ExpandedRegularsSheet';
 import EditNeedSheet from '../components/EditNeedSheet';
 import InlineAddNeedRow from '../components/InlineAddNeedRow';
+import SwipeableNeedRow from '../components/SwipeableNeedRow';
 import BulkAcquirePromotionModal from '../components/BulkAcquirePromotionModal';
 import { pluralize } from '../lib/utils/pluralize';
 import { supabase } from '../lib/supabase';
@@ -114,11 +124,45 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
   // Bulk-acquire idempotency.
   const [bulkAcquireRunning, setBulkAcquireRunning] = useState(false);
 
-  // CP6d-ViewDetail: cart-as-section state.
-  const [cartExpanded, setCartExpanded] = useState(false);
+  // CP6d-ViewDetail: cart-as-section state. 8R-UX1 continuation: default
+  // expanded so users see what's in their cart without an extra tap.
+  const [cartExpanded, setCartExpanded] = useState(true);
 
   // CP6d-ViewDetail: merged-row expand-children state.
   const [expandedMergedKeys, setExpandedMergedKeys] = useState<Set<string>>(new Set());
+
+  // 8R-UX1 continuation: render-mode toggle collapsed by default. User can
+  // expand to switch between tier/aisle/flat, then it stays open until tapped
+  // shut. Default-closed reduces visual energy on the screen.
+  const [renderModeOpen, setRenderModeOpen] = useState(false);
+
+  // 8R-UX1 continuation: snapshot of the last-removed needs so we can restore
+  // via createNeed on Undo. List-of-params supports merged-row removal (where
+  // one swipe deletes N underlying needs). Top-anchored RemoveUndoBanner
+  // reads this; auto-dismiss timer clears it after ~5s. Only one removal
+  // batch active at a time; subsequent removal discards the previous (matches
+  // iOS Reminders behavior).
+  const [removedSnapshot, setRemovedSnapshot] = useState<{
+    label: string;
+    paramsList: Array<Parameters<typeof createNeed>[0]>;
+  } | null>(null);
+  const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Slide-down animation for the undo banner. Without this, SafeAreaView
+  // measures its top inset async on first render — banner appears at top:0
+  // then "drops" once the inset lands. The animation masks that settle and
+  // gives the banner intentional motion. Pattern matches TrackOnlyOutToast.
+  const undoBannerTranslateY = useRef(new Animated.Value(-120)).current;
+  useEffect(() => {
+    if (removedSnapshot) {
+      undoBannerTranslateY.setValue(-120);
+      Animated.spring(undoBannerTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 80,
+      }).start();
+    }
+  }, [removedSnapshot, undoBannerTranslateY]);
 
   // CP6d-ViewDetail (Gap-LR8): bulk-acquire promotion modal.
   const [promotionModalOpen, setPromotionModalOpen] = useState(false);
@@ -562,15 +606,94 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
     doBulkAcquireSupplyLinked(pending.withSupply, Array.from(result.failedNeedIds));
   };
 
-  const handleAddNeed = () => {
-    setAddNeedSheetInitialQuery(undefined);
-    setAddNeedSheetOpen(true);
-  };
-
   const handleInlineMoreOptions = (query: string) => {
     setAddNeedSheetInitialQuery(query);
     setAddNeedSheetOpen(true);
   };
+
+  const handleRemoveNeedIds = async (needIds: string[]) => {
+    if (!spaceId || !currentUserId || needIds.length === 0) return;
+    const targets = needs.filter((n) => needIds.includes(n.id));
+    if (targets.length === 0) return;
+
+    // Snapshot fields per need so Undo can recreate them. Recipe-link
+    // restoration is deferred (rare for grocery removals; flagged for
+    // Claude.ai). For the banner label use the merged display name when
+    // multiple needs share an ingredient, else the head's display name.
+    const paramsList: Array<Parameters<typeof createNeed>[0]> = targets.map((t) => ({
+      spaceId,
+      ingredientId: t.ingredient?.id ?? undefined,
+      customName: t.ingredient ? undefined : t.custom_name ?? undefined,
+      status: t.status,
+      quantityDisplay: t.quantity_display ?? undefined,
+      unitDisplay: t.unit_display ?? undefined,
+      forUserIds: t.for_user_ids,
+      supplyId: t.supply_id ?? undefined,
+      addedBy: currentUserId,
+      addedFrom: t.added_from,
+      notes: t.notes ?? undefined,
+      tagIds: t.tags.map((tag) => tag.id),
+    }));
+    const label =
+      targets.length === 1
+        ? getNeedDisplayName(targets[0])
+        : `${targets.length} items`;
+
+    // Optimistic remove.
+    setNeeds((current) => current.filter((n) => !needIds.includes(n.id)));
+
+    try {
+      // Sequential to keep error attribution clean at F&F scale.
+      for (const id of needIds) {
+        await deleteNeed(id);
+      }
+      // Stash snapshot + arm auto-dismiss.
+      setRemovedSnapshot({ label, paramsList });
+      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = setTimeout(() => {
+        setRemovedSnapshot(null);
+        removeTimerRef.current = null;
+      }, 5000);
+    } catch (error) {
+      console.error('❌ deleteNeed error:', error);
+      // Roll back optimistic update on hard failure.
+      setNeeds((current) => [...current, ...targets]);
+      Alert.alert('Error', 'Could not remove.');
+    }
+  };
+
+  const handleUndoRemove = async () => {
+    const snapshot = removedSnapshot;
+    if (!snapshot) return;
+    if (removeTimerRef.current) {
+      clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = null;
+    }
+    setRemovedSnapshot(null);
+    try {
+      for (const params of snapshot.paramsList) {
+        await createNeed(params);
+      }
+      load();
+    } catch (error) {
+      console.error('❌ Undo remove error:', error);
+      Alert.alert('Error', 'Could not undo.');
+    }
+  };
+
+  const handleDismissUndo = () => {
+    if (removeTimerRef.current) {
+      clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = null;
+    }
+    setRemovedSnapshot(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
+    };
+  }, []);
 
   const handleOpenRegulars = () => {
     setExpandedRegularsSheetOpen(true);
@@ -641,10 +764,28 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
     return statusFilter?.values.length === 1 && statusFilter.values[0] === 'in_cart';
   }, [view]);
 
-  // CP6d-ViewDetail: snapshot the need IDs visible at first load → progress denominator.
+  // CP6d-ViewDetail: snapshot the need IDs that contribute to the progress
+  // denominator. Originally captured only at first load — 8R-UX1 widens it to
+  // grow when the user adds new needs in-session via the inline add row, so
+  // the count updates live. Never shrinks (acquired needs leave the loaded
+  // list but should still count toward the bottom-of-bar progress).
   useEffect(() => {
-    if (initialNeedIdsRef.current === null && !loading && needs.length > 0) {
+    if (loading) return;
+    if (initialNeedIdsRef.current === null) {
       initialNeedIdsRef.current = new Set(needs.map((n) => n.id));
+      return;
+    }
+    const current = initialNeedIdsRef.current;
+    let added = false;
+    for (const n of needs) {
+      if (!current.has(n.id)) {
+        current.add(n.id);
+        added = true;
+      }
+    }
+    if (added) {
+      // Force re-render so the progress label reflects the new denominator.
+      setAcquiredSinceMount((prev) => new Set(prev));
     }
   }, [needs, loading]);
 
@@ -683,10 +824,11 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
     );
   }
 
-  const explicitFilters = view.filters.filter((f) => f.dimension !== 'status');
-
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -696,9 +838,33 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
         >
           <Text style={styles.backButtonText}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {view.emoji ?? '📋'} {view.name}
-        </Text>
+        <View style={styles.headerTitleRow}>
+          {renderListHeaderIcon(view, colors) ?? (
+            <Text style={styles.headerEmoji}>{view.emoji ?? '📋'}</Text>
+          )}
+          <View style={styles.headerTitleTextWrap}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {view.name}
+            </Text>
+            {hierarchyHintForView(view) && (
+              <Text style={styles.headerHint} numberOfLines={1}>
+                {hierarchyHintForView(view)}
+              </Text>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.renderModeChip}
+          onPress={() => setRenderModeOpen((prev) => !prev)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Group by ${view.render_mode}, tap to ${renderModeOpen ? 'collapse' : 'change'}`}
+        >
+          <Text style={styles.renderModeChipText}>
+            {view.render_mode === 'tier' ? 'Tier' : view.render_mode === 'aisle' ? 'Aisle' : 'Flat'}{' '}
+            {renderModeOpen ? '▴' : '▾'}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.menuButton}
           onPress={handleMenuPress}
@@ -709,51 +875,60 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.subHeader}>
-        <View style={styles.segmentedRow}>
-          {(['tier', 'aisle', 'flat'] as RenderMode[]).map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[
-                styles.segmented,
-                view.render_mode === m && styles.segmentedSelected,
-              ]}
-              onPress={() => handleRenderModeChange(m)}
-              activeOpacity={0.7}
-            >
-              <Text
+      {renderModeOpen && (
+        <View style={styles.subHeader}>
+          <View style={styles.segmentedRow}>
+            {(['tier', 'aisle', 'flat'] as RenderMode[]).map((m) => (
+              <TouchableOpacity
+                key={m}
                 style={[
-                  styles.segmentedText,
-                  view.render_mode === m && styles.segmentedTextSelected,
+                  styles.segmented,
+                  view.render_mode === m && styles.segmentedSelected,
                 ]}
+                onPress={() => handleRenderModeChange(m)}
+                activeOpacity={0.7}
               >
-                {m === 'tier' ? 'Tier' : m === 'aisle' ? 'Aisle' : 'Flat'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {showProgressBar && (
-        <View style={styles.progressBarContainer}>
-          <Text style={styles.progressBarLabel}>
-            {progressDone}/{progressTotal} ({progressPercent}%)
-          </Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+                <Text
+                  style={[
+                    styles.segmentedText,
+                    view.render_mode === m && styles.segmentedTextSelected,
+                  ]}
+                >
+                  {m === 'tier' ? 'Tier' : m === 'aisle' ? 'Aisle' : 'Flat'}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       )}
 
-      {explicitFilters.length > 0 && (
-        <View style={styles.filterChipsRow}>
-          {explicitFilters.map((f) => (
-            <View key={f.id} style={styles.filterChip}>
-              <Text style={styles.filterChipText}>
-                {f.dimension}: {f.values.join(', ')}
-              </Text>
-            </View>
-          ))}
+      {showProgressBar && (
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBarTopRow}>
+            <Text style={styles.progressBarLabel}>
+              {progressDone}/{progressTotal} ({progressPercent}%)
+            </Text>
+            {cartMerged.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.addToPantryButton,
+                  bulkAcquireRunning && styles.addToPantryButtonDisabled,
+                ]}
+                onPress={handleBulkAcquire}
+                disabled={bulkAcquireRunning}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Add cart to pantry, ${cartNeeds.length} items`}
+              >
+                <Text style={styles.addToPantryButtonText}>
+                  {bulkAcquireRunning ? '…' : `Add cart to pantry (${cartNeeds.length})`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+          </View>
         </View>
       )}
 
@@ -777,18 +952,6 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
         }
         keyboardShouldPersistTaps="handled"
       >
-        {/* CP6d-ViewDetail: inline type-and-add row above body. Hidden on
-            cart-only views since adding a need to "in_cart" makes no sense. */}
-        {spaceId && currentUserId && !isCartOnlyView && (
-          <InlineAddNeedRow
-            spaceId={spaceId}
-            userId={currentUserId}
-            view={view}
-            onCreated={load}
-            onMoreOptions={handleInlineMoreOptions}
-          />
-        )}
-
         {/* Body — needs with status='need'. Empty body is fine on cart-only views. */}
         {bodyMerged.length === 0 && !isCartOnlyView ? (
           <View style={styles.empty}>
@@ -814,46 +977,68 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
             onDecrementQty: handleDecrementQty,
             onAddQty: handleAddQty,
             onToggleExpand: toggleMergedExpand,
+            onRemove: handleRemoveNeedIds,
           })
         ) : null}
 
-        {/* Cart-as-section. Renders below body. Default-collapsed when populated. */}
+        {/* Cart-as-section. Renders below body. */}
         {cartMerged.length > 0 && (
           <View style={styles.cartSection}>
-            <TouchableOpacity
-              style={styles.cartSectionHeader}
-              onPress={() => setCartExpanded((prev) => !prev)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={
-                cartExpanded
-                  ? 'Collapse cart section'
-                  : `Expand cart section, ${cartNeeds.length} items`
-              }
-            >
-              <Text style={styles.cartSectionHeaderText}>
-                🛒 In cart ({cartNeeds.length}) {cartExpanded ? '▾' : '▸'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.cartSectionHeaderRow}>
+              <TouchableOpacity
+                style={styles.cartSectionHeader}
+                onPress={() => setCartExpanded((prev) => !prev)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  cartExpanded
+                    ? 'Collapse cart section'
+                    : `Expand cart section, ${cartNeeds.length} items`
+                }
+              >
+                <Text style={styles.cartSectionHeaderText}>
+                  🛒 In cart ({cartNeeds.length}) {cartExpanded ? '▾' : '▸'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.addToPantryButton,
+                  bulkAcquireRunning && styles.addToPantryButtonDisabled,
+                ]}
+                onPress={handleBulkAcquire}
+                disabled={bulkAcquireRunning}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Add cart to pantry, ${cartNeeds.length} items`}
+              >
+                <Text style={styles.addToPantryButtonText}>
+                  {bulkAcquireRunning ? '…' : 'Add cart to pantry'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             {cartExpanded && (
               <View>
                 {cartMerged.map((m) => (
-                  <NeedRow
+                  <SwipeableNeedRow
                     key={m.key}
-                    merged={m}
-                    view={view}
-                    styles={styles}
-                    colors={colors}
-                    functionalColors={functionalColors}
-                    expanded={expandedMergedKeys.has(m.key)}
-                    onCycle={handleCycleNeed}
-                    onCycleGroup={handleCycleMergedGroup}
-                    onOpenEdit={handleOpenEdit}
-                    onIncrementQty={handleIncrementQty}
-                    onDecrementQty={handleDecrementQty}
-                    onAddQty={handleAddQty}
-                    onToggleExpand={toggleMergedExpand}
-                  />
+                    onRemove={() => handleRemoveNeedIds(m.needs.map((n) => n.id))}
+                  >
+                    <NeedRow
+                      merged={m}
+                      view={view}
+                      styles={styles}
+                      colors={colors}
+                      functionalColors={functionalColors}
+                      expanded={expandedMergedKeys.has(m.key)}
+                      onCycle={handleCycleNeed}
+                      onCycleGroup={handleCycleMergedGroup}
+                      onOpenEdit={handleOpenEdit}
+                      onIncrementQty={handleIncrementQty}
+                      onDecrementQty={handleDecrementQty}
+                      onAddQty={handleAddQty}
+                      onToggleExpand={toggleMergedExpand}
+                    />
+                  </SwipeableNeedRow>
                 ))}
               </View>
             )}
@@ -861,8 +1046,11 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
         )}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
-        {isCartOnlyView ? (
+      {/* Bottom add — note-style sticky inline input. Cart-only view replaces
+          it with the bulk-acquire CTA since adding a need to "in_cart" is
+          nonsensical. */}
+      {isCartOnlyView ? (
+        <View style={styles.bottomBar}>
           <TouchableOpacity
             style={[
               styles.bulkAcquireButton,
@@ -881,18 +1069,16 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
                 : `Acquire all (${visibleInCartCount}) → restocks ${supplyLinkedInCartCount}`}
             </Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.addNeedButton}
-            onPress={handleAddNeed}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Add need"
-          >
-            <Text style={styles.addNeedButtonText}>+ Add need</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      ) : spaceId && currentUserId ? (
+        <InlineAddNeedRow
+          spaceId={spaceId}
+          userId={currentUserId}
+          view={view}
+          onCreated={load}
+          onMoreOptions={handleInlineMoreOptions}
+        />
+      ) : null}
 
       {spaceId && currentUserId && (
         <>
@@ -938,6 +1124,7 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
           <BulkAcquirePromotionModal
             visible={promotionModalOpen}
             needsWithoutSupply={promotionPending?.withoutSupply ?? []}
+            existingSupplies={supplies}
             spaceId={spaceId}
             userId={currentUserId}
             onCancel={() => {
@@ -948,13 +1135,89 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
           />
         </>
       )}
-    </View>
+
+      {removedSnapshot && (
+        <Animated.View
+          style={[
+            styles.undoBannerWrap,
+            { transform: [{ translateY: undoBannerTranslateY }] },
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.undoBanner}>
+            <Text style={styles.undoBannerText} numberOfLines={1}>
+              Removed {removedSnapshot.label}
+            </Text>
+            <TouchableOpacity
+              style={styles.undoBannerAction}
+              onPress={handleUndoRemove}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Undo remove"
+            >
+              <Text style={styles.undoBannerActionText}>Undo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.undoBannerDismiss}
+              onPress={handleDismissUndo}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+            >
+              <Text style={styles.undoBannerDismissText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
 // ============================================
 // HELPERS
 // ============================================
+
+// 8R-UX1: tiny hint shown under the list name in the detail header.
+// Communicates the filter cascade — defaults show what they include, customs
+// show where their items also appear. Matches the ViewsScreen card subtitle.
+function hierarchyHintForView(view: ViewWithFilters): string | null {
+  if (view.is_default) {
+    if (view.name === 'Medium List') return 'Includes Short List';
+    if (view.name === 'Long List') return 'Includes everything';
+    return null;
+  }
+  const eventFilter = view.filters.find((f) => f.dimension === 'event');
+  if (eventFilter?.values.some((v) => v.endsWith('__private'))) {
+    return 'Only in this list';
+  }
+  const urgencyFilter = view.filters.find((f) => f.dimension === 'urgency');
+  if (urgencyFilter?.values.includes('today')) return 'Also in Short List';
+  if (urgencyFilter?.values.includes('this-week')) return 'Also in Medium List';
+  return 'Also in Long List';
+}
+
+// 8R-UX1: progressive-sized brand-teal icons for the three urgency-based
+// default views — same set used on ViewsScreen card tiles, scaled down a
+// notch here so they fit in the header row alongside the title text. Returns
+// null for non-default / non-list views so the emoji fallback renders.
+function renderListHeaderIcon(
+  view: ViewWithFilters,
+  colors: ReturnType<typeof useTheme>['colors']
+): React.ReactElement | null {
+  if (!view.is_default) return null;
+  switch (view.name) {
+    case 'Short List':
+      return <GroceryBagIcon size={30} color={colors.primary} />;
+    case 'Medium List':
+      return <ShoppingCartIcon size={30} color={colors.primary} />;
+    case 'Long List':
+      return <ReceiptIcon size={30} color={colors.primary} />;
+    case 'In Cart':
+      return <CartIcon size={30} color={colors.text.primary} />;
+    default:
+      return null;
+  }
+}
 
 function supplyMatchesView(supply: SupplyWithTags, view: ViewWithFilters): boolean {
   // CP6d-SmokeFix-4 Task 5 (V19 Regulars strip fix): urgency is a need-level
@@ -1004,6 +1267,7 @@ interface RenderBodyArgs {
   onDecrementQty: (needId: string) => void;
   onAddQty: (needId: string) => void;
   onToggleExpand: (key: string) => void;
+  onRemove: (needIds: string[]) => void;
 }
 
 function renderBody({
@@ -1021,24 +1285,29 @@ function renderBody({
   onDecrementQty,
   onAddQty,
   onToggleExpand,
+  onRemove,
 }: RenderBodyArgs) {
   const renderRow = (m: MergedNeedGroup) => (
-    <NeedRow
+    <SwipeableNeedRow
       key={m.key}
-      merged={m}
-      view={view}
-      styles={styles}
-      colors={colors}
-      functionalColors={functionalColors}
-      expanded={expandedMergedKeys.has(m.key)}
-      onCycle={onCycle}
-      onCycleGroup={onCycleGroup}
-      onOpenEdit={onOpenEdit}
-      onIncrementQty={onIncrementQty}
-      onDecrementQty={onDecrementQty}
-      onAddQty={onAddQty}
-      onToggleExpand={onToggleExpand}
-    />
+      onRemove={() => onRemove(m.needs.map((n) => n.id))}
+    >
+      <NeedRow
+        merged={m}
+        view={view}
+        styles={styles}
+        colors={colors}
+        functionalColors={functionalColors}
+        expanded={expandedMergedKeys.has(m.key)}
+        onCycle={onCycle}
+        onCycleGroup={onCycleGroup}
+        onOpenEdit={onOpenEdit}
+        onIncrementQty={onIncrementQty}
+        onDecrementQty={onDecrementQty}
+        onAddQty={onAddQty}
+        onToggleExpand={onToggleExpand}
+      />
+    </SwipeableNeedRow>
   );
 
   if (mode === 'flat') {
@@ -1257,6 +1526,12 @@ function NeedRow({
             >
               {displayName}
             </Text>
+            {merged.allRecipes.length > 0 && (
+              <Text style={styles.needRecipesInline} numberOfLines={1}>
+                · {merged.allRecipes.length}{' '}
+                {merged.allRecipes.length === 1 ? 'recipe' : 'recipes'}
+              </Text>
+            )}
             {isMergedGroup && (
               <TouchableOpacity
                 style={styles.expandChevronTouchable}
@@ -1269,14 +1544,6 @@ function NeedRow({
               >
                 <Text style={styles.expandChevron}>{expanded ? '▾' : '▸'}</Text>
               </TouchableOpacity>
-            )}
-          </View>
-          <View style={styles.needRowMeta}>
-            {merged.allRecipes.length > 0 && (
-              <Text style={styles.needRecipes}>
-                From {merged.allRecipes.length}{' '}
-                {merged.allRecipes.length === 1 ? 'recipe' : 'recipes'}
-              </Text>
             )}
           </View>
           {visibleTags.length > 0 && (
@@ -1433,11 +1700,28 @@ function makeStyles(
     },
     backButton: { paddingRight: spacing.sm, paddingVertical: 4 },
     backButtonText: { fontSize: 28, color: colors.primary, fontWeight: '300' },
-    headerTitle: {
+    headerTitleRow: {
       flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    headerEmoji: {
+      fontSize: 20,
+    },
+    headerTitleTextWrap: {
+      flex: 1,
+      flexDirection: 'column',
+    },
+    headerTitle: {
       fontSize: 18,
       fontWeight: typography.weights.semibold,
       color: colors.text.primary,
+    },
+    headerHint: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginTop: 1,
     },
     menuButton: {
       paddingHorizontal: 8,
@@ -1448,6 +1732,20 @@ function makeStyles(
       color: colors.text.primary,
       fontWeight: typography.weights.bold,
       lineHeight: 24,
+    },
+    renderModeChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.light,
+      marginRight: 4,
+    },
+    renderModeChipText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: typography.weights.medium,
     },
     subHeader: {
       paddingHorizontal: spacing.md,
@@ -1520,25 +1818,25 @@ function makeStyles(
     },
     emptyText: { fontSize: 14, color: colors.text.tertiary },
     sectionHeader: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: typography.weights.semibold,
       color: colors.text.secondary,
       letterSpacing: 0.8,
       paddingHorizontal: spacing.md,
-      paddingVertical: 8,
+      paddingVertical: 5,
       backgroundColor: colors.background.secondary,
     },
     needRow: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: spacing.md,
-      paddingVertical: 12,
+      paddingVertical: 6,
       borderBottomWidth: 1,
       borderBottomColor: colors.border.light,
     },
     statusDotTouchable: {
-      width: 36,
-      height: 36,
+      width: 32,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 4,
@@ -1573,13 +1871,18 @@ function makeStyles(
       gap: 6,
     },
     needName: {
-      fontSize: 15,
+      fontSize: 14,
       color: colors.text.primary,
       flexShrink: 1,
     },
     needNameAcquired: {
       color: colors.text.tertiary,
       textDecorationLine: 'line-through',
+    },
+    needRecipesInline: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      flexShrink: 0,
     },
     expandChevronTouchable: {
       paddingHorizontal: 4,
@@ -1589,13 +1892,7 @@ function makeStyles(
       fontSize: 12,
       color: colors.text.tertiary,
     },
-    needRowMeta: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 2,
-    },
-    needRecipes: { fontSize: 12, color: colors.text.tertiary },
-    tagChipsRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
+    tagChipsRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
     tagChip: {
       paddingHorizontal: 6,
       paddingVertical: 2,
@@ -1604,7 +1901,7 @@ function makeStyles(
     },
     tagChipText: { fontSize: 11, color: colors.text.tertiary },
     qtyZone: {
-      minWidth: 90,
+      minWidth: 72,
       alignItems: 'flex-end',
       justifyContent: 'center',
     },
@@ -1719,7 +2016,6 @@ function makeStyles(
     progressBarLabel: {
       fontSize: 12,
       color: colors.text.secondary,
-      marginBottom: 4,
       fontWeight: typography.weights.medium,
     },
     progressBarTrack: {
@@ -1738,14 +2034,94 @@ function makeStyles(
       borderTopColor: colors.border.light,
       backgroundColor: colors.background.secondary,
     },
-    cartSectionHeader: {
+    cartSectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
-      paddingVertical: 12,
+      paddingVertical: 8,
+      gap: 8,
+    },
+    cartSectionHeader: {
+      flexShrink: 1,
     },
     cartSectionHeaderText: {
       fontSize: 13,
       color: colors.text.secondary,
       fontWeight: typography.weights.semibold,
+    },
+    progressBarTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 4,
+    },
+    addToPantryButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: borderRadius.sm,
+      backgroundColor: colors.primary,
+    },
+    addToPantryButtonDisabled: {
+      opacity: 0.5,
+    },
+    addToPantryButtonText: {
+      fontSize: 12,
+      fontWeight: typography.weights.semibold,
+      color: '#ffffff',
+    },
+    undoBannerWrap: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      elevation: 1000,
+      // 8R-UX1: hardcoded status-bar inset to match the header's
+      // paddingTop: 50. Codebase doesn't use SafeAreaProvider so
+      // SafeAreaView measures async and causes a "settle" glitch.
+      paddingTop: 50,
+    },
+    undoBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: spacing.md,
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.card,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.text.secondary,
+      ...shadows.small,
+    },
+    undoBannerText: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: typography.weights.medium,
+    },
+    undoBannerAction: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      marginLeft: 6,
+      borderRadius: borderRadius.sm,
+      backgroundColor: colors.primary,
+    },
+    undoBannerActionText: {
+      fontSize: 13,
+      fontWeight: typography.weights.semibold,
+      color: '#ffffff',
+    },
+    undoBannerDismiss: {
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+      marginLeft: 4,
+    },
+    undoBannerDismissText: {
+      fontSize: 18,
+      color: colors.text.secondary,
     },
   });
 }

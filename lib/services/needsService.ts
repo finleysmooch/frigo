@@ -303,7 +303,7 @@ export async function getNeedsForView(
   // 1. Read the view + its filters.
   const { data: view, error: viewError } = await supabase
     .from('views')
-    .select('id, space_id, view_filters(*)')
+    .select('id, space_id, name, is_default, view_filters(*)')
     .eq('id', viewId)
     .maybeSingle();
 
@@ -316,6 +316,8 @@ export async function getNeedsForView(
   const viewRow = view as {
     id: string;
     space_id: string;
+    name: string;
+    is_default: boolean;
     view_filters: Array<{ id: string; view_id: string; dimension: string; values: string[] }> | null;
   };
 
@@ -359,6 +361,20 @@ export async function getNeedsForView(
       need.tags.some(
         (t) => t.dimension === f.dimension && allowedValues.includes(t.value)
       )
+    );
+  }
+
+  // 4b. 8R-UX1: Long List excludes "private" custom-list items. Privacy is
+  // encoded in the event tag value via the `__private` suffix (set in
+  // ViewCreatorModal when the user picks "Just this list"). Standalone
+  // lists' items live only in their own view; Long List would otherwise
+  // include them since its only filter is status=need.
+  if (viewRow.is_default && viewRow.name === 'Long List') {
+    needs = needs.filter(
+      (need) =>
+        !need.tags.some(
+          (t) => t.dimension === 'event' && t.value.endsWith('__private')
+        )
     );
   }
 

@@ -22,7 +22,8 @@ import { filterReadyToCook, getRecipeIngredientNames } from '../services/readyTo
 import type { Recipe } from '../../components/recipe/RecipeCard';
 
 interface UseReadyToCookResult {
-  readyToCookRecipes: Recipe[]; // gated subset, sorted by match% DESC
+  readyToCookRecipes: Recipe[]; // strict gate (>=90% + all heroes)
+  allRecipesWithMatch: Recipe[]; // 8R-UX1: every loaded recipe with `pantry_match` populated, for the threshold-aware view
   matchMap: Map<string, PantryMatchResult>; // full match data for all recipes
   loading: boolean;
   error: Error | null;
@@ -31,6 +32,7 @@ interface UseReadyToCookResult {
 
 export function useReadyToCookRecipes(spaceId: string | null): UseReadyToCookResult {
   const [readyToCookRecipes, setReadyToCookRecipes] = useState<Recipe[]>([]);
+  const [allRecipesWithMatch, setAllRecipesWithMatch] = useState<Recipe[]>([]);
   const [matchMap, setMatchMap] = useState<Map<string, PantryMatchResult>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -38,6 +40,7 @@ export function useReadyToCookRecipes(spaceId: string | null): UseReadyToCookRes
   const load = useCallback(async () => {
     if (!spaceId) {
       setReadyToCookRecipes([]);
+      setAllRecipesWithMatch([]);
       setMatchMap(new Map());
       setLoading(false);
       return;
@@ -50,6 +53,7 @@ export function useReadyToCookRecipes(spaceId: string | null): UseReadyToCookRes
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setReadyToCookRecipes([]);
+        setAllRecipesWithMatch([]);
         setMatchMap(new Map());
         setLoading(false);
         return;
@@ -83,6 +87,18 @@ export function useReadyToCookRecipes(spaceId: string | null): UseReadyToCookRes
       }));
       const ready = filterReadyToCook(recipesWithIngredients, matches);
       setReadyToCookRecipes(ready);
+
+      // 8R-UX1: full set with pantry_match populated, for the threshold-
+      // aware view in WhatCanICookScreen. Sort highest → lowest. Recipes
+      // not in matchMap (shouldn't happen, defensive) sort to the bottom
+      // at 0.
+      const withMatch: Recipe[] = recipesWithIngredients
+        .map((r) => ({
+          ...r,
+          pantry_match: matches.get(r.id)?.matchPercentage ?? 0,
+        }))
+        .sort((a, b) => (b.pantry_match ?? 0) - (a.pantry_match ?? 0));
+      setAllRecipesWithMatch(withMatch);
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
       console.error('[useReadyToCookRecipes] load failed', e);
@@ -95,5 +111,12 @@ export function useReadyToCookRecipes(spaceId: string | null): UseReadyToCookRes
     load();
   }, [load]);
 
-  return { readyToCookRecipes, matchMap, loading, error, refresh: load };
+  return {
+    readyToCookRecipes,
+    allRecipesWithMatch,
+    matchMap,
+    loading,
+    error,
+    refresh: load,
+  };
 }

@@ -6,6 +6,35 @@
 // Spawn-on-out per Q10β + Q41 + Q48 (idempotency).
 // Q35: initial state restricted to in_stock/low/out (critical only via cycling).
 // Q46: all param/return interfaces live in lib/types/.
+//
+// ============================================
+// CONFIRMING_FUNCTIONS_REFERENCE (8R-UX4)
+// ============================================
+// Canonical list of service functions that bump `supplies.last_confirmed_at`
+// — the behavioral-engagement signal driving "Sitting Idle" in the Pantry
+// Use Soon outer tab. New functions representing user engagement with a
+// physical supply MUST bump this column.
+//
+// Bumpers (touch supplies.last_confirmed_at):
+//   • setSupplyStatus              — any status transition or re-write
+//   • markSupplyUsed               — swipe-right "used" gesture
+//   • createSupply                 — initial timestamp on insert
+//   • createLot                    — adding a physical lot is engagement
+//   • updateLot (quantity change)  — partial consume / re-count is engagement
+//   • archiveLot                   — consumed a whole lot
+//   • deductFromOldest             — cook depletion FIFO walk
+//   • deductFromSpecificLots       — cook depletion explicit-lot path
+//   • moveLotStorage               — moving a lot is engaging with it
+//
+// Non-bumpers (deliberately leave last_confirmed_at alone):
+//   • setSupplyTags / addTag / removeTag — metadata, not engagement
+//   • Notes-only updates, custom_name edits
+//   • storage_location change on the supply itself (not a lot)
+//   • archived_at flips on the supply (cleanup, not engagement)
+//   • setSupplyTracksLots — config toggle
+//
+// The bumpers/non-bumpers split is best-guess for F&F. Re-assess after
+// real usage data is available — DEFERRED_WORK has the follow-up item.
 // ============================================
 
 import { supabase } from '../supabase';
@@ -99,7 +128,7 @@ function sortSupplies(rows: SupplyWithTags[]): SupplyWithTags[] {
 
 const SUPPLY_SELECT = `
   *,
-  ingredient:ingredients(id, name, plural_name, family, ingredient_type, typical_store_section),
+  ingredient:ingredients(id, name, plural_name, family, ingredient_type, typical_store_section, shelf_life_days_fridge, shelf_life_days_freezer, shelf_life_days_pantry, shelf_life_days_counter),
   supply_tags(tag:tags(*))
 `;
 
@@ -162,7 +191,10 @@ async function hydrateSupplyLots(
     const lots = bySupply.get(s.id) ?? [];
     s.lots = lots;
     if (s.tracks_lots && lots.length > 0) {
-      s.lot_aggregate = await getLotAggregate(lots);
+      // 8R-UX1: pass ingredient through so has_expiring_soon uses the
+      // shelf-life-aware threshold (clamp 1-7d at 25% of shelf life).
+      // Falls back to flat 7d when ingredient or its shelf_life column is null.
+      s.lot_aggregate = await getLotAggregate(lots, s.ingredient);
     } else {
       s.lot_aggregate = undefined;
     }
@@ -386,6 +418,10 @@ export async function createSupply(params: CreateSupplyParams): Promise<SupplyWi
     is_priority: finalIsPriority,
     usage_level: initialUsageLevelForStatus(params.status),
     archived_at: null,
+    // 8R-UX4: explicit on insert (DB default exists as a safety net but we
+    // own the timestamp at the service layer so all bumper functions are
+    // consistent).
+    last_confirmed_at: new Date().toISOString(),
   };
 
   const { data: inserted, error: insertError } = await supabase
@@ -504,7 +540,13 @@ export async function setSupplyStatus(
   // re-write nuke a manually-set usage_level). Transitions into 'unknown'
   // also leave usage_level alone (per CP6d-SmokeFix-4 — preserve level
   // memory for when the user re-promotes).
-  const patch: Record<string, unknown> = { status: newStatus };
+  // 8R-UX4: bump last_confirmed_at on EVERY setSupplyStatus call (transition
+  // or not — any call is a "yes I touched this" event). See
+  // CONFIRMING_FUNCTIONS_REFERENCE in this file's header.
+  const patch: Record<string, unknown> = {
+    status: newStatus,
+    last_confirmed_at: new Date().toISOString(),
+  };
   if (isTransition) {
     const nextLevel = usageLevelForTransition(newStatus);
     if (nextLevel !== null) {
@@ -770,15 +812,23 @@ export async function searchCatalogIngredients(
   }
 
   const matched = (ingredients ?? []) as ShadowSupplyCandidate[];
+  console.log(
+    `🔍 searchCatalogIngredients(${trimmed}) → ${matched.length} catalog hits, names=${matched.map((m) => m.name).slice(0, 5).join(', ')}`
+  );
   if (matched.length === 0) return [];
 
-  // 2. Look up which of these ingredient IDs already have a real supply in
-  //    the space; exclude those from shadow results.
+  // 2. Look up which of these ingredient IDs already have an ACTIVE supply
+  //    in the space; exclude those from shadow results. 8R-UX1 fix:
+  //    archived supplies (e.g., track_only items auto-archived on out)
+  //    used to count as "existing" here, which hid those ingredients from
+  //    the "Could add" surface even though the user no longer had them.
+  //    Resurrection flow now shows them again so they can be re-added.
   const ingredientIds = matched.map((i) => i.id);
   const { data: existing, error: supError } = await supabase
     .from('supplies')
     .select('ingredient_id')
     .eq('space_id', spaceId)
+    .is('archived_at', null)
     .in('ingredient_id', ingredientIds);
 
   if (supError) {
@@ -792,7 +842,11 @@ export async function searchCatalogIngredients(
       .filter((id): id is string => !!id)
   );
 
-  return matched.filter((i) => !existingIds.has(i.id)).slice(0, limit);
+  const filtered = matched.filter((i) => !existingIds.has(i.id)).slice(0, limit);
+  console.log(
+    `🔍 searchCatalogIngredients(${trimmed}) → ${filtered.length} after excluding ${existingIds.size} existing supplies`
+  );
+  return filtered;
 }
 
 // ============================================
@@ -920,6 +974,75 @@ export async function setSupplyBrands(
   return result;
 }
 
+/**
+ * 8R-UX1: "Mark used" semantics for the Use Soon swipe action. Refreshes the
+ * supply's idle freshness signal so the row drops out of "Back of the fridge"
+ * / "Collecting freezer burn" immediately, without lying about consumption
+ * (lot quantity unchanged, status unchanged).
+ *
+ * Per-path behavior:
+ *   • lot-tracked: bump the oldest active lot's `acquired_at` to now. This is
+ *     the signal SuppliesSection.getIdleSinceIso reads for lot-tracked
+ *     supplies. We deliberately use a direct supabase update (NOT
+ *     lotsService.updateLot) to avoid `expires_at_overridden` getting flipped
+ *     as a side effect — the user is signaling "I'm using this," not setting
+ *     a new expiration.
+ *   • non-lot: bump `supplies.updated_at` via a benign self-update.
+ *     SuppliesSection's idle predicate uses MAX(created_at, updated_at) for
+ *     non-lot supplies, so this refreshes the signal.
+ *
+ * 8R-UX4: also bumps supplies.last_confirmed_at on every path — that column
+ * is the canonical behavioral-engagement signal driving Sitting Idle in the
+ * Pantry Use Soon outer tab. See CONFIRMING_FUNCTIONS_REFERENCE.
+ */
+export async function markSupplyUsed(
+  supplyId: string
+): Promise<SupplyWithTags> {
+  console.log('📦 Marking supply used:', supplyId);
+
+  const before = await getSupplyById(supplyId, { includeLots: true });
+  if (!before) throw new SupplyNotFoundError(supplyId);
+
+  const nowIso = new Date().toISOString();
+
+  if (before.tracks_lots) {
+    const active = (before.lots ?? []).filter((l) => l.consumed_at === null);
+    if (active.length > 0) {
+      // Oldest active lot by acquired_at — that's the lot driving the idle
+      // signal in getIdleSinceIso.
+      const oldest = active.reduce((acc, l) =>
+        l.acquired_at < acc.acquired_at ? l : acc
+      );
+      const { error: lotError } = await supabase
+        .from('supply_lots')
+        .update({ acquired_at: nowIso })
+        .eq('id', oldest.id);
+      if (lotError) {
+        console.error('❌ Error refreshing lot acquired_at:', lotError);
+        throw lotError;
+      }
+    }
+    // Fall through to the unified supply-level bump below.
+  }
+
+  // 8R-UX4: unified bump for supplies.last_confirmed_at. Replaces the
+  // previous tri-path updated_at touches; the supply column is now the
+  // canonical idle signal for non-lot supplies and the fallback signal for
+  // lot-tracked supplies with no active lots.
+  const { error } = await supabase
+    .from('supplies')
+    .update({ last_confirmed_at: nowIso })
+    .eq('id', supplyId);
+  if (error) {
+    console.error('❌ Error bumping supply last_confirmed_at:', error);
+    throw error;
+  }
+
+  const after = await getSupplyById(supplyId, { includeLots: true });
+  if (!after) throw new SupplyNotFoundError(supplyId);
+  return after;
+}
+
 export async function archiveSupply(
   supplyId: string
 ): Promise<SupplyWithTags> {
@@ -937,47 +1060,13 @@ export async function archiveSupply(
   return result;
 }
 
-// ============================================
-// STALE TRACK-ONLY SUPPLIES (CP6d-Pantry, Gap-NEED-5)
-// ============================================
-
-/**
- * Returns track_only supplies the user hasn't touched in >14 days. Drives the
- * StaleItemsBanner. Schema note: the prompt referenced `last_confirmed_at` as
- * the freshness signal; that column is not present on the supplies table at
- * CP6d-Schema time, so we fall back to `updated_at` per the prompt's own
- * fallback clause. If `last_confirmed_at` lands later, swap the column here.
- */
-export async function getStaleTrackOnlySupplies(
-  spaceId: string
-): Promise<SupplyWithTags[]> {
-  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-
-  console.log('📦 Loading stale track_only supplies:', { spaceId, cutoff });
-
-  const { data, error } = await supabase
-    .from('supplies')
-    .select(SUPPLY_SELECT)
-    .eq('space_id', spaceId)
-    .eq('tracking_mode', 'track_only')
-    .is('archived_at', null)
-    .lt('updated_at', cutoff);
-
-  if (error) {
-    console.error('❌ Error loading stale supplies:', error);
-    throw error;
-  }
-
-  const flattened = (data ?? []).map((row) =>
-    flattenSupplyRow(
-      row as Supply & {
-        ingredient: SupplyIngredient | null;
-        supply_tags: Array<{ tag: Tag | null }> | null;
-      }
-    )
-  );
-  return flattened;
-}
+// 8R-UX1: getStaleTrackOnlySupplies / getIdleColdSupplies were removed.
+// SuppliesSection now derives "idle cold-storage" supplies in-render from
+// the hydrated `supplies` snapshot (lots are already loaded via
+// getSuppliesForSpace's includeLots option), which lets the freshness
+// signal differ per supply: oldest active lot's `acquired_at` for
+// lot-tracked supplies, falling back to `supplies.updated_at` otherwise.
+// See SuppliesSection's getIdleSinceIso helper.
 
 // ============================================
 // DELETE

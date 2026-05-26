@@ -38,12 +38,19 @@ import { createSupply, setSupplyStatus } from '../lib/services/suppliesService';
 import { linkNeedToSupply, setNeedStatus } from '../lib/services/needsService';
 import { getNeedDisplayName } from '../lib/services/needsService';
 import { NeedWithDetails } from '../lib/types/needs';
+import { SupplyWithTags } from '../lib/types/supplies';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 
 export interface BulkAcquirePromotionModalProps {
   visible: boolean;
   needsWithoutSupply: NeedWithDetails[];
+  /**
+   * 8R-UX1 fix: pre-existing supplies in the space, used to dedup against
+   * promotion targets. Without this, promoting a "salt" need with no
+   * supply_id creates a SECOND salt supply even when one already exists.
+   */
+  existingSupplies: SupplyWithTags[];
   spaceId: string;
   userId: string;
   onCancel: () => void;
@@ -61,6 +68,7 @@ export interface BulkAcquirePromotionModalProps {
 export default function BulkAcquirePromotionModal({
   visible,
   needsWithoutSupply,
+  existingSupplies,
   spaceId,
   userId,
   onCancel,
@@ -120,27 +128,59 @@ export default function BulkAcquirePromotionModal({
       groups.set(key, list);
     }
 
+    // 8R-UX1 fix: try to find an existing supply in the user's pantry that
+    // matches this group's identity before creating a new one. Match by
+    // ingredient_id when set, else by case-insensitive custom_name. Without
+    // this dedup, acquiring an unlinked "salt" need spawned a second salt
+    // supply even when one already existed.
+    const findExistingMatch = (head: NeedWithDetails): SupplyWithTags | null => {
+      if (head.ingredient_id) {
+        return (
+          existingSupplies.find((s) => s.ingredient_id === head.ingredient_id) ??
+          null
+        );
+      }
+      const name = (head.custom_name ?? '').toLowerCase().trim();
+      if (!name) return null;
+      return (
+        existingSupplies.find(
+          (s) =>
+            !s.ingredient_id &&
+            (s.custom_name ?? '').toLowerCase().trim() === name
+        ) ?? null
+      );
+    };
+
     for (const [, members] of groups) {
       if (members.length === 0) continue;
       const head = members[0];
+      const existingMatch = findExistingMatch(head);
       try {
-        const newSupply = await createSupply({
-          spaceId,
-          ingredientId: head.ingredient_id ?? undefined,
-          customName: head.ingredient_id ? undefined : head.custom_name ?? undefined,
-          status: 'in_stock',
-          forUserIds: head.for_user_ids,
-          addedBy: userId,
-        });
-        // setSupplyStatus on the freshly-created supply is a no-op for
-        // already-in_stock rows; keep for parity.
-        await setSupplyStatus(newSupply.id, 'in_stock');
+        let targetSupplyId: string;
+        if (existingMatch) {
+          // Link to the existing supply + restock it instead of creating new.
+          targetSupplyId = existingMatch.id;
+          await setSupplyStatus(targetSupplyId, 'in_stock');
+        } else {
+          const newSupply = await createSupply({
+            spaceId,
+            ingredientId: head.ingredient_id ?? undefined,
+            customName: head.ingredient_id ? undefined : head.custom_name ?? undefined,
+            status: 'in_stock',
+            forUserIds: head.for_user_ids,
+            addedBy: userId,
+          });
+          // setSupplyStatus on the freshly-created supply is a no-op for
+          // already-in_stock rows; keep for parity.
+          await setSupplyStatus(newSupply.id, 'in_stock');
+          targetSupplyId = newSupply.id;
+        }
 
-        // Acquire all members; link each to the new supply so the dedup
+        // Acquire all members; link each to the target supply so the dedup
         // softening (CP6d-Schema Gap-G41) recognizes them as same-supply.
         for (const member of members) {
           try {
-            await linkNeedToSupply(member.id, newSupply.id);
+            await linkNeedToSupply(member.id, targetSupplyId);
             await setNeedStatus(member.id, 'acquired');
             promotedNeedIds.add(member.id);
           } catch (error) {
@@ -149,7 +189,7 @@ export default function BulkAcquirePromotionModal({
           }
         }
       } catch (error) {
-        console.error('❌ BulkAcquire createSupply error for group head', head.id, error);
+        console.error('❌ BulkAcquire promote error for group head', head.id, error);
         for (const member of members) failedNeedIds.add(member.id);
       }
     }

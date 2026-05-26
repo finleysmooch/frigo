@@ -67,6 +67,8 @@ import { CookDepletionBannerProvider } from './contexts/CookDepletionBannerConte
 import CookDepletionBanner from './components/pantry/CookDepletionBanner';
 import { SpawnOnOutToastProvider } from './contexts/SpawnOnOutToastContext';
 import SpawnOnOutToast from './components/SpawnOnOutToast';
+import { TrackOnlyOutToastProvider } from './contexts/TrackOnlyOutToastContext';
+import TrackOnlyOutToast from './components/TrackOnlyOutToast';
 import { AcquireLotToastProvider } from './contexts/AcquireLotToastContext';
 import AcquireLotToast from './components/pantry/AcquireLotToast';
 
@@ -905,12 +907,15 @@ export default function App() {
               <SpaceProvider>
                 <CookDepletionBannerProvider>
                   <SpawnOnOutToastProvider>
-                    <AcquireLotToastProvider>
-                      <MainTabNavigator />
-                      <CookDepletionBanner />
-                      <SpawnOnOutToast />
-                      <AcquireLotToast />
-                    </AcquireLotToastProvider>
+                    <TrackOnlyOutToastProvider>
+                      <AcquireLotToastProvider>
+                        <MainTabNavigator />
+                        <CookDepletionBanner />
+                        <SpawnOnOutToast />
+                        <TrackOnlyOutToast />
+                        <AcquireLotToast />
+                      </AcquireLotToastProvider>
+                    </TrackOnlyOutToastProvider>
                   </SpawnOnOutToastProvider>
                 </CookDepletionBannerProvider>
               </SpaceProvider>

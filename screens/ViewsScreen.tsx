@@ -8,7 +8,7 @@
 // Location: screens/ViewsScreen.tsx
 // ============================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -34,6 +34,11 @@ import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { supabase } from '../lib/supabase';
 import ViewCreatorModal from '../components/ViewCreatorModal';
+import GroceryBagIcon from '../components/icons/grocery/GroceryBagIcon';
+import ShoppingCartIcon from '../components/icons/grocery/ShoppingCartIcon';
+import ReceiptIcon from '../components/icons/grocery/ReceiptIcon';
+import CartIcon from '../components/icons/grocery/CartIcon';
+import HiddenIcon from '../components/icons/HiddenIcon';
 
 type Props = NativeStackScreenProps<ViewsStackParamList, 'Views'>;
 
@@ -45,7 +50,7 @@ export default function ViewsScreen({ navigation }: Props) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
+  const [hiddenExpanded, setHiddenExpanded] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [editingView, setEditingView] = useState<ViewWithFilters | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -138,6 +143,18 @@ export default function ViewsScreen({ navigation }: Props) {
           },
         },
         {
+          text: view.is_hidden ? 'Unhide' : 'Hide',
+          onPress: async () => {
+            try {
+              await toggleViewHidden(view.id);
+              if (spaceId) await load(spaceId);
+            } catch (error) {
+              console.error('❌ toggleViewHidden error:', error);
+              Alert.alert('Error', 'Could not update.');
+            }
+          },
+        },
+        {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
@@ -163,6 +180,16 @@ export default function ViewsScreen({ navigation }: Props) {
     }
   };
 
+  const handleUnhideOne = async (viewId: string) => {
+    try {
+      await toggleViewHidden(viewId);
+      if (spaceId) await load(spaceId);
+    } catch (error) {
+      console.error('❌ toggleViewHidden error:', error);
+      Alert.alert('Error', 'Could not unhide.');
+    }
+  };
+
   const handleNewView = () => {
     setEditingView(null);
     setCreatorOpen(true);
@@ -182,21 +209,29 @@ export default function ViewsScreen({ navigation }: Props) {
     [colors, functionalColors]
   );
 
-  // Defaults sorted first by sort_order, custom views by sort_order then created_at desc.
+  // Defaults sorted first by sort_order, custom views by sort_order then
+  // created_at desc. 8R-UX1: In Cart pins to the very bottom regardless of
+  // sort_order, so new custom lists slot in above it. Hidden lists are
+  // EXCLUDED entirely from the main grid — they live in a single "Hidden
+  // lists" row rendered above the In Cart divider.
   const sortedViews = useMemo(() => {
-    const visible = views.filter((v) => showHidden || !v.is_hidden);
+    const visible = views.filter((v) => !v.is_hidden);
     return [...visible].sort((a, b) => {
+      const aIsCart = a.is_default && a.name === 'In Cart';
+      const bIsCart = b.is_default && b.name === 'In Cart';
+      if (aIsCart !== bIsCart) return aIsCart ? 1 : -1;
       if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
       const orderDiff = a.sort_order - b.sort_order;
       if (orderDiff !== 0) return orderDiff;
       return b.created_at.localeCompare(a.created_at);
     });
-  }, [views, showHidden]);
+  }, [views]);
 
-  const hiddenCount = useMemo(
-    () => views.filter((v) => v.is_hidden).length,
+  const hiddenViews = useMemo(
+    () => views.filter((v) => v.is_hidden),
     [views]
   );
+  const hiddenCount = hiddenViews.length;
 
   if (loading) {
     return (
@@ -209,7 +244,7 @@ export default function ViewsScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Lists</Text>
+        <Text style={styles.headerTitle}>My Lists</Text>
         <Text style={styles.headerSubtitle}>
           {sortedViews.length} {sortedViews.length === 1 ? 'list' : 'lists'}
         </Text>
@@ -225,27 +260,82 @@ export default function ViewsScreen({ navigation }: Props) {
           />
         }
       >
-        {sortedViews.map((view) => (
-          <TouchableOpacity
-            key={view.id}
-            style={[styles.card, view.is_hidden && styles.cardHidden]}
-            onPress={() => handleViewTap(view)}
-            onLongPress={() => handleViewLongPress(view)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cardEmoji}>{view.emoji ?? '📋'}</Text>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardName}>{view.name}</Text>
-              <Text style={styles.cardSubtitle} numberOfLines={1}>
-                {formatFilterSubtitle(view)}
-                {view.is_hidden && '  ·  hidden'}
-              </Text>
-            </View>
-            <View style={styles.cardCount}>
-              <Text style={styles.cardCountText}>{counts[view.id] ?? 0}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {sortedViews.map((view) => {
+          const listIcon = renderListIcon(view, colors);
+          const subtitle = formatFilterSubtitle(view);
+          const showSubtitle = subtitle.length > 0 || view.is_hidden;
+          // 8R-UX1: In Cart is visually separated from the active grocery
+          // trio — it's a staged/transition state, not a to-do bucket. Render
+          // a thin divider above it and apply a muted card style.
+          const isInCart = view.is_default && view.name === 'In Cart';
+          return (
+            <React.Fragment key={view.id}>
+              {isInCart && hiddenCount > 0 && (
+                <View>
+                  <TouchableOpacity
+                    style={styles.hiddenRow}
+                    onPress={() => setHiddenExpanded((prev) => !prev)}
+                    activeOpacity={0.6}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${hiddenCount} hidden ${hiddenCount === 1 ? 'list' : 'lists'}, tap to ${hiddenExpanded ? 'collapse' : 'expand'}`}
+                  >
+                    <HiddenIcon size={16} color={colors.text.tertiary} />
+                    <Text style={styles.hiddenRowText}>
+                      {hiddenCount} hidden {hiddenCount === 1 ? 'list' : 'lists'} {hiddenExpanded ? '▾' : '▸'}
+                    </Text>
+                  </TouchableOpacity>
+                  {hiddenExpanded && (
+                    <View style={styles.hiddenExpandedList}>
+                      {hiddenViews.map((hv) => (
+                        <TouchableOpacity
+                          key={hv.id}
+                          style={styles.hiddenItemRow}
+                          onPress={() => handleUnhideOne(hv.id)}
+                          activeOpacity={0.6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Unhide ${hv.name}`}
+                        >
+                          <Text style={styles.hiddenItemName} numberOfLines={1}>
+                            {hv.name}
+                          </Text>
+                          <Text style={styles.hiddenItemAction}>Unhide</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+              {isInCart && <View style={styles.inCartDivider} />}
+              <TouchableOpacity
+                style={[
+                  styles.card,
+                  view.is_hidden && styles.cardHidden,
+                  isInCart && styles.cardMuted,
+                ]}
+                onPress={() => handleViewTap(view)}
+                onLongPress={() => handleViewLongPress(view)}
+                activeOpacity={0.7}
+              >
+                {listIcon ?? (
+                  <Text style={styles.cardEmoji}>{view.emoji ?? '📋'}</Text>
+                )}
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardName}>{view.name}</Text>
+                  {showSubtitle && (
+                    <Text style={styles.cardSubtitle} numberOfLines={1}>
+                      {subtitle}
+                      {view.is_hidden && (subtitle ? '  ·  hidden' : 'hidden')}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.cardCount}>
+                  <Text style={styles.cardCountText}>{counts[view.id] ?? 0}</Text>
+                </View>
+              </TouchableOpacity>
+            </React.Fragment>
+          );
+        })}
 
         <TouchableOpacity
           style={styles.newButton}
@@ -254,22 +344,6 @@ export default function ViewsScreen({ navigation }: Props) {
         >
           <Text style={styles.newButtonText}>+ New list</Text>
         </TouchableOpacity>
-
-        {hiddenCount > 0 && (
-          <TouchableOpacity
-            style={styles.hiddenToggle}
-            onPress={() => setShowHidden((prev) => !prev)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.hiddenToggleText}>
-              {showHidden
-                ? 'Hide hidden lists'
-                : `Show ${hiddenCount} hidden ${
-                    hiddenCount === 1 ? 'list' : 'lists'
-                  }`}
-            </Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
 
       {spaceId && currentUserId && (
@@ -286,11 +360,77 @@ export default function ViewsScreen({ navigation }: Props) {
   );
 }
 
+// 8R-UX1: subtitle communicates the filter cascade — where else items in
+// this list appear.
+//   Default lists:
+//     Medium List → "Includes Short List"
+//     Long List   → "Includes everything"
+//     Short List  → (nothing — bottom of the cascade)
+//     In Cart     → (nothing — separate semantic)
+//   Custom lists: read the view's urgency filter to determine cascade target.
+//     urgency=['today']      → "Also in Short List"
+//     urgency=['this-week']  → "Also in Medium List"
+//     no urgency filter      → "Also in Long List"
 function formatFilterSubtitle(view: ViewWithFilters): string {
-  if (view.filters.length === 0) return 'no filters';
-  return view.filters
-    .map((f) => `${f.dimension}: ${f.values.join(', ')}`)
-    .join('  ·  ');
+  if (view.is_default) {
+    if (view.name === 'Medium List') return 'Includes Short List';
+    if (view.name === 'Long List') return 'Includes everything';
+    return '';
+  }
+  // Standalone (private) custom lists are identified by an event tag value
+  // suffixed with `__private` (set by ViewCreatorModal's "Just this list").
+  const eventFilter = view.filters.find((f) => f.dimension === 'event');
+  if (eventFilter?.values.some((v) => v.endsWith('__private'))) {
+    return 'Only in this list';
+  }
+  const urgencyFilter = view.filters.find((f) => f.dimension === 'urgency');
+  if (urgencyFilter?.values.includes('today')) return 'Also in Short List';
+  if (urgencyFilter?.values.includes('this-week')) return 'Also in Medium List';
+  return 'Also in Long List';
+}
+
+// 8R-UX1: map the three urgency-based default views to dedicated icons.
+// All same size + brand teal — the icon shape (bag / cart / receipt) and
+// list order convey the hierarchy. Fixed-width slot keeps cardBody aligned.
+const LIST_ICON_SIZE = 46;
+const LIST_ICON_SLOT_WIDTH = 56;
+
+function renderListIcon(
+  view: ViewWithFilters,
+  colors: ReturnType<typeof useTheme>['colors']
+): React.ReactElement | null {
+  if (!view.is_default) return null;
+  let icon: React.ReactElement | null = null;
+  switch (view.name) {
+    case 'Short List':
+      icon = <GroceryBagIcon size={LIST_ICON_SIZE} color={colors.primary} />;
+      break;
+    case 'Medium List':
+      icon = <ShoppingCartIcon size={LIST_ICON_SIZE} color={colors.primary} />;
+      break;
+    case 'Long List':
+      icon = <ReceiptIcon size={LIST_ICON_SIZE} color={colors.primary} />;
+      break;
+    case 'In Cart':
+      // Black rather than brand teal — In Cart is semantically a "done /
+      // staged" state, not part of the active grocery hierarchy.
+      icon = <CartIcon size={LIST_ICON_SIZE} color={colors.text.primary} />;
+      break;
+    default:
+      return null;
+  }
+  return (
+    <View
+      style={{
+        width: LIST_ICON_SLOT_WIDTH,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+      }}
+    >
+      {icon}
+    </View>
+  );
 }
 
 function makeStyles(
@@ -340,6 +480,17 @@ function makeStyles(
       borderColor: colors.border.light,
     },
     cardHidden: { opacity: 0.5 },
+    // 8R-UX1: In Cart is visually de-emphasized vs the active grocery trio.
+    cardMuted: {
+      backgroundColor: colors.background.secondary,
+      borderColor: 'transparent',
+    },
+    inCartDivider: {
+      height: 1,
+      backgroundColor: colors.border.light,
+      marginHorizontal: spacing.md,
+      marginTop: spacing.md,
+    },
     cardEmoji: { fontSize: 28, marginRight: 12 },
     cardBody: { flex: 1 },
     cardName: {
@@ -380,11 +531,39 @@ function makeStyles(
       color: colors.text.secondary,
       fontWeight: typography.weights.medium,
     },
-    hiddenToggle: {
-      paddingVertical: 12,
+    hiddenRow: {
+      flexDirection: 'row',
       alignItems: 'center',
+      alignSelf: 'flex-start',
+      marginHorizontal: spacing.md,
+      marginTop: spacing.md,
+      paddingVertical: 4,
+      gap: 6,
     },
-    hiddenToggleText: {
+    hiddenRowText: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontWeight: typography.weights.medium,
+    },
+    hiddenExpandedList: {
+      marginHorizontal: spacing.md,
+      marginTop: 4,
+      marginLeft: spacing.md + 22,
+    },
+    hiddenItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      gap: 12,
+    },
+    hiddenItemName: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    hiddenItemAction: {
       fontSize: 13,
       color: colors.primary,
       fontWeight: typography.weights.medium,

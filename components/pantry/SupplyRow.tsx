@@ -34,10 +34,26 @@ import { typography, spacing, borderRadius } from '../../lib/theme';
 import { getUnitIconKind } from '../../lib/utils/unitIcons';
 import StatusIcon, { UsageLevel } from './StatusIcon';
 import { RegularBookmarkIcon, PriorityBookmarkIcon } from './BookmarkIcons';
+import LightningBoltIcon from '../icons/LightningBoltIcon';
 import SupplyControls from './SupplyControls';
 import LotBadge from './LotBadge';
 import LotsList from './LotsList';
 import MatchPillRow from './MatchPillRow';
+
+/**
+ * 8R-UX1: Use Soon context passed by SuppliesSection when this row is rendered
+ * inside the new "Use Soon" top section. Overrides the row's left-bar color
+ * and replaces the status label text with a time-to-expiration / idle-days
+ * marker, so the urgency reads at a glance. The same supply rendered below
+ * (in On Hand / Regulars via dual-listing) does NOT receive urgency — it
+ * keeps its normal stock-status presentation.
+ */
+export interface UrgencyContext {
+  /** Hex color for the left bar AND for the urgency label text. */
+  color: string;
+  /** Short label that replaces the status text on the right (e.g. "2d", "Today"). */
+  label: string;
+}
 
 export interface SupplyRowProps {
   supply: SupplyWithTags;
@@ -55,6 +71,19 @@ export interface SupplyRowProps {
    * rendering (zero visual change vs pre-b2).
    */
   searchMatch?: SupplySearchMatch;
+  /**
+   * 8R-UX1: when set, the row paints its left-bar in `urgency.color` and
+   * shows `urgency.label` in place of the stock-status text. Used by the
+   * Use Soon section to surface expiration / idle urgency.
+   */
+  urgency?: UrgencyContext;
+  /**
+   * 8R-UX5: when true, render a ⚡ glyph inline before the name. Set by
+   * SuppliesSection only on the Use Soon outer tab + only when the supply's
+   * ingredient qualifies as a hero (isHeroIngredient). Visual is in-line
+   * with the name, no row-height shift.
+   */
+  showHeroMarker?: boolean;
 }
 
 // Full 6-step progression: 5 → 4 → 3 → 2 → 1 → 0 → 5.
@@ -118,13 +147,17 @@ export default function SupplyRow({
   onCycleError,
   userId,
   searchMatch,
+  urgency,
+  showHeroMarker,
 }: SupplyRowProps) {
   const { colors, functionalColors } = useTheme();
 
   const displayName = pantryDisplayName(supply);
   const status = supply.status;
   const level = clampUsageLevel(supply.usage_level);
-  const accentColor = colorForStatus(status, functionalColors, colors.accent);
+  const stockAccent = colorForStatus(status, functionalColors, colors.accent);
+  // 8R-UX1: urgency wins for the visual focus when present.
+  const accentColor = urgency?.color ?? stockAccent;
   const brandLabel =
     supply.brands && supply.brands.length > 0 ? supply.brands.join(', ') : null;
   const bookmarkKind: 'priority' | 'regular' | null = supply.is_priority
@@ -245,9 +278,16 @@ export default function SupplyRow({
               : `Toggle ${displayName} details`
           }
         >
-          <Text style={styles.name} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <View style={styles.nameRow}>
+            {showHeroMarker && (
+              <View style={styles.heroMarker}>
+                <LightningBoltIcon size={12} color={colors.primary} />
+              </View>
+            )}
+            <Text style={styles.name} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </View>
           {brandLabel && (
             <Text style={styles.brand} numberOfLines={1}>
               {brandLabel}
@@ -256,7 +296,7 @@ export default function SupplyRow({
         </TouchableOpacity>
 
         <Text style={[styles.statusLabel, { color: accentColor }]}>
-          {statusLabel(status)}
+          {urgency?.label ?? statusLabel(status)}
         </Text>
 
         {bookmarkKind && (
@@ -440,10 +480,18 @@ function makeStyles(
       paddingVertical: 2,
       paddingRight: 6,
     },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    heroMarker: {
+      marginRight: 4,
+    },
     name: {
       fontSize: typography.sizes.md,
       color: colors.text.primary,
       fontWeight: typography.weights.medium,
+      flexShrink: 1,
     },
     brand: {
       fontSize: 11,

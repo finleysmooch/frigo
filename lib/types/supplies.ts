@@ -25,7 +25,10 @@ export type TrackingMode = 'restock' | 'track_only';
 
 // CP6d-Schema: canonical export of the storage-location enum.
 // Until CP6d, this lived inlined in ingredientSuggestionService.ts.
-export type StorageLocation = 'fridge' | 'freezer' | 'pantry' | 'counter';
+// 8R-UX1: 'garden' added for items growing at home. Requires the DB CHECK
+// constraint update in docs/8R_UX1_add_garden_storage_migration.sql before
+// supplies with this value will save.
+export type StorageLocation = 'fridge' | 'freezer' | 'pantry' | 'counter' | 'garden';
 
 export interface Supply {
   id: string;
@@ -39,6 +42,12 @@ export interface Supply {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // 8R-UX4: behavioral-engagement timestamp — drives "Sitting Idle" in the
+  // Pantry Use Soon outer tab. Bumped by status changes, swipe-mark-used,
+  // lot creates/updates/archives, cook depletion, lot storage moves. See
+  // lib/services/suppliesService.ts CONFIRMING_FUNCTIONS_REFERENCE for the
+  // canonical bumper list.
+  last_confirmed_at: string;
   // CP6d-Schema fields
   tracking_mode: TrackingMode;
   storage_location: StorageLocation | null;
@@ -56,6 +65,13 @@ export interface SupplyIngredient {
   family: string;
   ingredient_type: string | null;
   typical_store_section: string | null;
+  // 8R-UX1: per-storage shelf life in days. Used by lotsService.isLotExpiringSoon
+  // to derive a per-ingredient "expiring soon" threshold (clamped 1-7d at 25%
+  // of shelf life). null → fall back to the flat 7d rule.
+  shelf_life_days_fridge: number | null;
+  shelf_life_days_freezer: number | null;
+  shelf_life_days_pantry: number | null;
+  shelf_life_days_counter: number | null;
 }
 
 export interface SupplyWithTags extends Supply {
@@ -143,7 +159,14 @@ export interface SupplyLotAggregate {
   storage_locations: string[];      // distinct active storage locations
   variant_labels: string[];         // distinct active variant_labels (excluding null)
   oldest_expiration: string | null; // ISO; nearest future expiration across active lots
-  has_expiring_soon: boolean;       // true if any active lot expires within 7 days
+  // 8R-UX1: was a flat 7-day window. Now derived per-lot via
+  // lotsService.isLotExpiringSoon when an ingredient is passed to
+  // getLotAggregate (threshold = clamp(ceil(shelf_life * 0.25), 1, 7)).
+  // Falls back to flat 7d when ingredient is absent.
+  has_expiring_soon: boolean;
+  // 8R-UX1: true when any active lot is already past expiration. Date-only,
+  // computed unconditionally.
+  has_expired: boolean;
 }
 
 export interface CreateLotParams {

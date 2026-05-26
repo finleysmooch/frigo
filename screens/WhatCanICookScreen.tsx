@@ -26,23 +26,42 @@ import { SearchIcon } from '../components/icons';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'WhatCanICook'>;
 
+// 8R-UX1: match-threshold selector. Each option is a minimum pantry_match
+// percentage; "Any" shows everything sorted by match desc. The default
+// preserves the original strict gate (>=90%) so users used to that surface
+// still see the same set first.
+const THRESHOLD_OPTIONS: Array<{ value: number; label: string }> = [
+  { value: 0.9, label: '90%+' },
+  { value: 0.75, label: '75%+' },
+  { value: 0.5, label: '50%+' },
+  { value: 0, label: 'Any' },
+];
+
 export default function WhatCanICookScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const spaceId = useActiveSpaceId();
-  const { readyToCookRecipes, loading, error, refresh } = useReadyToCookRecipes(spaceId);
+  const { allRecipesWithMatch, loading, error, refresh } =
+    useReadyToCookRecipes(spaceId);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [threshold, setThreshold] = useState<number>(0.9);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
+  // 8R-UX1: filter by threshold, then by search query. allRecipesWithMatch
+  // arrives sorted by pantry_match DESC from the hook, so no re-sort needed.
   const displayed = useMemo(() => {
-    if (!searchQuery.trim()) return readyToCookRecipes;
-    const q = searchQuery.toLowerCase();
-    return readyToCookRecipes.filter((r) =>
-      r.title.toLowerCase().includes(q) ||
-      r.hero_ingredients?.some((h) => h.toLowerCase().includes(q))
+    const above = allRecipesWithMatch.filter(
+      (r) => (r.pantry_match ?? 0) >= threshold
     );
-  }, [readyToCookRecipes, searchQuery]);
+    if (!searchQuery.trim()) return above;
+    const q = searchQuery.toLowerCase();
+    return above.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.hero_ingredients?.some((h) => h.toLowerCase().includes(q))
+    );
+  }, [allRecipesWithMatch, searchQuery, threshold]);
 
   const handleRecipePress = (recipe: Recipe) => {
     navigation.navigate('RecipeDetail', { recipe });
@@ -66,13 +85,32 @@ export default function WhatCanICookScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {/* Locked filter chip — TEMPORARY one-off styling. 8E-CP3 (locked filter
-          chips pattern) will replace this with the shared component. */}
+      {/* 8R-UX1: threshold-selector chips. Lowering threshold surfaces more
+          recipes — at "Any" the entire user library shows, sorted by pantry
+          match desc. */}
       <View style={styles.chipRow}>
-        <View style={styles.lockedChip}>
-          <Text style={styles.lockedChipIcon}>🔒</Text>
-          <Text style={styles.lockedChipText}>Pantry: 90%+ match</Text>
-        </View>
+        {THRESHOLD_OPTIONS.map((opt) => {
+          const isOn = threshold === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.thresholdChip, isOn && styles.thresholdChipOn]}
+              onPress={() => setThreshold(opt.value)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Match threshold ${opt.label}`}
+            >
+              <Text
+                style={[
+                  styles.thresholdChipText,
+                  isOn && styles.thresholdChipTextOn,
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
@@ -92,26 +130,51 @@ export default function WhatCanICookScreen({ navigation }: Props) {
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.primary} />
           }
-          renderItem={({ item }) => (
-            <RecipeCard
-              recipe={item}
-              isExpanded={expandedCardId === item.id}
-              onToggleExpand={() =>
-                setExpandedCardId((cur) => (cur === item.id ? null : item.id))
-              }
-              onPress={handleRecipePress}
-            />
-          )}
+          renderItem={({ item }) => {
+            const pct = Math.round((item.pantry_match ?? 0) * 100);
+            return (
+              <View>
+                <View style={styles.matchBadgeRow}>
+                  <View
+                    style={[
+                      styles.matchBadge,
+                      pct >= 90 && styles.matchBadgeHigh,
+                      pct < 50 && styles.matchBadgeLow,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.matchBadgeText,
+                        pct >= 90 && styles.matchBadgeTextHigh,
+                      ]}
+                    >
+                      {pct}% in pantry
+                    </Text>
+                  </View>
+                </View>
+                <RecipeCard
+                  recipe={item}
+                  isExpanded={expandedCardId === item.id}
+                  onToggleExpand={() =>
+                    setExpandedCardId((cur) => (cur === item.id ? null : item.id))
+                  }
+                  onPress={handleRecipePress}
+                />
+              </View>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.centerContainer}>
               <Text style={styles.emptyText}>
                 {searchQuery.trim()
-                  ? 'No ready-to-cook recipes match that search.'
-                  : "Nothing's quite ready right now."}
+                  ? 'No recipes match that search.'
+                  : threshold > 0
+                  ? `No recipes at ${Math.round(threshold * 100)}%+ pantry match.`
+                  : 'No recipes loaded yet.'}
               </Text>
-              {!searchQuery.trim() && (
+              {!searchQuery.trim() && threshold > 0 && (
                 <Text style={styles.emptySubText}>
-                  Review your supplies or browse recipes that need a shopping trip.
+                  Try a lower threshold above, or stock up first.
                 </Text>
               )}
             </View>
@@ -164,23 +227,52 @@ function makeStyles(colors: ThemeColors) {
       flexDirection: 'row',
       paddingHorizontal: 16,
       paddingBottom: 8,
+      gap: 6,
     },
-    lockedChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      backgroundColor: colors.background.secondary,
+    thresholdChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
       borderRadius: 14,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.background.card,
     },
-    lockedChipIcon: {
-      fontSize: 11,
+    thresholdChipOn: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
     },
-    lockedChipText: {
+    thresholdChipText: {
       fontSize: 12,
-      color: colors.text.secondary,
       fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    thresholdChipTextOn: {
+      color: '#ffffff',
+    },
+    matchBadgeRow: {
+      flexDirection: 'row',
+      paddingTop: 6,
+      paddingBottom: 2,
+    },
+    matchBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      backgroundColor: colors.background.secondary,
+    },
+    matchBadgeHigh: {
+      backgroundColor: colors.primary,
+    },
+    matchBadgeLow: {
+      backgroundColor: colors.background.secondary,
+    },
+    matchBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.text.secondary,
+    },
+    matchBadgeTextHigh: {
+      color: '#ffffff',
     },
     listContainer: {
       paddingHorizontal: 16,

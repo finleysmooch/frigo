@@ -303,7 +303,8 @@ export async function calculateRecipeSupplyMatchBulk(
       }
     }
 
-    // Group catalog rows by base id → variant families (L1 match groups).
+    // Group catalog rows by base id → variant families (used to enumerate
+    // variants of a base recipe ingredient for L1b matching).
     const familyByBase = new Map<string, IngredientMeta[]>();
     for (const meta of catalogById.values()) {
       const base = resolveBaseId(meta);
@@ -312,15 +313,46 @@ export async function calculateRecipeSupplyMatchBulk(
       else familyByBase.set(base, [meta]);
     }
 
-    // Per recipe ingredient, its L1 match group (list of ingredient_ids).
-    const matchGroups = new Map<string, string[]>();
+    // 8D-CP2.1: L1 match group per recipe ingredient, restricted to L1a + L1b.
+    //
+    //   L1a — same row.  Recipe.ingredient_id === supply.ingredient_id.
+    //   L1b — variant ↔ direct base.  Either side IS the base the other points
+    //         to. Examples: "salt" (base) ↔ "kosher salt" (variant), or
+    //         "olive oil" (base) ↔ "extra-virgin olive oil" (variant).
+    //   L1c — sibling via same base (both variants of same parent, neither IS
+    //         the parent). PRE-CP2.1: incorrectly grouped here as L1, causing
+    //         e.g. brisket ↔ ribeye to match exact even though "beef" is not
+    //         in the substitutable subtypes whitelist. POST-CP2.1: NOT in the
+    //         L1 group — falls through to the L2/L3 + whitelist path, where
+    //         it correctly demotes to L4 for non-whitelisted subtypes (beef,
+    //         chicken, cheese, citrus, etc.) and routes through L2/L3 for
+    //         whitelisted ones (rice, olive_oil, salt, etc.).
+    //
+    // Construction rules:
+    //   - Base recipe ingredient → group = [self] ∪ familyByBase[self.id]
+    //     (self + all direct variants). L1 fires when supply is self or a
+    //     direct variant.
+    //   - Variant recipe ingredient (has non-null base_ingredient_id) →
+    //     group = [self.id, base_ingredient_id]. L1 fires only when supply is
+    //     self or the direct base. Siblings (other variants of the same base)
+    //     are NOT in the group.
+    //   - Orphan (no base linkage) → group = [self].
+    const exactGroups = new Map<string, string[]>();
     for (const meta of universe.values()) {
-      const base = resolveBaseId(meta);
-      const family = familyByBase.get(base);
-      matchGroups.set(
-        meta.id,
-        family && family.length > 0 ? family.map((f) => f.id) : [meta.id]
-      );
+      if (meta.is_base_ingredient) {
+        // L1a (self) + L1b (variants pointing to me).
+        const family = familyByBase.get(meta.id);
+        exactGroups.set(
+          meta.id,
+          family && family.length > 0 ? family.map((f) => f.id) : [meta.id]
+        );
+      } else if (meta.base_ingredient_id) {
+        // L1a (self) + L1b (my direct base). Siblings deliberately excluded.
+        exactGroups.set(meta.id, [meta.id, meta.base_ingredient_id]);
+      } else {
+        // Orphan — L1a only.
+        exactGroups.set(meta.id, [meta.id]);
+      }
     }
 
     // Index supplies by ingredient_id (for L1) and by subtype (for L2/L3).
@@ -362,7 +394,8 @@ export async function calculateRecipeSupplyMatchBulk(
         }
 
         // ---- Step 1: L1 exact via the variant match group. ----
-        const group = matchGroups.get(meta.id) ?? [meta.id];
+        // 8D-CP2.1: group restricted to L1a + L1b — siblings now fall through.
+        const group = exactGroups.get(meta.id) ?? [meta.id];
         let l1Hit: SupplyRow | null = null;
         for (const gid of group) {
           const sups = suppliesByIngredient.get(gid);

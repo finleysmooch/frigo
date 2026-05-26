@@ -24,7 +24,10 @@ export async function searchRecipesByIngredient(
     const search = searchTerm.toLowerCase().trim();
     console.log('🔍 Searching ingredients for:', search);
 
-    // STEP 1: Find ingredients matching the search term
+    // PATH A — catalog match (ingredients.name / plural_name).
+    // Joins via ingredient_id. Catches recipes whose ingredient row's
+    // canonical name contains the query (e.g. "miso" matches "miso",
+    // "white miso", "miso paste").
     const { data: ingredients, error: ingredientsError } = await supabase
       .from('ingredients')
       .select('id')
@@ -38,37 +41,53 @@ export async function searchRecipesByIngredient(
       );
     }
 
-    if (!ingredients || ingredients.length === 0) {
-      console.log('❌ No ingredients found matching:', search);
-      return [];
+    let recipeIdsFromCatalog: string[] = [];
+    if (ingredients && ingredients.length > 0) {
+      const ingredientIds = ingredients.map(i => i.id);
+      const { data: recipeIngredients, error: recipeError } = await supabase
+        .from('recipe_ingredients')
+        .select('recipe_id')
+        .in('ingredient_id', ingredientIds);
+
+      if (recipeError) {
+        throw new SearchError(
+          'Failed to find recipes with ingredients',
+          searchTerm,
+          recipeError
+        );
+      }
+      recipeIdsFromCatalog = (recipeIngredients ?? []).map(ri => ri.recipe_id);
     }
 
-    console.log('✅ Found', ingredients.length, 'matching ingredients');
-
-    // STEP 2: Find recipes that use those ingredients
-    const ingredientIds = ingredients.map(i => i.id);
-    
-    const { data: recipeIngredients, error: recipeError } = await supabase
+    // PATH B — recipe-level display-text match (recipe_ingredients.original_text).
+    // Per ingredientsParser.ts comment line 581: original_text is the
+    // user-facing string. Catalog names can be normalized away from what the
+    // user actually sees (e.g. recipe shows "white miso paste" but catalog
+    // ingredient.name is just "miso"), so the catalog-only path misses
+    // legitimate matches. This path catches them.
+    const { data: textMatches, error: textError } = await supabase
       .from('recipe_ingredients')
       .select('recipe_id')
-      .in('ingredient_id', ingredientIds);
+      .ilike('original_text', `%${search}%`);
 
-    if (recipeError) {
+    if (textError) {
       throw new SearchError(
-        'Failed to find recipes with ingredients',
+        'Failed to search recipe ingredient text',
         searchTerm,
-        recipeError
+        textError
       );
     }
+    const recipeIdsFromText = (textMatches ?? []).map(ri => ri.recipe_id);
 
-    if (!recipeIngredients || recipeIngredients.length === 0) {
-      console.log('❌ No recipes found with those ingredients');
-      return [];
-    }
-
-    // Get unique recipe IDs
-    const recipeIds = [...new Set(recipeIngredients.map(ri => ri.recipe_id))];
-    console.log('✅ Found', recipeIds.length, 'recipes with ingredient:', search);
+    // Union and dedupe.
+    const recipeIds = [
+      ...new Set([...recipeIdsFromCatalog, ...recipeIdsFromText]),
+    ];
+    console.log(
+      '✅ Found',
+      recipeIds.length,
+      `recipes for "${search}" (catalog: ${recipeIdsFromCatalog.length}, original_text: ${recipeIdsFromText.length})`
+    );
 
     return recipeIds;
 

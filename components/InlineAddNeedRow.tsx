@@ -305,8 +305,8 @@ export default function InlineAddNeedRow({
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.sm,
           backgroundColor: colors.background.card,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border.light,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.light,
         },
         inputRow: {
           flexDirection: 'row',

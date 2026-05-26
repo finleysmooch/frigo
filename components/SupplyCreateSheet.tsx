@@ -141,6 +141,17 @@ interface Props {
    * PantrySearchBar's "+ Add 'X' as supply" affordance. Defaults to empty.
    */
   initialQuery?: string;
+  /**
+   * 8R-UX1: when set, the sheet opens with this catalog ingredient already
+   * selected (tier2) — bypassing the search-and-pick step. Wired from the
+   * "+ Track" shadow-row tap: we already know which ingredient the user
+   * wants, no reason to make them pick from search results.
+   */
+  initialSelectedIngredient?: {
+    id: string;
+    name: string;
+    typical_unit?: string | null;
+  };
 }
 
 export default function SupplyCreateSheet({
@@ -150,6 +161,7 @@ export default function SupplyCreateSheet({
   spaceId,
   userId,
   initialQuery,
+  initialSelectedIngredient,
 }: Props) {
   const { colors, functionalColors } = useTheme();
   const styles = useMemo(
@@ -202,8 +214,24 @@ export default function SupplyCreateSheet({
 
   useEffect(() => {
     if (!visible) return;
-    setQuery(initialQuery ?? '');
-    setSelected(null);
+    // 8R-UX1: pre-select branch — shadow-row tap passes initialSelectedIngredient
+    // so we land directly on the form. Otherwise behave as before.
+    if (initialSelectedIngredient) {
+      setQuery(initialSelectedIngredient.name);
+      setSelected({
+        tier: 'tier2',
+        id: initialSelectedIngredient.id,
+        display_name: initialSelectedIngredient.name,
+        ingredient: {
+          id: initialSelectedIngredient.id,
+          name: initialSelectedIngredient.name,
+          typical_unit: initialSelectedIngredient.typical_unit ?? null,
+        },
+      });
+    } else {
+      setQuery(initialQuery ?? '');
+      setSelected(null);
+    }
     setInitialStatus('in_stock');
     setBrandsInput('');
     setNotes('');
@@ -240,7 +268,7 @@ export default function SupplyCreateSheet({
         console.error('❌ SupplyCreateSheet hydrate error:', error);
       }
     })();
-  }, [visible, spaceId, initialQuery]);
+  }, [visible, spaceId, initialQuery, initialSelectedIngredient]);
 
   // Debounced search.
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

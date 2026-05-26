@@ -1,11 +1,20 @@
 // ============================================
-// FRIGO - VIEW CREATOR / EDIT MODAL (Phase 8R-CP5a)
+// FRIGO - VIEW CREATOR / EDIT MODAL (Phase 8R-CP5a; 8R-UX1 simplification)
 // ============================================
 // Bottom-sheet modal for creating + editing views (UI calls them "lists" per Q2).
-// Filter dimensions: status (pseudo) + urgency / store / recipe / for-user (tag dims).
-// Render modes: tier / aisle / flat (Q25). Aisle is render-mode-only, NOT a tag dim (Q29).
-// Defaults: name + emoji + render-mode editable; filter section disabled per Q19 read
-// (flagged in SESSION_LOG as Q1 — confirm with Tom).
+//
+// 8R-UX1 simplifications vs prior form:
+//   • Status is hidden — always [status: need]. Acquired / in_cart aren't
+//     pickable list-defining filters.
+//   • Urgency dimension is no longer surfaced directly. Instead an "Add to:"
+//     radio with Short List / Long List sets the urgency filter implicitly:
+//       Short  → urgency=['today']     (items here also show on Short List)
+//       Long   → no urgency filter     (items show on Long List = everything)
+//   • Render mode picker removed (defaults to 'flat' which is the new norm).
+//   • Recipe tag dimension removed from this surface.
+//   • Emoji input stays a free-text 4-char field (any emoji).
+//   • Store tag dimension kept — natural use case for custom lists
+//     ("Costco run" etc.).
 // Location: components/ViewCreatorModal.tsx
 // ============================================
 
@@ -13,7 +22,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,15 +40,22 @@ import {
 import { getOrCreateTag, getTagsForSpace } from '../lib/services/tagsService';
 import {
   CreateViewParams,
-  RenderMode,
   ViewFilterInput,
   ViewWithFilters,
 } from '../lib/types/views';
-import { Tag, TagDimension } from '../lib/types/tags';
+import { Tag } from '../lib/types/tags';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 
 type ModalMode = 'create' | 'edit';
+// 8R-UX1: "Add to" choice maps onto the urgency filter under the hood.
+// 'standalone' marks the list as private — items don't cascade to Long List.
+type AddToChoice = 'short' | 'medium' | 'long' | 'standalone';
+
+// 8R-UX1: suffix convention for "private" list identity tags. Long List's
+// post-filter in needsService.getNeedsForView excludes any need carrying an
+// event tag whose value ends in this suffix.
+const PRIVATE_LIST_SUFFIX = '__private';
 
 interface Props {
   visible: boolean;
@@ -48,9 +66,6 @@ interface Props {
   // Provide existing view in edit mode; omit for create.
   existingView?: ViewWithFilters | null;
 }
-
-const TAG_DIMENSIONS: TagDimension[] = ['urgency', 'store', 'recipe'];
-const STATUS_OPTIONS = ['need', 'in_cart', 'acquired'] as const;
 
 export default function ViewCreatorModal({
   visible,
@@ -66,156 +81,97 @@ export default function ViewCreatorModal({
 
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('📋');
-  const [renderMode, setRenderMode] = useState<RenderMode>('tier');
-  const [statusValues, setStatusValues] = useState<string[]>(['need']);
-  const [tagsByDimension, setTagsByDimension] = useState<Record<TagDimension, Tag[]>>({
-    urgency: [],
-    store: [],
-    recipe: [],
-    event: [],
-    storage: [],
-  });
-  const [selectedTagsByDimension, setSelectedTagsByDimension] = useState<
-    Record<TagDimension, string[]>
-  >({
-    urgency: [],
-    store: [],
-    recipe: [],
-    event: [],
-    storage: [],
-  });
-  const [newTagInput, setNewTagInput] = useState<Record<TagDimension, string>>({
-    urgency: '',
-    store: '',
-    recipe: '',
-    event: '',
-    storage: '',
-  });
+  const [addTo, setAddTo] = useState<AddToChoice>('long');
+  const [storeTags, setStoreTags] = useState<Tag[]>([]);
+  const [selectedStoreTagValues, setSelectedStoreTagValues] = useState<string[]>([]);
+  const [newStoreInput, setNewStoreInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
 
-    // Hydrate from existing view if editing.
     if (existingView) {
       setName(existingView.name);
       setEmoji(existingView.emoji ?? '📋');
-      setRenderMode(existingView.render_mode);
-
-      const statusFilter = existingView.filters.find((f) => f.dimension === 'status');
-      setStatusValues(statusFilter?.values ?? ['need']);
-
-      const initial: Record<TagDimension, string[]> = {
-        urgency: [],
-        store: [],
-        recipe: [],
-        event: [],
-        storage: [],
-      };
-      for (const f of existingView.filters) {
-        if (f.dimension !== 'status' && f.dimension in initial) {
-          initial[f.dimension as TagDimension] = f.values;
-        }
-      }
-      setSelectedTagsByDimension(initial);
+      const urgencyFilter = existingView.filters.find((f) => f.dimension === 'urgency');
+      const urgencyValues = urgencyFilter?.values ?? [];
+      const eventFilter = existingView.filters.find((f) => f.dimension === 'event');
+      const isStandalone =
+        eventFilter?.values.some((v) => v.endsWith(PRIVATE_LIST_SUFFIX)) ?? false;
+      if (isStandalone) setAddTo('standalone');
+      else if (urgencyValues.includes('today')) setAddTo('short');
+      else if (urgencyValues.includes('this-week')) setAddTo('medium');
+      else setAddTo('long');
+      const storeFilter = existingView.filters.find((f) => f.dimension === 'store');
+      setSelectedStoreTagValues(storeFilter?.values ?? []);
     } else {
       setName('');
       setEmoji('📋');
-      setRenderMode('tier');
-      setStatusValues(['need']);
-      setSelectedTagsByDimension({
-        urgency: [],
-        store: [],
-        recipe: [],
-        event: [],
-        storage: [],
-      });
+      setAddTo('long');
+      setSelectedStoreTagValues([]);
     }
-
-    setNewTagInput({ urgency: '', store: '', recipe: '', event: '', storage: '' });
-
-    // Load existing tags for the picker.
-    loadTagsForSpace();
+    setNewStoreInput('');
+    loadStoreTags();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, existingView]);
 
-  const loadTagsForSpace = async () => {
+  const loadStoreTags = async () => {
     if (!spaceId) return;
     try {
       setLoadingTags(true);
-      const allTags = await getTagsForSpace(spaceId);
-      const grouped: Record<TagDimension, Tag[]> = {
-        urgency: [],
-        store: [],
-        recipe: [],
-        event: [],
-        storage: [],
-      };
-      for (const t of allTags) {
-        if (t.dimension in grouped) {
-          grouped[t.dimension].push(t);
-        }
-      }
-      setTagsByDimension(grouped);
+      const tags = await getTagsForSpace(spaceId, 'store');
+      setStoreTags(tags);
     } catch (error) {
-      console.error('❌ ViewCreatorModal load tags error:', error);
+      console.error('❌ ViewCreatorModal load store tags error:', error);
     } finally {
       setLoadingTags(false);
     }
   };
 
-  const toggleStatus = (status: string) => {
-    setStatusValues((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status]
+  const toggleStoreTag = (value: string) => {
+    setSelectedStoreTagValues((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
     );
   };
 
-  const toggleTagSelection = (dimension: TagDimension, tagValue: string) => {
-    setSelectedTagsByDimension((prev) => {
-      const current = prev[dimension];
-      const next = current.includes(tagValue)
-        ? current.filter((v) => v !== tagValue)
-        : [...current, tagValue];
-      return { ...prev, [dimension]: next };
-    });
-  };
-
-  const handleAddNewTag = async (dimension: TagDimension) => {
-    const value = newTagInput[dimension].trim();
+  const handleAddNewStore = async () => {
+    const value = newStoreInput.trim();
     if (!value) return;
     try {
-      const tag = await getOrCreateTag(spaceId, dimension, value, userId);
-      setTagsByDimension((prev) => ({
-        ...prev,
-        [dimension]: prev[dimension].some((t) => t.id === tag.id)
-          ? prev[dimension]
-          : [...prev[dimension], tag],
-      }));
-      setSelectedTagsByDimension((prev) => ({
-        ...prev,
-        [dimension]: prev[dimension].includes(tag.value)
-          ? prev[dimension]
-          : [...prev[dimension], tag.value],
-      }));
-      setNewTagInput((prev) => ({ ...prev, [dimension]: '' }));
+      const tag = await getOrCreateTag(spaceId, 'store', value, userId);
+      setStoreTags((prev) =>
+        prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]
+      );
+      setSelectedStoreTagValues((prev) =>
+        prev.includes(tag.value) ? prev : [...prev, tag.value]
+      );
+      setNewStoreInput('');
     } catch (error) {
-      console.error('❌ getOrCreateTag error:', error);
-      Alert.alert('Error', 'Could not add tag. Try again.');
+      console.error('❌ getOrCreateTag (store) error:', error);
+      Alert.alert('Error', 'Could not add store. Try again.');
     }
   };
 
+  // 8R-UX1: build filters from the simplified form.
+  // Always [status: need]. "Short"/"Medium" adds an urgency filter. Optional
+  // [store: ...]. For NEW lists, the caller appends an [event: <list-id>]
+  // filter so the list starts empty + items added inherit the tag via
+  // AddNeedSheet view-context inheritance (instead of matching every existing
+  // need with status=need).
   const buildFilterInputs = (): ViewFilterInput[] => {
-    const filters: ViewFilterInput[] = [];
-    if (statusValues.length > 0) {
-      filters.push({ dimension: 'status', values: statusValues });
+    const filters: ViewFilterInput[] = [
+      { dimension: 'status', values: ['need'] },
+    ];
+    if (addTo === 'short') {
+      filters.push({ dimension: 'urgency', values: ['today'] });
+    } else if (addTo === 'medium') {
+      filters.push({ dimension: 'urgency', values: ['this-week'] });
     }
-    for (const dim of TAG_DIMENSIONS) {
-      const values = selectedTagsByDimension[dim];
-      if (values.length > 0) {
-        filters.push({ dimension: dim, values });
-      }
+    // 'standalone' adds no urgency filter; the __private event tag suffix
+    // is set in handleSave so items added here are excluded from Long List.
+    if (selectedStoreTagValues.length > 0) {
+      filters.push({ dimension: 'store', values: selectedStoreTagValues });
     }
     return filters;
   };
@@ -227,34 +183,50 @@ export default function ViewCreatorModal({
       Alert.alert('Name required', 'Give your list a name.');
       return;
     }
-
     const filters = buildFilterInputs();
-    if (filters.length === 0) {
-      Alert.alert(
-        'Filter required',
-        'Pick at least one status or tag — otherwise the list would match nothing.'
-      );
-      return;
-    }
-
     setSaving(true);
     try {
       if (mode === 'create') {
+        // 8R-UX1: every new list gets a unique identifying tag (event
+        // dimension, value derived from the list name). The view's filter
+        // requires this tag, so the list starts EMPTY until items are added.
+        // AddNeedSheet's view-context inheritance then auto-applies the tag
+        // (plus any chosen urgency/store) when needs are added from this
+        // list — items naturally appear here AND in the cascade list
+        // (Short/Medium/Long) selected above.
+        //
+        // Standalone lists encode privacy in the tag value (suffix
+        // `__private`). Long List's post-filter in needsService excludes
+        // needs whose event tag value ends in this suffix — so standalone
+        // list items don't cascade to Long.
+        const identityValue =
+          addTo === 'standalone'
+            ? `${trimmedName.toLowerCase()}${PRIVATE_LIST_SUFFIX}`
+            : trimmedName.toLowerCase();
+        const identityTag = await getOrCreateTag(
+          spaceId,
+          'event',
+          identityValue,
+          userId
+        );
+        filters.push({ dimension: 'event', values: [identityTag.value] });
+
         const params: CreateViewParams = {
           spaceId,
           name: trimmedName,
           emoji,
-          renderMode,
+          // 8R-UX1: render mode no longer surfaced — default to 'flat' which is
+          // the simplest list layout. Users editing defaults retain whatever
+          // render mode the seed gave them (handled in edit path below).
+          renderMode: 'flat',
           filters,
           createdBy: userId,
         };
         await createView(params);
       } else if (existingView) {
-        // Edit mode: update view fields. Skip filter update on defaults per Q19 read.
         await updateView(existingView.id, {
           name: trimmedName,
           emoji,
-          renderMode,
         });
         if (!isDefault) {
           await updateViewFilters(existingView.id, filters);
@@ -275,66 +247,6 @@ export default function ViewCreatorModal({
     [colors, functionalColors]
   );
 
-  const renderTagDimensionSection = (dimension: TagDimension, label: string) => {
-    const tags = tagsByDimension[dimension];
-    const selected = selectedTagsByDimension[dimension];
-
-    return (
-      <View key={dimension} style={styles.section}>
-        <Text style={styles.sectionLabel}>{label}</Text>
-        {isDefault && (
-          <Text style={styles.lockedHint}>Filter locked on default lists.</Text>
-        )}
-        <View style={styles.chipsRow}>
-          {tags.map((tag) => {
-            const isSelected = selected.includes(tag.value);
-            return (
-              <TouchableOpacity
-                key={tag.id}
-                style={[styles.chip, isSelected && styles.chipSelected]}
-                onPress={() => !isDefault && toggleTagSelection(dimension, tag.value)}
-                disabled={isDefault}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[styles.chipText, isSelected && styles.chipTextSelected]}
-                >
-                  {tag.value}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          {tags.length === 0 && !loadingTags && (
-            <Text style={styles.emptyHint}>No {dimension} tags yet.</Text>
-          )}
-        </View>
-        {!isDefault && (
-          <View style={styles.addTagRow}>
-            <TextInput
-              style={styles.addTagInput}
-              value={newTagInput[dimension]}
-              onChangeText={(v) =>
-                setNewTagInput((prev) => ({ ...prev, [dimension]: v }))
-              }
-              placeholder={`+ Add new ${dimension}`}
-              placeholderTextColor={colors.text.placeholder}
-              onSubmitEditing={() => handleAddNewTag(dimension)}
-              returnKeyType="done"
-            />
-            <TouchableOpacity
-              style={styles.addTagButton}
-              onPress={() => handleAddNewTag(dimension)}
-              disabled={!newTagInput[dimension].trim()}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.addTagButtonText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
-  };
-
   return (
     <Modal
       visible={visible}
@@ -342,7 +254,10 @@ export default function ViewCreatorModal({
       transparent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.sheet}>
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} disabled={saving}>
@@ -381,47 +296,73 @@ export default function ViewCreatorModal({
                 onChangeText={(v) => setEmoji(v.slice(0, 4))}
                 maxLength={4}
               />
+              <Text style={styles.hint}>
+                Tap the field, then your keyboard's 😀 button to pick an emoji.
+              </Text>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Render mode</Text>
-              <View style={styles.segmentedRow}>
-                {(['tier', 'aisle', 'flat'] as RenderMode[]).map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[
-                      styles.segmented,
-                      renderMode === m && styles.segmentedSelected,
-                    ]}
-                    onPress={() => setRenderMode(m)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentedText,
-                        renderMode === m && styles.segmentedTextSelected,
-                      ]}
-                    >
-                      {m === 'tier' ? 'Tier' : m === 'aisle' ? 'Aisle' : 'Flat'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Status</Text>
+              <Text style={styles.sectionLabel}>Add to</Text>
               {isDefault && (
                 <Text style={styles.lockedHint}>Filter locked on default lists.</Text>
               )}
               <View style={styles.chipsRow}>
-                {STATUS_OPTIONS.map((status) => {
-                  const isSelected = statusValues.includes(status);
+                {(['short', 'medium', 'long', 'standalone'] as AddToChoice[]).map(
+                  (choice) => {
+                    const selected = addTo === choice;
+                    const label =
+                      choice === 'short'
+                        ? 'Short List'
+                        : choice === 'medium'
+                        ? 'Medium List'
+                        : choice === 'long'
+                        ? 'Long List'
+                        : 'Just this list';
+                    return (
+                      <TouchableOpacity
+                        key={choice}
+                        style={[styles.chip, selected && styles.chipSelected]}
+                        onPress={() => !isDefault && setAddTo(choice)}
+                        disabled={isDefault}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            selected && styles.chipTextSelected,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }
+                )}
+              </View>
+              <Text style={styles.hint}>
+                {addTo === 'short'
+                  ? 'Items here will also appear on Short List.'
+                  : addTo === 'medium'
+                  ? 'Items here will also appear on Medium List.'
+                  : addTo === 'long'
+                  ? 'Items here will also appear on Long List.'
+                  : 'Items stay only in this list — hidden from Long List.'}
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Store (optional)</Text>
+              {isDefault && (
+                <Text style={styles.lockedHint}>Filter locked on default lists.</Text>
+              )}
+              <View style={styles.chipsRow}>
+                {storeTags.map((tag) => {
+                  const isSelected = selectedStoreTagValues.includes(tag.value);
                   return (
                     <TouchableOpacity
-                      key={status}
+                      key={tag.id}
                       style={[styles.chip, isSelected && styles.chipSelected]}
-                      onPress={() => !isDefault && toggleStatus(status)}
+                      onPress={() => !isDefault && toggleStoreTag(tag.value)}
                       disabled={isDefault}
                       activeOpacity={0.7}
                     >
@@ -431,20 +372,40 @@ export default function ViewCreatorModal({
                           isSelected && styles.chipTextSelected,
                         ]}
                       >
-                        {status}
+                        {tag.value}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
+                {storeTags.length === 0 && !loadingTags && (
+                  <Text style={styles.emptyHint}>No stores yet.</Text>
+                )}
               </View>
+              {!isDefault && (
+                <View style={styles.addTagRow}>
+                  <TextInput
+                    style={styles.addTagInput}
+                    value={newStoreInput}
+                    onChangeText={setNewStoreInput}
+                    placeholder="+ Add new store"
+                    placeholderTextColor={colors.text.placeholder}
+                    onSubmitEditing={handleAddNewStore}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    style={styles.addTagButton}
+                    onPress={handleAddNewStore}
+                    disabled={!newStoreInput.trim()}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.addTagButtonText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-
-            {renderTagDimensionSection('urgency', 'Urgency')}
-            {renderTagDimensionSection('store', 'Store')}
-            {renderTagDimensionSection('recipe', 'Recipe')}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -500,6 +461,11 @@ function makeStyles(
       color: colors.text.tertiary,
       marginBottom: 6,
     },
+    hint: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      marginTop: 6,
+    },
     nameInput: {
       paddingVertical: 10,
       paddingHorizontal: 12,
@@ -521,30 +487,6 @@ function makeStyles(
       backgroundColor: colors.background.secondary,
       width: 80,
       textAlign: 'center',
-    },
-    segmentedRow: {
-      flexDirection: 'row',
-      borderWidth: 1,
-      borderColor: colors.border.medium,
-      borderRadius: borderRadius.sm,
-      overflow: 'hidden',
-    },
-    segmented: {
-      flex: 1,
-      paddingVertical: 10,
-      alignItems: 'center',
-      backgroundColor: colors.background.secondary,
-    },
-    segmentedSelected: {
-      backgroundColor: colors.primary,
-    },
-    segmentedText: {
-      fontSize: 14,
-      color: colors.text.secondary,
-    },
-    segmentedTextSelected: {
-      color: '#ffffff',
-      fontWeight: typography.weights.semibold,
     },
     chipsRow: {
       flexDirection: 'row',

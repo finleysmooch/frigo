@@ -23,6 +23,7 @@ import {
   LotDeductionPlanItem,
   LotDeductionResult,
   StorageLocation,
+  SupplyIngredient,
   SupplyLot,
   SupplyLotAggregate,
   SupplyStatus,
@@ -108,6 +109,26 @@ async function _getShelfLifeDays(
   if (!ing) return null;
 
   return pickShelfLifeDays(storage, ing);
+}
+
+// 8R-UX4: bump supplies.last_confirmed_at — the behavioral-engagement
+// timestamp driving Sitting Idle in the Pantry Use Soon outer tab. Called
+// from every lot op that represents user engagement (create / quantity-
+// change update / archive / cook depletion / storage move). See
+// CONFIRMING_FUNCTIONS_REFERENCE in suppliesService.ts for the canonical
+// bumper list across both services.
+//
+// Returns silently on error — bumping is best-effort, not part of the
+// user-visible result of the lot op. We log so post-hoc audits can catch
+// drift between actual engagement and recorded engagement.
+async function _bumpSupplyConfirmation(supplyId: string): Promise<void> {
+  const { error } = await supabase
+    .from('supplies')
+    .update({ last_confirmed_at: new Date().toISOString() })
+    .eq('id', supplyId);
+  if (error) {
+    console.error('❌ _bumpSupplyConfirmation failed for supply:', supplyId, error);
+  }
 }
 
 // D8R-Q44. Called after operations that may have brought total active qty to 0.
@@ -249,6 +270,13 @@ export async function createLot(params: CreateLotParams): Promise<SupplyLot> {
     throw insertError;
   }
 
+  // 8R-UX4: behavioral-engagement bump. Deliberately ordered before
+  // _maybeAutoRestock — that helper independently bumps via setSupplyStatus
+  // when it fires, but the bump must happen even when auto-restock is a no-op
+  // (existing lots → no status flip). The double-bump in the firing case is
+  // intentional and harmless (idempotent re-write of the same ISO timestamp).
+  await _bumpSupplyConfirmation(params.supply_id);
+
   // Q45 auto-restock cascade — runs after lot row is committed.
   await _maybeAutoRestock(params.supply_id);
 
@@ -313,6 +341,12 @@ export async function updateLot(
     throw error;
   }
 
+  // 8R-UX4: bump only on quantity changes — metadata-only edits (variant,
+  // brand, notes, expiration override) are not engagement events.
+  if (params.quantity !== undefined) {
+    await _bumpSupplyConfirmation(before.supply_id);
+  }
+
   if (willArchive) {
     await _maybeAutoOutOfStock(before.supply_id);
   }
@@ -343,6 +377,9 @@ export async function archiveLot(lotId: string): Promise<void> {
     console.error('❌ Error archiving lot:', error);
     throw error;
   }
+
+  // 8R-UX4: behavioral-engagement bump — consuming a whole lot is engagement.
+  await _bumpSupplyConfirmation(before.supply_id);
 
   await _maybeAutoOutOfStock(before.supply_id);
 }
@@ -426,17 +463,70 @@ export async function getLotById(lotId: string): Promise<SupplyLot | null> {
 }
 
 /**
+ * 8R-UX1: per-lot "is this expiring soon?" check. Threshold is derived from
+ * `ingredient.shelf_life_days_<storage>` at 25% of shelf life, clamped to
+ * [1, 7] days. When the ingredient (or its shelf-life column for the lot's
+ * storage) is absent, falls back to the legacy flat 7d window so older
+ * callers and ingredient-less supplies still surface sensibly.
+ *
+ * Already-past-expiration lots are always flagged as both expired and
+ * expiring (so the row stays visible in the Expiring section).
+ */
+export function isLotExpiringSoon(
+  lot: SupplyLot,
+  ingredient: SupplyIngredient | null
+): { isExpiring: boolean; isExpired: boolean } {
+  if (!lot.expires_at) return { isExpiring: false, isExpired: false };
+  const now = Date.now();
+  const expiresAt = new Date(lot.expires_at).getTime();
+  const daysUntil = (expiresAt - now) / DAY_MS;
+
+  if (daysUntil < 0) return { isExpiring: true, isExpired: true };
+
+  let shelfLife: number | null = null;
+  if (ingredient) {
+    // 'counter' tracks the pantry shelf-life column per CP6d-Schema parity
+    // (see pickShelfLifeDays above).
+    switch (lot.storage_location) {
+      case 'fridge':
+        shelfLife = ingredient.shelf_life_days_fridge;
+        break;
+      case 'freezer':
+        shelfLife = ingredient.shelf_life_days_freezer;
+        break;
+      case 'pantry':
+      case 'counter':
+        shelfLife = ingredient.shelf_life_days_pantry;
+        break;
+    }
+  }
+
+  const threshold =
+    shelfLife === null
+      ? EXPIRING_SOON_DAYS
+      : Math.min(7, Math.max(1, Math.ceil(shelfLife * 0.25)));
+
+  return { isExpiring: daysUntil <= threshold, isExpired: false };
+}
+
+/**
  * Aggregate already-loaded lots into display-ready summary fields. Filters to
  * active (consumed_at IS NULL). Picks a canonical_unit by trying to convert
  * every lot's qty into the first lot's unit; if any lot doesn't bridge, falls
  * back to canonical_unit=null + total_quantity=0 as the caller's signal that
  * aggregation isn't meaningful.
  *
+ * 8R-UX1: when `ingredient` is provided, `has_expiring_soon` is derived per-
+ * lot via `isLotExpiringSoon` (shelf-life-aware threshold). When absent,
+ * keeps the legacy flat 7d window for backward-compat with non-pantry
+ * callers. `has_expired` is purely date-based and computed regardless.
+ *
  * Async because unit-bridging needs the measurement_units table (cached after
  * first call by unitConverter).
  */
 export async function getLotAggregate(
-  lots: SupplyLot[]
+  lots: SupplyLot[],
+  ingredient?: SupplyIngredient | null
 ): Promise<SupplyLotAggregate> {
   const active = lots.filter((l) => l.consumed_at === null);
 
@@ -461,10 +551,30 @@ export async function getLotAggregate(
     }
   }
 
-  const sevenDaysOut = new Date(Date.now() + EXPIRING_SOON_DAYS * DAY_MS);
-  const has_expiring_soon = active.some(
-    (l) => l.expires_at !== null && new Date(l.expires_at) <= sevenDaysOut
-  );
+  // 8R-UX1: per-lot expiring + expired derivation. When `ingredient` is
+  // provided, uses shelf-life-aware threshold; otherwise falls back to the
+  // legacy flat 7d window via isLotExpiringSoon's `ingredient=null` path.
+  let has_expiring_soon = false;
+  let has_expired = false;
+  if (ingredient !== undefined) {
+    for (const lot of active) {
+      const r = isLotExpiringSoon(lot, ingredient ?? null);
+      if (r.isExpired) has_expired = true;
+      if (r.isExpiring) has_expiring_soon = true;
+      if (has_expiring_soon && has_expired) break;
+    }
+  } else {
+    // Backward-compat: ingredient param omitted entirely → flat 7d rule.
+    const sevenDaysOut = new Date(Date.now() + EXPIRING_SOON_DAYS * DAY_MS);
+    const now = Date.now();
+    for (const lot of active) {
+      if (lot.expires_at === null) continue;
+      const t = new Date(lot.expires_at).getTime();
+      if (t < now) has_expired = true;
+      if (new Date(lot.expires_at) <= sevenDaysOut) has_expiring_soon = true;
+      if (has_expiring_soon && has_expired) break;
+    }
+  }
 
   // Total + canonical_unit.
   let total_quantity = 0;
@@ -505,6 +615,7 @@ export async function getLotAggregate(
     variant_labels,
     oldest_expiration,
     has_expiring_soon,
+    has_expired,
   };
 }
 
@@ -622,6 +733,11 @@ export async function deductFromOldest(
   const shortfall = remaining > 0 ? remaining : 0;
   const shortfall_reason: LotDeductionResult['shortfall_reason'] =
     shortfall > 0 ? 'insufficient_stock' : null;
+
+  // 8R-UX4: bump on engagement — cook depletion that touched at least one lot.
+  if (lotsAffected.length > 0) {
+    await _bumpSupplyConfirmation(supplyId);
+  }
 
   // Q44 cascade if we drained anything.
   let status_changed_to: SupplyStatus | null = null;
@@ -796,6 +912,11 @@ export async function deductFromSpecificLots(
     shortfall_reason = 'insufficient_stock';
   }
 
+  // 8R-UX4: bump on engagement — explicit-lot cook depletion path.
+  if (lotsAffected.length > 0) {
+    await _bumpSupplyConfirmation(supplyId);
+  }
+
   // Q44 cascade — same private helper used by deductFromOldest.
   const status_changed_to = await _maybeAutoOutOfStock(supplyId);
 
@@ -850,6 +971,10 @@ export async function moveLotStorage(
     console.error('❌ Error moving lot storage:', error);
     throw error;
   }
+
+  // 8R-UX4: behavioral-engagement bump — moving a physical lot IS engagement
+  // with the supply (user opened the fridge / freezer to relocate it).
+  await _bumpSupplyConfirmation(before.supply_id);
 
   return { lot: updated as SupplyLot, expiration_recomputed };
 }

@@ -124,13 +124,17 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const activeSpaceId = useActiveSpaceId();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
+  // 8R-UX1: search results live as a Set of recipe IDs (or null = no active
+  // search). applyFilters intersects with this; previously handleSearch wrote
+  // straight to filteredRecipes and got clobbered by the next applyFilters
+  // re-run when matchMap updated.
+  const [searchedRecipeIds, setSearchedRecipeIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [searchText, setSearchText] = useState('');
   // CP6d-SmokeFix-3 (D11): set when initialIngredient route param drives the
   // search; the next searchText change after this flag triggers handleSearch.
-  const pendingInitialSearchRef = useRef(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [nutritionMap, setNutritionMap] = useState<Map<string, RecipeNutrition>>(new Map());
   const [historyMap, setHistoryMap] = useState<Map<string, CookingHistory>>(new Map());
@@ -1077,7 +1081,8 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     if (initialIngredient) {
       setBrowseMode('all');
       setSearchText(initialIngredient);
-      pendingInitialSearchRef.current = true;
+      // 8R-UX1: live-search debounce picks up the searchText change
+      // automatically; no manual fire needed.
     }
 
     // Clear the initial params so they don't re-apply on re-focus
@@ -1095,7 +1100,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   useEffect(() => {
     const runFilters = async () => { await applyFilters(); };
     runFilters();
-  }, [recipesWithMatch, quickFilters, advancedFilters, browseMode, selectedBook, sortOption, matchMap]);
+  }, [recipesWithMatch, quickFilters, advancedFilters, browseMode, selectedBook, sortOption, matchMap, searchedRecipeIds]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1212,6 +1217,15 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     // 8D-CP4: filter over recipesWithMatch so filteredRecipes carry the real
     // pantry_match value (the pantry_match sort still reads matchMap directly).
     let filtered = [...recipesWithMatch];
+
+    // 0. Search filter (8R-UX1). When searchedRecipeIds is non-null, the user
+    // has an active search; intersect with the search hits before applying
+    // other filters. This makes search survive subsequent applyFilters re-runs
+    // triggered by matchMap updates etc. — previously handleSearch wrote
+    // straight to filteredRecipes and got overwritten.
+    if (searchedRecipeIds !== null) {
+      filtered = filtered.filter((r) => searchedRecipeIds.has(r.id));
+    }
 
     // 1. Browse mode (applied first)
     if (browseMode === 'cook_again') {
@@ -1480,58 +1494,44 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     return quickCount + advancedCount;
   };
 
-  // CP6d-SmokeFix-3 (D11): fire-once effect that runs handleSearch when the
-  // initialIngredient route param has been pushed into searchText. The ref
-  // gate prevents re-fire on subsequent searchText changes.
+  // 8R-UX1: live-as-you-type search. 300ms debounce on searchText changes.
+  // Empty text clears the search constraint; non-empty kicks off the search
+  // service and stores matching recipe IDs. applyFilters intersects with
+  // searchedRecipeIds so the search survives matchMap updates (the bug it
+  // replaced: handleSearch wrote straight to filteredRecipes and the next
+  // applyFilters re-run overwrote the result).
+  //
+  // CP6d-SmokeFix-3 (D11): the route-param "Find recipes" path still works —
+  // it sets searchText, which trips this debounce and runs the search.
   useEffect(() => {
-    if (
-      pendingInitialSearchRef.current &&
-      searchText.trim().length > 0 &&
-      userId
-    ) {
-      pendingInitialSearchRef.current = false;
+    if (!userId) return;
+    const handle = setTimeout(() => {
       handleSearch();
-    }
+    }, 300);
+    return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, userId]);
 
   const handleSearch = async () => {
-    if (!searchText.trim()) {
-      await applyFilters();
+    const term = searchText.trim();
+    if (!term) {
+      // Clear the search constraint; applyFilters re-runs over recipesWithMatch
+      // with no search filter.
+      setSearchedRecipeIds(null);
       return;
     }
-
-    Keyboard.dismiss();
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const recipeIds = await searchRecipesByMixedTerms([searchText]);
-
-      if (recipeIds.length === 0) {
-        setFilteredRecipes([]);
-        return;
-      }
-
-      const { data: searchResults, error } = await supabase
-        .from('recipes')
-        .select(`
-          *,
-          chefs:chef_id (name)
-        `)
-        .eq('user_id', user.id)
-        .in('id', recipeIds);
-
-      if (error) throw error;
-
-      const recipesWithChefs = (searchResults || []).map((recipe: any) => ({
-        ...recipe,
-        chef_name: recipe.chefs?.name || 'Unknown Chef',
-        pantry_match: 0,
-      }));
-
-      setFilteredRecipes(recipesWithChefs);
+      // 8R-UX1: tokenize on whitespace so multi-word queries AND across
+      // tokens. Drives the "Find recipes" bulk action from Pantry which
+      // passes a space-joined list of ingredient names. Single-word queries
+      // are unaffected (one token == previous behavior).
+      const tokens = term.split(/\s+/).filter(Boolean);
+      const recipeIds = await searchRecipesByMixedTerms(
+        tokens.length > 0 ? tokens : [term]
+      );
+      // recipesWithMatch is already user-scoped (loadRecipes filters by user_id);
+      // applyFilters does the intersection. We don't need a second user_id query.
+      setSearchedRecipeIds(new Set(recipeIds));
     } catch (error) {
       console.error('Search error:', error);
     }

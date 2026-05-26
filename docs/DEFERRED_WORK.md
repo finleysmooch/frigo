@@ -112,6 +112,30 @@ This is the master backlog — the accumulated deferred work from all completed 
 | P8R-D32 | **Multi-supply variant migration.** Tooling to split one ingredient's supplies (e.g., "chicken thighs" with bone-in + boneless variants) into multiple supplies under the same ingredient_id. F&F doesn't need this — variant_label on lots covers the case. | 🔧 | 🟢 | Post-F&F. Reactive to tester demand. |
 | P8R-D33 | **Expiration flag in pantry "Attention" section.** Lots expiring within N days surfaced as their own attention sub-category, alongside Low/Out. F&F just shows expiration on the expanded row + via accent color of warn lots. The dedicated attention surfacing makes proactive triage stronger. | 🚀 | 🟡 | Post-F&F. Threshold likely user-configurable (3 days default for fresh items, 7 days for staples). |
 
+### From: 8R-UX5 — Hero ingredient marker + filter pill (May 26, 2026)
+
+**Context:** Hero ingredient signal shipped (computed from `recipe_ingredients.ingredient_classification = 'hero'`). Drives the inline ⚡ marker on Use Soon rows and the `⚡ Heroes N` pill in the inner family-pill strip on Everything + Use Soon tabs. Thresholds are best-guess for F&F.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P8R-UX5-1 | **Hero ingredient thresholds — tune after F&F.** `USER_HERO_THRESHOLD = 2`, `GLOBAL_MIN_APPEARANCES = 3`, `GLOBAL_HERO_RATE_THRESHOLD = 0.5` are best-guesses. Use AdminScreen → "Dump Hero Frequency Audit" to see what each threshold actually surfaces post-F&F. Likely needs tuning once real cooking data is available from testers. | 📊 | 🟡 | Audit dump → console JSON; tune the three `export const` values in `lib/services/heroIngredientService.ts`. |
+| P8R-UX5-2 | **Hero marker visibility — currently Use Soon only.** ⚡ row marker is scoped to the Use Soon outer tab per intentional UX scoping. May want to surface on Everything and Low / out tabs later if testers report wanting that visibility. | 🎨 | 🟢 | One-line change in SuppliesSection's `renderRow` (drop the `activeOuterTab === 'use_soon'` gate). |
+| P8R-UX5-3 | **Hero/family orthogonal filtering.** The Heroes pill and family pills are currently mutually exclusive (single-axis selection in `ActiveInnerFilter` discriminated union). If user testing shows demand for combined filters (e.g., "Pantry-family heroes"), refactor the inner filter to support orthogonal dimensions — likely two independent state pieces (`activeFamily: string \| null` + `heroOnly: boolean`) replacing the union. Spec'd in May 26 design session. | 💡 | 🟢 | Post-F&F based on tester ask. |
+
+---
+
+### From: 8R-UX4 — supplies.last_confirmed_at (May 26, 2026)
+
+**Context:** Dedicated behavioral-engagement timestamp for Pantry "Sitting Idle" signal shipped (migration + service writes + per-supply shelf-life-aware threshold). The bumpers/non-bumpers split and the 40% threshold are best-guess; flagged for re-assessment after F&F generates real usage data.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P8R-UX4-1 | **Re-assess `last_confirmed_at` write coverage after F&F.** The canonical confirming-function list in `suppliesService.ts` (CONFIRMING_FUNCTIONS_REFERENCE) is a best-guess of what counts as engagement. Real usage data will surface where it's wrong: false positives in Sitting Idle (supplies that bump when they shouldn't) and false negatives (supplies that don't bump when they should). Review a sample of supplies with suspiciously-old `last_confirmed_at` vs the engagement history reconstructable from logs. Tune the bumpers/non-bumpers split. | 🔧 | 🟢 | Don't touch until ~10–20 testers have ~2 weeks of usage. |
+| P8R-UX4-2 | **Extend last_confirmed_at signal to lot-tracked supplies.** Lot-tracked supplies currently use `oldest active lot's acquired_at` as their idle signal — a physical-age signal, semantically distinct from behavioral confirmation. Combining both (idle ≥ threshold = MIN(oldest acquired_at, last_confirmed_at) ≥ threshold) would surface more accurate Sitting Idle for lot-tracked items. Deferred for scope; the dual-signal design needs UX validation before shipping. | 💡 | 🟢 | Post-F&F when tester feedback can validate. |
+| P8R-UX4-3 | **Idle threshold tuning — 40% is a guess.** `IDLE_PERCENTAGE = 0.4` in `SuppliesSection.tsx` was chosen without real usage data. With ~10–20 active testers cooking for 2 weeks, we'll have a meaningful signal on whether 40% surfaces the right items or whether it should be 30% / 50%. Also revisit `IDLE_FALLBACK_DAYS = 14` — once catalog shelf-life backfill lands, the fallback should rarely fire and 14d may be wrong by then. | 📊 | 🟡 | Tester-driven tuning. |
+
+---
+
 ### From: Phase 8R — CP6e closeout (May 14-15, 2026)
 
 **Context:** CP6e-Lots smoke validation completed clean 2026-05-15 across 19 scenarios. Three SmokeFix patches (SF-1, SF-2, SF-3) shipped 2026-05-14 plus SF-5 catalog adds (90 rows). The items below are post-smoke residuals — items deferred during the closeout pass that don't block 8R completion but need tracking. Items that ARE 8R-closeout-blockers (8D matching status verification, cheese duplicate cleanup) are handled in PROJECT_CONTEXT v10.3 + PHASE_8D_PLANNING.md, not here.
