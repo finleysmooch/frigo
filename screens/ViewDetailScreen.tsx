@@ -36,10 +36,8 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ViewsStackParamList } from '../App';
-import GroceryBagIcon from '../components/icons/grocery/GroceryBagIcon';
-import ShoppingCartIcon from '../components/icons/grocery/ShoppingCartIcon';
-import ReceiptIcon from '../components/icons/grocery/ReceiptIcon';
-import CartIcon from '../components/icons/grocery/CartIcon';
+import { renderListIcon } from '../lib/utils/listIcon';
+import { supplyMatchesView } from '../lib/utils/supplyViewMatching';
 import {
   deleteView,
   getViewById,
@@ -1124,7 +1122,6 @@ export default function ViewDetailScreen({ navigation, route }: Props) {
           <BulkAcquirePromotionModal
             visible={promotionModalOpen}
             needsWithoutSupply={promotionPending?.withoutSupply ?? []}
-            existingSupplies={supplies}
             spaceId={spaceId}
             userId={currentUserId}
             onCancel={() => {
@@ -1196,61 +1193,22 @@ function hierarchyHintForView(view: ViewWithFilters): string | null {
   return 'Also in Long List';
 }
 
-// 8R-UX1: progressive-sized brand-teal icons for the three urgency-based
-// default views — same set used on ViewsScreen card tiles, scaled down a
-// notch here so they fit in the header row alongside the title text. Returns
-// null for non-default / non-list views so the emoji fallback renders.
+// 8R-UX6 Item 4b: header icon now uses the shared lib/utils/listIcon helper
+// with size=30 (smaller than the ViewsScreen card-tile size). The default
+// "in cart" gets black instead of teal — passed via cartColor option.
 function renderListHeaderIcon(
   view: ViewWithFilters,
   colors: ReturnType<typeof useTheme>['colors']
 ): React.ReactElement | null {
-  if (!view.is_default) return null;
-  switch (view.name) {
-    case 'Short List':
-      return <GroceryBagIcon size={30} color={colors.primary} />;
-    case 'Medium List':
-      return <ShoppingCartIcon size={30} color={colors.primary} />;
-    case 'Long List':
-      return <ReceiptIcon size={30} color={colors.primary} />;
-    case 'In Cart':
-      return <CartIcon size={30} color={colors.text.primary} />;
-    default:
-      return null;
-  }
+  return renderListIcon(view, {
+    size: 30,
+    iconColor: colors.primary,
+    cartColor: colors.text.primary,
+  });
 }
 
-function supplyMatchesView(supply: SupplyWithTags, view: ViewWithFilters): boolean {
-  // CP6d-SmokeFix-4 Task 5 (V19 Regulars strip fix): urgency is a need-level
-  // concept (Tonight = "need this today"); supplies don't carry urgency tags
-  // by default. Pre-fix, the Regulars strip on Tonight/This Week showed
-  // 0/0/0/0 because no supply had an urgency=today tag. Now: urgency is
-  // skipped entirely from the supply-matching predicate. Other dimensions
-  // (store, storage, recipe) still apply — they're meaningful at the supply
-  // level. Status filter is also skipped (need-level field).
-  const tagFilters = view.filters.filter(
-    (f) => f.dimension !== 'status' && f.dimension !== 'urgency'
-  );
-  if (tagFilters.length === 0) return true;
-  for (const f of tagFilters) {
-    const allowed = expandUrgencyValues(f.dimension, f.values);
-    const matches = supply.tags.some(
-      (t) => t.dimension === f.dimension && allowed.includes(t.value)
-    );
-    if (!matches) return false;
-  }
-  return true;
-}
-
-function expandUrgencyValues(dimension: string, values: string[]): string[] {
-  if (dimension !== 'urgency') return values;
-  const expanded = new Set<string>(values);
-  if (values.includes('this-week')) expanded.add('today');
-  if (values.includes('this-month')) {
-    expanded.add('today');
-    expanded.add('this-week');
-  }
-  return Array.from(expanded);
-}
+// 8R-UX6 Item 4c: supplyMatchesView + expandUrgencyValues extracted to
+// lib/utils/supplyViewMatching.ts
 
 interface RenderBodyArgs {
   mode: RenderMode;

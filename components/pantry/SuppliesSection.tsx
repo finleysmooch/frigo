@@ -50,9 +50,11 @@ const STATUS_SORT_PRIORITY: Record<SupplyStatus, number> = {
 
 // Single source of truth for "which expanded body is visible." Tapping any
 // top/sub header sets this; opening one section closes the others.
+// 8R-UX6 Item 6: 'use_soon' + 'attention' variants removed — those
+// standalone sections were deleted in 8R-UX3 in favor of the outer tab
+// strip. Only the 'sub' variant (type-subgroup expand/collapse inside
+// Everything tab) remains in use.
 type ExpandedSection =
-  | { kind: 'use_soon' }
-  | { kind: 'attention' }
   | { kind: 'sub'; top: 'restock' | 'track_only'; key: string }
   | null;
 
@@ -151,13 +153,11 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
     const [supplies, setSupplies] = useState<SupplyWithTags[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Single source of truth — at most one expanded body visible. Default
-    // focus cascades on first data load: Use Soon → Attention → null
-    // (expansionInitializedRef effect below).
-    const [expandedSection, setExpandedSection] = useState<ExpandedSection>(
-      { kind: 'use_soon' }
-    );
-    const expansionInitializedRef = useRef(false);
+    // 8R-UX6 Item 6: expandedSection state only governs type-subgroup
+    // expand/collapse inside Everything tab now (the old Use Soon /
+    // Attention top-section variants + their first-load cascade effect
+    // were deleted in 8R-UX3).
+    const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
     // 8R-UX1: each of the three Use Soon sub-sections collapses
     // independently. Default all open so users see content as soon as Use
     // Soon expands; from there individual sub-sections can be hidden.
@@ -202,14 +202,49 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
     //   { kind: 'family', familyKey: string } — items in that family
     //   { kind: 'hero' }                      — items whose ingredient is a hero
     // Heroes and family pills are mutually exclusive (one axis at a time).
-    // Resets to 'all' whenever activeOuterTab changes (8R-UX3 pattern).
+    //
+    // 8R-UX6 Item 7: on Everything tab, the default is the LARGEST family
+    // (not 'all'). The ref guards against re-defaulting after the user has
+    // manually tapped All or another family — that intent is respected
+    // until the user leaves the Everything tab. Use Soon / Low-out outer
+    // tabs still default to 'all'.
     const [activeInnerFilter, setActiveInnerFilter] = useState<ActiveInnerFilter>(
       { kind: 'all' }
     );
+    const everythingDefaultedRef = useRef(false);
     useEffect(() => {
-      setActiveInnerFilter({ kind: 'all' });
+      if (activeOuterTab !== 'everything') {
+        everythingDefaultedRef.current = false;
+        setActiveInnerFilter({ kind: 'all' });
+        return;
+      }
+      // On Everything tab — apply largest-family default once per session
+      // in this tab. Skip if already defaulted, still loading, or no data.
+      if (everythingDefaultedRef.current) return;
+      if (supplies.length === 0) return;
+      const familyCounts = new Map<string, number>();
+      for (const s of supplies) {
+        if (s.archived_at !== null) continue;
+        if (s.status === 'unknown') continue;
+        const { key } = familyKeyForSupply(s);
+        if (key === '__other__') continue; // too generic to default to
+        familyCounts.set(key, (familyCounts.get(key) ?? 0) + 1);
+      }
+      if (familyCounts.size === 0) return;
+      let largestKey: string | null = null;
+      let largestCount = 0;
+      for (const [key, count] of familyCounts) {
+        if (count > largestCount) {
+          largestCount = count;
+          largestKey = key;
+        }
+      }
+      if (largestKey) {
+        setActiveInnerFilter({ kind: 'family', familyKey: largestKey });
+        everythingDefaultedRef.current = true;
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOuterTab]);
+    }, [activeOuterTab, supplies]);
     // Backwards-compat shims for the existing readers below. activeFamily
     // and setActiveFamily are still consumed by FamilyTabStrip; the wrapper
     // keeps the existing call sites untouched while routing through the
@@ -245,27 +280,9 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
       if (spaceId) load(spaceId);
     }, [spaceId, refreshTrigger, load]);
 
-    // Auto-expand cascade on first data settle: Use Soon if it has items,
-    // else Attention if it has items, else collapsed. Fires once; user
-    // toggles take over after.
-    useEffect(() => {
-      if (expansionInitializedRef.current) return;
-      if (loading) return;
-      if (supplies.length === 0) return;
-      const hasUseSoon =
-        supplies.some((s) => s.lot_aggregate?.has_expiring_soon) ||
-        supplies.some((s) => isIdleCold(s));
-      if (hasUseSoon) {
-        setExpandedSection({ kind: 'use_soon' });
-      } else {
-        const hasAttention = supplies.some(
-          (s) =>
-            s.status === 'out' || s.status === 'critical' || s.status === 'low'
-        );
-        setExpandedSection(hasAttention ? { kind: 'attention' } : null);
-      }
-      expansionInitializedRef.current = true;
-    }, [supplies, loading]);
+    // 8R-UX6 Item 6: first-load auto-expand cascade removed — it only set
+    // the now-dead 'use_soon' / 'attention' kinds and no current JSX reads
+    // them. The 'sub' kind is opened by user tap (tapSub) on demand.
 
     // CP6d-SmokeFix-4 Task 2: shadow-supply fetch on search query changes.
     // Debounced via timeout. Cleared when query is empty.
@@ -986,10 +1003,6 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
       .filter((s) => isIdleCold(s) && s.storage_location === 'freezer')
       .slice()
       .sort(sortByIdleSince);
-    const useSoonTotal =
-      expiringSupplies.length +
-      fridgeIdleSupplies.length +
-      freezerIdleSupplies.length;
 
     // 8R-UX3: outer-tab universes — must be declared BEFORE outerUniverse /
     // familyTabs / per-tab filtered sets to avoid TDZ. Hermes phrases the
@@ -1169,30 +1182,17 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
       );
     }
 
-    // CP6e-SmokeFix-SF2-followup (2026-05-14): during active search, force-
-    // expand all top sections + sub-categories so every match is visible
-    // without nested folder taps. User's manual expansion state
-    // (`expandedSection`) is preserved underneath — when the query clears,
-    // sections collapse back to whatever was open before.
-    const isUseSoonOpen =
-      expandedSection?.kind === 'use_soon' || searchActive;
-    const isAttentionOpen =
-      expandedSection?.kind === 'attention' || searchActive;
+    // CP6e-SmokeFix-SF2-followup (2026-05-14): during active search, the
+    // existing manual expansion state (`expandedSection`) is preserved so
+    // sections collapse back to whatever was open before when the query
+    // clears. 8R-UX6 Item 6: isUseSoonOpen / isAttentionOpen / tapUseSoon /
+    // tapAttention removed — those governed the deleted standalone Use
+    // Soon + Attention sections.
     const openSubKey = (top: 'restock' | 'track_only'): string | null =>
       expandedSection?.kind === 'sub' && expandedSection.top === top
         ? expandedSection.key
         : null;
 
-    const tapUseSoon = () => {
-      setExpandedSection((prev) =>
-        prev?.kind === 'use_soon' ? null : { kind: 'use_soon' }
-      );
-    };
-    const tapAttention = () => {
-      setExpandedSection((prev) =>
-        prev?.kind === 'attention' ? null : { kind: 'attention' }
-      );
-    };
     const tapSub = (top: 'restock' | 'track_only', key: string) => {
       setExpandedSection((prev) =>
         prev?.kind === 'sub' && prev.top === top && prev.key === key

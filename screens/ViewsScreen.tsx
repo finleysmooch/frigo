@@ -34,11 +34,8 @@ import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 import { supabase } from '../lib/supabase';
 import ViewCreatorModal from '../components/ViewCreatorModal';
-import GroceryBagIcon from '../components/icons/grocery/GroceryBagIcon';
-import ShoppingCartIcon from '../components/icons/grocery/ShoppingCartIcon';
-import ReceiptIcon from '../components/icons/grocery/ReceiptIcon';
-import CartIcon from '../components/icons/grocery/CartIcon';
 import HiddenIcon from '../components/icons/HiddenIcon';
+import { renderListIcon } from '../lib/utils/listIcon';
 
 type Props = NativeStackScreenProps<ViewsStackParamList, 'Views'>;
 
@@ -261,7 +258,7 @@ export default function ViewsScreen({ navigation }: Props) {
         }
       >
         {sortedViews.map((view) => {
-          const listIcon = renderListIcon(view, colors);
+          const listIcon = renderListIconSlot(view, colors);
           const subtitle = formatFilterSubtitle(view);
           const showSubtitle = subtitle.length > 0 || view.is_hidden;
           // 8R-UX1: In Cart is visually separated from the active grocery
@@ -389,36 +386,22 @@ function formatFilterSubtitle(view: ViewWithFilters): string {
   return 'Also in Long List';
 }
 
-// 8R-UX1: map the three urgency-based default views to dedicated icons.
-// All same size + brand teal — the icon shape (bag / cart / receipt) and
-// list order convey the hierarchy. Fixed-width slot keeps cardBody aligned.
+// 8R-UX6 Item 4b: renderListIcon extracted to lib/utils/listIcon.tsx.
+// Local wrapper preserves the 56px-wide centered slot used for card-body
+// alignment in ViewsScreen (other callers render the raw icon).
 const LIST_ICON_SIZE = 46;
 const LIST_ICON_SLOT_WIDTH = 56;
 
-function renderListIcon(
+function renderListIconSlot(
   view: ViewWithFilters,
   colors: ReturnType<typeof useTheme>['colors']
 ): React.ReactElement | null {
-  if (!view.is_default) return null;
-  let icon: React.ReactElement | null = null;
-  switch (view.name) {
-    case 'Short List':
-      icon = <GroceryBagIcon size={LIST_ICON_SIZE} color={colors.primary} />;
-      break;
-    case 'Medium List':
-      icon = <ShoppingCartIcon size={LIST_ICON_SIZE} color={colors.primary} />;
-      break;
-    case 'Long List':
-      icon = <ReceiptIcon size={LIST_ICON_SIZE} color={colors.primary} />;
-      break;
-    case 'In Cart':
-      // Black rather than brand teal — In Cart is semantically a "done /
-      // staged" state, not part of the active grocery hierarchy.
-      icon = <CartIcon size={LIST_ICON_SIZE} color={colors.text.primary} />;
-      break;
-    default:
-      return null;
-  }
+  const icon = renderListIcon(view, {
+    size: LIST_ICON_SIZE,
+    iconColor: colors.primary,
+    cartColor: colors.text.primary,
+  });
+  if (!icon) return null;
   return (
     <View
       style={{

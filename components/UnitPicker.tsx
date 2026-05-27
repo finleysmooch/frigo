@@ -97,20 +97,23 @@ export default function UnitPicker({
     try {
       // 8R-CP4.5: replaced dynamic import of deleted pantryService with inline
       // Supabase query against ingredient_common_units + measurement_units.
+      // 8R-UX6 Item 5: dropped `sort_order` from select + `.order('sort_order')`
+      // — that column doesn't exist on ingredient_common_units. The CP4.5
+      // substitution assumed it would but never verified. Pre-fix this fired
+      // `ERROR Error loading units: column ingredient_common_units.sort_order
+      // does not exist` whenever UnitPicker rendered.
       const { data, error } = await supabase
         .from('ingredient_common_units')
         .select(
-          'unit_id, sort_order, measurement_units(id, unit, display_singular, display_plural)'
+          'unit_id, measurement_units(id, unit, display_singular, display_plural)'
         )
-        .eq('ingredient_id', ingredientId)
-        .order('sort_order');
+        .eq('ingredient_id', ingredientId);
 
       if (error) throw error;
 
       const units: UnitOption[] = (data ?? []).map((row) => {
         const r = row as {
           unit_id: string;
-          sort_order: number;
           measurement_units: { id: string; unit: string; display_singular: string; display_plural: string } | null;
         };
         const display = r.measurement_units?.display_plural ?? r.measurement_units?.unit ?? '';
@@ -118,7 +121,7 @@ export default function UnitPicker({
           unit_id: r.unit_id,
           display_name: display,
           is_common: true,
-          sort_order: r.sort_order ?? 0,
+          sort_order: 0,
         };
       });
 

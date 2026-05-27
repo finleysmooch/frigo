@@ -1,6 +1,6 @@
 # Substitution Intelligence — Roadmap, Assumptions, and Gaps
 
-**Status as of 2026-05-21:** F&F-ready with hand-validated whitelist gating + L1c sibling routing fix (8D-CP2.1). Full intelligence is multi-quarter roadmap.
+**Status as of 2026-05-26:** F&F-ready with hand-validated whitelist gating + L1c sibling routing fix (8D-CP2.1) + cheese / protein subtype split (8D-CP3) + null-form wildcard removed (8D-CP3.1). Full intelligence is multi-quarter roadmap.
 
 ## Current implementation (F&F)
 
@@ -9,15 +9,13 @@ The 4-level matcher (`pantryMatchingService.ts`) computes:
 - **L1 exact** — split into three sub-cases:
   - **L1a — same row.** `recipe.ingredient_id === supply.ingredient_id`. Always L1.
   - **L1b — variant ↔ direct base.** Recipe IS the base of supply, OR supply IS the base of recipe. Examples: `olive oil` (base) ↔ `extra-virgin olive oil` (variant); `salt` ↔ `kosher salt`. Always L1.
-  - **L1c — sibling via same base.** Both sides have non-null `base_ingredient_id` pointing to the same row, and neither IS that base (e.g., `brisket` ↔ `ribeye`, both variants of `beef` base). **Routes through L2/L3 + whitelist, NOT L1.** Same-subtype routing decision: matches at L3 (or L2 if forms differ, or silent L1 via the null-form wildcard) when the subtype IS in `SUBSTITUTABLE_SUBTYPES`; demotes to L4 missing otherwise.
+  - **L1c — sibling via same base.** Both sides have non-null `base_ingredient_id` pointing to the same row, and neither IS that base (e.g., `brisket` ↔ `ribeye`, both variants of `beef` base). **Routes through L2/L3 + whitelist, NOT L1.** Same-subtype routing decision: matches at L3 (same form, including NULL=NULL) or L2 (different form) when the subtype IS in `SUBSTITUTABLE_SUBTYPES`; demotes to L4 missing otherwise.
 - **L2 form_variant** — same `ingredient_subtype` + different `form` (only for whitelisted subtypes)
 - **L3 substitute** — same `ingredient_subtype` + same `form` (only for whitelisted subtypes)
 - **L4 no_match** — different subtype, or same subtype but NOT in `SUBSTITUTABLE_SUBTYPES`
 - **always_available** — water/ice auto-match (no supply lookup)
 
 L2 and L3 are surfaced only when `recipe.ingredient_subtype IN SUBSTITUTABLE_SUBTYPES`. The whitelist is hand-curated against the full catalog (113 multi-member subtypes, 604 rows total) and contains ~75 subtypes where substitution semantics are reliable. Non-whitelisted same-subtype matches (cheese, fish, leafy_green, tropical_fruit, etc.) demote to L4 missing.
-
-A null-form wildcard rule applies within whitelisted subtypes: when either side has `form IS NULL`, treat as L1 exact (silent ✓). This handles generic-base rows like `sugar`, `vinegar`, citrus whole fruits.
 
 **L1c routing rationale.** The catalog's `base_ingredient_id` linkage encodes "variant of a parent" semantics — useful for surfacing the base when the user holds a specific variant (and vice versa). It does NOT encode substitutability between siblings. Two variants of the same parent are at most as substitutable as their shared subtype permits; the matcher must therefore route them through the same whitelist gate that governs all other same-subtype pairings. Pre-CP2.1, the matcher conflated "user has the base" with "user has a sibling" and fired L1 for both. Post-CP2.1, only the variant-↔-base axis fires L1; sibling-↔-sibling routes through L3.
 
@@ -109,7 +107,7 @@ Each gap above is a known roadmap item, not a hidden flaw. The whitelist is the 
 
 ## Additivity principle for the post-CP2 recipe surface
 
-Post-CP2 (4-level matcher + substitution whitelist + null-form wildcard), the visual design of the recipe ingredient surface is locked for F&F. Subsequent checkpoints in Phase 8D (CP3 tap-sheet, CP4 What-can-I-cook, CP5 banner-bundled-with-CP3) and beyond add interactivity, navigation, and net-new surfaces — they do NOT modify the existing row visual, sub-line copy, button styling, section header, or spacing.
+Post-CP3.1 (4-level matcher + substitution whitelist, null-form wildcard removed), the visual design of the recipe ingredient surface is locked for F&F. Subsequent checkpoints in Phase 8D (CP3 tap-sheet, CP4 What-can-I-cook, CP5 banner-bundled-with-CP3) and beyond add interactivity, navigation, and net-new surfaces — they do NOT modify the existing row visual, sub-line copy, button styling, section header, or spacing.
 
 This is a design discipline, not a hard schema constraint:
 - The 4-level visual (✓ green / ⚠ yellow form variant / ≈ yellow substitute / red missing) is the F&F design contract.
@@ -137,6 +135,22 @@ To remove a subtype (rare):
 No schema changes required for either operation.
 
 ## Changelog
+
+- **2026-05-26 — Null-form wildcard removed (8D-CP3.1).** The wildcard from the 2026-05-19 CP2 patch ("within a whitelisted subtype, NULL form on either side collapses to silent L1 exact") was over-firing post-CP3. With the cheese / protein subtypes whitelisted via CP3, and most cheese / protein rows having `form = NULL`, the wildcard was silently collapsing legitimate cross-base same-subtype pairs (parmesan ↔ pecorino, ribeye ↔ sirloin, bacon ↔ pancetta) to L1 exact instead of L3 substitute.
+
+  The wildcard's original purpose was to silence "different form" copy on generic-base pairings (e.g., recipe "vinegar" + supply "rice vinegar"). The correct semantic — generic recipe should match any specific via L1 base linkage — is the catalog's job, not the matcher's. The catalog currently has these subtypes as flat (no base/variant linkages); the directional-genericity work is captured as DEFERRED P8D-CP3.1-1 for post-F&F.
+
+  Net effect: parmesan ↔ pecorino, feta ↔ goat cheese, brown sugar ↔ granulated sugar, all cheese / protein subtype pairs now surface correctly as ≈ amber L3 substitute. T29 (smoke harness expectation contamination) auto-resolves — L2a / L3a / L3c / WL8 already had semantically-correct expectations that now match runtime. Generic-recipe matches on flat-catalog subtypes (recipe "vinegar" + supply "rice vinegar"; recipe "salt" + supply "kosher salt") now surface as ≈ amber substitute instead of silent ✓ — honest but slightly verbose; captured in P8D-CP3.1-1 for catalog restructure that would restore ✓ via L1 base linkage.
+
+- **2026-05-26 — Cheese + protein subtype split (8D-CP3).** Split four overloaded subtypes into 13 substitution-meaningful sub-subtypes via SQL migration (61 catalog rows reassigned):
+  - **Cheese** (1 subtype → 6): `fresh_cheese` (12), `hard_cheese` (4), `semi_hard_cheese` (14), `soft_ripened_cheese` (3), `blue_cheese` (3), `processed_cheese` (1). Generic "cheese" row left in legacy `cheese` subtype (catalog hygiene — DEFERRED P8D-CP3-1).
+  - **Beef** (1 subtype → 3): `beef_steak` (5), `beef_braising` (4), `beef_ground` (1). Base 'beef' row stays as `beef`.
+  - **Chicken**: carved out `chicken_dark` (3 rows — thigh, leg, drumstick). Other 5 chicken rows stay as `chicken` (white meat too distinct to surface as substitute for dark).
+  - **Cured_meat** (1 subtype → 3): `cured_pork_sliced` (3), `sausage` (4), `ham_and_salami` (4).
+
+  10 of 13 new subtypes added to `SUBSTITUTABLE_SUBTYPES` (all except `processed_cheese`, `beef_ground`, `ham_and_salami` — none have clean within-bucket substitutability). Legacy parent subtypes (`cheese`, `beef`, `chicken`, `cured_meat`) intentionally remain off the whitelist — leftover rows demote to L4 on cross-subtype pairings.
+
+  The L1c fix from 8D-CP2.1 routed sibling pairs through the L2/L3 whitelist gate. This CP completes the picture by ensuring legitimate substitution groups now reach L3 substitute level instead of demoting to L4. Cross-bucket pairs (e.g., `ribeye` ↔ `brisket` — different beef subtypes) correctly stay at L4. 15 new SMOKE-CP3 scenarios added (10 positive, 5 negative).
 
 - **2026-05-21 — L1c sibling routing fix (8D-CP2.1).** Was incorrectly firing L1 exact for siblings of the same base; now routes through L2/L3 + whitelist. Matcher logic only; no catalog data changes, no schema changes, no UI changes. Existing `SMOKE-CP2-L1c` expectation updated (`exact` → `L4`, since `citrus` not in whitelist) with comment. New scenarios added: `SMOKE-CP2.1-L1c-DEMOTE-BEEF`, `SMOKE-CP2.1-L1c-DEMOTE-CHICKEN`, `SMOKE-CP2.1-L1c-WHITELIST-RICE`, `SMOKE-CP2.1-L1b-PRESERVED`.
 - **2026-05-19 — F&F whitelist curation.** `SUBSTITUTABLE_SUBTYPES` hand-curated against the full catalog (113 multi-member subtypes, 604 rows). ~75 subtypes in the whitelist; ~40 silent-demoted to L4 pending the G1 post-F&F audit.

@@ -38,19 +38,12 @@ import { createSupply, setSupplyStatus } from '../lib/services/suppliesService';
 import { linkNeedToSupply, setNeedStatus } from '../lib/services/needsService';
 import { getNeedDisplayName } from '../lib/services/needsService';
 import { NeedWithDetails } from '../lib/types/needs';
-import { SupplyWithTags } from '../lib/types/supplies';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
 
 export interface BulkAcquirePromotionModalProps {
   visible: boolean;
   needsWithoutSupply: NeedWithDetails[];
-  /**
-   * 8R-UX1 fix: pre-existing supplies in the space, used to dedup against
-   * promotion targets. Without this, promoting a "salt" need with no
-   * supply_id creates a SECOND salt supply even when one already exists.
-   */
-  existingSupplies: SupplyWithTags[];
   spaceId: string;
   userId: string;
   onCancel: () => void;
@@ -68,7 +61,6 @@ export interface BulkAcquirePromotionModalProps {
 export default function BulkAcquirePromotionModal({
   visible,
   needsWithoutSupply,
-  existingSupplies,
   spaceId,
   userId,
   onCancel,
@@ -128,53 +120,30 @@ export default function BulkAcquirePromotionModal({
       groups.set(key, list);
     }
 
-    // 8R-UX1 fix: try to find an existing supply in the user's pantry that
-    // matches this group's identity before creating a new one. Match by
-    // ingredient_id when set, else by case-insensitive custom_name. Without
-    // this dedup, acquiring an unlinked "salt" need spawned a second salt
-    // supply even when one already existed.
-    const findExistingMatch = (head: NeedWithDetails): SupplyWithTags | null => {
-      if (head.ingredient_id) {
-        return (
-          existingSupplies.find((s) => s.ingredient_id === head.ingredient_id) ??
-          null
-        );
-      }
-      const name = (head.custom_name ?? '').toLowerCase().trim();
-      if (!name) return null;
-      return (
-        existingSupplies.find(
-          (s) =>
-            !s.ingredient_id &&
-            (s.custom_name ?? '').toLowerCase().trim() === name
-        ) ?? null
-      );
-    };
+    // 8R-UX6 Item 2: within-space dedup now lives in createSupply itself —
+    // any pre-existing matching supply (by ingredient_id OR custom_name) is
+    // returned by createSupply instead of inserting a duplicate, and an
+    // 'out' existing supply is restocked to 'in_stock' automatically.
+    // What remains here is the within-BATCH dedup (the `groups` Map above):
+    // when two needs in one promotion resolve to the same identity, the
+    // first one's createSupply call returns the supply (new or existing),
+    // and all siblings in the group link to it.
 
     for (const [, members] of groups) {
       if (members.length === 0) continue;
       const head = members[0];
-      const existingMatch = findExistingMatch(head);
       try {
-        let targetSupplyId: string;
-        if (existingMatch) {
-          // Link to the existing supply + restock it instead of creating new.
-          targetSupplyId = existingMatch.id;
-          await setSupplyStatus(targetSupplyId, 'in_stock');
-        } else {
-          const newSupply = await createSupply({
-            spaceId,
-            ingredientId: head.ingredient_id ?? undefined,
-            customName: head.ingredient_id ? undefined : head.custom_name ?? undefined,
-            status: 'in_stock',
-            forUserIds: head.for_user_ids,
-            addedBy: userId,
-          });
-          // setSupplyStatus on the freshly-created supply is a no-op for
-          // already-in_stock rows; keep for parity.
-          await setSupplyStatus(newSupply.id, 'in_stock');
-          targetSupplyId = newSupply.id;
-        }
+        // createSupply handles dedup internally — returns existing supply
+        // (potentially restocked from 'out') or inserts a new one.
+        const supply = await createSupply({
+          spaceId,
+          ingredientId: head.ingredient_id ?? undefined,
+          customName: head.ingredient_id ? undefined : head.custom_name ?? undefined,
+          status: 'in_stock',
+          forUserIds: head.for_user_ids,
+          addedBy: userId,
+        });
+        const targetSupplyId = supply.id;
 
         // Acquire all members; link each to the target supply so the dedup
         // softening (CP6d-Schema Gap-G41) recognizes them as same-supply.

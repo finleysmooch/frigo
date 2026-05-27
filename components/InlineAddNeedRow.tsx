@@ -24,17 +24,17 @@ import {
   View,
 } from 'react-native';
 import { createNeed } from '../lib/services/needsService';
-import { getOrCreateTag, getTagsForSpace } from '../lib/services/tagsService';
+import { getTagsForSpace } from '../lib/services/tagsService';
 import { getSuppliesForSpace } from '../lib/services/suppliesService';
 import { SupplyWithTags } from '../lib/types/supplies';
-import { Tag, TagDimension } from '../lib/types/tags';
+import { Tag } from '../lib/types/tags';
 import { ViewWithFilters } from '../lib/types/views';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
+import { resolveViewTagIds } from '../lib/utils/viewTagResolution';
 
 const SEARCH_DEBOUNCE_MS = 200;
-const URGENCY_SPECIFICITY = ['today', 'this-week', 'this-month'];
 
 type Tier = 'tier1' | 'tier2' | 'tier3';
 
@@ -162,59 +162,6 @@ export default function InlineAddNeedRow({
     };
   }, [query, supplies]);
 
-  /**
-   * View-context tag IDs (Q21). Returns the set of tag IDs to attach to a
-   * new need based on the active view's filters. Urgency collapses to the
-   * most-specific value when multiple are present (today > this-week >
-   * this-month). Status filter is ignored. Tag values are resolved against
-   * the space's tags via getOrCreateTag (creates if missing — needed because
-   * default views may reference values that haven't been materialized yet
-   * for this space).
-   */
-  const resolveViewTagIds = async (): Promise<string[]> => {
-    if (!view) return [];
-    const tagIds: string[] = [];
-    for (const f of view.filters) {
-      if (f.dimension === 'status') continue;
-      let values = f.values;
-      if (f.dimension === 'urgency' && values.length > 1) {
-        // Pick most specific.
-        const ranked = values
-          .slice()
-          .sort(
-            (a, b) =>
-              URGENCY_SPECIFICITY.indexOf(a) - URGENCY_SPECIFICITY.indexOf(b)
-          );
-        const winner = ranked.find((v) => URGENCY_SPECIFICITY.includes(v));
-        values = winner ? [winner] : [values[0]];
-      }
-      for (const value of values) {
-        // Look up by space + dimension + case-insensitive value.
-        const existing = tagsBySpace.find(
-          (t) =>
-            t.dimension === f.dimension &&
-            t.value.toLowerCase() === value.toLowerCase()
-        );
-        if (existing) {
-          tagIds.push(existing.id);
-        } else {
-          try {
-            const created = await getOrCreateTag(
-              spaceId,
-              f.dimension as TagDimension,
-              value,
-              userId
-            );
-            tagIds.push(created.id);
-          } catch (error) {
-            console.error('❌ Could not resolve view-context tag:', error);
-          }
-        }
-      }
-    }
-    return tagIds;
-  };
-
   const reset = () => {
     setQuery('');
     setResults([]);
@@ -224,7 +171,7 @@ export default function InlineAddNeedRow({
     if (submitting) return;
     setSubmitting(true);
     try {
-      const tagIds = await resolveViewTagIds();
+      const tagIds = await resolveViewTagIds(view, tagsBySpace, spaceId, userId);
       if (s.tier === 'tier1' && s.supply) {
         await createNeed({
           spaceId,

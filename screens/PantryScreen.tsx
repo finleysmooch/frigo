@@ -38,7 +38,6 @@ import SuppliesSection, {
   SuppliesSectionRef,
 } from '../components/pantry/SuppliesSection';
 import PantrySearchBar from '../components/pantry/PantrySearchBar';
-import SupplyQuickEditModal from '../components/pantry/SupplyQuickEditModal';
 import SupplyCreateSheet from '../components/SupplyCreateSheet';
 import ListPickerModal from '../components/ListPickerModal';
 import {
@@ -75,8 +74,6 @@ export default function PantryScreen({ navigation }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSpaceSwitcherSheet, setShowSpaceSwitcherSheet] = useState(false);
-  // CP6d-SmokeFix-1 (P32): long-press quick-edit modal.
-  const [quickEditSupply, setQuickEditSupply] = useState<SupplyWithTags | null>(null);
 
   // 8R-UX1: state lifted from SuppliesSection so the toolbar / action-bar
   // can sit in the sticky white space below the search bar. Defaults:
@@ -933,20 +930,6 @@ export default function PantryScreen({ navigation }: Props) {
           initialSelectedIngredient={createSheetInitialIngredient}
         />
       )}
-
-      <SupplyQuickEditModal
-        visible={quickEditSupply !== null}
-        supply={quickEditSupply}
-        userId={currentUserId}
-        onClose={() => setQuickEditSupply(null)}
-        onSupplyChanged={(next) => {
-          // Keep the modal showing the latest snapshot; SuppliesSection
-          // re-fetches via refreshTrigger when the user closes the modal
-          // anyway, but bumping here keeps the section in sync proactively.
-          setQuickEditSupply(next);
-          setRefreshTrigger((n) => n + 1);
-        }}
-      />
 
       {activeSpaceId && currentUserId && (
         <ListPickerModal

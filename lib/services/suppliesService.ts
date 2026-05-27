@@ -404,6 +404,55 @@ export async function createSupply(params: CreateSupplyParams): Promise<SupplyWi
     params.trackingMode ?? inferredTrackingMode;
   const finalIsPriority = params.isPriority ?? false;
 
+  // 8R-UX6 Item 2: service-layer dedup. Returns the existing supply when
+  // an active match is found (same space, same ingredient_id OR
+  // case-insensitive custom_name when no ingredient). Out-status existing
+  // matches get restocked to the requested initial status. Mirrors the
+  // createNeed pattern. Archived-supply restore is out of scope — see
+  // DEFERRED_WORK P8R-UX6-1.
+  let existingMatch: SupplyWithTags | null = null;
+  if (params.ingredientId) {
+    const { data, error } = await supabase
+      .from('supplies')
+      .select(SUPPLY_SELECT)
+      .eq('space_id', params.spaceId)
+      .eq('ingredient_id', params.ingredientId)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (error) {
+      console.error('❌ createSupply dedup lookup (ingredient):', error);
+      // Don't block creation on lookup failure — fall through to insert.
+    } else if (data) {
+      existingMatch = data as SupplyWithTags;
+    }
+  } else if (params.customName) {
+    const { data, error } = await supabase
+      .from('supplies')
+      .select(SUPPLY_SELECT)
+      .eq('space_id', params.spaceId)
+      .ilike('custom_name', params.customName.trim())
+      .is('archived_at', null)
+      .is('ingredient_id', null)
+      .maybeSingle();
+    if (error) {
+      console.error('❌ createSupply dedup lookup (custom_name):', error);
+    } else if (data) {
+      existingMatch = data as SupplyWithTags;
+    }
+  }
+
+  if (existingMatch) {
+    console.log('📦 createSupply dedup hit — returning existing supply:', existingMatch.id);
+    // If the existing supply is 'out' and a non-out status was requested,
+    // restock to that status (handles the resurrection-flow case where a
+    // user re-adds an item that previously went out).
+    if (existingMatch.status === 'out' && params.status && params.status !== 'out') {
+      const result = await setSupplyStatus(existingMatch.id, params.status);
+      return result.supply;
+    }
+    return existingMatch;
+  }
+
   const insertRow = {
     space_id: params.spaceId,
     ingredient_id: params.ingredientId ?? null,

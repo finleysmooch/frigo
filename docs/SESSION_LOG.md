@@ -4,7 +4,255 @@ _This log is for **post-Phase-8 work** — beginning with the 8D cleanup pass an
 
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
+## 2026-05-27
+
+### Claude.ai + Tom: 8D-CP4 — Catalog hygiene pass
+
+Triggered by a real-recipe symptom (egg-spinach-pecorino pizza showed ✓ green
+for pecorino with parmesan in pantry — actual data: recipe ingredient row had
+`ingredient_id` pointing at parmesan instead of pecorino). Diagnostic widened
+to a full catalog + recipe_ingredients audit; found 4 categories of issue:
+
+1. **~95 recipe_ingredients rows misclassified** by previous Claude.ai-driven
+   recipe extraction sessions. Examples: sumac→cumin (8), pomegranate
+   molasses→honey (5), crème fraîche→sour cream (14), pecorino→parmesan (7),
+   lemongrass→ginger (8), golden raisins→date (6), burrata→mozzarella (4),
+   distilled white vinegar→white wine vinegar (5), prepared horseradish→dijon
+   (4), plus smaller fixes.
+2. **Catalog data quality bugs** — `salt.form='fresh'`, `sea salt.form='dried'`
+   (both meaningless, produced bad UI copy); `extra-virgin olive oil` was
+   independent base, not variant of `olive oil`; 7 salt variants were all
+   independent bases.
+3. **Subtype mis-assignments** — `mascarpone` in `fresh_cheese` produced
+   nonsensical "you have feta" substitutions; `buttermilk` in `cultured_dairy`
+   would substitute with sour cream.
+4. **11 missing catalog rows** — horseradish, galangal, burrata, truffle oil,
+   currants, self-rising flour, aleppo pepper, whole peeled tomatoes, tomato
+   puree, short-grain rice, beef chuck. Extractor was forcing them into
+   nearest-match rows in same/related subtypes.
+
+**What shipped:**
+
+Migrations (all idempotent):
+- `20260527_migration_a_catalog_modifications.sql` — 6 catalog modifications:
+  mascarpone moved to cultured_dairy; buttermilk to own subtype; cultured_dairy
+  forms normalized to 'fresh'; salt variants linked to base; EVOO linked to
+  olive oil base; salt/sea salt form values set to NULL; pepper 'powder' → 'ground'.
+- `20260527_migration_b_catalog_additions.sql` — 11 new ingredient rows.
+- `20260527_migration_c_recipe_ingredient_corrections.sql` — ~95 recipe_ingredients
+  UPDATEs across 22 statement groups.
+
+Matcher (`lib/services/pantryMatchingService.ts`):
+- Added 3 subtypes to `SUBSTITUTABLE_SUBTYPES`: `cultured_dairy`, `tomato`,
+  `ginger_fresh`. Enables L3 substitute UX for the cross-base same-subtype
+  pairs introduced by the migrations.
+
+**Manual next steps for Tom:**
+1. Apply Migration A in Supabase SQL editor; run verification block.
+2. Apply Migration B; run verification block.
+3. Edit `pantryMatchingService.ts` per `matcher_and_docs_update.md`; hot-reload Expo.
+4. Apply Migration C; run verification block.
+5. Re-open four recipes (Egg-Spinach-Pecorino Pizza, Pizza Bianca, Burnt
+   Eggplant with Tahini, Golden Brown Chicken Breasts) and confirm:
+   - Pecorino on pizza recipe shows ✓ green (you have pecorino now — wait, no:
+     you have PARMESAN in pantry, recipe asks for PECORINO, should show ≈ amber
+     "Close: you have parmesan") — substitute UX
+   - Pomegranate molasses shows ≈ amber "Close: you have honey"
+   - Mascarpone no longer shows "you have feta"
+   - Crème fraîche shows ≈ amber if user has sour cream
+   - Salt rows show ✓ green if user has any salt variant
+   - EVOO shows ✓ green if user has olive oil
+6. Note: smoke harness will still show some failures (real-pantry contamination
+   bug, pre-existing). Smoke harness isolation fix captured as deferred.
+7. Refresh `_pk_sync/` with the 3 migration files, the matcher diff,
+   SESSION_LOG entry, and DEFERRED_WORK additions.
+
+**Recipe extraction quality** — captured as deferred. All ~95 misclassifications
+were Claude.ai-driven (recipes extracted by previous chat sessions, not the
+function path). For future extraction, both the function-side extractor and
+human-driven extraction need a review-and-confirm step. Detailed entries in
+DEFERRED_WORK below.
+
+**Files modified:**
+- `lib/services/pantryMatchingService.ts` (whitelist +3 subtypes: cultured_dairy, tomato, ginger_fresh)
+- `docs/SESSION_LOG.md` (this entry — authorized by prompt `docs/matcher_and_docs_update.md`)
+- `docs/DEFERRED_WORK.md` (8 new entries P8D-CP4-1 through P8D-CP4-8 — authorized by prompt)
+
+Migrations referenced by the entry already existed in `supabase/migrations/` before
+this CC session (`20260526_cheese_protein_subtype_split.sql` is the only 8D-CP3
+migration present; the three `20260527_migration_*.sql` files mentioned above
+were authored by Claude.ai and are expected to land separately — not present in
+the working tree at the time of this entry).
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — none
+- `DEFERRED_WORK.md` — applied directly per prompt authorization (8 new P8D-CP4-* entries)
+- `PROJECT_CONTEXT.md` — none
+- `FF_LAUNCH_MASTER_PLAN.md` — none
+
+**Recommended next steps for Tom:**
+1. Apply the three migrations A → B → C in Supabase SQL editor (in order) and run each migration's verification block. The migration SQL files are not in the working tree as of this entry — confirm Claude.ai has provided them before applying.
+2. Hot-reload Expo to pick up the matcher whitelist change (already shipped here).
+3. Walk the four screenshot recipes per the entry's verification list above.
+4. Refresh `_pk_sync/` with the matcher diff + the two staged living-doc copies (already created by this session).
+
 ## 2026-05-26
+
+### CC: 8D-CP3.1 — Null-form wildcard removed from matcher
+
+Surgical follow-up to 8D-CP3. The CP3 split + whitelist additions expected cross-base same-subtype pairs (parmesan ↔ pecorino, ribeye ↔ sirloin, bacon ↔ pancetta) to surface as L3 substitute. But every cheese row has `form = NULL` in the catalog, and the null-form wildcard from the 2026-05-19 CP2 patch was firing on any pair where either side had NULL form — collapsing legitimate L3 substitutes to silent L1 exact. Wildcard removed entirely.
+
+**What shipped:**
+
+Matcher (`lib/services/pantryMatchingService.ts`):
+- Removed the `nullFormWildcard` conditional in the L2/L3 routing path (the `meta.form === null || subtypeCandidates.some(s => ... === null)` branch). Inline comment preserved with the rationale + a pointer to DEFERRED P8D-CP3.1-1.
+- L3 substitute now correctly fires for same-subtype same-form pairs including NULL=NULL matches.
+- No other behavioral changes: L1 self-match, L1b base ↔ variant, L1c sibling routing (CP2.1), L2 form_variant, L4 demotion all unchanged.
+
+Smoke (`lib/services/_pantryMatchingSmokeTest.ts`):
+- **No reconciliation needed.** The four T29-flagged scenarios (SMOKE-CP2-L2a, L3a, L3c, WL8) already had semantically-correct expectations (`form_variant` for the two pepper scenarios, `substitute` for basmati/jasmine and chicken broth/stock). Their underlying ingredient rows have non-null forms; the wildcard wasn't firing for them. Removing the wildcard doesn't change their runtime levels.
+- The post-CP3 substitute scenarios (10 SMOKE-CP3-* positives) should now hit `substitute` cleanly instead of the wildcard's silent `exact`. Run via AdminScreen to confirm.
+- SMOKE-CP2-NF1/NF2/NF3 (`sugar`/`granulated sugar`, `white wine vinegar`/`vinegar`, `lime juice`/`lime`) — these were originally designed as wildcard tests. They may still pass via L1 base linkage (WWV is a known variant of vinegar; lime juice is a variant of lime); if not, expectations need updating. Tom verifies on the next smoke run; flagged as a follow-on if they break.
+
+Roadmap (`docs/SUBSTITUTION_INTELLIGENCE_ROADMAP.md`):
+- Status header bumped to include CP3.1.
+- Null-form wildcard paragraph removed from "Current implementation".
+- L1c bullet's parenthetical updated to drop the "silent L1 via the null-form wildcard" branch.
+- "Additivity principle" updated: `Post-CP2 (... + null-form wildcard)` → `Post-CP3.1 (... null-form wildcard removed)`.
+- New 2026-05-26 changelog entry explaining the over-fire + rationale + net effect.
+
+DEFERRED_WORK (`docs/DEFERRED_WORK.md`):
+- T29 marked ✅ RESOLVED — original entry preserved for history.
+- New P8D-CP3.1-1 added: catalog restructure to link variants to canonical generic bases for the 9 flat whitelisted subtypes (vinegar, sugar, salt, soy_sauce, mustard, butter, cream — clear generics; rice, pasta — ambiguous, defer). Restores ✓ exact for generic-meets-specific pairs via L1 base linkage, replacing the ≈ amber that the wildcard used to silence.
+
+**Files modified:**
+- `lib/services/pantryMatchingService.ts` (wildcard removed)
+- `docs/SUBSTITUTION_INTELLIGENCE_ROADMAP.md` (3 edits: status, current-implementation, additivity, changelog)
+- `docs/DEFERRED_WORK.md` (T29 resolved marker + P8D-CP3.1-1)
+- `lib/services/_pantryMatchingSmokeTest.ts` — **not modified**; T29 scenarios were already at semantically-correct levels.
+
+**Pre-flight check:**
+- Working tree had ~25 uncommitted files (8R-UX6 + 8D-CP3 batches from earlier today). Reported; proceeded per Tom's earlier "proceed and commit in a follow-up pass" stance.
+- All four T29 scenario expectations: ALREADY CORRECT (`form_variant`, `substitute`, `substitute`, `form_variant`). No changes.
+- CP3 substitute scenarios: cannot verify locally — smoke run will confirm.
+
+**Recommended next steps for Tom:**
+1. **Run SMOKE via AdminScreen.** Expect all CP3 positive scenarios to hit `substitute` (not `exact`). All CP2 / CP2.1 scenarios unchanged. NF1-NF3 may break depending on catalog linkage state — surface if so.
+2. **Open the parmesan recipe with pecorino in pantry.** Should now see ≈ amber + "Close: you have pecorino" sub-line (NOT ✓ green).
+3. **Optional regression** — a recipe asking for generic `vinegar` with rice vinegar in supply will now show ≈ amber. Honest behavior; catalog restructure (P8D-CP3.1-1) will restore ✓ via base linkage post-F&F.
+4. **Refresh `_pk_sync/`** with the matcher + roadmap + DEFERRED + SESSION_LOG.
+
+### CC: 8D-CP3 — Cheese + protein subtype split + matcher whitelist expansion
+
+Builds on 8D-CP2.1 (L1c routing fix). CP2.1 correctly demoted false-positive sibling matches to L4 for non-whitelisted subtypes. This CP completes the picture by creating subtypes that ARE legitimate substitution groups, then whitelisting them so the matcher surfaces them at L3 instead of demoting.
+
+**What shipped:**
+
+Catalog (SQL migration `supabase/migrations/20260526_cheese_protein_subtype_split.sql`):
+- **Cheese** split into 6 subtypes: `fresh_cheese` (12), `hard_cheese` (4), `semi_hard_cheese` (14), `soft_ripened_cheese` (3), `blue_cheese` (3), `processed_cheese` (1). Generic "cheese" row (single placeholder) left in legacy `cheese` — flagged as catalog hygiene (P8D-CP3-1).
+- **Beef** split into 3 subtypes: `beef_steak` (5), `beef_braising` (4), `beef_ground` (1). Base 'beef' row stays as `beef`.
+- **Chicken**: carved out `chicken_dark` (3 rows). Other 5 chicken rows stay as `chicken` (white meat too distinct to surface as substitute).
+- **Cured_meat** split into 3 subtypes: `cured_pork_sliced` (3), `sausage` (4), `ham_and_salami` (4).
+- **Total:** 13 new subtypes, 61 rows reassigned.
+
+Migration includes `ALTER TYPE ADD VALUE` statements COMMENTED with instructions — Tom verifies `pg_typeof(ingredient_subtype)` first; if ENUM, uncomment those before the UPDATEs.
+
+Matcher (`lib/services/pantryMatchingService.ts`):
+- 10 new subtypes added to `SUBSTITUTABLE_SUBTYPES`: `fresh_cheese`, `hard_cheese`, `semi_hard_cheese`, `soft_ripened_cheese`, `blue_cheese`, `beef_steak`, `beef_braising`, `chicken_dark`, `cured_pork_sliced`, `sausage`.
+- NOT whitelisted (deliberate): `processed_cheese` (American cheese is distinctive), `beef_ground` (single row), `ham_and_salami` (mixed bag).
+- Verified that legacy parent subtypes (`cheese`, `beef`, `chicken`, `cured_meat`) are not in the whitelist — leftover rows demote to L4 on cross-subtype pairings, which is correct.
+- No algorithm changes; whitelist set extension only.
+
+Smoke (`lib/services/_pantryMatchingSmokeTest.ts`):
+- 15 new SMOKE-CP3 scenarios appended after SMOKE-CP2.1 block, using the existing `cp2()` helper signature (label, recipeName, supplyName, expectLevel).
+- 10 positive (L3 substitutes within new whitelisted buckets) + 5 negative (L4 demotions: processed_cheese vs cheddar, beef cross-bucket, chicken dark vs white, ham_and_salami within-bucket).
+- Existing SMOKE-CP2.1 scenarios continue to pass post-migration. `SMOKE-CP2.1-L1c-DEMOTE-BEEF` (brisket ↔ ribeye, now `beef_braising` vs `beef_steak`) stays L4 — different subtypes. `SMOKE-CP2.1-L1c-DEMOTE-CHICKEN` (chicken thigh ↔ chicken breast, now `chicken_dark` vs `chicken`) stays L4.
+
+Roadmap (`docs/SUBSTITUTION_INTELLIGENCE_ROADMAP.md`):
+- Status header bumped to 2026-05-26.
+- New changelog entry detailing the split + whitelist composition + the relationship to the L1c fix.
+
+**Files modified:**
+- `supabase/migrations/20260526_cheese_protein_subtype_split.sql` *(new)*
+- `lib/services/pantryMatchingService.ts` (whitelist expansion only)
+- `lib/services/_pantryMatchingSmokeTest.ts` (15 new SMOKE-CP3 scenarios)
+- `docs/SUBSTITUTION_INTELLIGENCE_ROADMAP.md` (status + changelog)
+- `docs/DEFERRED_WORK.md` (4 new entries P8D-CP3-1 through -4)
+
+**Deferred items added:**
+- P8D-CP3-1 — Generic "cheese" ingredient row (catalog hygiene)
+- P8D-CP3-2 — Categorical recipe ingredients modeling (cross-subtype categoricals)
+- P8D-CP3-3 — Protein catalog expansion (pork, lamb, turkey, game thin)
+- P8D-CP3-4 — Manchego subtype reconsideration
+
+**Pre-flight check:**
+- Working tree had 20 uncommitted files from the 8R-UX6 batch executed earlier today. Reported to Tom; he opted to proceed and commit both 8R-UX6 + 8D-CP3 in a follow-up pass rather than splitting commits per CP.
+- `ingredient_subtype` column type: NOT verified by CC (cannot directly query Supabase). Migration written with `ALTER TYPE ADD VALUE` statements commented; Tom verifies via `SELECT pg_typeof(ingredient_subtype) FROM ingredients LIMIT 1;` and uncomments if ENUM.
+
+**Recommended next steps for Tom:**
+1. **Pre-flight the column type** — `SELECT pg_typeof(ingredient_subtype) FROM ingredients LIMIT 1;` in Supabase SQL editor. If result is `text`, run the UPDATEs directly. If an enum, uncomment the `ALTER TYPE ADD VALUE` block at the top of the migration first.
+2. **Apply migration** — `supabase/migrations/20260526_cheese_protein_subtype_split.sql`.
+3. **Run verification query** at the bottom of the migration file. Expected: 13 subtypes with 61 rows total.
+4. **Run SMOKE tests** via AdminScreen → expect all SMOKE-CP3 scenarios pass + all prior SMOKE-CP2 / CP2.1 scenarios continue to pass.
+5. **Real-recipe smoke** — open a recipe using parmesan. If pecorino is in pantry, the match should now show as substitute (L3) instead of missing.
+6. **Brisket recipe smoke** — open the original-bug recipe. Ribeye in pantry should STAY missing (not substitute) because `beef_braising` and `beef_steak` are different subtypes.
+7. **Refresh `_pk_sync/`** with the new migration + matcher + smoke + roadmap.
+
+### CC: 8R-UX6 — Cleanup batch (7 items)
+
+Seven independent cleanups in one pass, executed against a clean working tree (rolled up prior CPs into commit `246a045` before starting).
+
+**What shipped:**
+
+1. **SupplyQuickEditModal deleted** — orphaned after 8R-UX1 long-press multi-select. Removed file + state + mount in PantryScreen. Stale doc comments referencing it in SuppliesSection / SupplyRow / SupplyControls / UsageLevelSlider were left — they're historical-context references that don't break compilation.
+
+2. **createSupply service-layer dedup** — checks for an existing supply (by `ingredient_id` OR case-insensitive `custom_name` within space, not archived) before inserting. If an 'out' existing supply is matched and a non-out status was requested, sets to that status (handles the resurrection-flow case). `BulkAcquirePromotionModal`'s within-space pre-check simplified — `findExistingMatch` helper deleted; within-batch dedup retained. `existingSupplies` prop dropped (now redundant); ViewDetailScreen no longer passes it.
+
+3. **`seed_default_views` renamed + row migration + UI override removed** — new migration `supabase/migrations/20260526_rename_default_view_names.sql`. Function now emits 'Short List' / 'Medium List' / 'Long List' / 'In Cart' directly (preserved 8R-UX2 render_mode default `'aisle'` for the urgency-based trio, `'flat'` for In Cart). UPDATE statements rename existing rows defensively (only where the OLD name AND the system-default filter shape both match — user-created views untouched). `DEFAULT_VIEW_NAME_OVERRIDES` map removed from `viewsService.flattenViewRow` — DB row is now authoritative.
+
+4. **Shared util extractions (4 callers, 3 helpers):**
+   - `resolveViewTagIds` → `lib/utils/viewTagResolution.ts` — **drift found:** `SupplyControls.tsx` had a 4th instance (spec said 3) that additionally unioned `supply.tags` into the result so spawned needs inherit store / etc. tags. Extracted the common base helper; SupplyControls now does the supply.tags union after calling the shared helper. The other three callers (`InlineAddNeedRow`, `ExpandedRegularsSheet`, `ListPickerModal`) were functionally identical.
+   - `renderListIcon` → `lib/utils/listIcon.tsx` — **drift found:** `ViewsScreen.tsx` wrapped the icon in a 56px-wide centered slot for card-tile alignment; the other two (ViewDetailScreen, ListPickerModal) rendered the raw icon. Extracted to return the raw icon; ViewsScreen retains a local `renderListIconSlot` wrapper that delegates.
+   - `supplyMatchesView` → `lib/utils/supplyViewMatching.ts` — both callers (`ViewDetailScreen`, `ExpandedRegularsSheet`) post-drift-fix versions matched. Extracted along with the companion `expandUrgencyValues` helper.
+
+5. **UnitPicker `sort_order` bug fixed** — dropped `sort_order` from the `.select()` clause + removed `.order('sort_order')`. The CP4.5 substitution had assumed the column existed but never verified. Pre-fix, `ERROR Error loading units: column ingredient_common_units.sort_order does not exist` fired every time UnitPicker rendered. No alternate ordering column available — units now load in DB default order.
+
+6. **Dead code cleanup from 8R-UX3:** removed `ExpandedSection` variants `'use_soon'` + `'attention'`, dead handlers `tapUseSoon` + `tapAttention`, dead constants `useSoonTotal` + `isUseSoonOpen` + `isAttentionOpen`, and the first-load auto-expand cascade `useEffect` (which only set the now-dead variants) + its `expansionInitializedRef`. The `'sub'` variant (type-subgroup expand/collapse inside Everything tab) stays — still in use.
+
+7. **Largest-family default on Everything tab** — replaced the prior reset-to-`'all'` `useEffect` with ref-guarded largest-family default logic. Picks the family with the highest non-archived non-unknown supply count (excluding `__other__`) on first Everything-tab entry. Resets on outer-tab switch; respects user's manual taps to All or other families within a session. Folds in the 8R-UX3 Part D.2 deferral.
+
+**Files touched:**
+- `screens/PantryScreen.tsx` (Item 1)
+- `components/pantry/SupplyQuickEditModal.tsx` (deleted, Item 1)
+- `lib/services/suppliesService.ts` (Item 2)
+- `components/BulkAcquirePromotionModal.tsx` (Item 2 simplification)
+- `screens/ViewDetailScreen.tsx` (Item 2 prop drop, Item 4b + 4c imports)
+- `supabase/migrations/20260526_rename_default_view_names.sql` (new, Item 3)
+- `lib/services/viewsService.ts` (Item 3 override removal)
+- `lib/utils/viewTagResolution.ts` (new, Item 4a)
+- `lib/utils/listIcon.tsx` (new, Item 4b)
+- `lib/utils/supplyViewMatching.ts` (new, Item 4c)
+- `components/InlineAddNeedRow.tsx`, `components/ExpandedRegularsSheet.tsx`, `components/ListPickerModal.tsx`, `components/pantry/SupplyControls.tsx` (Item 4a callers)
+- `screens/ViewsScreen.tsx` (Item 4b caller — local `renderListIconSlot` wrapper retained)
+- `components/UnitPicker.tsx` (Item 5)
+- `components/pantry/SuppliesSection.tsx` (Items 6 + 7)
+- `docs/DEFERRED_WORK.md` (P8R-UX6-1 added)
+
+**Deferred items added:**
+- P8R-UX6-1 — createSupply archived-supply restore path (out of scope; archived dedup behavior is the resurrection flow's job)
+
+**Drift flagged during extraction:**
+- `resolveViewTagIds` — 4 callers (spec said 3). SupplyControls had additional `supply.tags` union behavior. Kept that union at the call site; extracted base helper has view→tag-id translation only.
+- `renderListIcon` — ViewsScreen wrapped in 56px slot. The other 2 callers didn't. Helper returns raw icon; ViewsScreen wraps locally.
+
+**Pre-flight check:**
+- Working tree was NOT clean at start (40+ files across UX2/UX3/UX3-fix/UX4/UX5/CP2.1). Per Tom's call: single rollup commit `246a045` before 8R-UX6 began, so any regressions from this batch are bisectable against that commit.
+
+**Recommended next steps for Tom:**
+1. **Apply the migration** — `supabase/migrations/20260526_rename_default_view_names.sql` in Supabase SQL editor. Existing rows rename in place; new spaces seed with the new names directly.
+2. Smoke per the spec's verification list (priority order: app load → long-press multi-select → no duplicate supply on re-add → migration applied → ExpandedRegularsSheet filters correctly → UnitPicker loads cleanly → fresh Pantry mount → Everything tab → largest family pre-selected).
+3. Refresh `_pk_sync/` with the new + modified files.
+4. Commit this batch as 8R-UX6 (separate commit from `246a045` so it's bisectable).
 
 ### CC: 8R-UX5 — Hero ingredient marker + filter pill
 

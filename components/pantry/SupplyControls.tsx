@@ -40,7 +40,7 @@ import {
   getSupplyDisplayName,
 } from '../../lib/services/suppliesService';
 import { createNeed } from '../../lib/services/needsService';
-import { getOrCreateTag, getTagsForSpace } from '../../lib/services/tagsService';
+import { getTagsForSpace } from '../../lib/services/tagsService';
 import { getViewsForSpace } from '../../lib/services/viewsService';
 import {
   StorageLocation,
@@ -48,7 +48,7 @@ import {
   SupplyWithTags,
   TrackingMode,
 } from '../../lib/types/supplies';
-import { Tag, TagDimension } from '../../lib/types/tags';
+import { Tag } from '../../lib/types/tags';
 import { ViewWithFilters } from '../../lib/types/views';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius, shadows } from '../../lib/theme';
@@ -57,8 +57,8 @@ import UsageLevelSlider from './UsageLevelSlider';
 import { RegularBookmarkIcon, PriorityBookmarkIcon } from './BookmarkIcons';
 import { StorageIcon, storageLabel } from './StorageIcons';
 import RecipesOutline from '../icons/RecipesOutline';
+import { resolveViewTagIds } from '../../lib/utils/viewTagResolution';
 
-const URGENCY_SPECIFICITY = ['today', 'this-week', 'this-month'];
 const STORAGE_OPTIONS: StorageLocation[] = ['fridge', 'freezer', 'pantry', 'counter'];
 
 function clampLevel(raw: number | null | undefined): UsageLevel {
@@ -213,47 +213,14 @@ export default function SupplyControls({
     }
   };
 
-  const resolveViewTagIds = async (
+  // 8R-UX6 Item 4a: resolveViewTagIds extracted to lib/utils/viewTagResolution.ts.
+  // The supply.tags union (so the spawned need carries store / etc. tags) is
+  // specific to this surface and stays here as a post-call addition.
+  const resolveTagsForSupplyNeed = async (
     view: ViewWithFilters
   ): Promise<string[]> => {
-    const tagIds: string[] = [];
-    for (const f of view.filters) {
-      if (f.dimension === 'status') continue;
-      let values = f.values;
-      if (f.dimension === 'urgency' && values.length > 1) {
-        const ranked = values
-          .slice()
-          .sort(
-            (a, b) =>
-              URGENCY_SPECIFICITY.indexOf(a) - URGENCY_SPECIFICITY.indexOf(b)
-          );
-        const winner = ranked.find((v) => URGENCY_SPECIFICITY.includes(v));
-        values = winner ? [winner] : [values[0]];
-      }
-      for (const value of values) {
-        const existing = spaceTags.find(
-          (t) =>
-            t.dimension === f.dimension &&
-            t.value.toLowerCase() === value.toLowerCase()
-        );
-        if (existing) {
-          tagIds.push(existing.id);
-        } else {
-          try {
-            const created = await getOrCreateTag(
-              supply.space_id,
-              f.dimension as TagDimension,
-              value,
-              userId
-            );
-            tagIds.push(created.id);
-          } catch (error) {
-            console.error('❌ Failed to resolve view-context tag:', error);
-          }
-        }
-      }
-    }
-    // Also union supply's own tags so the spawned need carries store/etc.
+    const viewTagIds = await resolveViewTagIds(view, spaceTags, supply.space_id, userId);
+    const tagIds = [...viewTagIds];
     for (const t of supply.tags) {
       if (!tagIds.includes(t.id)) tagIds.push(t.id);
     }
@@ -264,7 +231,7 @@ export default function SupplyControls({
     if (busy) return;
     try {
       setBusy(true);
-      const tagIds = await resolveViewTagIds(view);
+      const tagIds = await resolveTagsForSupplyNeed(view);
       await createNeed({
         spaceId: supply.space_id,
         ingredientId: supply.ingredient_id ?? undefined,

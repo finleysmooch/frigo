@@ -829,6 +829,32 @@ export async function runPantryMatchingSmokeTests(spaceId: string): Promise<void
     await cp2('SMOKE-CP2.1-L1b-PRESERVED', 'salt', 'kosher salt', 'exact');
 
     // ============================================
+    // CP3 — cheese + protein subtype splits (SMOKE-CP3-*)
+    // ============================================
+    // 13 new ingredient_subtypes shipped via the 2026-05-26 migration. 10 of
+    // them are whitelisted in SUBSTITUTABLE_SUBTYPES (fresh_cheese,
+    // hard_cheese, semi_hard_cheese, soft_ripened_cheese, blue_cheese,
+    // beef_steak, beef_braising, chicken_dark, cured_pork_sliced, sausage);
+    // 3 are deliberately not (processed_cheese, beef_ground, ham_and_salami).
+    // Cross-bucket pairings (e.g., ribeye ↔ brisket: different beef
+    // subtypes) demote to L4 — that's the L1c fix completing the picture.
+    await cp2('SMOKE-CP3-FRESH-CHEESE', 'feta', 'goat cheese', 'substitute');
+    await cp2('SMOKE-CP3-FRESH-CHEESE-RICOTTA', 'ricotta', 'cottage cheese', 'substitute');
+    await cp2('SMOKE-CP3-HARD-CHEESE', 'parmesan', 'pecorino', 'substitute');
+    await cp2('SMOKE-CP3-SEMI-HARD-CHEESE', 'cheddar', 'gouda', 'substitute');
+    await cp2('SMOKE-CP3-BLUE-CHEESE', 'gorgonzola', 'roquefort', 'substitute');
+    await cp2('SMOKE-CP3-SOFT-RIPENED-CHEESE', 'brie', 'camembert', 'substitute');
+    await cp2('SMOKE-CP3-PROCESSED-CHEESE-DEMOTE', 'american cheese', 'cheddar', 'L4');
+    await cp2('SMOKE-CP3-BEEF-STEAK', 'ribeye', 'sirloin', 'substitute');
+    await cp2('SMOKE-CP3-BEEF-BRAISING', 'short ribs', 'brisket', 'substitute');
+    await cp2('SMOKE-CP3-BEEF-CROSS-BUCKET-DEMOTE', 'ribeye', 'brisket', 'L4');
+    await cp2('SMOKE-CP3-CHICKEN-DARK', 'chicken thigh', 'chicken leg', 'substitute');
+    await cp2('SMOKE-CP3-CHICKEN-DARK-VS-WHITE', 'chicken thigh', 'chicken breast', 'L4');
+    await cp2('SMOKE-CP3-CURED-PORK', 'bacon', 'pancetta', 'substitute');
+    await cp2('SMOKE-CP3-SAUSAGE', 'chorizo', 'kielbasa', 'substitute');
+    await cp2('SMOKE-CP3-HAM-AND-SALAMI-DEMOTE', 'salami', 'ham hock', 'L4');
+
+    // ============================================
     // CP3 — MatchedIngredient.supplyStatus population (SMOKE-CP3-S*)
     // ============================================
     // The just-created synthetic supply is the most recent → pickBestSupply

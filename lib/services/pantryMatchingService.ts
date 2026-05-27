@@ -76,6 +76,29 @@ export const SUBSTITUTABLE_SUBTYPES: ReadonlySet<string> = new Set([
   'sesame_seeds', 'sprout', 'summer_squash', 'sunflower_seed',
   'sweet_potato', 'thickener', 'vanilla', 'walnut', 'dried_lime',
   'bbq_sauce', 'peanut',
+
+  // 8D-CP3 — cheese + protein subtype split. The previously-overloaded
+  // `cheese`, `beef`, `chicken`, `cured_meat` subtypes were split into
+  // these meaningful sub-subtypes via the 2026-05-26 migration. NOT
+  // whitelisted: processed_cheese (american only), beef_ground (single
+  // row), ham_and_salami (mixed bag — salami/ham/ham_hock aren't
+  // reliably interchangeable). Legacy parent subtypes intentionally
+  // remain off the list — leftover rows (generic 'cheese', base 'beef',
+  // chicken white-meat) demote to L4 on cross-subtype pairings.
+  'fresh_cheese', 'hard_cheese', 'semi_hard_cheese',
+  'soft_ripened_cheese', 'blue_cheese',
+  'beef_steak', 'beef_braising',
+  'chicken_dark',
+  'cured_pork_sliced', 'sausage',
+
+  // 8D-CP4 — catalog hygiene additions (2026-05-27). cultured_dairy
+  // whitelisted post-mascarpone-move (sour cream ↔ crème fraîche ↔ mascarpone
+  // are reasonable substitutes; buttermilk moved to its own subtype to avoid
+  // bad substitutions). tomato whitelisted post-addition of whole peeled +
+  // tomato puree (canned tomato variants substitute at L3). ginger_fresh
+  // whitelisted post-galangal addition (Zingiberaceae family members substitute
+  // honestly).
+  'cultured_dairy', 'tomato', 'ginger_fresh',
 ]);
 
 // ============================================
@@ -446,28 +469,19 @@ export async function calculateRecipeSupplyMatchBulk(
           continue;
         }
 
-        // Null-form wildcard: within a whitelisted subtype, if the recipe
-        // side OR any candidate has a null form, the form axis is
-        // uninformative — treat the best candidate as a silent L1 exact
-        // rather than emitting confusing "different form" copy on generic-
-        // base rows (sugar, vinegar, citrus whole fruits).
-        const nullFormWildcard =
-          meta.form === null ||
-          subtypeCandidates.some(
-            (s) => (catalogById.get(s.ingredient_id)?.form ?? null) === null
-          );
-        if (nullFormWildcard) {
-          const best = pickBestSupply(subtypeCandidates);
-          matched.push({
-            ingredientId: meta.id,
-            supplyId: best.id,
-            level: 'exact',
-            formMismatch: null,
-            reason: 'You have it',
-            supplyStatus: best.status,
-          });
-          continue;
-        }
+        // 8D-CP3.1: null-form wildcard removed. Previously: any pair where
+        // either side had `form === null` collapsed to silent L1 exact,
+        // intended to silence confusing "different form" copy on generic-
+        // base rows (sugar, vinegar, etc.). Side effect: with cheese /
+        // protein subtypes whitelisted via CP3 — and most of those rows
+        // having `form = NULL` — legitimate cross-base same-subtype pairs
+        // (parmesan ↔ pecorino, ribeye ↔ sirloin) were collapsing to L1
+        // instead of surfacing as L3 substitute. The correct semantic for
+        // generic-recipe-meets-specific-supply is L1 base linkage at the
+        // catalog level, not a matcher-side override. Captured in
+        // DEFERRED_WORK P8D-CP3.1-1 as a post-F&F catalog restructure.
+        // Null form values now participate in normal L2/L3 routing:
+        // NULL=NULL → same form → L3; NULL ≠ 'fresh' → different form → L2.
 
         // L2 — same subtype, different form.
         const l2 = subtypeCandidates.filter(

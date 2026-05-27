@@ -40,34 +40,16 @@ export class DefaultViewDeleteError extends Error {
 // INTERNAL HELPERS
 // ============================================
 
-// 8R-UX1: rename the three urgency-based default views to "Short / Medium /
-// Long List" without touching the DB. Applied at the read layer so every
-// caller (ViewsScreen, ViewDetailScreen, AddNeedSheet, etc.) sees the new
-// labels automatically. Only applies when is_default=true — preserves any
-// user-renamed views. The 4th default "In Cart" stays unchanged.
-//
-// To make the rename permanent (i.e., new spaces also get these names),
-// update the DB's seed_default_views() function — Claude.ai topic.
-const DEFAULT_VIEW_NAME_OVERRIDES: Record<string, string> = {
-  tonight: 'Short List',
-  'this week': 'Medium List',
-  'all needs': 'Long List',
-  // 8R-UX1: DB seed names this 'In cart' (lowercase c). Override capitalizes
-  // for consistency with the other two-word default names.
-  'in cart': 'In Cart',
-};
-
+// 8R-UX6 Item 3: previous rename override map removed. DB row's `name` is
+// now authoritative — `seed_default_views()` emits the new names directly
+// (Short / Medium / Long List + In Cart) and the row-migration migration
+// renamed existing rows in place.
 function flattenViewRow(
   row: View & { view_filters: ViewFilter[] | null }
 ): ViewWithFilters {
   const { view_filters, ...rest } = row;
-  const renamed =
-    rest.is_default && DEFAULT_VIEW_NAME_OVERRIDES[rest.name.toLowerCase()]
-      ? DEFAULT_VIEW_NAME_OVERRIDES[rest.name.toLowerCase()]
-      : rest.name;
   return {
     ...rest,
-    name: renamed,
     filters: view_filters ?? [],
   };
 }

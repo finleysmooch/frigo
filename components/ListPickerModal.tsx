@@ -23,42 +23,14 @@ import {
   View,
 } from 'react-native';
 import { getViewsForSpace } from '../lib/services/viewsService';
-import { getOrCreateTag, getTagsForSpace } from '../lib/services/tagsService';
-import { Tag, TagDimension } from '../lib/types/tags';
+import { getTagsForSpace } from '../lib/services/tagsService';
+import { Tag } from '../lib/types/tags';
+import { resolveViewTagIds } from '../lib/utils/viewTagResolution';
 import { ViewWithFilters } from '../lib/types/views';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius } from '../lib/theme';
-import GroceryBagIcon from './icons/grocery/GroceryBagIcon';
-import ShoppingCartIcon from './icons/grocery/ShoppingCartIcon';
-import ReceiptIcon from './icons/grocery/ReceiptIcon';
-import CartIcon from './icons/grocery/CartIcon';
-
-// 8R-UX1 continuation: default urgency-based lists get dedicated SVG icons
-// (matches ViewsScreen + ViewDetailScreen). Mirror of those screens'
-// renderListIcon. Flagged for Claude.ai: third copy now — pull into shared
-// helper `lib/utils/listIcon.tsx`.
-function renderListIcon(
-  view: ViewWithFilters,
-  iconColor: string,
-  cartColor: string,
-  size: number
-): React.ReactElement | null {
-  if (!view.is_default) return null;
-  switch (view.name) {
-    case 'Short List':
-      return <GroceryBagIcon size={size} color={iconColor} />;
-    case 'Medium List':
-      return <ShoppingCartIcon size={size} color={iconColor} />;
-    case 'Long List':
-      return <ReceiptIcon size={size} color={iconColor} />;
-    case 'In Cart':
-      return <CartIcon size={size} color={cartColor} />;
-    default:
-      return null;
-  }
-}
-
-const URGENCY_SPECIFICITY = ['today', 'this-week', 'this-month'];
+// 8R-UX6 Item 4b: renderListIcon extracted to lib/utils/listIcon.tsx.
+import { renderListIcon } from '../lib/utils/listIcon';
 
 export interface ListPickerModalProps {
   visible: boolean;
@@ -114,54 +86,13 @@ export default function ListPickerModal({
     });
   }, [views]);
 
-  const resolveViewTagIds = async (
-    view: ViewWithFilters
-  ): Promise<string[]> => {
-    const tagIds: string[] = [];
-    for (const f of view.filters) {
-      if (f.dimension === 'status') continue;
-      let values = f.values;
-      if (f.dimension === 'urgency' && values.length > 1) {
-        const ranked = values
-          .slice()
-          .sort(
-            (a, b) =>
-              URGENCY_SPECIFICITY.indexOf(a) - URGENCY_SPECIFICITY.indexOf(b)
-          );
-        const winner = ranked.find((v) => URGENCY_SPECIFICITY.includes(v));
-        values = winner ? [winner] : [values[0]];
-      }
-      for (const value of values) {
-        const existing = tagsBySpace.find(
-          (t) =>
-            t.dimension === f.dimension &&
-            t.value.toLowerCase() === value.toLowerCase()
-        );
-        if (existing) {
-          tagIds.push(existing.id);
-        } else {
-          try {
-            const created = await getOrCreateTag(
-              spaceId,
-              f.dimension as TagDimension,
-              value,
-              userId
-            );
-            tagIds.push(created.id);
-          } catch (error) {
-            console.error('❌ ListPickerModal view-tag resolve:', error);
-          }
-        }
-      }
-    }
-    return tagIds;
-  };
+  // 8R-UX6 Item 4a: resolveViewTagIds extracted to lib/utils/viewTagResolution.ts
 
   const handlePick = async (view: ViewWithFilters) => {
     if (resolvingViewId) return;
     setResolvingViewId(view.id);
     try {
-      const tagIds = await resolveViewTagIds(view);
+      const tagIds = await resolveViewTagIds(view, tagsBySpace, spaceId, userId);
       onPick(view, tagIds);
     } finally {
       setResolvingViewId(null);
@@ -266,7 +197,11 @@ export default function ListPickerModal({
           ) : (
             <ScrollView style={styles.list}>
               {pickable.map((v) => {
-                const icon = renderListIcon(v, colors.primary, colors.text.primary, 28);
+                const icon = renderListIcon(v, {
+                  size: 28,
+                  iconColor: colors.primary,
+                  cartColor: colors.text.primary,
+                });
                 return (
                   <TouchableOpacity
                     key={v.id}
