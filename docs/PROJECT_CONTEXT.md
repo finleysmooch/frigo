@@ -1,7 +1,7 @@
 # Frigo - Project Context
-**Last Updated:** May 19, 2026
-**Version:** 10.7
-**Status:** Active Development — **Phase 8 complete pending cleanup pass.** 8R closeout (CP1 → CP6e shipped 2026-04-29 → 2026-05-13; smoke clean 2026-05-15) + 8D (CP1 → CP4 shipped 2026-05-19, CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11 (2026-05-19). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete. F&F launch target: **late August or early September 2026**.
+**Last Updated:** May 27, 2026
+**Version:** 10.8
+**Status:** Active Development — **Phase 10 (Nutrition Depth) shipped 2026-05-27 (single session, six sub-phases + hot fix).** Phase 8 complete pending cleanup pass; 8R closeout (CP1 → CP6e shipped 2026-04-29 → 2026-05-13; smoke clean 2026-05-15) + 8D (CP1 → CP4 shipped 2026-05-19, CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11 (2026-05-19). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done** (8, 10). Next: **Phase 11 (Recipe Polish, including RecipeListScreen redesign)** or Phase 9 (Meal & Planning UX). F&F launch target: **late August or early September 2026**.
 
 ---
 
@@ -110,7 +110,7 @@ Also: StoresScreen, AdminScreen (dev tools), CookSoonScreen (saved recipes queue
 
 ---
 
-## ✅ What Works (as of May 15, 2026)
+## ✅ What Works (as of May 27, 2026)
 
 ### Recipe System
 - **AI Photo Extraction:** Three-pass pipeline (structure → content → review) using Claude Haiku (default) or Sonnet. Handles multi-page cookbook spreads. Extracts: title, ingredients (with quantities, units, preparation), instructions, servings, timing, source attribution.
@@ -156,9 +156,12 @@ Also: StoresScreen, AdminScreen (dev tools), CookSoonScreen (saved recipes queue
 - **Recipe-pantry matching:** the matcher (`pantryMatchingService.ts`) is a **4-level** soft match (L1 exact / L2 form-variant / L3 substitute / L4 missing, whitelist-gated) as of 8D-CP2. RecipeDetail shows 4-level indicators + a tappable ingredient tap-sheet + match % banner (CP3); RecipeList carries real `pantry_match` + a "you can make now" badge; the WhatCanICookScreen surfaces the ready-to-cook subset (CP4). See 8D status below.
 
 ### Nutrition & Stats
-- **Per-Recipe Nutrition:** Collapsible panel on RecipeDetailScreen. Macros (calories, protein, fat, carbs), quality tier badge, USDA-sourced.
-- **Dietary Badges:** 8 flags (vegetarian, vegan, gluten-free, dairy-free, nut-free, shellfish-free, soy-free, egg-free) computed from ingredient data. Displayed on post cards and recipe detail.
-- **Cooking Stats Dashboard (Phase 4):** Comprehensive stats system in the "You" tab — Overview, Recipes, Nutrition, Insights sub-pages with drill-downs. Data layer: statsService.ts (38 exported functions, services-only pattern). *Note: 2 stale `pantry_items` query sites in statsService.ts flagged as T8 cross-cutting tech debt — read from a dropped table, return empty silently. Audit pass scheduled with 8D-CP1.*
+- **Per-Recipe Nutrition:** Collapsible panel on RecipeDetailScreen. Macros (calories, protein, fat, carbs, fiber, sugar, sodium), quality tier badge, USDA-sourced. **Vitamins & minerals sub-toggle (Phase 10C, 2026-05-27)** — 10 micros (Vitamin A, C, D, B12, Folate, Iron, Calcium, Potassium, Magnesium, Zinc) with FDA RDI-based Daily Value percentages and a "USDA data / directional, not for medical use" disclaimer.
+- **Per-Meal Nutrition (Phase 10E, 2026-05-27):** New `MealNutritionPanel` on `MealEventDetailScreen` and `MealDetailScreen` aggregates one serving of each dish across all linked recipes. Same Vitamins/Minerals sub-toggle pattern as the recipe panel. Surfaces partial-data notice ("Nutrition shown for X of Y dishes") when some dishes lack recipe links.
+- **Raw vs. cooked accounting (Phase 10A, 2026-05-27):** `ingredient_state` column + `recipe_nutrition_computed` matview rewrite — `cooked_ratio` now applies only when an ingredient row is explicitly tagged `cooked`. Fixes systematic over-counting on raw-state recipes; verified against a 5-recipe control set.
+- **Dietary Badges:** 8 flags (vegetarian, vegan, gluten-free, dairy-free, nut-free, shellfish-free, soy-free, egg-free) computed from ingredient data. Displayed on post cards and recipe detail. *FDA Big 9 gaps (peanuts/fish/sesame as separate flags) tracked as P10F-1.*
+- **Dietary Preferences (Phase 10F, 2026-05-27):** New `DietaryPreferencesScreen` under Settings → Preferences with DIETARY STYLE / AVOID / BEHAVIOR sections. `auto_apply_to_browse` boolean pre-populates `RecipeListScreen.advancedFilters.dietaryFlags`; a "From your dietary preferences 🥬 / Show all" indicator above the filter row gives a one-tap escape hatch. Onboarding integration deferred to Phase 12 (P10F-2).
+- **Cooking Stats Dashboard (Phase 4 + Phase 10D):** Comprehensive stats system in the "You" tab — Overview, Recipes, Nutrition, Insights sub-pages with drill-downs. **Phase 10D (2026-05-27)** replaced the 🔬 placeholder card on the Nutrition sub-page with a real Micronutrients section (Vitamins/Minerals subsections, DV%, drill-down + trend chart per nutrient) and hoisted the Per Day / Per Meal toggle out of the Goals card to a shared position above both Goals and Micronutrients. Data layer: statsService.ts (extended to include 10 new micro keys + per-meal averages). *Note: 2 stale `pantry_items` query sites in statsService.ts flagged as T8 cross-cutting tech debt — read from a dropped table, return empty silently. Audit pass scheduled with 8D-CP1.*
 
 ---
 
@@ -227,8 +230,8 @@ See `DEFERRED_WORK.md` for the full backlog.
 
 ### After Phase 8 (F&F-blocking phases)
 - **Phase 9 — Meal & Planning UX** (pre-launch; includes flex meal planning v1 + cross-meal dedup)
-- **Phase 10 — Nutrition Depth** (per master plan)
-- **Phase 11 — Recipe Polish** (per master plan)
+- ✅ **Phase 10 — Nutrition Depth** — **shipped 2026-05-27** (10A raw/cooked fix + 10B USDA micronutrient backfill + 10C recipe UI + 10D stats UI + 10E meal UI + 10F dietary preferences + URL-length chunking hot fix). See `FF_LAUNCH_MASTER_PLAN.md` Phase 10 section.
+- **Phase 11 — Recipe Polish** — includes RecipeListScreen redesign (P11-input-1, surfaced during 10F design) per master plan
 - **Phase 12 — Distribution & Testing** — TestFlight build, Apple Developer org distribution, tester onboarding
 
 **Note:** Phase scope is adaptive. See `FF_LAUNCH_MASTER_PLAN.md` and individual phase docs for current scope.

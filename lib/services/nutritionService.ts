@@ -32,10 +32,34 @@ export interface RecipeNutrition {
   total_sugar_g: number;
   total_sodium_mg: number;
 
+  // Micronutrient totals (from materialized view)
+  total_vitamin_a_mcg: number;
+  total_vitamin_c_mg: number;
+  total_vitamin_d_mcg: number;
+  total_vitamin_b12_mcg: number;
+  total_folate_mcg: number;
+  total_iron_mg: number;
+  total_calcium_mg: number;
+  total_potassium_mg: number;
+  total_magnesium_mg: number;
+  total_zinc_mg: number;
+
   // Per-serving derived (computed client-side from totals + servings)
   fiber_per_serving_g: number;
   sugar_per_serving_g: number;
   sodium_per_serving_mg: number;
+
+  // Per-serving micronutrients (computed client-side from totals + servings)
+  vitamin_a_per_serving_mcg: number;
+  vitamin_c_per_serving_mg: number;
+  vitamin_d_per_serving_mcg: number;
+  vitamin_b12_per_serving_mcg: number;
+  folate_per_serving_mcg: number;
+  iron_per_serving_mg: number;
+  calcium_per_serving_mg: number;
+  potassium_per_serving_mg: number;
+  magnesium_per_serving_mg: number;
+  zinc_per_serving_mg: number;
 
   // Dietary flags
   is_vegan: boolean;
@@ -118,10 +142,34 @@ export async function getRecipeNutrition(
     total_sugar_g: data.total_sugar_g ?? 0,
     total_sodium_mg: data.total_sodium_mg ?? 0,
 
+    // Micronutrient totals
+    total_vitamin_a_mcg: data.total_vitamin_a_mcg ?? 0,
+    total_vitamin_c_mg: data.total_vitamin_c_mg ?? 0,
+    total_vitamin_d_mcg: data.total_vitamin_d_mcg ?? 0,
+    total_vitamin_b12_mcg: data.total_vitamin_b12_mcg ?? 0,
+    total_folate_mcg: data.total_folate_mcg ?? 0,
+    total_iron_mg: data.total_iron_mg ?? 0,
+    total_calcium_mg: data.total_calcium_mg ?? 0,
+    total_potassium_mg: data.total_potassium_mg ?? 0,
+    total_magnesium_mg: data.total_magnesium_mg ?? 0,
+    total_zinc_mg: data.total_zinc_mg ?? 0,
+
     // Compute per-serving for fiber/sugar/sodium (not in materialized view)
     fiber_per_serving_g: Math.round(((data.total_fiber_g ?? 0) / servings) * 10) / 10,
     sugar_per_serving_g: Math.round(((data.total_sugar_g ?? 0) / servings) * 10) / 10,
     sodium_per_serving_mg: Math.round((data.total_sodium_mg ?? 0) / servings),
+
+    // Per-serving micronutrients (computed client-side; not in materialized view)
+    vitamin_a_per_serving_mcg: Math.round(((data.total_vitamin_a_mcg ?? 0) / servings) * 10) / 10,
+    vitamin_c_per_serving_mg: Math.round(((data.total_vitamin_c_mg ?? 0) / servings) * 10) / 10,
+    vitamin_d_per_serving_mcg: Math.round(((data.total_vitamin_d_mcg ?? 0) / servings) * 10) / 10,
+    vitamin_b12_per_serving_mcg: Math.round(((data.total_vitamin_b12_mcg ?? 0) / servings) * 10) / 10,
+    folate_per_serving_mcg: Math.round(((data.total_folate_mcg ?? 0) / servings) * 10) / 10,
+    iron_per_serving_mg: Math.round(((data.total_iron_mg ?? 0) / servings) * 10) / 10,
+    calcium_per_serving_mg: Math.round(((data.total_calcium_mg ?? 0) / servings) * 10) / 10,
+    potassium_per_serving_mg: Math.round(((data.total_potassium_mg ?? 0) / servings) * 10) / 10,
+    magnesium_per_serving_mg: Math.round(((data.total_magnesium_mg ?? 0) / servings) * 10) / 10,
+    zinc_per_serving_mg: Math.round(((data.total_zinc_mg ?? 0) / servings) * 10) / 10,
 
     is_vegan: data.is_vegan ?? false,
     is_vegetarian: data.is_vegetarian ?? false,
@@ -281,18 +329,31 @@ export async function getRecipeNutritionBatch(
   const uniqueIds = [...new Set(recipeIds.filter(Boolean))];
   if (uniqueIds.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('recipe_nutrition_computed')
-    .select('*')
-    .in('recipe_id', uniqueIds);
-
-  if (error) {
-    console.error('Error batch fetching recipe nutrition:', error);
-    return new Map();
+  // Chunk the .in() query — PostgREST URL limit is ~4-8KB and 737 UUIDs
+  // produces ~27KB. Each chunk of 100 IDs ~3.7KB. Promise.all runs them in parallel.
+  // Per-chunk error is logged and skipped (partial data > blank screen).
+  const CHUNK_SIZE = 100;
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+    chunks.push(uniqueIds.slice(i, i + CHUNK_SIZE));
   }
 
+  const chunkResults = await Promise.all(
+    chunks.map(chunk =>
+      supabase
+        .from('recipe_nutrition_computed')
+        .select('*')
+        .in('recipe_id', chunk)
+    )
+  );
+
   const map = new Map<string, RecipeNutrition>();
-  for (const row of data || []) {
+  for (const { data, error } of chunkResults) {
+    if (error) {
+      console.error('Error batch fetching recipe nutrition (chunk):', error);
+      continue; // partial data better than blank
+    }
+    for (const row of data || []) {
     const servings = row.servings || 1;
     map.set(row.recipe_id, {
       recipe_id: row.recipe_id,
@@ -309,9 +370,29 @@ export async function getRecipeNutritionBatch(
       total_fiber_g: row.total_fiber_g ?? 0,
       total_sugar_g: row.total_sugar_g ?? 0,
       total_sodium_mg: row.total_sodium_mg ?? 0,
+      total_vitamin_a_mcg: row.total_vitamin_a_mcg ?? 0,
+      total_vitamin_c_mg: row.total_vitamin_c_mg ?? 0,
+      total_vitamin_d_mcg: row.total_vitamin_d_mcg ?? 0,
+      total_vitamin_b12_mcg: row.total_vitamin_b12_mcg ?? 0,
+      total_folate_mcg: row.total_folate_mcg ?? 0,
+      total_iron_mg: row.total_iron_mg ?? 0,
+      total_calcium_mg: row.total_calcium_mg ?? 0,
+      total_potassium_mg: row.total_potassium_mg ?? 0,
+      total_magnesium_mg: row.total_magnesium_mg ?? 0,
+      total_zinc_mg: row.total_zinc_mg ?? 0,
       fiber_per_serving_g: Math.round(((row.total_fiber_g ?? 0) / servings) * 10) / 10,
       sugar_per_serving_g: Math.round(((row.total_sugar_g ?? 0) / servings) * 10) / 10,
       sodium_per_serving_mg: Math.round((row.total_sodium_mg ?? 0) / servings),
+      vitamin_a_per_serving_mcg: Math.round(((row.total_vitamin_a_mcg ?? 0) / servings) * 10) / 10,
+      vitamin_c_per_serving_mg: Math.round(((row.total_vitamin_c_mg ?? 0) / servings) * 10) / 10,
+      vitamin_d_per_serving_mcg: Math.round(((row.total_vitamin_d_mcg ?? 0) / servings) * 10) / 10,
+      vitamin_b12_per_serving_mcg: Math.round(((row.total_vitamin_b12_mcg ?? 0) / servings) * 10) / 10,
+      folate_per_serving_mcg: Math.round(((row.total_folate_mcg ?? 0) / servings) * 10) / 10,
+      iron_per_serving_mg: Math.round(((row.total_iron_mg ?? 0) / servings) * 10) / 10,
+      calcium_per_serving_mg: Math.round(((row.total_calcium_mg ?? 0) / servings) * 10) / 10,
+      potassium_per_serving_mg: Math.round(((row.total_potassium_mg ?? 0) / servings) * 10) / 10,
+      magnesium_per_serving_mg: Math.round(((row.total_magnesium_mg ?? 0) / servings) * 10) / 10,
+      zinc_per_serving_mg: Math.round(((row.total_zinc_mg ?? 0) / servings) * 10) / 10,
       is_vegan: row.is_vegan ?? false,
       is_vegetarian: row.is_vegetarian ?? false,
       is_gluten_free: row.is_gluten_free ?? false,
@@ -329,33 +410,103 @@ export async function getRecipeNutritionBatch(
       ingredients_with_nutrition: row.ingredients_with_nutrition ?? 0,
       ingredients_with_grams: row.ingredients_with_grams ?? 0,
     });
+    }
   }
   return map;
 }
 
 /**
- * Aggregate nutrition across multiple recipes (for meal cards).
- * Calories/macros are summed (per-serving from each dish = one portion of meal).
- * Dietary flags are AND-ed (meal is vegan only if ALL dishes are vegan).
+ * Aggregated nutrition across multiple dishes in a meal.
+ * Semantically: "one serving of each dish" — sums cal_per_serving, protein_per_serving_g,
+ * etc. across recipes. Per-person estimate at a potluck-style meal; understated for people
+ * who skip dishes, overstated for people who have seconds.
+ */
+export interface MealNutrition {
+  // Macros (per-person, summed across one serving of each dish)
+  cal_per_person: number;
+  protein_per_person_g: number;
+  carbs_per_person_g: number;
+  fat_per_person_g: number;
+  fiber_per_person_g: number;
+  sugar_per_person_g: number;
+  sodium_per_person_mg: number;
+  // Micronutrients (per-person, summed across one serving of each dish)
+  vitamin_a_per_person_mcg: number;
+  vitamin_c_per_person_mg: number;
+  vitamin_d_per_person_mcg: number;
+  vitamin_b12_per_person_mcg: number;
+  folate_per_person_mcg: number;
+  iron_per_person_mg: number;
+  calcium_per_person_mg: number;
+  potassium_per_person_mg: number;
+  magnesium_per_person_mg: number;
+  zinc_per_person_mg: number;
+  // Dietary flags — AND across all dishes (meal is only vegan if every dish is vegan)
+  is_vegan: boolean;
+  is_vegetarian: boolean;
+  is_gluten_free: boolean;
+  is_dairy_free: boolean;
+  is_nut_free: boolean;
+  is_shellfish_free: boolean;
+  is_soy_free: boolean;
+  is_egg_free: boolean;
+  // Metadata
+  dishes_with_nutrition: number;  // count of recipes that had nutrition data
+  total_dishes: number;            // count of recipe_ids passed in (some may lack nutrition)
+  quality_label: NutritionQualityLabel;
+}
+
+/**
+ * Aggregate nutrition across multiple recipes (for meal-level surfaces).
+ * Per-serving macros are summed across dishes. Fiber/sugar/sodium + all 10 micros are
+ * stored as totals on the matview, so they're divided by each recipe's servings first,
+ * then summed. Dietary flags are AND-ed (meal is vegan only if ALL dishes are vegan).
  * Returns null if no recipes have nutrition data.
+ *
+ * @param nutritions RecipeNutrition rows for dishes that had nutrition data
+ * @param totalDishCount optional — original count of recipe_ids passed (so the UI can
+ *                      surface "X of Y dishes" when some lacked nutrition data)
  */
 export function aggregateMealNutrition(
-  nutritions: RecipeNutrition[]
-): CompactNutrition | null {
+  nutritions: RecipeNutrition[],
+  totalDishCount?: number
+): MealNutrition | null {
   if (nutritions.length === 0) return null;
 
-  const totalCal = nutritions.reduce((sum, n) => sum + n.cal_per_serving, 0);
-  const totalProtein = nutritions.reduce((sum, n) => sum + n.protein_per_serving_g, 0);
-  const totalCarbs = nutritions.reduce((sum, n) => sum + n.carbs_per_serving_g, 0);
-  const totalFat = nutritions.reduce((sum, n) => sum + n.fat_per_serving_g, 0);
+  // Per-serving fields are summed directly (one serving of each dish).
+  const sumPerServing = (key: keyof RecipeNutrition) =>
+    nutritions.reduce((acc, n) => acc + (Number(n[key]) || 0), 0);
 
-  // AND across all dishes — meal is only vegan if every dish is vegan
-  const aggregated: RecipeNutrition = {
-    ...nutritions[0],
-    cal_per_serving: totalCal,
-    protein_per_serving_g: totalProtein,
-    carbs_per_serving_g: totalCarbs,
-    fat_per_serving_g: totalFat,
+  // Total-on-matview fields (fiber/sugar/sodium + 10 micros) must be divided by each
+  // recipe's servings first, then summed — so they represent one serving of each dish.
+  const sumTotalDividedByServings = (totalKey: keyof RecipeNutrition) =>
+    nutritions.reduce((acc, n) => {
+      const total = Number(n[totalKey]) || 0;
+      const servings = n.servings || 1;
+      return acc + (total / servings);
+    }, 0);
+
+  return {
+    // Macros
+    cal_per_person: Math.round(sumPerServing('cal_per_serving')),
+    protein_per_person_g: Math.round(sumPerServing('protein_per_serving_g') * 10) / 10,
+    carbs_per_person_g: Math.round(sumPerServing('carbs_per_serving_g') * 10) / 10,
+    fat_per_person_g: Math.round(sumPerServing('fat_per_serving_g') * 10) / 10,
+    fiber_per_person_g: Math.round(sumTotalDividedByServings('total_fiber_g') * 10) / 10,
+    sugar_per_person_g: Math.round(sumTotalDividedByServings('total_sugar_g') * 10) / 10,
+    sodium_per_person_mg: Math.round(sumTotalDividedByServings('total_sodium_mg')),
+    // Micronutrients
+    vitamin_a_per_person_mcg: Math.round(sumTotalDividedByServings('total_vitamin_a_mcg') * 10) / 10,
+    vitamin_c_per_person_mg: Math.round(sumTotalDividedByServings('total_vitamin_c_mg') * 10) / 10,
+    vitamin_d_per_person_mcg: Math.round(sumTotalDividedByServings('total_vitamin_d_mcg') * 10) / 10,
+    vitamin_b12_per_person_mcg: Math.round(sumTotalDividedByServings('total_vitamin_b12_mcg') * 10) / 10,
+    folate_per_person_mcg: Math.round(sumTotalDividedByServings('total_folate_mcg') * 10) / 10,
+    iron_per_person_mg: Math.round(sumTotalDividedByServings('total_iron_mg') * 10) / 10,
+    calcium_per_person_mg: Math.round(sumTotalDividedByServings('total_calcium_mg') * 10) / 10,
+    potassium_per_person_mg: Math.round(sumTotalDividedByServings('total_potassium_mg') * 10) / 10,
+    magnesium_per_person_mg: Math.round(sumTotalDividedByServings('total_magnesium_mg') * 10) / 10,
+    zinc_per_person_mg: Math.round(sumTotalDividedByServings('total_zinc_mg') * 10) / 10,
+    // Dietary flags — every dish must satisfy
     is_vegan: nutritions.every(n => n.is_vegan),
     is_vegetarian: nutritions.every(n => n.is_vegetarian),
     is_gluten_free: nutritions.every(n => n.is_gluten_free),
@@ -364,17 +515,10 @@ export function aggregateMealNutrition(
     is_shellfish_free: nutritions.every(n => n.is_shellfish_free),
     is_soy_free: nutritions.every(n => n.is_soy_free),
     is_egg_free: nutritions.every(n => n.is_egg_free),
-    // Worst quality label across dishes
+    // Metadata
+    dishes_with_nutrition: nutritions.length,
+    total_dishes: totalDishCount ?? nutritions.length,
     quality_label: getWorstQualityLabel(nutritions.map(n => n.quality_label)),
-  };
-
-  return {
-    cal_per_serving: totalCal,
-    protein_per_serving_g: totalProtein,
-    carbs_per_serving_g: totalCarbs,
-    fat_per_serving_g: totalFat,
-    dietaryFlags: getActiveDietaryFlags(aggregated),
-    quality_label: aggregated.quality_label,
   };
 }
 

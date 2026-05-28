@@ -119,24 +119,40 @@ export async function getRecipeIngredientNames(
   for (const id of recipeIds) result.set(id, []);
   if (recipeIds.length === 0) return result;
 
-  const { data, error } = await supabase
-    .from('recipe_ingredients')
-    .select('recipe_id, ingredient_id, ingredient:ingredients(id, name)')
-    .in('recipe_id', recipeIds);
-
-  if (error) {
-    console.error('[readyToCookService] getRecipeIngredientNames failed', error);
-    throw error;
+  // Chunk the .in() query — PostgREST URL limit is ~4-8KB and 737 UUIDs
+  // produces ~27KB. Each chunk of 100 IDs ~3.7KB. Promise.all runs them in parallel.
+  // Behavior change: per-chunk errors are now logged and skipped instead of
+  // throwing — partial data is better than a blank list. Matches the new
+  // getRecipeNutritionBatch + calculateRecipeSupplyMatchBulk error policy.
+  const CHUNK_SIZE = 100;
+  const chunks: string[][] = [];
+  for (let i = 0; i < recipeIds.length; i += CHUNK_SIZE) {
+    chunks.push(recipeIds.slice(i, i + CHUNK_SIZE));
   }
 
-  for (const row of (data ?? []) as Array<{
-    recipe_id: string;
-    ingredient_id: string | null;
-    ingredient: { id: string; name: string } | null;
-  }>) {
-    if (!row.ingredient_id || !row.ingredient) continue; // free-text row
-    const arr = result.get(row.recipe_id);
-    if (arr) arr.push({ id: row.ingredient.id, name: row.ingredient.name });
+  const chunkResults = await Promise.all(
+    chunks.map(chunk =>
+      supabase
+        .from('recipe_ingredients')
+        .select('recipe_id, ingredient_id, ingredient:ingredients(id, name)')
+        .in('recipe_id', chunk)
+    )
+  );
+
+  for (const { data, error } of chunkResults) {
+    if (error) {
+      console.error('[readyToCookService] getRecipeIngredientNames chunk failed', error);
+      continue; // partial data better than throwing
+    }
+    for (const row of (data ?? []) as Array<{
+      recipe_id: string;
+      ingredient_id: string | null;
+      ingredient: { id: string; name: string } | null;
+    }>) {
+      if (!row.ingredient_id || !row.ingredient) continue; // free-text row
+      const arr = result.get(row.recipe_id);
+      if (arr) arr.push({ id: row.ingredient.id, name: row.ingredient.name });
+    }
   }
 
   return result;

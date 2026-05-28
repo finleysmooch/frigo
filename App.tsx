@@ -42,6 +42,7 @@ import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import DietaryPreferencesScreen from './screens/DietaryPreferencesScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import LogoPlaygroundScreen from './screens/LogoPlaygroundScreen';
 import UserPostsScreen from './screens/UserPostsScreen';
@@ -177,6 +178,7 @@ export type FeedStackParamList = {
   UserSearch: undefined;
   Profile: undefined;
   Settings: undefined;
+  DietaryPreferences: undefined;  // 10F — child of Settings → Preferences
   EditProfile: undefined;
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
@@ -247,6 +249,7 @@ export type StatsStackParamList = {
   UserPosts: { userId: string; displayName: string };
   Profile: undefined;
   Settings: undefined;
+  DietaryPreferences: undefined;  // 10F — child of Settings → Preferences
   EditProfile: undefined;
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
@@ -408,6 +411,12 @@ function FeedStackNavigator() {
           headerShown: true,
           title: 'Settings',
         }}
+      />
+      {/* 10F — Dietary preferences (child of Settings); owns its own header */}
+      <FeedStack.Screen
+        name="DietaryPreferences"
+        component={DietaryPreferencesScreen}
+        options={{ headerShown: false }}
       />
       <FeedStack.Screen
         name="Admin"
@@ -621,6 +630,12 @@ function StatsStackNavigator() {
         name="Settings"
         component={SettingsScreen}
         options={{ headerShown: true, title: 'Settings' }}
+      />
+      {/* 10F — Dietary preferences (child of Settings); owns its own header */}
+      <StatsStackNav.Screen
+        name="DietaryPreferences"
+        component={DietaryPreferencesScreen}
+        options={{ headerShown: false }}
       />
       <StatsStackNav.Screen
         name="Admin"

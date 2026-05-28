@@ -1,8 +1,8 @@
 # Frigo — Friends & Family Launch Master Plan
 **Created:** March 17, 2026
-**Last Reconciled:** May 19, 2026
+**Last Reconciled:** May 27, 2026
 **Remaining work:** 14-18 weeks to F&F (per dashboard v2 time-to-F&F arithmetic)
-**Status:** Active — **Phase 8 complete pending cleanup pass.** 8R closeout (CP1 → CP6e shipped; smoke clean 2026-05-15) + 8D (CP1 → CP4) shipped 2026-05-19 (CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11. Next: 8D cleanup pass (small), then Phases 9–12. F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete.
+**Status:** Active — **Phase 8 complete pending cleanup pass; Phase 10 (Nutrition Depth) shipped 2026-05-27** (sub-phases 10A → 10F + hot fix). 8R closeout (CP1 → CP6e shipped; smoke clean 2026-05-15) + 8D (CP1 → CP4) shipped 2026-05-19 (CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11. Next: 8D cleanup pass (small), Phase 9, then Phase 11–12. F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done**.
 
 ---
 
@@ -82,7 +82,7 @@ Testing window stays calendar-fixed. Phase 11 remains the primary scope-cut leve
 | **8R** | **Unified household needs refactor** | **~6 weeks actual** | 🟢 Mid-closeout — CP1 → CP6e shipped (2026-04-29 → 2026-05-13). SmokeFix-SF1/SF2/SF3 + catalog SF-5 shipped 2026-05-14. Smoke validation passed clean 2026-05-15. Doc reconciliation + CC cleanup pass remaining. See PHASE_8R_UNIFIED_NEEDS.md v0.7. |
 | **8D** | Recipe-pantry matching | 3-5 | 🟢 Essentially complete. **CP1** (matching primitive) + **CP1.5** (catalog variant linkage backfill) + **CP2** (4-level matcher + substitution whitelist patch) + **CP3** (recipe tap-sheet + match % banner — **CP5 missing-to-grocery bundled into CP3**) + **CP4** (What-can-I-cook screen + RecipeList match wiring) shipped 2026-05-19. End-of-phase cleanup pass pending (console.warn removal, T29 smoke realignment, PHASE_8D_PLANNING refresh, PK_CODE_SNAPSHOTS). See PHASE_8D_PLANNING.md + PHASE_8_PANTRY_AND_GROCERY.md CP results subsections. |
 | **9** | Meal & Planning UX (incl. flex planning v1, cross-meal dedup) | 7-10 | 🔲 Pre-launch |
-| **10** | Nutrition Depth | 4-6 | 🔲 Pre-launch |
+| **10** | Nutrition Depth | 1 (actual; single session 2026-05-27) | ✅ Complete (shipped 2026-05-27) — 10A raw/cooked architecture fix, 10B USDA micronutrient backfill (~3,431 values / 458 ingredients / 10 columns), 10C recipe-level micro UI, 10D stats-level micro UI + hoisted Per Day/Per Meal toggle, 10E meal-level nutrition aggregation, 10F dietary preferences (Settings + browse filter). Hot fix same day: chunked three batch services for PostgREST URL-length resilience. |
 | **11** | Recipe Polish (expanded: search/filter, folders stretch; **+ 8E-CP1/CP3/CP4 merged 2026-05-19**) | 9-15 (was 7-12; +3 for merged 8E work) | 🔲 Pre-launch |
 | **12** | Distribution, Polish & Testing | 7-11 + 2wk testing | 🔲 Pre-launch |
 | **Parallel** | LLC formation + Apple Developer org enrollment track | — | 🔲 Kicks off immediately |
@@ -173,15 +173,23 @@ Small pre-Phase-8 polish bundle pulling high-priority items out of the Phase 7 b
 
 **Estimated:** 7-10 sessions (was 5-8 before multi-user handoff + cross-meal dedup promotion).
 
-### Phase 10: Nutrition Depth 🔲
+### Phase 10: Nutrition Depth ✅
 
-**Must have:**
-- [must] Micronutrients (curated subset of 12): Vitamin A, Vitamin C, Vitamin D, Vitamin B12, Folate, Iron, Calcium, Potassium, Magnesium, Zinc, Sodium, Fiber. Import from USDA FDC. Backfill existing recipes via extraction pipeline. Add to StatsNutrition with daily-value reference.
-- [must] Meal-level nutrition: aggregate dish nutrition across all dishes in a meal post. Display on MealDetailScreen.
-- [must] Nutrition data source labeling: all nutrition surfaces tagged with source (USDA, estimated, user-entered) and "guidelines, directionally correct" disclaimer.
-- [must] Dietary preferences capture: onboarding-driven user dietary preferences (#20). Feeds browse filters and stats.
+**Status:** Shipped 2026-05-27 (single session, six sub-phases + hot fix). See SESSION_LOG 2026-05-27 day-summary header for the arc; per-sub-phase deferred items captured in DEFERRED_WORK §"Phase 10B–F + Cross-Phase Follow-ups".
 
-**Estimated:** 4-6 sessions. No nice-to-haves; if this phase slips, it slips whole.
+**Must have (shipped):**
+- [must] ✅ **10B — Micronutrients** (10 curated: Vitamin A, C, D, B12, Folate, Iron, Calcium, Potassium, Magnesium, Zinc) imported from USDA FDC SR Legacy. ~3,431 values backfilled across 458 ingredients via one-shot generator script + atomic UPDATE migration. Matview `recipe_nutrition_computed` rolls them up to recipe-level totals. (Sodium + Fiber were already in the schema; the 10 added here are the new micros.) — shipped 2026-05-27.
+- [must] ✅ **10C — Recipe-level micro UI** on `RecipeNutritionPanel`: Vitamins/Minerals sub-toggle with per-row DV% from FDA RDI constants. — shipped 2026-05-27.
+- [must] ✅ **10D — Stats-level micro UI** on `StatsNutrition`: replaced 🔬 placeholder with real Micronutrients card; hoisted Per Day/Per Meal toggle out of GoalsSection to a shared position. — shipped 2026-05-27.
+- [must] ✅ **10E — Meal-level nutrition aggregation**: new `MealNutritionPanel` on both `MealEventDetailScreen` and `MealDetailScreen`. Aggregates "one serving of each dish" across all linked recipes. — shipped 2026-05-27.
+- [must] ✅ **Nutrition data source labeling**: "Estimates based on USDA data and ingredient matching. Directional, not for medical use." disclaimer on every micronutrient surface (recipe panel, stats card, meal panel). — shipped 2026-05-27.
+- [must] ✅ **10F — Dietary preferences capture**: new `DietaryPreferencesScreen` under Settings → Preferences with DIETARY STYLE / AVOID / BEHAVIOR sections + `auto_apply_to_browse` that pre-populates `RecipeListScreen.advancedFilters.dietaryFlags`. Onboarding integration deferred to Phase 12 (no onboarding flow exists yet); captured as P10F-2. — shipped 2026-05-27.
+
+**Also shipped (not on original list):**
+- **10A — Raw/cooked architecture fix** (prerequisite for 10B). Added `ingredient_state` column + matview rewrite to apply `cooked_ratio` only when state='cooked'. Also fixed silently-broken `REFRESH MATERIALIZED VIEW CONCURRENTLY` (added missing unique index). 81 existing rows backfilled.
+- **Hot fix** — three batch services (`getRecipeNutritionBatch`, `getRecipeIngredientNames`, `calculateRecipeSupplyMatchBulk`) chunked to 100 IDs/request. Pre-existing latent bug (URLs of 27KB+ vs PostgREST 4-8KB limit) exposed by 10F's auto-filter when nutrition-batch failures stopped dietary flags reaching the client.
+
+**Actual:** 1 session (six sub-phases + hot fix). Originally estimated 4-6 sessions; substantially faster because (a) schema substrate from Phase 5 was solid, (b) RecipeNutritionPanel pattern from 10C was reusable for 10D + 10E.
 
 ### Phase 11: Recipe Polish 🔲
 
@@ -402,6 +410,7 @@ Key inputs from Tom's pre-launch readiness notes that shaped the April 6 reconci
 
 | Date | Change |
 |------|--------|
+| 2026-05-27 | **v6.8 — Phase 10 (Nutrition Depth) shipped end-to-end.** Single-session ship of six sub-phases plus a hot fix: 10A raw/cooked architecture fix (`ingredient_state` column + matview rewrite + fixed silently-broken CONCURRENTLY refresh), 10B USDA micronutrient backfill (~3,431 values across 458 ingredients, 10 new columns), 10C recipe-level micro UI, 10D stats-level micro UI + hoisted Per Day/Per Meal toggle, 10E meal-level nutrition aggregation panel, 10F dietary preferences capture (Settings + browse filter integration). Hot fix: chunked three batch services for PostgREST URL-length resilience (pre-existing latent bug, exposed by 10F's auto-filter). Phase Sequence row + Phase 10 section both moved 🔲 → ✅. Header status line updated: "3 of 5 pre-F&F phases done" (8, 10 complete; 9, 11, 12 remaining). Deferred items captured in DEFERRED_WORK v5.31. Smoke-tested green in Expo Go same day. F&F readiness criterion now needs only Phases 9, 11, 12 to close. |
 | 2026-05-19 | **v6.7 — 8E retired, merged to Phase 11; Phase 8 complete pending cleanup.** Per Tom's 2026-05-19 close-out call: 8E-CP1 (Browse rebuild), 8E-CP3 (Locked filter chips pattern), 8E-CP4 (Low stock indicators #31) merged into Phase 11 must-haves. 8E-CP2 (Natural-language search) stays post-launch. Phase 11 estimate revised 7-12 → 9-15. Phase 8 phase-sequence row moved to "🟢 Complete pending cleanup pass" (8R + 8D all shipped). F&F readiness criterion explicitly = Phases 8, 9, 10, 11, 12 all complete. Total remaining build sessions recomputed (32-51 → ~28-44 after 8D ship + 8E→Phase 11 reshuffle). |
 | 2026-05-19 | **v6.6 — 8D-CP4 shipped; Phase 8D essentially complete.** CP4 (What-can-I-cook screen + RecipeList match wiring) shipped — new `readyToCookService`, `useReadyToCookRecipes` hook, extracted `RecipeCard`, `WhatCanICookScreen`. Phase Sequence 8D row + header moved to "essentially complete" (CP1→CP4 done; end-of-phase cleanup pass remains). 8E F&F subset (CP1 browse rebuild, CP3 locked filter chips, CP4 low-stock) is next. |
 | 2026-05-19 | **v6.5 — 8D-CP1 → CP3 shipped; phase table caught up.** Phase 8D progressed from "NOT SHIPPED" to in-progress: CP1 (matcher primitive), CP1.5 (catalog backfill), CP2 (4-level matcher + substitution whitelist patch), and CP3 (recipe ingredient tap-sheet + match % banner — CP5 missing-to-grocery bundled into CP3) all shipped 2026-05-19. Phase Sequence 8D row + header status updated. NOTE: the 8D row had been stale since v6.4 (still read "Verified NOT SHIPPED 2026-05-15" through the CP1/CP1.5/CP2 ships); this is a catch-up — a fuller 8D reconciliation by Claude.ai is recommended. |

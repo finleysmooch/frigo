@@ -42,6 +42,8 @@ import MiniBarRow from './MiniBarRow';
 import { getNutritionGoals } from '../../lib/services/nutritionGoalsService';
 import type { NutritionGoal } from '../../lib/services/nutritionGoalsService';
 import NutritionGoalsModal from '../NutritionGoalsModal';
+import { getDvPercent } from '../../lib/constants/dailyValues';
+import type { MicronutrientKey } from '../../lib/constants/dailyValues';
 
 interface StatsNutritionProps {
   userId: string;
@@ -68,9 +70,16 @@ interface NutrientConfig {
   unit: string;
   color: string;
   bg: string;
-  // Whether top sources are available (false for fiber/sugar/sodium)
+  // Whether top sources are available (false for fiber/sugar/sodium + all micros)
   hasSources: boolean;
+  // 10D: when true, NutrientRow renders without the colored dot (micros)
+  hideDot?: boolean;
 }
+
+// Neutral slate used for the 10 micros — keeps drill-down trend chart / browse button
+// visible (an empty color string would render transparent). Row visual itself hides the
+// dot via hideDot, so this color only surfaces in the drill-down panel.
+const MICRO_NEUTRAL_COLOR = '#64748b';
 
 const NUTRIENTS: NutrientConfig[] = [
   { key: 'protein', label: 'Protein', unit: 'g', color: NUTRITION_COLORS.protein.main, bg: NUTRITION_COLORS.protein.bg, hasSources: true },
@@ -79,7 +88,35 @@ const NUTRIENTS: NutrientConfig[] = [
   { key: 'fiber', label: 'Fiber', unit: 'g', color: NUTRITION_COLORS.fiber.main, bg: NUTRITION_COLORS.fiber.bg, hasSources: false },
   { key: 'sodium', label: 'Sodium', unit: 'mg', color: NUTRITION_COLORS.sodium.main, bg: NUTRITION_COLORS.sodium.bg, hasSources: false },
   { key: 'sugar', label: 'Sugar', unit: 'g', color: NUTRITION_COLORS.sugar.main, bg: NUTRITION_COLORS.sugar.bg, hasSources: false },
+  // Phase 10D — micros (Vitamins then Minerals). hideDot, no top-source tracking.
+  { key: 'vitamin_a',   label: 'Vitamin A',   unit: 'mcg', color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'vitamin_c',   label: 'Vitamin C',   unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'vitamin_d',   label: 'Vitamin D',   unit: 'mcg', color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'vitamin_b12', label: 'Vitamin B12', unit: 'mcg', color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'folate',      label: 'Folate',      unit: 'mcg', color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'iron',        label: 'Iron',        unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'calcium',     label: 'Calcium',     unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'potassium',   label: 'Potassium',   unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'magnesium',   label: 'Magnesium',   unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
+  { key: 'zinc',        label: 'Zinc',        unit: 'mg',  color: MICRO_NEUTRAL_COLOR, bg: '', hasSources: false, hideDot: true },
 ];
+
+// 10D — maps StatsNutrient micro keys to MicronutrientKey for DV lookup
+const MICRO_DV_KEY_MAP: Partial<Record<StatsNutrient, MicronutrientKey>> = {
+  vitamin_a: 'vitamin_a_mcg',
+  vitamin_c: 'vitamin_c_mg',
+  vitamin_d: 'vitamin_d_mcg',
+  vitamin_b12: 'vitamin_b12_mcg',
+  folate: 'folate_mcg',
+  iron: 'iron_mg',
+  calcium: 'calcium_mg',
+  potassium: 'potassium_mg',
+  magnesium: 'magnesium_mg',
+  zinc: 'zinc_mg',
+};
+
+const VITAMIN_KEYS: StatsNutrient[] = ['vitamin_a', 'vitamin_c', 'vitamin_d', 'vitamin_b12', 'folate'];
+const MINERAL_KEYS: StatsNutrient[] = ['iron', 'calcium', 'potassium', 'magnesium', 'zinc'];
 
 // Only P/C/F for the donut ring
 const MACRO_NUTRIENTS = NUTRIENTS.slice(0, 3);
@@ -94,7 +131,7 @@ export default function StatsNutrition({ userId, mealType, dateRange }: StatsNut
   const [expandedNutrient, setExpandedNutrient] = useState<StatsNutrient | null>(null);
   const [goals, setGoals] = useState<NutritionGoal[]>([]);
   const [goalsModalVisible, setGoalsModalVisible] = useState(false);
-  const [goalsPeriod, setGoalsPeriod] = useState<'daily' | 'per_meal'>('daily');
+  const [nutritionPeriod, setNutritionPeriod] = useState<'daily' | 'per_meal'>('daily');
 
   const params: StatsParams = useMemo(
     () => ({ userId, dateRange, mealType }),
@@ -214,7 +251,7 @@ export default function StatsNutrition({ userId, mealType, dateRange }: StatsNut
             <View style={[styles.nutrientDivider, { backgroundColor: colors.border.light }]} />
 
             {/* Secondary nutrient rows (Fiber, Sodium, Sugar) */}
-            {NUTRIENTS.slice(3).map((n) => {
+            {NUTRIENTS.slice(3, 6).map((n) => {
               const value = averages[n.key as keyof NutritionAverages];
               return (
                 <React.Fragment key={n.key}>
@@ -240,12 +277,29 @@ export default function StatsNutrition({ userId, mealType, dateRange }: StatsNut
         )}
       </View>
 
+      {/* Period selector — shared by Goals + Micronutrients (lifted out of GoalsSection in 10D) */}
+      <View style={styles.nutritionPeriodToggleContainer}>
+        <View style={styles.goalsModeToggle}>
+          <TouchableOpacity
+            style={[styles.goalsModeBtn, nutritionPeriod === 'daily' && styles.goalsModeBtnActive]}
+            onPress={() => setNutritionPeriod('daily')}
+          >
+            <Text style={[styles.goalsModeBtnText, nutritionPeriod === 'daily' && styles.goalsModeBtnTextActive]}>Per Day</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalsModeBtn, nutritionPeriod === 'per_meal' && styles.goalsModeBtnActive]}
+            onPress={() => setNutritionPeriod('per_meal')}
+          >
+            <Text style={[styles.goalsModeBtnText, nutritionPeriod === 'per_meal' && styles.goalsModeBtnTextActive]}>Per Meal</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Your Goals */}
       <GoalsSection
         goals={goals}
         averages={averages}
-        goalsPeriod={goalsPeriod}
-        onGoalsPeriodChange={setGoalsPeriod}
+        period={nutritionPeriod}
         onEditPress={() => setGoalsModalVisible(true)}
         colors={colors}
         styles={styles}
@@ -254,16 +308,81 @@ export default function StatsNutrition({ userId, mealType, dateRange }: StatsNut
       {/* How You Eat */}
       {dietary && <DietarySection dietary={dietary} colors={colors} styles={styles} />}
 
-      {/* Micronutrients */}
+      {/* Micronutrients (10D — replaced placeholder card) */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Micronutrients</Text>
-        <View style={styles.comingSoonContainer}>
-          <Text style={styles.comingSoonEmoji}>🔬</Text>
-          <Text style={styles.comingSoonText}>Vitamin and mineral tracking coming soon</Text>
-          <Text style={styles.comingSoonSubtext}>
-            We're working on adding micronutrient data to ingredients
-          </Text>
-        </View>
+
+        {averages && (
+          <>
+            {/* Vitamins subsection */}
+            <Text style={styles.microsSubsectionLabel}>Vitamins</Text>
+            {NUTRIENTS.filter(n => VITAMIN_KEYS.includes(n.key)).map(n => {
+              const perMealValue = (averages[n.key as keyof NutritionAverages] as number) ?? 0;
+              const displayValue = nutritionPeriod === 'daily'
+                ? Math.round(perMealValue * MEALS_PER_DAY * 10) / 10
+                : perMealValue;
+              const dvKey = MICRO_DV_KEY_MAP[n.key];
+              const dvPercent = dvKey ? getDvPercent(displayValue, dvKey) : 0;
+              return (
+                <React.Fragment key={n.key}>
+                  <NutrientRow
+                    name={n.label}
+                    dotColor=""
+                    hideDot
+                    value={`${displayValue}${n.unit}`}
+                    dvSuffix={`${dvPercent}% DV`}
+                    onPress={() => handleNutrientPress(n.key)}
+                  />
+                  {expandedNutrient === n.key && (
+                    <NutrientDrillDown
+                      nutrientConfig={n}
+                      params={params}
+                      colors={colors}
+                      styles={styles}
+                      onClose={() => setExpandedNutrient(null)}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+
+            {/* Minerals subsection */}
+            <Text style={styles.microsSubsectionLabel}>Minerals</Text>
+            {NUTRIENTS.filter(n => MINERAL_KEYS.includes(n.key)).map(n => {
+              const perMealValue = (averages[n.key as keyof NutritionAverages] as number) ?? 0;
+              const displayValue = nutritionPeriod === 'daily'
+                ? Math.round(perMealValue * MEALS_PER_DAY * 10) / 10
+                : perMealValue;
+              const dvKey = MICRO_DV_KEY_MAP[n.key];
+              const dvPercent = dvKey ? getDvPercent(displayValue, dvKey) : 0;
+              return (
+                <React.Fragment key={n.key}>
+                  <NutrientRow
+                    name={n.label}
+                    dotColor=""
+                    hideDot
+                    value={`${displayValue}${n.unit}`}
+                    dvSuffix={`${dvPercent}% DV`}
+                    onPress={() => handleNutrientPress(n.key)}
+                  />
+                  {expandedNutrient === n.key && (
+                    <NutrientDrillDown
+                      nutrientConfig={n}
+                      params={params}
+                      colors={colors}
+                      styles={styles}
+                      onClose={() => setExpandedNutrient(null)}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+
+            <Text style={styles.microsDisclaimer}>
+              Estimates based on USDA data and ingredient matching. Directional, not for medical use.
+            </Text>
+          </>
+        )}
       </View>
 
       <View style={styles.bottomPadding} />
@@ -547,17 +666,21 @@ const MEALS_PER_DAY = 2.5;
 const NUTRIENT_AVERAGES_MAP: Record<string, keyof NutritionAverages> = {
   calories: 'calories', protein: 'protein', carbs: 'carbs',
   fat: 'fat', fiber: 'fiber', sodium: 'sodium',
+  // Phase 10D — kept consistent for future goal-setting on micros (NutritionGoalsModal extension deferred)
+  vitamin_a: 'vitamin_a', vitamin_c: 'vitamin_c', vitamin_d: 'vitamin_d',
+  vitamin_b12: 'vitamin_b12', folate: 'folate',
+  iron: 'iron', calcium: 'calcium', potassium: 'potassium',
+  magnesium: 'magnesium', zinc: 'zinc',
 };
 
 type GoalStatus = 'on_track' | 'over' | 'under' | 'not_set';
 
 function GoalsSection({
-  goals, averages, goalsPeriod, onGoalsPeriodChange, onEditPress, colors, styles,
+  goals, averages, period, onEditPress, colors, styles,
 }: {
   goals: NutritionGoal[];
   averages: NutritionAverages | null;
-  goalsPeriod: 'daily' | 'per_meal';
-  onGoalsPeriodChange: (p: 'daily' | 'per_meal') => void;
+  period: 'daily' | 'per_meal';
   onEditPress: () => void;
   colors: any; styles: any;
 }) {
@@ -590,30 +713,16 @@ function GoalsSection({
         </TouchableOpacity>
       </View>
 
-      {/* Per Day / Per Meal toggle */}
-      <View style={styles.goalsModeToggle}>
-        <TouchableOpacity
-          style={[styles.goalsModeBtn, goalsPeriod === 'daily' && styles.goalsModeBtnActive]}
-          onPress={() => onGoalsPeriodChange('daily')}
-        >
-          <Text style={[styles.goalsModeBtnText, goalsPeriod === 'daily' && styles.goalsModeBtnTextActive]}>Per Day</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.goalsModeBtn, goalsPeriod === 'per_meal' && styles.goalsModeBtnActive]}
-          onPress={() => onGoalsPeriodChange('per_meal')}
-        >
-          <Text style={[styles.goalsModeBtnText, goalsPeriod === 'per_meal' && styles.goalsModeBtnTextActive]}>Per Meal</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Per Day / Per Meal toggle lifted out in 10D — now shared with Micronutrients above */}
 
       {goals.map(goal => {
         const avgKey = NUTRIENT_AVERAGES_MAP[goal.nutrient];
         const actualPerMeal = averages && avgKey ? (averages[avgKey] as number) : 0;
 
-        const actualDisplay = goalsPeriod === 'daily'
+        const actualDisplay = period === 'daily'
           ? Math.round(actualPerMeal * MEALS_PER_DAY)
           : Math.round(actualPerMeal);
-        const targetDisplay = goalsPeriod === 'daily'
+        const targetDisplay = period === 'daily'
           ? goal.goalValue
           : Math.round(goal.goalValue / MEALS_PER_DAY);
 
@@ -879,7 +988,31 @@ function createStyles(colors: any) {
       fontSize: typography.sizes.xs,
       color: colors.text.secondary,
     },
-    // Micronutrients placeholder
+    // 10D — Lifted period toggle container (renders above Goals + Micronutrients)
+    nutritionPeriodToggleContainer: {
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    // 10D — Micronutrients section
+    microsSubsectionLabel: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+    },
+    microsDisclaimer: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      fontStyle: 'italic',
+      marginTop: spacing.md,
+      paddingTop: spacing.md,
+      borderTopWidth: 0.5,
+      borderTopColor: colors.border.light,
+      lineHeight: 16,
+    },
+    // Micronutrients placeholder (10C: still referenced if needed; left as-is to minimize touch)
     comingSoonContainer: {
       alignItems: 'center',
       paddingVertical: spacing.xl,

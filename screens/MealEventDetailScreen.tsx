@@ -54,6 +54,7 @@ import {
   uploadPostImages,
 } from '../lib/services/imageStorageService';
 import { sharePost } from '../lib/services/shareService';
+import MealNutritionPanel from '../components/MealNutritionPanel';
 
 type Props = NativeStackScreenProps<FeedStackParamList, 'MealEventDetail'>;
 
@@ -1241,6 +1242,18 @@ export default function MealEventDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
+        {/* Meal nutrition (Phase 10E — slotted after Block 5 dishes; not numbered to
+            avoid renumbering existing Blocks 6/7/8 below) */}
+        {detail.cooks.length > 0 && (
+          <View style={styles.nutritionBlock}>
+            <MealNutritionPanel
+              recipeIds={detail.cooks
+                .map(c => c.recipe_id)
+                .filter((id): id is string => !!id)}
+            />
+          </View>
+        )}
+
         {/* Block 6 — At the table */}
         <View style={styles.tableBlock}>
           <Text style={[styles.sectionHeader, { color: colors.text.primary }]}>
@@ -1931,6 +1944,11 @@ function makeStyles(colors: any) {
       paddingVertical: 10,
     },
     dishesBlock: {
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    // Phase 10E — matches dishesBlock spacing for visual consistency
+    nutritionBlock: {
       paddingHorizontal: 14,
       paddingVertical: 12,
     },

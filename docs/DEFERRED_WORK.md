@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** May 27, 2026  
-**Version:** 5.29  
+**Version:** 5.31  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,71 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: Phase 10A — Raw/Cooked Architecture Fix (May 27, 2026)
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10A-1 | **Trigger vs. client-side mechanism for auto-populating `ingredient_state` on new/edited `recipe_ingredients` rows.** Two options on the table: (A) BEFORE INSERT/UPDATE PostgreSQL trigger applying the same regex rule used in the 10A SQL backfill (`original_text ~* '\y(cooked\|leftover\|cans?\|canned)\y'` plus `preparation ~* '\y(cooked\|canned)\y'`); (B) TypeScript update in the extraction pipeline (likely `lib/services/recipeExtraction/unifiedParser.ts`). Trade-offs: trigger = single source of truth, can't be bypassed regardless of insert path, zero TS changes; client-side = visible in code review, easier to test in isolation, evolves naturally with extraction logic. **Until decided, new extractions store `ingredient_state = NULL`**, which the rewritten `recipe_nutrition_computed` view treats identically to `'raw'`. This is correct for the dominant case (dry-weight recipe specs) and matches the rule applied to the existing 55 raw rows in the backfill. Decide when extraction pipeline updates are next on the table — likely co-located with Phase 10B USDA FDC backfill work or with P8D-CP4-1 (Haiku→Sonnet upgrade), whichever ships first. | 🔧 | 🟡 | Deferred 2026-05-27 during 10A wrap-up. Not blocking; only affects recipes added between now and the decision. Expect ~30-50 new affected rows during F&F period at current extraction velocity. |
+
+---
+
+## From: Phase 10B–F + Cross-Phase Follow-ups (May 27, 2026)
+
+**Context:** Phase 10 sub-phases 10B (USDA micronutrient backfill), 10C (recipe UI), 10D (stats UI), 10E (meal-level aggregation UI), 10F (dietary preferences) all shipped 2026-05-27, plus a hot fix for URL-length-induced batch query failures. Items below are deferred work surfaced during execution. (10A items live in their own section above.)
+
+### From: 10B — USDA Micronutrient Backfill
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10B-1 | **`estimated_from_similar` ingredients lack `base_ingredient_id`.** 22 ingredients with `source = 'estimated_from_similar'` have no `base_ingredient_id`, so their macros are untraceable to a USDA source. The source label implies a derivation that the schema doesn't actually record. Data integrity issue. Not blocking — these 22 are a small fraction of the 733-ingredient catalog and micros were correctly skipped for them in 10B. | 📊 | 🟢 | Post-F&F catalog audit. |
+| P10B-2 | **Lentils stored as cooked-state per_100g while other legumes are dry-state.** During 10A, lentils were found to store cooked-state nutrition (~106 cal/100g) while other legumes (black beans, chickpeas) store dry-state. Inconsistent. Affects any "1 cup dried lentils" recipe — will under-count if treated as raw. Sweep all `usda_sr_legacy` rows for similar dry-vs-cooked state mismatches. | 📊 | 🟡 | Post-F&F catalog audit. |
+| P10B-3 | **Matview CONCURRENTLY refresh was silently broken pre-10A (record only).** Before 10A added the unique index `recipe_nutrition_computed_recipe_id_idx`, `refresh_recipe_nutrition()` used `REFRESH MATERIALIZED VIEW CONCURRENTLY` which silently requires a unique index. Anyone reading recipe nutrition before 2026-05-27 saw stale data. Resolved by 10A. | 🔧 | ⚪ | Historical record only — no action needed. |
+| P10B-4 | **Catalog FDC ID mis-mappings.** During 10B micronutrient backfill, found `usda_fdc_id` 170106 maps to both fresno chile AND habanero; 168936 (pasta) also appears on a "bread flour" row. Likely other rows share mis-mapped FDC IDs. Causes incorrect nutrition for the mis-mapped rows. Cross-check fdc_id uniqueness against ingredient identity. | 📊 | 🟡 | Post-F&F catalog audit. |
+| P10B-5 | **Bundle GRANT after every matview DROP+CREATE (best-practice note).** `DROP MATERIALIZED VIEW` drops all grants on it. PostgREST's `authenticated`/`anon` roles then lose SELECT until re-granted. During Phase 10 debugging we ran a manual `GRANT SELECT ON recipe_nutrition_computed TO authenticated, anon;` as a precaution (the actual production bug turned out to be URL length — see hot fix — but the grant gap is a real footgun). **Going forward: every matview migration that does DROP+CREATE must bundle `GRANT SELECT ON <view> TO authenticated, anon;` immediately after CREATE, inside the same transaction.** | 🔧 | 🟡 | Process note, not a code change. |
+
+### From: 10C — Recipe-level Micronutrient UI
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10C-1 | **Per-user Daily Value personalization via demographics.** Settings UI for age, sex, life stage (pregnant/lactating), weight. Compute per-nutrient DV from DRI tables instead of the fixed FDA RDI constants in `lib/constants/dailyValues.ts`. Replace the constant lookup with a `getUserDailyValues(userId)` resolver that falls back to FDA RDI defaults. Backward-compatible: `getDvPercent` gains an optional override-map parameter. Schema: extend `user_nutrition_goals` or new `user_dietary_profile` table. Co-locates naturally with [[P10F-2]] dietary prefs onboarding and Phase 12 onboarding — consider grouping as a "personal nutrition profile" feature. | 🚀 | 🟡 | Surfaced 2026-05-27 during 10C planning. Post-F&F. |
+| P10C-2 | **Manual per-nutrient DV override.** Power-user escape hatch independent of demographics — let users set their own DV for any of the 10 micros (athletes wanting higher iron, low-sodium diets). `user_nutrition_goals` already keys by nutrient so it can hold these. Manual override resolves above any demographic-derived DV. | 🚀 | 🟢 | Surfaced with [[P10C-1]]. Post-F&F. |
+
+### From: 10D — Stats-level Micronutrient UI
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10D-1 | **Micro goal-setting in NutritionGoalsModal.** 10D shipped read-only micro tracking on the Stats screen. Extend NutritionGoalsModal to expose sliders for the 10 micros so users can set personal targets. Plumbing is ready — `NUTRIENT_AVERAGES_MAP`, `NutritionAverages`, and `getNutritionAverages` already cover all 10 micros, and `user_nutrition_goals` is nutrient-keyed. Non-breaking. | 🚀 | 🟢 | Post-F&F based on tester feedback. |
+
+### From: 10E — Meal-level Nutrition Aggregation
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10E-1 | **Narrower `DietaryFlagSource` type for `getActiveDietaryFlags`.** `getActiveDietaryFlags` requires a full `RecipeNutrition`, but only reads the 8 boolean dietary flag fields. `MealNutritionPanel` (10E) casts via `as RecipeNutrition` to satisfy this. Clean fix: extract a `DietaryFlagSource` interface (just the 8 booleans), have both `RecipeNutrition` and `MealNutrition` satisfy it structurally, and widen `getActiveDietaryFlags` to accept the narrower type. Removes the cast. | 🔧 | 🟢 | Low priority — cast is safe today. |
+
+### From: 10F — Dietary Preferences
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10F-1 | **Expand allergen flags to FDA Big 9.** Current dietary schema covers 8 flags but not the full FDA Big 9 allergen set. Gaps: peanuts (currently folded into `is_nut_free` alongside tree nuts), fish (not tracked separately from shellfish), sesame (added to FDA Big 9 in 2021, not tracked at all). Add `is_peanut_free`, `is_fish_free`, `is_sesame_free` to: ingredients catalog, `recipe_nutrition_computed` matview (bool_and rollup), and `user_dietary_preferences`. Requires catalog backfill across ~733 ingredients. The 10F UI deliberately labels "Nuts" as "Tree nuts and peanuts" and "Shellfish" as "Crustaceans and mollusks" as a broad-interpretation safety measure until this lands. | 🚀 | 🟡 | Substantial — post-F&F catalog-quality push. |
+| P10F-2 | **Onboarding integration for dietary preferences.** 10F ships Settings-only because Frigo has no first-launch onboarding flow yet. When Phase 12 (admin/auth/onboarding) builds onboarding, add a dietary-preferences capture step. The `dietaryPreferencesService` upsert path is ready to receive it. | 🚀 | 🟡 | Wait for Phase 12. |
+| P10F-3 | **Stats compliance summary card.** Cut from 10F scope. A card on the Stats screen's "How You Eat" section showing "X% of your cooks match your dietary preferences" with a supporting line ("23 of 28 cooks were vegetarian and gluten-free"). Only renders when the user has ≥1 dietary preference set. Wireframe Surface 4 from the 10F design session is the reference. | 🚀 | 🟢 | Post-F&F. |
+
+### Cross-Phase Follow-up
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P10-Followup-1 | **RPC for batch services (eliminate URL-length risk).** The hot fix chunked `getRecipeNutritionBatch`, `getRecipeIngredientNames`, and `calculateRecipeSupplyMatchBulk` to work around PostgREST's URL length limit with large recipe ID arrays. Cleaner long-term fix: a Supabase RPC function (`get_recipe_nutrition_batch(recipe_ids uuid[])` etc.) that accepts the array as a POST body parameter, avoiding URL encoding entirely — fewer round-trips, no chunk-size tuning, no URL math. Refactor all three services to call RPCs. | 🔧 | 🟡 | Post-F&F. |
+
+---
+
+## Phase 11 inputs (2026-05-27)
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P11-input-1 | **Active dietary filter visibility on RecipeListScreen.** When dietary prefs auto-apply (or any dietary flag is set via FilterDrawer), the active flags are invisible in the filter UI — the quick-filter pills don't reflect them and the only cue is the "From your dietary preferences" text indicator. Surface active dietary flags as visible, dismissible pills in the filter row. Part of the broader RecipeListScreen browse/navigation redesign Tom wants in Phase 11. Wireframe Surface 3 from the 10F design session (chips with × to dismiss individually) is a starting reference. The current screen has accumulated significant UI density (segmented control, quick filters, More drawer, sort dropdown, dietary indicator, search bar, pantry-match badges) — the redesign should tighten the information hierarchy. | 🎨 | 🟡 | Phase 11 input — surfaced 2026-05-27 during 10F design. |
 
 ---
 
@@ -659,6 +724,9 @@ The following items were in or adjacent to pre-launch scope and were explicitly 
 | T28 | **Catalog singular/plural and hyphen dedup.** Catalog has two near-identical mustard rows differing only by hyphen — `whole grain mustard` and `whole-grain mustard`, both subtype='mustard' form='paste'. Cosmetic cruft from inconsistent recipe extraction. Likely other variants exist (Fresno/fresno, jalapeño/jalapeno pepper, cheddar/cheddar cheese, eggs/egg, etc.). Bundle with G1 subtype audit when subtypes are split. Post-F&F. [CP3-P0 / 8D] | 🔧 | 🟢 | Catalog hygiene. |
 | T29 | **✅ RESOLVED — 8D-CP3.1 (2026-05-26).** Null-form wildcard removed in 8D-CP3.1. The four scenarios (L2a, L3a, L3c, WL8) already had semantically-correct `form_variant`/`substitute` expectations in the harness — runtime now matches. SMOKE-CP2-tie likewise. Smoke harness no longer needs to work around the wildcard. The SMOKE-CATALOG-evoo-linkage drop is a separate cosmetic cleanup; left in place. (Original entry below for history.) **Smoke harness expectation cleanup post-CP2-patch.** Four scenarios have stale expectations: L2a (black pepper vs peppercorns), L3a (basmati/jasmine), L3c (chicken broth/stock), WL8 (pepper form-variant) all expect L2/L3 but now collapse to silent L1 because the null-form wildcard rule fires... Post-F&F polish. [CP3-P0 / 8D] | ✅ | 🟢 | Resolved by 8D-CP3.1. |
 | T31 | **Refactor hero_ingredients to structured format.** `recipes.hero_ingredients` is `text[]` of plain name strings. CP4's "ready to cook" gate name-resolves heroes against the recipe's own catalog ingredients at filter time (`readyToCookService.resolveHeroToIngredientId` — case-insensitive name match against the `recipe_ingredients` join, fetched via the new `getRecipeIngredientNames` helper); a permanent `console.warn` on misses surfaces data-quality issues. Once miss-rate data accumulates, decide between (a) JSONB array of `{ingredient_id, name}`, (b) junction table `recipe_hero_ingredients`, or (c) augment with `hero_ingredient_ids: uuid[]`. Touches the AI tagging pipeline, RecipeListScreen filter, FilterDrawer hero chips, and the CP4 ready-to-cook logic. Post-F&F. [CP4-P0 / 8D] | 🔧 | 🟡 | Schema decision — driven by accumulated hero-resolution miss-rate data. |
+| T32 | **Pre-existing TS1382 errors in CookSoonSection / DayMealsModal.** `components/CookSoonSection.tsx:264` and `components/DayMealsModal.tsx:296` have TS1382 errors, untouched since January 2026 (commit `b932087`). Surfaced repeatedly during Phase 10 `tsc --noEmit` runs as pre-existing noise. Not in any Phase 10 scope. [Phase 10 wrap-up / 2026-05-27] | 🔧 | 🟢 | Clean up when those files are next touched. |
+| T33 | **`lib/constants/` vs `constants/` directory convention drift.** 10C created `lib/constants/dailyValues.ts`, but the established convention is top-level `constants/` (e.g. `constants/vibeIcons.ts`). One-import-line move to reconcile. [Phase 10 wrap-up / 2026-05-27] | 🔧 | 🟢 | Low priority cosmetic consistency. |
+| T34 | **Orphan placeholder styles in `StatsNutrition.tsx`.** 10D replaced the 🔬 placeholder card with the real Micronutrients card but left 4 now-unreferenced styles (`comingSoonContainer`, `comingSoonEmoji`, `comingSoonText`, `comingSoonSubtext`) in the StyleSheet to minimize touch. [Phase 10 wrap-up / 2026-05-27] | 🔧 | 🟢 | Delete on next StatsNutrition edit. |
 
 ---
 
@@ -674,6 +742,8 @@ The following items were in or adjacent to pre-launch scope and were explicitly 
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-05-27 | 5.31 | **Phase 10 wrap-up reconciliation.** New umbrella section `## From: Phase 10B–F + Cross-Phase Follow-ups` with sub-sections for 10B (5 items P10B-1..5), 10C (2 items P10C-1..2), 10D (P10D-1), 10E (P10E-1), 10F (P10F-1..3), and Cross-Phase (P10-Followup-1 — RPC for batch services). New `## Phase 11 inputs` section with P11-input-1 (active dietary filter visibility on RecipeListScreen). Three new Cross-Cutting Technical Debt rows: T32 (pre-existing TS1382 in CookSoonSection/DayMealsModal), T33 (`lib/constants/` vs `constants/` drift from 10C), T34 (orphan placeholder styles in StatsNutrition from 10D). Existing P10A-1 left in place (no duplication). |
+| 2026-05-27 | 5.30 | Phase 10A reconciliation (database portion). Added new `## From: Phase 10A — Raw/Cooked Architecture Fix (May 27, 2026)` section with P10A-1 deferring trigger-vs-client-side decision for `ingredient_state` auto-population. DB side of 10A (column add, 81-row backfill, view rewrite to apply cooked_ratio conditionally, unique index fix for previously-broken concurrent refresh) shipped in-chat 2026-05-27. |
 | 2026-05-19 | 5.28 | **8E → Phase 11 merge (close-out reconciliation).** Phase 8E retired as a standalone sub-phase per Tom's 2026-05-19 close-out call. F&F-relevant CPs (8E-CP1 Browse rebuild, 8E-CP3 Locked filter chips pattern, 8E-CP4 Low stock indicators #31) merged into Phase 11 must-haves; 8E-CP2 Natural-language search stays post-launch. No standalone P# backlog items for 8E-CP1/CP3/CP4 to reclassify — that work is described directly in `FF_LAUNCH_MASTER_PLAN.md` Phase 11 + `PHASE_8_PANTRY_AND_GROCERY.md` 8E section (the latter now contains the merge note). P8-10's "Conversational search refinement" still correctly references 8E-CP2 as the post-launch natural-search baseline. |
 | 2026-05-19 | 5.27 | **8D-CP4 Part 0 — T31 added, T29 expanded.** T31 (refactor `hero_ingredients` to a structured format — post-F&F schema decision driven by CP4's runtime name-resolution miss-rate data). T29 description expanded to fold in `SMOKE-CP2-tie` (basmati/jasmine pair — same null-form-wildcard staleness as L3a plus harness contamination). |
 | 2026-05-19 | 5.26 | **8D-CP3 close — P6-10 resolved.** P6-10 (Ingredient tap-to-see-steps) marked ✅ RESOLVED by 8D-CP3's tap-sheet "Which step?" action. The CP3 prompt referred to this item as "D6-18"; no literal `D6-18` ID exists — P6-10 is the description match (flagged for Claude.ai reconciliation). CP3 Parts A-G shipped: `IngredientTapSheet.tsx` created, IngredientsSection rows tappable, match % banner (CP5 bundled) on RecipeDetailScreen, `MatchedIngredient.supplyStatus` added. |

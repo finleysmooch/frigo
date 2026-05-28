@@ -231,18 +231,44 @@ export async function calculateRecipeSupplyMatchBulk(
   }
   if (recipeIds.length === 0) return resultMap;
 
+  // Hotfix 2026-05-27: chunk all .in() / .or() queries against large UUID lists
+  // to stay under PostgREST's URL length limit (~4-8KB). 737 UUIDs at ~37 bytes
+  // each produces ~27KB URLs which fail with HTTP 400. CHUNK_SIZE = 100 →
+  // ~3.7KB per request. Used by Q1 (recipe_id IN) and Q3 (ingredient id IN,
+  // base_ingredient_id IN — formerly a single .or()).
+  const CHUNK_SIZE = 100;
+
   try {
     // ---- Query 1: recipe_ingredients + embedded ingredient metadata. ----
-    const { data: riData, error: riError } = await supabase
-      .from('recipe_ingredients')
-      .select(
-        'recipe_id, ingredient_id, ingredient:ingredients(id, base_ingredient_id, is_base_ingredient, form, ingredient_subtype, name)'
-      )
-      .in('recipe_id', recipeIds);
+    // Chunked to stay under PostgREST URL limit. Failed chunks log and are
+    // skipped — partial data better than throwing.
+    const recipeChunks: string[][] = [];
+    for (let i = 0; i < recipeIds.length; i += CHUNK_SIZE) {
+      recipeChunks.push(recipeIds.slice(i, i + CHUNK_SIZE));
+    }
 
-    if (riError) {
-      console.error('❌ Error loading recipe_ingredients for matching:', riError);
-      throw riError;
+    const riChunkResults = await Promise.all(
+      recipeChunks.map(chunk =>
+        supabase
+          .from('recipe_ingredients')
+          .select(
+            'recipe_id, ingredient_id, ingredient:ingredients(id, base_ingredient_id, is_base_ingredient, form, ingredient_subtype, name)'
+          )
+          .in('recipe_id', chunk)
+      )
+    );
+
+    const riData: Array<{
+      recipe_id: string;
+      ingredient_id: string | null;
+      ingredient: IngredientMeta | null;
+    }> = [];
+    for (const { data, error } of riChunkResults) {
+      if (error) {
+        console.error('❌ Error loading recipe_ingredients chunk for matching:', error);
+        continue;
+      }
+      if (data) riData.push(...(data as any));
     }
 
     // Per recipe → distinct ingredient_id → metadata. Free-text rows
@@ -251,11 +277,7 @@ export async function calculateRecipeSupplyMatchBulk(
     const recipeIngredients = new Map<string, Map<string, IngredientMeta>>();
     const universe = new Map<string, IngredientMeta>();
 
-    for (const row of (riData ?? []) as Array<{
-      recipe_id: string;
-      ingredient_id: string | null;
-      ingredient: IngredientMeta | null;
-    }>) {
+    for (const row of riData) {
       if (!row.ingredient_id || !row.ingredient) continue;
       const meta = row.ingredient;
       let perRecipe = recipeIngredients.get(row.recipe_id);
@@ -301,6 +323,11 @@ export async function calculateRecipeSupplyMatchBulk(
     // and (b) every supply's ingredient row — so L2/L3 can read each supply's
     // subtype/form/name. `id IN (bases ∪ supplyIngredientIds)` ∪
     // `base_ingredient_id IN bases`.
+    //
+    // Hotfix 2026-05-27: was a single .or('id.in.(...),base_ingredient_id.in.(...)')
+    // which produced 27KB+ URLs on large catalogs. Split into two chunked .in()
+    // queries; results merge into catalogById whose Map.set naturally dedupes
+    // any row returned by both halves.
     const baseIds = new Set<string>();
     for (const meta of universe.values()) {
       baseIds.add(resolveBaseId(meta));
@@ -309,20 +336,52 @@ export async function calculateRecipeSupplyMatchBulk(
     const baseIdList = [...baseIds];
 
     const catalogById = new Map<string, IngredientMeta>();
-    if (idInList.length > 0) {
-      const { data: famData, error: famError } = await supabase
-        .from('ingredients')
-        .select('id, base_ingredient_id, is_base_ingredient, form, ingredient_subtype, name')
-        .or(
-          `id.in.(${idInList.join(',')}),base_ingredient_id.in.(${baseIdList.join(',')})`
-        );
 
-      if (famError) {
-        console.error('❌ Error loading ingredient catalog for matching:', famError);
-        throw famError;
+    if (idInList.length > 0) {
+      const idChunks: string[][] = [];
+      for (let i = 0; i < idInList.length; i += CHUNK_SIZE) {
+        idChunks.push(idInList.slice(i, i + CHUNK_SIZE));
       }
-      for (const meta of (famData ?? []) as IngredientMeta[]) {
-        catalogById.set(meta.id, meta);
+      const idChunkResults = await Promise.all(
+        idChunks.map(chunk =>
+          supabase
+            .from('ingredients')
+            .select('id, base_ingredient_id, is_base_ingredient, form, ingredient_subtype, name')
+            .in('id', chunk)
+        )
+      );
+      for (const { data, error } of idChunkResults) {
+        if (error) {
+          console.error('❌ Error loading ingredient catalog (id chunk) for matching:', error);
+          continue;
+        }
+        for (const meta of (data ?? []) as IngredientMeta[]) {
+          catalogById.set(meta.id, meta);
+        }
+      }
+    }
+
+    if (baseIdList.length > 0) {
+      const baseChunks: string[][] = [];
+      for (let i = 0; i < baseIdList.length; i += CHUNK_SIZE) {
+        baseChunks.push(baseIdList.slice(i, i + CHUNK_SIZE));
+      }
+      const baseChunkResults = await Promise.all(
+        baseChunks.map(chunk =>
+          supabase
+            .from('ingredients')
+            .select('id, base_ingredient_id, is_base_ingredient, form, ingredient_subtype, name')
+            .in('base_ingredient_id', chunk)
+        )
+      );
+      for (const { data, error } of baseChunkResults) {
+        if (error) {
+          console.error('❌ Error loading ingredient catalog (base_id chunk) for matching:', error);
+          continue;
+        }
+        for (const meta of (data ?? []) as IngredientMeta[]) {
+          catalogById.set(meta.id, meta);
+        }
       }
     }
 

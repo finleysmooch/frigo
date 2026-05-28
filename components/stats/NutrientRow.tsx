@@ -12,17 +12,26 @@ interface NutrientRowProps {
   dotColor: string;
   value: string;
   onPress?: () => void;
+  // 10D: when true, skip the colored dot but preserve horizontal alignment with macro rows above
+  hideDot?: boolean;
+  // 10D: optional small secondary-text-color suffix rendered after the value (e.g. "23% DV")
+  dvSuffix?: string;
 }
 
-export default function NutrientRow({ name, dotColor, value, onPress }: NutrientRowProps) {
+export default function NutrientRow({ name, dotColor, value, onPress, hideDot, dvSuffix }: NutrientRowProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const content = (
     <View style={styles.row}>
-      <View style={[styles.dot, { backgroundColor: dotColor }]} />
+      {hideDot ? (
+        <View style={styles.dotPlaceholder} />
+      ) : (
+        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+      )}
       <Text style={styles.name}>{name}</Text>
       <Text style={styles.value}>{value}</Text>
+      {dvSuffix && <Text style={styles.dvSuffix}>{dvSuffix}</Text>}
       {onPress && <Text style={styles.arrow}>›</Text>}
     </View>
   );
@@ -51,6 +60,11 @@ function createStyles(colors: any) {
       borderRadius: 5,
       marginRight: spacing.sm + 2,
     },
+    dotPlaceholder: {
+      // Matches `dot` width + marginRight so micro rows align with macro rows above.
+      width: 10,
+      marginRight: spacing.sm + 2,
+    },
     name: {
       flex: 1,
       fontSize: typography.sizes.sm,
@@ -60,6 +74,11 @@ function createStyles(colors: any) {
       fontSize: typography.sizes.sm,
       fontWeight: typography.weights.semibold as any,
       color: colors.text.secondary,
+      marginRight: spacing.xs,
+    },
+    dvSuffix: {
+      fontSize: typography.sizes.xs,
+      color: colors.text.tertiary,
       marginRight: spacing.xs,
     },
     arrow: {

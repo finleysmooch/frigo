@@ -23,6 +23,7 @@ import {
   getQualityColor,
 } from '../lib/services/nutritionService';
 import DietaryBadgeRow from './DietaryBadgeRow';
+import { getDvPercent } from '../lib/constants/dailyValues';
 
 interface RecipeNutritionPanelProps {
   recipeId: string;
@@ -34,6 +35,7 @@ export default function RecipeNutritionPanel({ recipeId }: RecipeNutritionPanelP
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [showIngredients, setShowIngredients] = useState(false);
+  const [showMicros, setShowMicros] = useState(false);
 
   useEffect(() => {
     loadNutrition();
@@ -201,6 +203,91 @@ export default function RecipeNutritionPanel({ recipeId }: RecipeNutritionPanelP
             <NutrientRow label="Sodium" value={nutrition.sodium_per_serving_mg} unit="mg" />
           </View>
 
+          {/* Vitamins & Minerals Toggle */}
+          <TouchableOpacity
+            style={styles.microsToggle}
+            onPress={() => setShowMicros(!showMicros)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.microsToggleText}>
+              {showMicros ? '▼' : '▶'} Vitamins & minerals
+            </Text>
+          </TouchableOpacity>
+
+          {showMicros && (
+            <View style={styles.microsSection}>
+              {/* Vitamins subsection */}
+              <Text style={styles.microsSubsectionLabel}>Vitamins</Text>
+              <NutrientRow
+                label="Vitamin A"
+                value={nutrition.vitamin_a_per_serving_mcg}
+                unit="mcg"
+                dvPercent={getDvPercent(nutrition.vitamin_a_per_serving_mcg, 'vitamin_a_mcg')}
+              />
+              <NutrientRow
+                label="Vitamin C"
+                value={nutrition.vitamin_c_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.vitamin_c_per_serving_mg, 'vitamin_c_mg')}
+              />
+              <NutrientRow
+                label="Vitamin D"
+                value={nutrition.vitamin_d_per_serving_mcg}
+                unit="mcg"
+                dvPercent={getDvPercent(nutrition.vitamin_d_per_serving_mcg, 'vitamin_d_mcg')}
+              />
+              <NutrientRow
+                label="Vitamin B12"
+                value={nutrition.vitamin_b12_per_serving_mcg}
+                unit="mcg"
+                dvPercent={getDvPercent(nutrition.vitamin_b12_per_serving_mcg, 'vitamin_b12_mcg')}
+              />
+              <NutrientRow
+                label="Folate"
+                value={nutrition.folate_per_serving_mcg}
+                unit="mcg"
+                dvPercent={getDvPercent(nutrition.folate_per_serving_mcg, 'folate_mcg')}
+              />
+
+              {/* Minerals subsection */}
+              <Text style={styles.microsSubsectionLabel}>Minerals</Text>
+              <NutrientRow
+                label="Iron"
+                value={nutrition.iron_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.iron_per_serving_mg, 'iron_mg')}
+              />
+              <NutrientRow
+                label="Calcium"
+                value={nutrition.calcium_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.calcium_per_serving_mg, 'calcium_mg')}
+              />
+              <NutrientRow
+                label="Potassium"
+                value={nutrition.potassium_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.potassium_per_serving_mg, 'potassium_mg')}
+              />
+              <NutrientRow
+                label="Magnesium"
+                value={nutrition.magnesium_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.magnesium_per_serving_mg, 'magnesium_mg')}
+              />
+              <NutrientRow
+                label="Zinc"
+                value={nutrition.zinc_per_serving_mg}
+                unit="mg"
+                dvPercent={getDvPercent(nutrition.zinc_per_serving_mg, 'zinc_mg')}
+              />
+
+              <Text style={styles.microsDisclaimer}>
+                Estimates based on USDA data and ingredient matching. Directional, not for medical use.
+              </Text>
+            </View>
+          )}
+
           {/* Quality Indicator */}
           <TouchableOpacity
             style={styles.qualityRow}
@@ -259,18 +346,28 @@ function NutrientRow({
   label,
   value,
   unit,
+  dvPercent,
 }: {
   label: string;
   value: number;
   unit: string;
+  dvPercent?: number;
 }) {
+  const formattedValue =
+    typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : Math.round(value);
   return (
     <View style={styles.nutrientRow}>
       <Text style={styles.nutrientLabel}>{label}</Text>
-      <Text style={styles.nutrientValue}>
-        {typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : Math.round(value)}
-        {unit}
-      </Text>
+      <View style={styles.nutrientValueContainer}>
+        <Text style={styles.nutrientValue}>
+          {formattedValue}{unit}
+        </Text>
+        {dvPercent !== undefined && (
+          <Text style={styles.nutrientDvPercent}>
+            {' '}({dvPercent}% DV)
+          </Text>
+        )}
+      </View>
     </View>
   );
 }
@@ -423,6 +520,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
+  },
+  nutrientValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  nutrientDvPercent: {
+    fontSize: 13,
+    color: '#888',
+  },
+
+  // Vitamins & Minerals (mirror ingredientToggle / ingredientToggleText for parallel visual treatment)
+  microsToggle: {
+    paddingVertical: 8,
+  },
+  microsToggleText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  microsSection: {
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  microsSubsectionLabel: {
+    fontSize: 11,
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  microsDisclaimer: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 12,
+    marginBottom: 4,
+    lineHeight: 16,
   },
 
   // Quality

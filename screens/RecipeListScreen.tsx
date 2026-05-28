@@ -42,6 +42,11 @@ import { AddRecipeModal } from '../components/AddRecipeModal';
 import { searchRecipesByMixedTerms } from '../lib/searchService';
 import { getRecipeNutritionBatch, RecipeNutrition } from '../lib/services/nutritionService';
 import { getCookingHistory, getFriendsCookingInfo, CookingHistory } from '../lib/services/recipeHistoryService';
+import {
+  getDietaryPreferences,
+  DIETARY_FLAG_KEYS,
+  DietaryPreferences,
+} from '../lib/services/dietaryPreferencesService';
 import { calculateRecipeSupplyMatchBulk, PantryMatchResult } from '../lib/services/pantryMatchingService';
 import { filterReadyToCook, getRecipeIngredientNames } from '../lib/services/readyToCookService';
 import { RecipeCard } from '../components/recipe/RecipeCard';
@@ -173,6 +178,11 @@ export default function RecipeListScreen({ navigation, route }: Props) {
 
   // Advanced filter state (managed by FilterDrawer)
   const [advancedFilters, setAdvancedFilters] = useState<Partial<FilterState>>({});
+
+  // 10F — user dietary prefs (drives the "From your dietary preferences" indicator
+  // + auto-applies to advancedFilters.dietaryFlags when auto_apply_to_browse is true)
+  const [userDietaryPrefs, setUserDietaryPrefs] = useState<DietaryPreferences | null>(null);
+  const [autoFilterDismissed, setAutoFilterDismissed] = useState(false);
 
   // Smart counts
   const [pinnedCount, setPinnedCount] = useState(0);
@@ -523,6 +533,28 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: colors.border.medium,
+    },
+    // 10F — "From your dietary preferences" indicator (above the quick-filters row)
+    dietaryPrefIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      gap: 6,
+      backgroundColor: colors.background.card,
+    },
+    dietaryPrefIndicatorIcon: {
+      fontSize: 12,
+    },
+    dietaryPrefIndicatorText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      flex: 1,
+    },
+    dietaryPrefShowAll: {
+      fontSize: 11,
+      color: colors.primary,
+      fontWeight: '500',
     },
     quickFiltersScroll: {
       paddingHorizontal: 15,
@@ -1106,6 +1138,31 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setUserId(user.id);
   };
+
+  // 10F — load user dietary preferences on mount; if auto_apply_to_browse is on,
+  // pre-populate advancedFilters.dietaryFlags. The existing filter logic at
+  // lines ~1268-1277 already AND's selected flags against recipes; we just seed it.
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const prefs = await getDietaryPreferences(user.id);
+      setUserDietaryPrefs(prefs);
+
+      if (prefs && prefs.auto_apply_to_browse) {
+        const dietaryFlags: Record<string, boolean> = {};
+        DIETARY_FLAG_KEYS.forEach(key => {
+          if (prefs[key]) dietaryFlags[key] = true;
+        });
+        if (Object.keys(dietaryFlags).length > 0) {
+          setAdvancedFilters(prev => ({
+            ...prev,
+            dietaryFlags: { ...(prev.dietaryFlags ?? {}), ...dietaryFlags },
+          }));
+        }
+      }
+    })();
+  }, []);
 
   const loadRecipes = async () => {
     try {
@@ -1757,6 +1814,31 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     </View>
   );
 
+  // 10F — small indicator above the quick-filters row when the user's dietary
+  // prefs are auto-applied. Tapping "Show all" clears the dietary flags and
+  // suppresses the indicator for this session.
+  const renderDietaryPrefIndicator = () => {
+    if (!userDietaryPrefs) return null;
+    if (!userDietaryPrefs.auto_apply_to_browse) return null;
+    if (autoFilterDismissed) return null;
+    const hasAnyPref = DIETARY_FLAG_KEYS.some(k => userDietaryPrefs[k]);
+    if (!hasAnyPref) return null;
+    return (
+      <View style={styles.dietaryPrefIndicator}>
+        <Text style={styles.dietaryPrefIndicatorIcon}>🥬</Text>
+        <Text style={styles.dietaryPrefIndicatorText}>From your dietary preferences</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setAdvancedFilters(prev => ({ ...prev, dietaryFlags: {} }));
+            setAutoFilterDismissed(true);
+          }}
+        >
+          <Text style={styles.dietaryPrefShowAll}>Show all</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderQuickFilters = () => (
     <View style={styles.quickFiltersContainer}>
       <ScrollView
@@ -1929,6 +2011,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       {renderHeader()}
       {renderSegmentedControl()}
       {renderBookFilter()}
+      {renderDietaryPrefIndicator()}
       {renderQuickFilters()}
       {renderStatusBar()}
 

@@ -50,6 +50,7 @@ import {
 } from '../lib/services/commentsService';
 import { computeMealVibe, VibeTag } from '../lib/services/vibeService';
 import { optimizeStorageUrl } from '../components/feedCard/sharedCardElements';
+import MealNutritionPanel from '../components/MealNutritionPanel';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -1430,6 +1431,17 @@ const handleCookPlanItem = async (planItemId: string, recipeId?: string) => {
             </>
           )}
         </View>
+
+        {/* Nutrition Section (Phase 10E) — meal-level aggregated nutrition */}
+        {dishes.length > 0 && (
+          <View style={styles.section}>
+            <MealNutritionPanel
+              recipeIds={dishes
+                .map(d => d.recipe_id)
+                .filter((id): id is string => !!id)}
+            />
+          </View>
+        )}
 
         {/* Highlights Section (F1++++) — author-side signals */}
         {highlights.author.length > 0 && (

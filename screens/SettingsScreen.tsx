@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,11 +10,17 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { Logo } from '../components/branding';
 import { upgradeToPremium, downgradeToFree } from '../lib/services/subscriptionService';
 import { backfillChefIds } from '../lib/services/recipeExtraction/chefService';
+import {
+  getDietaryPreferences,
+  countActivePreferences,
+  DietaryPreferences,
+} from '../lib/services/dietaryPreferencesService';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -31,6 +37,8 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [defaultVisibility, setDefaultVisibility] = useState<string>('followers');
   const [visibilityPickerOpen, setVisibilityPickerOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // 10F — dietary preferences (for the subtitle on the Settings row)
+  const [dietaryPrefs, setDietaryPrefs] = useState<DietaryPreferences | null>(null);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -134,6 +142,23 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // 10F — refresh dietary prefs whenever screen comes back into focus
+  // (user may have updated them on DietaryPreferencesScreen)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !active) return;
+        const prefs = await getDietaryPreferences(user.id);
+        if (active) setDietaryPrefs(prefs);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const loadUserData = async () => {
     try {
@@ -335,6 +360,25 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
               <Text style={styles.preference}>{useCelsius ? 'Celsius' : 'Fahrenheit'}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* 10F — Dietary preferences entry point */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => navigation.navigate('DietaryPreferences')}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>🥬</Text>
+              <View>
+                <Text style={styles.rowTitle}>Dietary preferences</Text>
+                <Text style={styles.rowSubtitle}>
+                  {dietaryPrefs && countActivePreferences(dietaryPrefs) > 0
+                    ? `${countActivePreferences(dietaryPrefs)} active`
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
 
           <View style={styles.divider} />
 

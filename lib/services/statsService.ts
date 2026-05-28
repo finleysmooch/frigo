@@ -879,6 +879,17 @@ export interface NutritionAverages {
   fiber: number;
   sodium: number;
   sugar: number;
+  // Phase 10D — micronutrients (per-meal averages; multiply by MEALS_PER_DAY in UI for daily)
+  vitamin_a: number;       // mcg
+  vitamin_c: number;       // mg
+  vitamin_d: number;       // mcg
+  vitamin_b12: number;     // mcg
+  folate: number;          // mcg
+  iron: number;            // mg
+  calcium: number;         // mg
+  potassium: number;       // mg
+  magnesium: number;       // mg
+  zinc: number;            // mg
 }
 
 export interface NutrientTrendPoint {
@@ -979,7 +990,11 @@ export interface BookStats {
   methods: MethodBreakdownItem[];
 }
 
-export type StatsNutrient = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugar' | 'sodium';
+export type StatsNutrient =
+  | 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugar' | 'sodium'
+  // Phase 10D — micronutrients (per-meal averages; UI applies MEALS_PER_DAY for daily view)
+  | 'vitamin_a' | 'vitamin_c' | 'vitamin_d' | 'vitamin_b12' | 'folate'
+  | 'iron' | 'calcium' | 'potassium' | 'magnesium' | 'zinc';
 
 // ── Shared Internal Helpers ──────────────────────────────────────
 
@@ -1062,6 +1077,17 @@ function getNutrientValue(row: any, nutrient: StatsNutrient): number {
     case 'fiber':    return (row.total_fiber_g ?? 0) / servings;
     case 'sugar':    return (row.total_sugar_g ?? 0) / servings;
     case 'sodium':   return (row.total_sodium_mg ?? 0) / servings;
+    // Phase 10D — micronutrients (per-meal = total / servings)
+    case 'vitamin_a':    return (row.total_vitamin_a_mcg ?? 0) / servings;
+    case 'vitamin_c':    return (row.total_vitamin_c_mg ?? 0) / servings;
+    case 'vitamin_d':    return (row.total_vitamin_d_mcg ?? 0) / servings;
+    case 'vitamin_b12':  return (row.total_vitamin_b12_mcg ?? 0) / servings;
+    case 'folate':       return (row.total_folate_mcg ?? 0) / servings;
+    case 'iron':         return (row.total_iron_mg ?? 0) / servings;
+    case 'calcium':      return (row.total_calcium_mg ?? 0) / servings;
+    case 'potassium':    return (row.total_potassium_mg ?? 0) / servings;
+    case 'magnesium':    return (row.total_magnesium_mg ?? 0) / servings;
+    case 'zinc':         return (row.total_zinc_mg ?? 0) / servings;
   }
 }
 
@@ -1587,23 +1613,36 @@ export async function getNutritionAverages(params: StatsParams): Promise<Nutriti
   const posts = await fetchFilteredPosts(params);
   const recipeIds = [...new Set(posts.filter(p => p.recipe_id).map(p => p.recipe_id))] as string[];
 
+  const emptyAverages: NutritionAverages = {
+    calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0, sugar: 0,
+    vitamin_a: 0, vitamin_c: 0, vitamin_d: 0, vitamin_b12: 0, folate: 0,
+    iron: 0, calcium: 0, potassium: 0, magnesium: 0, zinc: 0,
+  };
+
   if (recipeIds.length === 0) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0, sugar: 0 };
+    return emptyAverages;
   }
 
   const { data: nutr } = await supabase
     .from('recipe_nutrition_computed')
-    .select('recipe_id, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, total_fiber_g, total_sugar_g, total_sodium_mg')
+    .select(
+      'recipe_id, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, ' +
+      'total_fiber_g, total_sugar_g, total_sodium_mg, ' +
+      'total_vitamin_a_mcg, total_vitamin_c_mg, total_vitamin_d_mcg, total_vitamin_b12_mcg, total_folate_mcg, ' +
+      'total_iron_mg, total_calcium_mg, total_potassium_mg, total_magnesium_mg, total_zinc_mg'
+    )
     .in('recipe_id', recipeIds);
 
   if (!nutr || nutr.length === 0) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0, sugar: 0 };
+    return emptyAverages;
   }
 
   // Weight averages by cook count (a recipe cooked 5x counts 5x in average)
   const nutrMap = new Map(nutr.map(n => [n.recipe_id, n]));
   let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0;
   let totalFiber = 0, totalSugar = 0, totalSodium = 0;
+  let totalVitA = 0, totalVitC = 0, totalVitD = 0, totalVitB12 = 0, totalFolate = 0;
+  let totalIron = 0, totalCalcium = 0, totalPotassium = 0, totalMagnesium = 0, totalZinc = 0;
   let count = 0;
 
   for (const p of posts) {
@@ -1618,11 +1657,21 @@ export async function getNutritionAverages(params: StatsParams): Promise<Nutriti
     totalFiber += (n.total_fiber_g ?? 0) / servings;
     totalSugar += (n.total_sugar_g ?? 0) / servings;
     totalSodium += (n.total_sodium_mg ?? 0) / servings;
+    totalVitA += (n.total_vitamin_a_mcg ?? 0) / servings;
+    totalVitC += (n.total_vitamin_c_mg ?? 0) / servings;
+    totalVitD += (n.total_vitamin_d_mcg ?? 0) / servings;
+    totalVitB12 += (n.total_vitamin_b12_mcg ?? 0) / servings;
+    totalFolate += (n.total_folate_mcg ?? 0) / servings;
+    totalIron += (n.total_iron_mg ?? 0) / servings;
+    totalCalcium += (n.total_calcium_mg ?? 0) / servings;
+    totalPotassium += (n.total_potassium_mg ?? 0) / servings;
+    totalMagnesium += (n.total_magnesium_mg ?? 0) / servings;
+    totalZinc += (n.total_zinc_mg ?? 0) / servings;
     count++;
   }
 
   if (count === 0) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0, sugar: 0 };
+    return emptyAverages;
   }
 
   return {
@@ -1633,6 +1682,16 @@ export async function getNutritionAverages(params: StatsParams): Promise<Nutriti
     fiber: Math.round((totalFiber / count) * 10) / 10,
     sodium: Math.round(totalSodium / count),
     sugar: Math.round((totalSugar / count) * 10) / 10,
+    vitamin_a: Math.round((totalVitA / count) * 10) / 10,
+    vitamin_c: Math.round((totalVitC / count) * 10) / 10,
+    vitamin_d: Math.round((totalVitD / count) * 10) / 10,
+    vitamin_b12: Math.round((totalVitB12 / count) * 10) / 10,
+    folate: Math.round((totalFolate / count) * 10) / 10,
+    iron: Math.round((totalIron / count) * 10) / 10,
+    calcium: Math.round((totalCalcium / count) * 10) / 10,
+    potassium: Math.round((totalPotassium / count) * 10) / 10,
+    magnesium: Math.round((totalMagnesium / count) * 10) / 10,
+    zinc: Math.round((totalZinc / count) * 10) / 10,
   };
 }
 
@@ -1651,7 +1710,12 @@ export async function getNutrientTrend(
 
   const { data: nutr } = await supabase
     .from('recipe_nutrition_computed')
-    .select('recipe_id, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, total_fiber_g, total_sugar_g, total_sodium_mg')
+    .select(
+      'recipe_id, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, ' +
+      'total_fiber_g, total_sugar_g, total_sodium_mg, ' +
+      'total_vitamin_a_mcg, total_vitamin_c_mg, total_vitamin_d_mcg, total_vitamin_b12_mcg, total_folate_mcg, ' +
+      'total_iron_mg, total_calcium_mg, total_potassium_mg, total_magnesium_mg, total_zinc_mg'
+    )
     .in('recipe_id', recipeIds);
 
   if (!nutr || nutr.length === 0) return [];
@@ -1753,7 +1817,12 @@ export async function getHighestNutrientRecipes(
 
   const { data: nutr } = await supabase
     .from('recipe_nutrition_computed')
-    .select('recipe_id, title, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, total_fiber_g, total_sugar_g, total_sodium_mg')
+    .select(
+      'recipe_id, title, servings, cal_per_serving, protein_per_serving_g, fat_per_serving_g, carbs_per_serving_g, ' +
+      'total_fiber_g, total_sugar_g, total_sodium_mg, ' +
+      'total_vitamin_a_mcg, total_vitamin_c_mg, total_vitamin_d_mcg, total_vitamin_b12_mcg, total_folate_mcg, ' +
+      'total_iron_mg, total_calcium_mg, total_potassium_mg, total_magnesium_mg, total_zinc_mg'
+    )
     .in('recipe_id', recipeIds);
 
   if (!nutr || nutr.length === 0) return [];
