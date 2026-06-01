@@ -39,7 +39,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/highlightsService.ts` | 2026-05-19 | Phase 7I | Low | |
 | `lib/services/imageStorageService.ts` | 2026-04-22 | | Low | |
 | `lib/services/ingredientService.ts` | 2026-04-22 | | Low | |
-| `lib/services/ingredientSuggestionService.ts` | 2026-04-22 | | Low | |
+| `lib/services/ingredientSuggestionService.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/instructionSectionsService.ts` | 2026-04-22 | | Low | |
 | `lib/services/mealPlanService.ts` | 2026-04-22 | | Low | |
 | `lib/services/mealService.ts` | 2026-05-19 | Phase 7I CP2 / CP6 | Low | `getMealEventForCook`, `getMealEventDetail` |
@@ -59,12 +59,12 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/vibeService.ts` | 2026-05-19 | Phase 7F | Low | `getRecipeVibe`, `computeMealVibe` |
 | `lib/services/recipeExtraction/bookService.ts` | 2026-04-22 | | Low | 10 exports; Phase 7K backfill callers |
 | `lib/services/recipeExtraction/chefService.ts` | 2026-05-19 | Phase 7K | Low | `backfillChefIds` added 2026-04-17 |
-| `lib/services/recipeExtraction/claudeVisionAPI.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/claudeVisionAPI.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/recipeExtraction/imageProcessor.ts` | 2026-04-22 | | Low | |
-| `lib/services/recipeExtraction/index.ts` | 2026-04-22 | | Low | Barrel export |
+| `lib/services/recipeExtraction/index.ts` | 2026-04-22 | | HIGH | Barrel export |
 | `lib/services/recipeExtraction/ingredientMatcher.ts` | 2026-04-22 | | Low | Instruction text highlighting |
-| `lib/services/recipeExtraction/recipeService.ts` | 2026-05-19 | Phase 3A | Low | saveRecipe (distinct from top-level) |
-| `lib/services/recipeExtraction/unifiedParser.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/recipeService.ts` | 2026-05-19 | Phase 3A | HIGH | saveRecipe (distinct from top-level) |
+| `lib/services/recipeExtraction/unifiedParser.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/recipeExtraction/webExtractor.ts` | 2026-04-22 | | Low | |
 | `lib/utils/mealTypeHelpers.ts` | 2026-05-19 | Phase 7E Fix Pass 1 | Low | Extracted from postService |
 | `lib/utils/timerDetection.ts` | 2026-05-19 | Phase 6 | Low | detectTimersInText + formatTime |
@@ -78,7 +78,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/types/tags.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): Tag, TagDimension ('store' \| 'urgency' \| 'recipe' \| 'event' \| 'storage' per Q1), SupplyTagRow, NeedTagRow (split tables per Q39). |
 | `lib/types/views.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): View, ViewWithFilters, ViewFilter, ViewFilterDimension, RenderMode (tier/aisle/flat per Q25), CreateViewParams, UpdateViewParams, ViewFilterInput. |
 | `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
-| `lib/types/recipeFeatures.ts` | 2026-04-22 | | Low | DB-corrected Book + author types |
+| `lib/types/recipeFeatures.ts` | 2026-04-22 | | HIGH | DB-corrected Book + author types |
 | `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
 | `lib/types/space.ts` | 2026-04-22 | | Low | SpaceRole, SpaceAction, permissions, invitations |
 | `lib/types/store.ts` | 2026-04-22 | | Low | Store, UserIngredientPreference, view modes |
@@ -130,7 +130,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/RecipeDetailScreen.tsx` | 2026-05-19 | Phase 7B-Rev / 7J / 8B-CP4 / 8D-CP1 | Low | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path. 8D-CP1 (2026-05-18): wired `calculateRecipeSupplyMatch` → `matchResult` state feeding IngredientsSection ✓ marks + missing count. |
 | `screens/RecipeExtractionLoadingScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/RecipeListScreen.tsx` | 2026-05-19 | Phase 3A / 8D-CP1 | HIGH | 8D-CP1 (2026-05-18): added 'pantry_match' sort option + bulk `pantryMatchingService` wiring + `matchMap` state. |
-| `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | HIGH | |
 | `screens/RegularItemsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/SettingsScreen.tsx` | 2026-05-19 | Phase 7L / 7K / admin-nav | Low | visibility picker + chef backfill trigger. admin-nav (2026-05-18): added "🛠️ Admin Tools" row in the Developer section → `navigation.navigate('Admin')`. |
 | `screens/SignupScreen.tsx` | 2026-04-22 | | Low | |

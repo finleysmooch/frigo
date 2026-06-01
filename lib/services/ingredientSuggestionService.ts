@@ -116,7 +116,7 @@ export async function suggestIngredientMetadata(
     );
 
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-20250514', // Cheap model for suggestions
+      model: 'claude-haiku-4-5-20251001', // Cheap model for suggestions (was invalid id 'claude-haiku-4-20250514')
       max_tokens: 2000,
       messages: [
         {

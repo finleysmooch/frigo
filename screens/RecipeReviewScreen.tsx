@@ -8,7 +8,6 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { ProcessedRecipe } from '../lib/types/recipeExtraction';
 import { saveRecipeToDatabase } from '../lib/services/recipeExtraction/recipeService';
-import { saveInstructionSections } from '../lib/services/instructionSectionsService';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RecipesStackParamList } from '../App';
@@ -172,21 +171,9 @@ export function RecipeReviewScreen({ route, navigation }: Props) {
 
       console.log('✅ Recipe saved successfully! Recipe ID:', recipeId);
 
-      // Save instruction sections if present
-      if (processedRecipe.instruction_sections && processedRecipe.instruction_sections.length > 0) {
-        console.log(`📝 Saving ${processedRecipe.instruction_sections.length} instruction sections...`);
-
-        try {
-          await saveInstructionSections(recipeId, processedRecipe.instruction_sections);
-          console.log('✅ Instruction sections saved successfully');
-        } catch (sectionError) {
-          console.error('⚠️ Error saving instruction sections:', sectionError);
-          // Don't fail the entire save if sections fail
-          // Recipe is still saved, just without sections
-        }
-      } else {
-        console.log('ℹ️ No instruction sections to save');
-      }
+      // NOTE: instruction sections are saved inside saveRecipeToDatabase().
+      // The previous explicit saveInstructionSections() call here was a
+      // double-write (every section + its steps got inserted twice). Removed.
 
       // Show success alert
       Alert.alert(

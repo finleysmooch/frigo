@@ -7,10 +7,47 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_API_KEY } from '@env';
 import { ExtractedRecipeData } from '../../types/recipeExtraction';
 import { StandardizedRecipeData } from './webExtractor';
+import { RECIPE_PARSE_MODEL } from './models';
 
 const anthropic = new Anthropic({
   apiKey: ANTHROPIC_API_KEY,
 });
+
+/**
+ * Normalize a scraped image value into a single URL string.
+ *
+ * recipes.image_url is a plain text URL column, but schema.org / JSON-LD
+ * sources vary wildly: some give a string, some an ImageObject, and NYT gives
+ * an ARRAY of ImageObjects (different crops/sizes). Previously the raw value
+ * was saved verbatim, so NYT recipes stored a stringified array blob and no
+ * image rendered. This collapses all shapes to one URL.
+ *
+ * For arrays, prefer the largest image up to 2000px wide — good display
+ * quality without pulling a multi-thousand-pixel original. Falls back to the
+ * first available URL when widths aren't given.
+ */
+function normalizeImageUrl(value: any): string | undefined {
+  if (!value) return undefined;
+
+  const urlOf = (v: any): string | undefined => {
+    if (typeof v === 'string') return v.trim() || undefined;
+    if (v && typeof v === 'object') return (v.url || v.contentUrl || undefined);
+    return undefined;
+  };
+
+  if (Array.isArray(value)) {
+    const withUrl = value
+      .map((v) => ({ url: urlOf(v), width: Number(v?.width) || 0 }))
+      .filter((x) => x.url);
+    if (withUrl.length === 0) return undefined;
+    const capped = withUrl.filter((x) => x.width > 0 && x.width <= 2000);
+    const pool = capped.length ? capped : withUrl;
+    pool.sort((a, b) => b.width - a.width);
+    return pool[0].url;
+  }
+
+  return urlOf(value);
+}
 
 // ============================================================================
 // PARSER PROMPT
@@ -172,8 +209,12 @@ export async function parseStandardizedRecipe(
 
     // Use Claude Haiku for cheaper parsing
     const response = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 3000,
+      model: RECIPE_PARSE_MODEL,
+      // Bumped 3000 -> 8000 during the Haiku 3 -> Haiku 4.5 migration: the
+      // newer model emits fuller structured recipe JSON, and 3000 truncated
+      // longer recipes mid-object (JSON.parse "Unexpected end of input").
+      // Billed on actual output, so headroom is free; Haiku 4.5 allows 64k.
+      max_tokens: 8000,
       messages: [
         {
           role: 'user',
@@ -185,6 +226,11 @@ export async function parseStandardizedRecipe(
 
     const processingTime = Date.now() - startTime;
     console.log(`⏱️ Parser processing time: ${processingTime}ms`);
+
+    // Surface truncation as a clear signal rather than a cryptic JSON error.
+    if (response.stop_reason === 'max_tokens') {
+      console.warn('⚠️ Parser response hit max_tokens — JSON likely truncated. Consider raising max_tokens.');
+    }
 
     // Extract text content
     const content = response.content[0];
@@ -220,10 +266,13 @@ export async function parseStandardizedRecipe(
       console.log('✅ Preserved author from rawText:', standardizedData.rawText.author);
     }
 
-    // FIXED: Force preserve image URL (Claude often misses it)
-    if (standardizedData.rawText.imageUrl) {
-      parsedData.recipe.image_url = standardizedData.rawText.imageUrl;
-      console.log('✅ Preserved image URL');
+    // FIXED: Force preserve image URL (Claude often misses it).
+    // Normalize first — some sources (e.g. NYT) provide an array of image
+    // objects, not a single URL string. Keep Claude's value if normalize fails.
+    const normalizedImage = normalizeImageUrl(standardizedData.rawText.imageUrl);
+    if (normalizedImage) {
+      parsedData.recipe.image_url = normalizedImage;
+      console.log('✅ Preserved image URL:', normalizedImage);
     }
 
     // FIXED: Force preserve description if available
