@@ -14,6 +14,7 @@ import {
   EasyIcon, SearchIcon, SortIcon, StarIcon, PinIcon, ChefHat2, VegetablesIcon, SoupIcon,
   PantryOutline,
 } from '../components/icons';
+import GlobeIcon from '../components/icons/recipe/GlobeIcon';
 import { VIBE_TAG_ICONS } from '../constants/vibeIcons';
 import {
   StyleSheet,
@@ -56,7 +57,7 @@ type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeList'>;
 
 type BrowseMode = 'all' | 'cook_again' | 'try_new';
 
-type SortOption = 'newest' | 'alpha' | 'cal_low' | 'cal_high' | 'protein_high' | 'fastest' | 'most_cooked' | 'highest_rated' | 'pantry_match';
+type SortOption = 'newest' | 'alpha' | 'cal_low' | 'cal_high' | 'protein_high' | 'fastest' | 'most_cooked' | 'highest_rated' | 'pantry_match' | 'source_updated';
 
 interface Recipe {
   id: string;
@@ -207,6 +208,17 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name)
       .slice(0, 50);
+  }, [recipes]);
+
+  // Distinct web-source domains across the user's recipes, most-common first.
+  // Feeds the FilterDrawer "Sources" multi-select (values are raw domains;
+  // the drawer renders friendly labels via sourceLabel()).
+  const availableSources = useMemo(() => {
+    const counts: Record<string, number> = {};
+    recipes.forEach(r => {
+      if (r.source_domain) counts[r.source_domain] = (counts[r.source_domain] ?? 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([d]) => d);
   }, [recipes]);
 
   // 8D-CP4: recipes with the real pantry_match % threaded in from the matcher
@@ -1394,6 +1406,11 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     }
 
     // Cuisine — OR logic
+    // Sources — OR logic on source_domain (book/photo recipes have none)
+    if (af.sources?.length) {
+      filtered = filtered.filter(r => r.source_domain && af.sources!.includes(r.source_domain));
+    }
+
     if (af.cuisineTypes?.length) {
       filtered = filtered.filter(r =>
         r.cuisine_types?.some(c => af.cuisineTypes!.includes(c))
@@ -1511,6 +1528,18 @@ export default function RecipeListScreen({ navigation, route }: Props) {
           return mb - ma;
         });
         break;
+      case 'source_updated':
+        // Web recipes by the source's last-modified date, newest first.
+        // Recipes with no source date (book/photo) sort to the bottom.
+        filtered.sort((a, b) => {
+          const ta = a.source_updated_at ? new Date(a.source_updated_at).getTime() : null;
+          const tb = b.source_updated_at ? new Date(b.source_updated_at).getTime() : null;
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1;
+          if (tb == null) return -1;
+          return tb - ta;
+        });
+        break;
     }
 
     setFilteredRecipes(filtered);
@@ -1531,6 +1560,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       difficultyLevels: [],
       cookingMethods: [],
       cuisineTypes: [],
+      sources: [],
       courseTypes: [],
       ingredientCountRanges: [],
       servingTemp: [],
@@ -1763,6 +1793,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       { value: 'fastest',      IconComponent: TimerIcon,       label: 'Fastest' },
       { value: 'most_cooked',  IconComponent: PanIcon,         label: 'Most Cooked' },
       { value: 'highest_rated',IconComponent: StarIcon,        label: 'Highest Rated' },
+      { value: 'source_updated', IconComponent: GlobeIcon,     label: 'Source: Recently Updated' },
     ];
 
     return (
@@ -2056,6 +2087,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
           setShowFilterDrawer(false);
         }}
         availableHeroIngredients={availableHeroIngredients}
+        availableSources={availableSources}
       />
 
       {/* Add Recipe Modal - only in normal mode */}

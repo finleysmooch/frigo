@@ -8,6 +8,37 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 
 ## 2026-06-01
 
+**Task:** Surface NYT/web source across the app — card badge, list filter + sort, chef "Other sources"
+
+Tom-directed discovery features built on the source-provenance columns. Three of four proposed surfaces built; the **NYT Cooking browse screen (③) is intentionally deferred to the other CC instance** (see handoff prompt at `docs/CC_PROMPTS/nyt_import_handoff.md`).
+
+### Built
+- **Recipe card source badge** (`components/recipe/RecipeCard.tsx`) — globe + "NYT Cooking" label under the title when `source_domain` is set. Shared by RecipeListScreen + WhatCanICookScreen. (Not in PK tracking doc.)
+- **Recipe list source filter + sort** (`screens/RecipeListScreen.tsx`, `components/FilterDrawer.tsx`) — new "Source" multi-select in the filter drawer (OR logic on `source_domain`, options = distinct domains from the user's recipes), + "Source: Recently Updated" sort (by `source_updated_at` desc, nulls last). ⚠️ PK snapshot now stale — RecipeListScreen (was 2026-05-19), FilterDrawer (was 2026-05-19)
+- **Chef "Other sources" section** (`screens/AuthorViewScreen.tsx`) — a row beside Books showing web sources (e.g. "🌐 NYT Cooking · 3") with counts. Pills are **inert for now** (info only); tapping → SourceView is part of ③ (handoff). ⚠️ PK snapshot now stale (was 2026-04-22)
+- **Shared util** `lib/utils/sourceLabel.ts` — single `sourceLabel(domain)` definition (NYT → "NYT Cooking"; else title-cased first segment). New surfaces use it.
+
+### Notes
+- All app-only changes (no migration/edge-function/re-import) — `select('*')` already returns the source columns to the list; AuthorView's explicit select got `source_domain` added.
+- `source_domain` + `source_updated_at` added to `RecipeCard`'s exported `Recipe` type (the list's row type) so the sort/filter type-check.
+- tsc --noEmit clean on all touched files. Tom verified card badge, filter, sort, and chef Sources section in-app.
+
+### Test-row cleanup
+Removed the stale NYT test imports created during this session's verification, keeping `db8fd956` (Chermoula — most-helpful notes + multi-author) as the clean demo. (See git/DB; non-recipe children cascaded/deleted with them.)
+
+### Recommended doc updates
+- `FRIGO_ARCHITECTURE.md` — once the NYT feature set + ③ land, note: `recipe_source_notes` table, the `source_*` columns, `sourceLabel` util, and that RecipeCard/RecipeList/AuthorView/RecipeHeader render source provenance.
+- `DEFERRED_WORK.md` — carry the prior follow-ups (all-notes pagination, Option A multi-chef, staleness monitor, project-wide RLS) **plus** ③ the NYT Cooking browse screen + wiring the inert chef-page source pills (now owned by the other CC instance). CC did not edit DEFERRED_WORK — flagging for Claude.ai.
+- `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+### Recommended next steps for Tom
+1. Hand `docs/CC_PROMPTS/nyt_import_handoff.md` to the other CC instance to integrate this branch + build ③.
+2. Photo-extraction test (Sonnet 4.6 vision path) still outstanding.
+
+---
+
+## 2026-06-01
+
 **Task:** NYT community notes import + richer attribution (multi-author) + most-helpful notes
 
 Tom-directed feature extending the NYT provenance work. Captures NYT Cooking community notes and richer attribution (original author(s), byline/adapter, credit, source dates) — all from the page's `__NEXT_DATA__` payload (no auth; same soft-paywall access path as the recipe). Verified end-to-end in-app on recipes 12957 (multi-author) and others.

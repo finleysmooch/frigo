@@ -17,6 +17,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { Book, RecipeWithBook } from '../lib/types/recipeExtraction';
+import { sourceLabel } from '../lib/utils/sourceLabel';
+import GlobeIcon from '../components/icons/recipe/GlobeIcon';
 
 type Props = NativeStackScreenProps<any, 'AuthorView'>;
 
@@ -33,6 +35,7 @@ interface RecipeForAuthorView extends RecipeWithBook {
   prep_time_min?: number;
   cook_time_min?: number;
   cuisine_types?: string[];
+  source_domain?: string;
 }
 
 export default function AuthorViewScreen({ route, navigation }: Props) {
@@ -42,6 +45,16 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
   const [books, setBooks] = useState<Book[]>([]);
   const [recipes, setRecipes] = useState<RecipeForAuthorView[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Web sources this chef's recipes came from (e.g. NYT Cooking), with counts —
+  // the "other sources" companion to the Books section.
+  const sources = useMemo(() => {
+    const counts: Record<string, number> = {};
+    recipes.forEach(r => {
+      if (r.source_domain) counts[r.source_domain] = (counts[r.source_domain] ?? 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [recipes]);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -131,6 +144,31 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
     },
     bookCardYear: {
       fontSize: 12,
+      color: colors.text.tertiary,
+    },
+    sourceChipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    sourceChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.background.card,
+    },
+    sourceChipText: {
+      fontSize: 14,
+      color: colors.text.primary,
+      fontWeight: '500',
+    },
+    sourceChipCount: {
+      fontSize: 13,
       color: colors.text.tertiary,
     },
     recipesGrid: {
@@ -233,6 +271,7 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
             cuisine_types,
             book_id,
             page_number,
+            source_domain,
             book:books (
               title
             )
@@ -344,6 +383,26 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
+      )}
+
+      {/* Sources Section — web sources (e.g. NYT Cooking) this chef's recipes
+          came from, alongside Books. (Tapping to filter to a source is a
+          follow-up once the SourceView screen lands.) */}
+      {sources.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Other sources
+          </Text>
+          <View style={styles.sourceChipRow}>
+            {sources.map(([domain, count]) => (
+              <View key={domain} style={styles.sourceChip}>
+                <GlobeIcon size={15} color={colors.text.secondary} />
+                <Text style={styles.sourceChipText}>{sourceLabel(domain) || domain}</Text>
+                <Text style={styles.sourceChipCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       )}
 

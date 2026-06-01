@@ -17,8 +17,10 @@ import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import {
   TimerIcon, FireIcon, BodybuilderIcon, PanIcon, FriendsIcon, ChefHat2,
 } from '../icons';
+import GlobeIcon from '../icons/recipe/GlobeIcon';
 import { VIBE_TAG_ICONS } from '../../constants/vibeIcons';
 import { useTheme } from '../../lib/theme/ThemeContext';
+import { sourceLabel } from '../../lib/utils/sourceLabel';
 
 // Card-data shape. Owned here because RecipeCard is the canonical consumer;
 // RecipeListScreen + WhatCanICookScreen import this type.
@@ -46,6 +48,8 @@ export interface Recipe {
   pantry_match?: number;
   is_pinned?: boolean;
   image_url?: string;
+  source_domain?: string;
+  source_updated_at?: string;
 
   // Phase 3A fields (already on recipes table from AI backfill)
   hero_ingredients: string[];
@@ -133,6 +137,7 @@ export function RecipeCard({
     : null;
 
   const showChef = item.chef_name && item.chef_name !== 'Unknown Chef';
+  const sourceName = sourceLabel(item.source_domain);
   const dietaryBadges = buildDietaryBadges(item);
 
   return (
@@ -152,6 +157,12 @@ export function RecipeCard({
               <View style={styles.chefLine}>
                 <ChefHat2 size={12} color={colors.text.secondary} />
                 <Text style={styles.chefLineText} numberOfLines={1}>{item.chef_name}</Text>
+              </View>
+            )}
+            {sourceName && (
+              <View style={styles.chefLine}>
+                <GlobeIcon size={12} color={colors.text.secondary} />
+                <Text style={styles.sourceLineText} numberOfLines={1}>{sourceName}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -391,6 +402,10 @@ function makeStyles(colors: ThemeColors) {
       fontSize: 13,
       color: colors.text.secondary,
       fontStyle: 'italic',
+    },
+    sourceLineText: {
+      fontSize: 12,
+      color: colors.text.secondary,
     },
     heroRow: {
       flexDirection: 'row',

@@ -16,6 +16,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { VIBE_TAG_ICONS } from '../constants/vibeIcons';
+import { sourceLabel } from '../lib/utils/sourceLabel';
 import {
   SproutIcon, VegetablesIcon, GlutenFreeIcon, DairyFreeIcon,
   NutFreeIcon, ShellfishFreeIcon, SoyFreeIcon, EggFreeIcon,
@@ -44,6 +45,7 @@ export interface FilterState {
   easierThanLooks: boolean;
   cookingMethods: string[];
   cuisineTypes: string[];
+  sources: string[];
   courseTypes: string[];
   ingredientCountRanges: string[];
   makeAheadFriendly: boolean;
@@ -58,6 +60,7 @@ export interface FilterDrawerProps {
   filters: FilterState;
   onApplyFilters: (filters: FilterState) => void;
   availableHeroIngredients?: string[];
+  availableSources?: string[];
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -72,6 +75,7 @@ const EMPTY_FILTERS: FilterState = {
   easierThanLooks: false,
   cookingMethods: [],
   cuisineTypes: [],
+  sources: [],
   courseTypes: [],
   ingredientCountRanges: [],
   makeAheadFriendly: false,
@@ -128,6 +132,7 @@ export default function FilterDrawer({
   filters,
   onApplyFilters,
   availableHeroIngredients = [],
+  availableSources = [],
 }: FilterDrawerProps) {
   const { colors } = useTheme();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -193,6 +198,7 @@ export default function FilterDrawer({
     if (localFilters.easierThanLooks) n++;
     n += localFilters.cookingMethods.length;
     n += localFilters.cuisineTypes.length;
+    n += localFilters.sources.length;
     n += localFilters.courseTypes.length;
     n += localFilters.ingredientCountRanges.length;
     if (localFilters.makeAheadFriendly) n++;
@@ -717,6 +723,29 @@ export default function FilterDrawer({
                 </View>
 
                 <View style={styles.divider} />
+
+                {/* Source (web-imported recipes, e.g. NYT Cooking) — only shown
+                    when the user has web-sourced recipes. Values are raw domains;
+                    labels are friendly via sourceLabel(). */}
+                {availableSources.length > 0 && (
+                  <>
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Source</Text>
+                      <View style={styles.chipRow}>
+                        {availableSources.map(domain =>
+                          renderChip(
+                            domain,
+                            sourceLabel(domain) || domain,
+                            null,
+                            localFilters.sources.includes(domain),
+                            () => toggleInArray('sources', domain),
+                          )
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.divider} />
+                  </>
+                )}
 
                 {/* Course */}
                 <View style={styles.section}>

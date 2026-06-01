@@ -101,7 +101,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/AddRecipeFromPhotoScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/AddRecipeFromUrlScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/AdminScreen.tsx` | 2026-05-19 | 8D-CP1 | Low | 8D-CP1 (2026-05-18): added "Run pantry matching smoke tests" button wiring `runPantryMatchingSmokeTests`. |
-| `screens/AuthorViewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/AuthorViewScreen.tsx` | 2026-04-22 | | HIGH | |
 | `screens/BookDetailScreen.tsx` | 2026-05-19 | Phase 4 | Low | |
 | `screens/BookViewScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/ChefDetailScreen.tsx` | 2026-05-19 | Phase 4 | Low | |
@@ -189,7 +189,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `components/StarRating.tsx` | 2026-05-19 | Phase 7M | Low | Extracted from LogCookSheet |
 | `components/TimesMadeModal.tsx` | 2026-05-19 | Phase 7B-Rev | Low | Historical cook counts stepper |
 | `components/NutritionGoalsModal.tsx` | 2026-05-19 | Phase 4 | Low | 6-nutrient stepper + daily/per-meal toggle |
-| `components/FilterDrawer.tsx` | 2026-05-19 | Phase 3A | Low | Recipe filter drawer |
+| `components/FilterDrawer.tsx` | 2026-05-19 | Phase 3A | HIGH | Recipe filter drawer |
 | `components/SpaceSwitcher.tsx` | 2026-04-22 | | Low | Dropdown for switching shared spaces |
 | `components/MealInvitationsCard.tsx` | 2026-04-22 | | Low | Pending meal invites with accept/decline |
 | `components/PendingSpaceInvitations.tsx` | 2026-04-22 | | Low | Pending space invitation responder |
