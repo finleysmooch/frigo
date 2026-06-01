@@ -14,6 +14,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
 import RecipeListScreen from './screens/RecipeListScreen';
+import BookListScreen from './screens/BookListScreen';  // 11D-CP2
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import WhatCanICookScreen from './screens/WhatCanICookScreen';
 import MealDetailScreen from './screens/MealDetailScreen';
@@ -146,13 +147,21 @@ export type RecipesStackParamList = {
     mealTitle?: string;    // NEW: Pass-through for meal plan
   };
   WhatCanICook: undefined;  // 8D-CP4: ready-to-cook recipe subset
-  Cooking: { 
+  Cooking: {
     recipe: any;  // Changed from recipeId to full recipe object
     planItemId?: string;   // NEW: For meal plan integration
     mealId?: string;       // NEW: For meal plan integration
     mealTitle?: string;    // NEW: For success message
   };
-  BookView: { bookId: string };
+  // 11D-CP2: Books index reached from Mode A "Browse by → Books".
+  BookList: undefined;
+  // 11D-CP2: BookDetail registered here so the BookList card tap stays
+  // within RecipesStack. Same component is also registered in StatsStack
+  // for the stats drill-down path; React Navigation handles that fine.
+  BookDetail: { bookId: string };
+  // 11D-CP3a: optional `sectionId` is set by BookDetail's "See all →" links
+  // so CP3b can preset BookView's sort (mostCooked → most_cooked, etc.).
+  BookView: { bookId: string; sectionId?: 'mostCooked' | 'recentlyCooked' | 'friendsFavorites' | 'bookmarked' };
   AuthorView: { chefName: string };
   AddRecipeFromPhoto: { userId: string; source: 'camera' | 'gallery' };
   AddRecipeFromUrl: { userId: string };
@@ -505,6 +514,19 @@ function RecipesStackNavigator() {
       }}
     >
       <RecipesStack.Screen name="RecipeList" component={RecipeListScreen} />
+      {/* 11D-CP2 — Books index. Own header (no native chrome). */}
+      <RecipesStack.Screen
+        name="BookList"
+        component={BookListScreen}
+        options={{ headerShown: false }}
+      />
+      {/* 11D-CP2 — BookDetail reachable from BookList card taps. CP3 redesigns
+          the screen body; route registration here is just so navigation lands. */}
+      <RecipesStack.Screen
+        name="BookDetail"
+        component={BookDetailScreen}
+        options={{ headerShown: true, title: 'Cookbook' }}
+      />
       <RecipesStack.Screen
         name="RecipeDetail"
         component={RecipeDetailScreen}

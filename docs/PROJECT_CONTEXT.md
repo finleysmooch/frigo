@@ -1,5 +1,5 @@
 # Frigo - Project Context
-**Last Updated:** May 27, 2026
+**Last Updated:** May 28, 2026
 **Version:** 10.8
 **Status:** Active Development — **Phase 10 (Nutrition Depth) shipped 2026-05-27 (single session, six sub-phases + hot fix).** Phase 8 complete pending cleanup pass; 8R closeout (CP1 → CP6e shipped 2026-04-29 → 2026-05-13; smoke clean 2026-05-15) + 8D (CP1 → CP4 shipped 2026-05-19, CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11 (2026-05-19). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done** (8, 10). Next: **Phase 11 (Recipe Polish, including RecipeListScreen redesign)** or Phase 9 (Meal & Planning UX). F&F launch target: **late August or early September 2026**.
 
@@ -231,7 +231,7 @@ See `DEFERRED_WORK.md` for the full backlog.
 ### After Phase 8 (F&F-blocking phases)
 - **Phase 9 — Meal & Planning UX** (pre-launch; includes flex meal planning v1 + cross-meal dedup)
 - ✅ **Phase 10 — Nutrition Depth** — **shipped 2026-05-27** (10A raw/cooked fix + 10B USDA micronutrient backfill + 10C recipe UI + 10D stats UI + 10E meal UI + 10F dietary preferences + URL-length chunking hot fix). See `FF_LAUNCH_MASTER_PLAN.md` Phase 10 section.
-- **Phase 11 — Recipe Polish** — includes RecipeListScreen redesign (P11-input-1, surfaced during 10F design) per master plan
+- **Phase 11 (Recipe Polish) — Active.** 11A (Browse rebuild): CP1–CP4 shipped 2026-05-28 (foundational model, home tiles + cuisine, refine surface, refine sheet). CP5 (card low-stock chips + WhatCanICook absorption) outstanding. Remaining Phase 11 sub-phases (11B–11H: extractors, cookbook UX, cook soon UX, concept cooking, substitutions v0, folders stretch) outstanding, not yet scoped. See `docs/PHASE_11_RECIPE_POLISH.md`.
 - **Phase 12 — Distribution & Testing** — TestFlight build, Apple Developer org distribution, tester onboarding
 
 **Note:** Phase scope is adaptive. See `FF_LAUNCH_MASTER_PLAN.md` and individual phase docs for current scope.

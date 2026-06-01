@@ -22,6 +22,7 @@ import {
   searchRecipesByMixedTerms
 } from '../lib/searchService';
 import { runPantryMatchingSmokeTests } from '../lib/services/_pantryMatchingSmokeTest';
+import { runRecipeBrowseResolverTests } from '../lib/services/__recipeBrowseResolverTest';
 import { getHeroFrequencyAudit } from '../lib/services/heroIngredientService';
 import { useActiveSpaceId } from '../contexts/SpaceContext';
 
@@ -631,6 +632,22 @@ export default function AdminScreen() {
     }
   };
 
+  // 11A-CP1 — synchronous in-memory resolver smoke test (TEMP).
+  const runBrowseResolverTests = () => {
+    setIsLoading(true);
+    try {
+      runRecipeBrowseResolverTests();
+      Alert.alert(
+        'Browse Resolver Tests Complete',
+        'Check the Metro / debugger console for [BROWSE-*] result lines.'
+      );
+    } catch (err) {
+      Alert.alert('Browse Resolver Tests Failed', String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Clear results
   const clearResults = () => {
     setTestResults([]);
@@ -783,6 +800,18 @@ export default function AdminScreen() {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>Run pantry matching smoke tests</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Recipe Browse Resolver Tests — 11A-CP1 (TEMP) */}
+      <View style={styles.buttonSection}>
+        <Text style={styles.sectionTitle}>Recipe Browse Resolver (11A-CP1)</Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#7c3aed' }, isLoading && styles.buttonDisabled]}
+          onPress={runBrowseResolverTests}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Run recipe browse resolver tests</Text>
         </TouchableOpacity>
       </View>
 

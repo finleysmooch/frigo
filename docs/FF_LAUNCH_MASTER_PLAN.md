@@ -1,6 +1,7 @@
 # Frigo — Friends & Family Launch Master Plan
 **Created:** March 17, 2026
 **Last Reconciled:** May 27, 2026
+**Last Updated:** May 28, 2026 (Phase 11 doc pointer added)
 **Remaining work:** 14-18 weeks to F&F (per dashboard v2 time-to-F&F arithmetic)
 **Status:** Active — **Phase 8 complete pending cleanup pass; Phase 10 (Nutrition Depth) shipped 2026-05-27** (sub-phases 10A → 10F + hot fix). 8R closeout (CP1 → CP6e shipped; smoke clean 2026-05-15) + 8D (CP1 → CP4) shipped 2026-05-19 (CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11. Next: 8D cleanup pass (small), Phase 9, then Phase 11–12. F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done**.
 
@@ -215,6 +216,8 @@ Primary scope-cut lever if Phase 8 or 9 overruns. The stretch item goes first; f
 - [post-launch] Recipe comments knowledge base system (#30) — deferred after 4/22 review. F&F is the right moment to learn what people actually want before building moderation/threading UX for this.
 
 **Estimated:** 9-15 sessions (was 7-12; +3 sessions for the merged 8E-CP1/CP3/CP4 work, 2026-05-19).
+
+See `docs/PHASE_11_RECIPE_POLISH.md` for the full phase doc (sub-phase spine, 11A status, carried deferred).
 
 ### Phase 12: Distribution, Polish & Testing 🔲
 

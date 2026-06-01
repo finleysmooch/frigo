@@ -30,7 +30,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
 | `lib/services/annotationService.ts` | 2026-04-22 | | Low | |
-| `lib/services/bookViewService.ts` | 2026-04-22 | | Low | |
+| `lib/services/bookViewService.ts` | 2026-04-22 | | HIGH | 2026-06-01: getRecipesByBook rewritten off the missing recipes_with_books view. |
 | `lib/services/commentsService.ts` | 2026-04-22 | | Low | |
 | `lib/services/cookCardDataService.ts` | 2026-05-19 | Phase 7I CP5 / CP6 | Low | SELECT-column SSoT per v4.0 arch doc |
 | `lib/services/cookingService.ts` | 2026-05-19 | Phase 7B-Rev | Low | recipe_step_notes CRUD |
@@ -69,7 +69,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/utils/mealTypeHelpers.ts` | 2026-05-19 | Phase 7E Fix Pass 1 | Low | Extracted from postService |
 | `lib/utils/timerDetection.ts` | 2026-05-19 | Phase 6 | Low | detectTimersInText + formatTime |
 | `constants/cookingMethods.ts` | 2026-05-19 | Phase 7M | Low | 16-value DB CHECK match |
-| `constants/pantry.ts` | 2026-04-22 | | Low | |
+| `constants/pantry.ts` | 2026-04-22 | | HIGH | 2026-06-01: icons added for Pasta/Noodles/Rice/Fish/Shellfish + 4 orphan types. |
 | `constants/vibeIcons.ts` | 2026-04-22 | | Low | |
 | `lib/types/cooking.ts` | 2026-05-19 | Phase 6 | Low | StepNote, CookingSession, TimerHistoryEntry, NormalizedStep |
 | `lib/types/feed.ts` | 2026-05-19 | Phase 7I | Low | CookCardData, FeedGroup, LinkContext, MealEventContext |
@@ -79,7 +79,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/types/views.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): View, ViewWithFilters, ViewFilter, ViewFilterDimension, RenderMode (tier/aisle/flat per Q25), CreateViewParams, UpdateViewParams, ViewFilterInput. |
 | `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
 | `lib/types/recipeFeatures.ts` | 2026-04-22 | | Low | DB-corrected Book + author types |
-| `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
+| `lib/types/search.ts` | 2026-04-22 | | HIGH | SearchOptions, SearchResult, SearchError class. 2026-06-01: added searchMetadata option. |
 | `lib/types/space.ts` | 2026-04-22 | | Low | SpaceRole, SpaceAction, permissions, invitations |
 | `lib/types/store.ts` | 2026-04-22 | | Low | Store, UserIngredientPreference, view modes |
 | `lib/cookDepletionService.ts` | 2026-05-19 | Phase 8B-CP4 / 8R-CP3 / CP6e-Services-b / CP6e-FlowsUI-a | Low | 8B-CP4 → 8R-CP3 → CP6e-Services-b → CP6e-FlowsUI-a. CP6e-Services-b rewrote internals to lot-aware model (D8R-Q53) with `lot_depletions` JSONB persistence + `rollbackFromPersistedRecord`. CP6e-FlowsUI-a (2026-05-13, +175 lines): added `replaceSupplyDeduction(plan, supplyId, newDraw)` + `SupplyEntryNotInPlanError`. Orchestrator: reverses ONE supply's existing draw (per-lot quantity_before restore + un-archive + status restore + spawned-need delete — mirrors rollbackDepletion's per-entry loop), calls `deductFromSpecificLots` with override, mutates the entry in place, re-fetches spawned_need_id on Q44 cascade, re-persists the full plan to posts.lot_depletions. Used by CookDepletionReviewModal's LotPickerModal confirm path. Existing exports untouched (compute/apply/rollback/runPostCookDepletion/rollbackFromPersistedRecord). ⚠️ Still at lib/ root (T4 relocation pending). |
@@ -102,8 +102,8 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/AddRecipeFromUrlScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/AdminScreen.tsx` | 2026-05-19 | 8D-CP1 | Low | 8D-CP1 (2026-05-18): added "Run pantry matching smoke tests" button wiring `runPantryMatchingSmokeTests`. |
 | `screens/AuthorViewScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/BookDetailScreen.tsx` | 2026-05-19 | Phase 4 | Low | |
-| `screens/BookViewScreen.tsx` | 2026-04-22 | | Low | |
+| `screens/BookDetailScreen.tsx` | 2026-05-19 | Phase 4 | HIGH | 2026-06-01: cross-stack goToBookView nav fix. |
+| `screens/BookViewScreen.tsx` | 2026-04-22 | | HIGH | 2026-06-01: search unified onto server engine + collapsing filter bar. |
 | `screens/ChefDetailScreen.tsx` | 2026-05-19 | Phase 4 | Low | |
 | `screens/CommentsScreen.tsx` | 2026-05-19 | Phase 7N | Low | P7-85 keyboard avoidance |
 | `screens/CookDetailScreen.tsx` | 2026-05-19 | Phase 7M / 7N | Low | Overflow collapsed 6→2; 7N polish |

@@ -1,355 +1,519 @@
-// ⚡ IN-PROGRESS — Stats Dashboard work (2026-03-04)
 // screens/BookDetailScreen.tsx
-// Stats-focused book detail screen. Shows cooking stats and progress for a specific cookbook.
-// Separate from BookViewScreen (which shows recipe browsing, not stats).
+// Phase 11D-CP3a — Book Detail rewritten from a stats dashboard into a
+// curated discovery surface. Four sections (Most cooked / Recently cooked /
+// Friends' favorites / Bookmarked), each hidden when empty, surface 5 top
+// recipes per section from getCuratedBookSections (11D-CP1). "See all →" on
+// a section header passes a section id to BookView, which CP3b will read to
+// preset the sort. "Browse all N recipes →" at the bottom routes to BookView
+// with no preset.
+//
+// Locked CP3 decisions (Tom, 2026-05-29):
+//   1. "See all →" routes to BookView with the section's natural sort
+//      (mostCooked → most_cooked, recentlyCooked → recently_cooked,
+//      friendsFavorites → friends_favorites, bookmarked → bookmarked).
+//      The CP3a screen passes a sectionId param; CP3b consumes it.
+//   2-4. (BookView concerns — handled in CP3b.)
+//   5. Header meta line: "N recipes · X cooked · Y bookmarked" — three
+//      counts. Same pattern will apply to Chef Detail in CP4.
+//
+// The screen is registered in both `RecipesStack` (CP2 — from BookList) and
+// `StatsStack` (legacy — from stats drill-down). Same component, same params
+// shape (`{ bookId: string }`). Cross-stack navigation via the tab navigator
+// handles "go to BookView" from either entry path without the tab switching
+// surprising the user.
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useTheme } from '../lib/theme/ThemeContext';
-import { typography, spacing, borderRadius } from '../lib/theme';
-import { supabase } from '../lib/supabase';
 import type { StatsStackParamList } from '../App';
-import type { BookStats } from '../lib/services/statsService';
-import { getBookStats } from '../lib/services/statsService';
+import { useTheme } from '../lib/theme/ThemeContext';
+import { supabase } from '../lib/supabase';
 import {
-  MiniBarRow,
-  ComparisonBars,
-  TappableConceptList,
-} from '../components/stats';
+  getBook,
+  getCuratedBookSections,
+  getRecipesByBook,
+  type CuratedRecipe,
+  type CuratedSections,
+} from '../lib/services/bookViewService';
+import { getCookingHistory } from '../lib/services/recipeHistoryService';
+import { getRecipesWithTag } from '../lib/services/userRecipeTagsService';
+import type { Book } from '../lib/types/recipeFeatures';
 
+// Typed against StatsStackParamList for the existing drill-down entry point;
+// also reachable from RecipesStack with the same `{ bookId: string }` shape,
+// so reading `route.params.bookId` works from either stack. Outbound
+// navigations to RecipesStack-only screens (BookView) cross-stack via the
+// tab navigator (see `goToBookView` below).
 type Props = NativeStackScreenProps<StatsStackParamList, 'BookDetail'>;
+
+// Section ids passed to BookView as a sort preset hint (consumed in CP3b).
+export type BookSectionId =
+  | 'mostCooked'
+  | 'recentlyCooked'
+  | 'friendsFavorites'
+  | 'bookmarked';
+
+// Cover fallback palette — kept in sync with BookListScreen so the same book
+// gets the same color across the index and the detail surface. Promote to a
+// shared helper if a third consumer arrives.
+const COVER_PALETTE = [
+  '#E8C5A0', '#C5A88B', '#A8C5BA', '#B5A8C5',
+  '#E8B0A0', '#A0B8E8', '#C5C5A0', '#A0C5A8',
+];
+function hashCoverColor(bookId: string): string {
+  let hash = 0;
+  for (let i = 0; i < bookId.length; i++) {
+    hash = (hash * 31 + bookId.charCodeAt(i)) | 0;
+  }
+  return COVER_PALETTE[Math.abs(hash) % COVER_PALETTE.length];
+}
+
+function authorDisplay(book: Book | null): string {
+  if (!book) return '';
+  return book.author?.trim() || '';
+}
 
 export default function BookDetailScreen({ route, navigation }: Props) {
   const { bookId } = route.params;
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [userId, setUserId] = useState('');
-  const [bookTitle, setBookTitle] = useState('');
-  const [data, setData] = useState<BookStats | null>(null);
+  const [book, setBook] = useState<Book | null>(null);
+  const [sections, setSections] = useState<CuratedSections | null>(null);
+  const [headerStats, setHeaderStats] = useState<{
+    recipe_count: number;
+    cooked_count: number;
+    bookmarked_count: number;
+  }>({ recipe_count: 0, cooked_count: 0, bookmarked_count: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load user
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
-    });
-  }, []);
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError('Not signed in');
+          setLoading(false);
+          return;
+        }
+        const userId = user.id;
+        // Parallel fetch — `getCuratedBookSections` internally calls history
+        // + saved tags too, so we accept a small double-fetch here for the
+        // header totals to keep CP1's contract pristine. The cost is two
+        // small concurrent queries; negligible at dev scale.
+        const [bookRes, sectionsRes, scopeRecipes, history, savedTags] =
+          await Promise.all([
+            getBook(bookId),
+            getCuratedBookSections(bookId, userId, 5),
+            getRecipesByBook(bookId, userId),
+            getCookingHistory(userId),
+            getRecipesWithTag(userId, 'saved'),
+          ]);
 
-  // Load book title
-  useEffect(() => {
-    supabase
-      .from('books')
-      .select('title')
-      .eq('id', bookId)
-      .single()
-      .then(({ data: book }) => {
-        const title = book?.title || 'Cookbook';
-        setBookTitle(title);
-        navigation.setOptions({ title });
-      });
-  }, [bookId, navigation]);
+        setBook(bookRes);
+        setSections(sectionsRes);
 
-  // Load book stats
-  useEffect(() => {
-    if (!userId) return;
+        const savedSet = new Set(savedTags.map((s) => s.id));
+        const recipe_count = scopeRecipes.length;
+        const cooked_count = scopeRecipes.filter(
+          (r) => (history.get(r.id)?.times_cooked ?? 0) > 0,
+        ).length;
+        const bookmarked_count = scopeRecipes.filter((r) => savedSet.has(r.id)).length;
+        setHeaderStats({ recipe_count, cooked_count, bookmarked_count });
+      } catch (e: any) {
+        console.error('Error loading BookDetail data:', e);
+        setError(e?.message || 'Failed to load');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [bookId]);
 
-    setLoading(true);
-    setError(null);
-
-    getBookStats(userId, bookId)
-      .then(setData)
-      .catch((err) => setError(err.message || 'Failed to load book stats'))
-      .finally(() => setLoading(false));
-  }, [userId, bookId]);
-
-  const handleRecipePress = useCallback(
-    (recipeId: string, title: string) => {
-      navigation.navigate('RecipeDetail', { recipe: { id: recipeId, title } });
+  // Cross-stack navigation to BookView. Reaches the bottom-tab navigator via
+  // two getParent() climbs (screen → stack → tab) and dispatches a nested
+  // navigation into RecipesStack regardless of which stack opened this
+  // screen. Tab switches to Recipes — fine, since the user wants to browse.
+  const goToBookView = useCallback(
+    (sectionId?: BookSectionId) => {
+      // Walk UP the navigator chain to find the one that can route to
+      // RecipesStack (the bottom-tab navigator). BookDetail is registered in
+      // both RecipesStack (Browse-by-Books path) and StatsStack (drill-down
+      // path), so the tab navigator sits at a different depth depending on the
+      // entry path. A fixed getParent().getParent() climb overshoots from the
+      // Recipes path (lands above the tab navigator → undefined); walking until
+      // we find a navigator whose routeNames include 'RecipesStack' works from
+      // both.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let nav: any = navigation;
+      while (nav) {
+        const routeNames: string[] | undefined = nav.getState?.()?.routeNames;
+        if (routeNames?.includes('RecipesStack')) {
+          nav.navigate('RecipesStack', {
+            screen: 'BookView',
+            params: { bookId, sectionId },
+          });
+          return;
+        }
+        nav = nav.getParent?.();
+      }
+      console.warn('BookDetail: RecipesStack navigator not reachable');
     },
-    [navigation]
+    [navigation, bookId],
   );
+
+  const onRecipePress = useCallback(
+    (recipeId: string, title: string) => {
+      // RecipeDetail is in both RecipesStack and (likely) StatsStack — same
+      // route name + param shape. Same `navigation.navigate` works in both.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      navigation.navigate('RecipeDetail' as any, { recipe: { id: recipeId, title } });
+    },
+    [navigation],
+  );
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // Set the navigation header title once the book loads.
+  useEffect(() => {
+    if (book?.title) navigation.setOptions({ title: book.title });
+  }, [book?.title, navigation]);
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.screen, styles.center]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  if (error || !data) {
+  if (error || !book) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error || 'No data available'}</Text>
+      <View style={[styles.screen, styles.center]}>
+        <Text style={styles.errorText}>{error || 'Book not found'}</Text>
       </View>
     );
   }
 
-  const { completionPct, avgRating, timesCooked, progress, comparison, mostCooked, highestRated, keyIngredients, cuisines, methods } = data;
+  const { recipe_count, cooked_count, bookmarked_count } = headerStats;
+  const metaParts = [`${recipe_count} recipe${recipe_count !== 1 ? 's' : ''}`];
+  if (cooked_count > 0) metaParts.push(`${cooked_count} cooked`);
+  if (bookmarked_count > 0) metaParts.push(`${bookmarked_count} bookmarked`);
+
+  const renderSection = (
+    id: BookSectionId,
+    label: string,
+    items: CuratedRecipe[],
+  ) => {
+    if (items.length === 0) return null;
+    return (
+      <View style={styles.section} key={id}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {label}{' '}
+            <Text style={styles.sectionCount}>· {items.length}</Text>
+          </Text>
+          <TouchableOpacity onPress={() => goToBookView(id)} activeOpacity={0.7}>
+            <Text style={styles.seeAll}>See all →</Text>
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          horizontal
+          data={items}
+          keyExtractor={(r) => r.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.recipeCard}
+              activeOpacity={0.8}
+              onPress={() => onRecipePress(item.id, item.title)}
+            >
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.recipeImage} />
+              ) : (
+                <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
+                  <Text style={styles.recipeImagePlaceholderText} numberOfLines={3}>
+                    {item.title}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.recipeTitle} numberOfLines={2}>{item.title}</Text>
+              {renderSectionMetric(id, item)}
+            </TouchableOpacity>
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectionListContent}
+        />
+      </View>
+    );
+  };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {/* Hero Stats Row */}
-      <View style={styles.heroCard}>
-        {/* Progress bar */}
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, { width: `${Math.min(completionPct, 100)}%` }]} />
-        </View>
-        <Text style={styles.progressLabel}>
-          {progress.cooked} of {progress.total} recipes cooked
-        </Text>
-
-        <View style={styles.heroRow}>
-          <View style={styles.heroStat}>
-            <Text style={styles.heroValue}>{completionPct}%</Text>
-            <Text style={styles.heroLabel}>Complete</Text>
-          </View>
-          <View style={[styles.heroStat, styles.heroDivider]}>
-            <Text style={styles.heroValue}>
-              {avgRating != null ? avgRating.toFixed(1) : '—'}
+    <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
+      {/* Header — cover thumb + title + author + meta line. */}
+      <View style={styles.headerRow}>
+        {book.cover_image_url ? (
+          <Image source={{ uri: book.cover_image_url }} style={styles.headerCover} />
+        ) : (
+          <View
+            style={[styles.headerCoverFallback, { backgroundColor: hashCoverColor(bookId) }]}
+          >
+            <Text style={styles.headerCoverFallbackText} numberOfLines={4}>
+              {book.title}
             </Text>
-            <Text style={styles.heroLabel}>Avg Rating</Text>
           </View>
-          <View style={[styles.heroStat, styles.heroDivider]}>
-            <Text style={styles.heroValue}>{timesCooked}</Text>
-            <Text style={styles.heroLabel}>Times Cooked</Text>
-          </View>
+        )}
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle} numberOfLines={3}>{book.title}</Text>
+          {!!authorDisplay(book) && (
+            <Text style={styles.headerAuthor} numberOfLines={1}>{authorDisplay(book)}</Text>
+          )}
+          <Text style={styles.headerMeta} numberOfLines={2}>{metaParts.join(' · ')}</Text>
         </View>
       </View>
 
-      {/* Nutrition Comparison */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>vs Your Overall</Text>
-        <View style={styles.card}>
-          <ComparisonBars
-            label="Avg Calories"
-            valueA={Math.round(comparison.book.avgCalories)}
-            valueB={Math.round(comparison.overall.avgCalories)}
-            labelA={bookTitle}
-            labelB="You"
-            unit=" cal"
-          />
-          <ComparisonBars
-            label="Avg Protein"
-            valueA={Math.round(comparison.book.avgProtein)}
-            valueB={Math.round(comparison.overall.avgProtein)}
-            labelA={bookTitle}
-            labelB="You"
-            unit="g"
-          />
-          <ComparisonBars
-            label="Vegetarian %"
-            valueA={Math.round(comparison.book.vegetarianPct)}
-            valueB={Math.round(comparison.overall.vegetarianPct)}
-            labelA={bookTitle}
-            labelB="You"
-            unit="%"
-          />
-        </View>
-      </View>
-
-      {/* Most Cooked */}
-      {mostCooked.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Most Cooked</Text>
-          <View style={styles.card}>
-            {mostCooked.map((item, i) => (
-              <MiniBarRow
-                key={item.recipeId}
-                rank={i + 1}
-                name={item.title}
-                count={item.count}
-                barPct={item.barPct}
-                onPress={() => handleRecipePress(item.recipeId, item.title)}
-              />
-            ))}
-          </View>
-        </View>
+      {/* Curated sections — order matches the prompt spec; empty hide. */}
+      {sections && (
+        <>
+          {renderSection('mostCooked', 'Most cooked', sections.mostCooked)}
+          {renderSection('recentlyCooked', 'Recently cooked', sections.recentlyCooked)}
+          {renderSection('friendsFavorites', "Friends' favorites", sections.friendsFavorites)}
+          {renderSection('bookmarked', 'Bookmarked', sections.bookmarked)}
+        </>
       )}
 
-      {/* Highest Rated */}
-      {highestRated.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Highest Rated</Text>
-          <View style={styles.card}>
-            {highestRated.map((item, i) => (
-              <MiniBarRow
-                key={item.recipeId}
-                rank={i + 1}
-                name={item.title}
-                subtitle={item.rating != null ? `${item.rating.toFixed(1)} stars` : undefined}
-                count={item.count}
-                barPct={item.barPct}
-                onPress={() => handleRecipePress(item.recipeId, item.title)}
-              />
-            ))}
-          </View>
-        </View>
+      {/* Browse all CTA at the bottom — routes to BookView with no preset. */}
+      {recipe_count > 0 && (
+        <TouchableOpacity
+          style={styles.browseAllButton}
+          activeOpacity={0.8}
+          onPress={() => goToBookView()}
+        >
+          <Text style={styles.browseAllButtonText}>
+            Browse all {recipe_count} recipe{recipe_count !== 1 ? 's' : ''} →
+          </Text>
+        </TouchableOpacity>
       )}
 
-      {/* Key Ingredients */}
-      {keyIngredients.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Ingredients</Text>
-          <View style={styles.card}>
-            {keyIngredients.slice(0, 10).map((item, i) => (
-              <MiniBarRow
-                key={item.ingredientId}
-                rank={i + 1}
-                name={item.name}
-                subtitle={item.family || undefined}
-                count={item.count}
-                barPct={item.barPct}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Cuisines & Methods side by side */}
-      {(cuisines.length > 0 || methods.length > 0) && (
-        <View style={styles.sideBySide}>
-          {cuisines.length > 0 && (
-            <View style={styles.halfSection}>
-              <Text style={styles.sectionTitle}>Cuisines</Text>
-              <TappableConceptList
-                items={cuisines.map((c) => ({ name: c.cuisine, count: c.count }))}
-                onPress={(item) => {
-                  navigation.navigate('DrillDown', {
-                    type: 'cuisine',
-                    value: item.name,
-                    label: item.name,
-                  });
-                }}
-              />
-            </View>
-          )}
-          {methods.length > 0 && (
-            <View style={styles.halfSection}>
-              <Text style={styles.sectionTitle}>Methods</Text>
-              <TappableConceptList
-                items={methods.map((m) => ({ name: m.method, count: m.count }))}
-                onPress={(item) => {
-                  navigation.navigate('DrillDown', {
-                    type: 'method',
-                    value: item.name,
-                    label: item.name,
-                  });
-                }}
-              />
-            </View>
-          )}
+      {/* Empty state — book has no recipes the user owns (rare edge case
+          where a book record exists but no recipes from it). */}
+      {recipe_count === 0 && (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No recipes in this book yet.</Text>
         </View>
       )}
     </ScrollView>
   );
 }
 
-function createStyles(colors: any) {
+// Per-section trailing metric on the recipe card — small text under the
+// title. Each section's CuratedRecipe carries exactly one of these fields
+// populated (see CuratedRecipe in bookViewService).
+function renderSectionMetric(id: BookSectionId, item: CuratedRecipe) {
+  let text: string | null = null;
+  if (id === 'mostCooked' && item.times_cooked != null) {
+    text = `${item.times_cooked}× cooked`;
+  } else if (id === 'recentlyCooked' && item.last_cooked_at) {
+    text = relativeDate(item.last_cooked_at);
+  } else if (id === 'friendsFavorites' && item.friends_cooked_count != null) {
+    const n = item.friends_cooked_count;
+    text = `${n} friend${n !== 1 ? 's' : ''}`;
+  } else if (id === 'bookmarked' && item.saved_at) {
+    text = `Saved ${relativeDate(item.saved_at)}`;
+  }
+  if (!text) return null;
+  return <BookCardMetric>{text}</BookCardMetric>;
+}
+
+function relativeDate(iso: string): string {
+  try {
+    const then = new Date(iso).getTime();
+    const days = Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24));
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days}d ago`;
+    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+    return `${Math.floor(days / 365)}y ago`;
+  } catch {
+    return '';
+  }
+}
+
+// Inline child component for the per-section metric line — separate so it
+// can pull from the parent's theme via useTheme without prop-drilling.
+function BookCardMetric({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <Text style={{ fontSize: 11, color: colors.text.tertiary, marginTop: 2 }}>
+      {children}
+    </Text>
+  );
+}
+
+function makeStyles(colors: any) {
+  const screenWidth = Dimensions.get('window').width;
+  const CARD_W = Math.min(150, (screenWidth - 60) / 2.3);
   return StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor: colors.background.primary,
     },
-    content: {
-      padding: spacing.md,
-      paddingBottom: spacing.xxl,
+    scrollContent: {
+      paddingBottom: 40,
     },
     center: {
       flex: 1,
-      justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colors.background.primary,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
     },
     errorText: {
-      fontSize: typography.sizes.md,
-      color: colors.text.tertiary,
-    },
-
-    // Hero stats
-    heroCard: {
-      backgroundColor: colors.background.card,
-      borderRadius: borderRadius.lg,
-      padding: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.border.light,
-      marginBottom: spacing.lg,
-    },
-    progressBarTrack: {
-      height: 8,
-      backgroundColor: colors.border.light,
-      borderRadius: borderRadius.sm,
-      overflow: 'hidden',
-      marginBottom: spacing.sm,
-    },
-    progressBarFill: {
-      height: '100%',
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.sm,
-    },
-    progressLabel: {
-      fontSize: typography.sizes.sm,
+      fontSize: 15,
       color: colors.text.secondary,
       textAlign: 'center',
-      marginBottom: spacing.md,
-    },
-    heroRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-    },
-    heroStat: {
-      alignItems: 'center',
-      flex: 1,
-    },
-    heroDivider: {
-      borderLeftWidth: 1,
-      borderLeftColor: colors.border.light,
-    },
-    heroValue: {
-      fontSize: typography.sizes.xxl,
-      fontWeight: typography.weights.bold as any,
-      color: colors.text.primary,
-    },
-    heroLabel: {
-      fontSize: typography.sizes.xs,
-      color: colors.text.tertiary,
-      marginTop: 2,
     },
 
-    // Sections
+    headerRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 18,
+      paddingTop: 16,
+      paddingBottom: 18,
+      gap: 14,
+    },
+    headerCover: {
+      width: 82,
+      height: 112,
+      borderRadius: 8,
+      backgroundColor: colors.background.secondary,
+    },
+    headerCoverFallback: {
+      width: 82,
+      height: 112,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    headerCoverFallbackText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#ffffff',
+      textAlign: 'center',
+    },
+    headerText: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text.primary,
+      lineHeight: 25,
+    },
+    headerAuthor: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginTop: 4,
+    },
+    headerMeta: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      marginTop: 8,
+    },
+
     section: {
-      marginBottom: spacing.lg,
+      paddingTop: 18,
+      paddingBottom: 6,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      marginBottom: 10,
     },
     sectionTitle: {
-      fontSize: typography.sizes.md,
-      fontWeight: typography.weights.semibold as any,
+      fontSize: 15,
+      fontWeight: '700',
       color: colors.text.primary,
-      marginBottom: spacing.sm,
     },
-    card: {
-      backgroundColor: colors.background.card,
-      borderRadius: borderRadius.lg,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border.light,
+    sectionCount: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text.tertiary,
+    },
+    seeAll: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    sectionListContent: {
+      paddingHorizontal: 18,
+      gap: 12,
     },
 
-    // Side by side layout for cuisines + methods
-    sideBySide: {
-      marginBottom: spacing.lg,
+    recipeCard: {
+      width: CARD_W,
     },
-    halfSection: {
-      marginBottom: spacing.md,
+    recipeImage: {
+      width: CARD_W,
+      height: CARD_W * 0.85,
+      borderRadius: 10,
+      backgroundColor: colors.background.secondary,
+    },
+    recipeImagePlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+      backgroundColor: colors.background.secondary,
+    },
+    recipeImagePlaceholderText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      textAlign: 'center',
+    },
+    recipeTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginTop: 6,
+    },
+
+    browseAllButton: {
+      marginTop: 24,
+      marginHorizontal: 18,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    browseAllButtonText: {
+      color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '600',
+    },
+
+    empty: {
+      paddingHorizontal: 24,
+      paddingVertical: 40,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      textAlign: 'center',
     },
   });
 }

@@ -23,6 +23,7 @@ import {
   FlatList,
   SectionList,
   TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   ScrollView,
   TextInput,
@@ -37,9 +38,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { RecipesStackParamList } from '../App';
 import { useTheme } from '../lib/theme/ThemeContext';
-import FilterDrawer, { FilterState } from '../components/FilterDrawer';
+import RefineSheet, { FilterState, type SectionId } from '../components/RefineSheet';
 import { AddRecipeModal } from '../components/AddRecipeModal';
-import { searchRecipesByMixedTerms } from '../lib/searchService';
+import { getSearchEntities, getSearchSuggestions, searchRecipesByScopedTerms } from '../lib/searchService';
+import {
+  processBox,
+  tokenize,
+  effectiveSearchTerms,
+  matchSuggestions,
+  isSearchSuggestion,
+  KIND_LABEL,
+  type SearchTerm,
+  type Suggestion,
+} from '../lib/searchTerms';
 import { getRecipeNutritionBatch, RecipeNutrition } from '../lib/services/nutritionService';
 import { getCookingHistory, getFriendsCookingInfo, CookingHistory } from '../lib/services/recipeHistoryService';
 import {
@@ -49,86 +60,90 @@ import {
 } from '../lib/services/dietaryPreferencesService';
 import { calculateRecipeSupplyMatchBulk, PantryMatchResult } from '../lib/services/pantryMatchingService';
 import { filterReadyToCook, getRecipeIngredientNames } from '../lib/services/readyToCookService';
-import { RecipeCard } from '../components/recipe/RecipeCard';
+import { RecipeCard, type Recipe } from '../components/recipe/RecipeCard';
+import { BrowseLensChip } from '../components/recipe/BrowseLensChip';
+import {
+  resolveBrowse,
+  getCookAgainSections,
+  DEFAULT_TILES,
+  FACET_META,
+  getActiveFacets,
+  isFacetActive,
+  type BrowseState,
+  type BrowseContextId,
+  type FacetId,
+  type SortOption,
+} from '../lib/services/recipeBrowseService';
 import { useActiveSpaceId } from '../contexts/SpaceContext';
+import { useCollapsibleHeader } from '../hooks/useCollapsibleHeader';
+import Slider from '@react-native-community/slider';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeList'>;
 
-type BrowseMode = 'all' | 'cook_again' | 'try_new';
-
-type SortOption = 'newest' | 'alpha' | 'cal_low' | 'cal_high' | 'protein_high' | 'fastest' | 'most_cooked' | 'highest_rated' | 'pantry_match';
-
-interface Recipe {
-  id: string;
-  title: string;
-  description: string;
-  prep_time_min: number;
-  cook_time_min: number;
-  inactive_time_min: number;
-  active_time_min: number;
-  total_time_min: number;
-  servings: number;
-  difficulty_level: 'easy' | 'medium' | 'advanced';
-  easier_than_looks: boolean;
-  cooking_methods: string[];
-  cuisine_types: string[];
-  make_ahead_friendly: boolean;
-  is_one_pot: boolean;
-  chef_id: string;
-  chef_name?: string;
-  book_name?: string;
-  cost_per_serving?: number;
-  ingredient_count?: number;
-  pantry_match?: number;
-  is_pinned?: boolean;
-  image_url?: string;
-
-  // Phase 3A fields (already on recipes table from AI backfill)
-  hero_ingredients: string[];
-  vibe_tags: string[];
-  serving_temp: string | null;
-  course_type: string | null;
-  make_ahead_score: number | null;
-
-  // Cooking history (computed from posts)
-  times_cooked?: number;
-  last_cooked?: string | null;
-  first_cooked?: string | null;
-  avg_rating?: number | null;
-  latest_rating?: number | null;
-  friends_cooked_count?: number;
-
-  // Nutrition (from batch fetch via nutritionService)
-  cal_per_serving?: number;
-  protein_per_serving_g?: number;
-  fat_per_serving_g?: number;
-  carbs_per_serving_g?: number;
-  is_vegan?: boolean;
-  is_vegetarian?: boolean;
-  is_gluten_free?: boolean;
-  is_dairy_free?: boolean;
-  is_nut_free?: boolean;
-  is_shellfish_free?: boolean;
-  is_soy_free?: boolean;
-  is_egg_free?: boolean;
-  nutrition_quality_label?: string;
-}
+// 11A-CP2: local Recipe interface folded into the canonical
+// `components/recipe/RecipeCard.tsx` export (CP1 carryover cleanup #1).
+// Browse-mode type is now BrowseContextId from recipeBrowseService.
 
 type IconComponent = React.ComponentType<{ size?: number; color?: string }>;
 
-interface QuickFilter {
-  id: string;
+// 11D: adjustable macro thresholds. Each can be HIGH (≥, min field) or LOW
+// (≤, max field). Driven by the search typeahead + tap-to-adjust pills; the
+// resolver applies the fields. (Recipes only carry cal/protein/carbs/fat per
+// serving — sugar/fiber/sodium aren't available.)
+type NutrientKey = 'calories' | 'protein' | 'carbs' | 'fat';
+interface NutrientCfg {
   label: string;
-  icon?: string;
-  IconComponent?: IconComponent;
-  active: boolean;
+  unit: string;
+  minField: keyof FilterState;
+  maxField: keyof FilterState;
+  recipeField: 'cal_per_serving' | 'protein_per_serving_g' | 'carbs_per_serving_g' | 'fat_per_serving_g';
+  defaultDir: 'min' | 'max';
+  defaultValue: number;
+  sliderMin: number;
+  sliderMax: number;
+  sliderStep: number;
 }
+const NUTRIENTS: Record<NutrientKey, NutrientCfg> = {
+  calories: { label: 'Calories', unit: '',     minField: 'minCaloriesPerServing', maxField: 'maxCaloriesPerServing', recipeField: 'cal_per_serving',        defaultDir: 'max', defaultValue: 600, sliderMin: 0, sliderMax: 1200, sliderStep: 50 },
+  protein:  { label: 'Protein',  unit: 'g',     minField: 'minProteinPerServing',  maxField: 'maxProteinPerServing',  recipeField: 'protein_per_serving_g', defaultDir: 'min', defaultValue: 25,  sliderMin: 0, sliderMax: 60,   sliderStep: 5 },
+  carbs:    { label: 'Carbs',    unit: 'g',     minField: 'minCarbsPerServing',    maxField: 'maxCarbsPerServing',    recipeField: 'carbs_per_serving_g',   defaultDir: 'max', defaultValue: 30,  sliderMin: 0, sliderMax: 100,  sliderStep: 5 },
+  fat:      { label: 'Fat',      unit: 'g',     minField: 'minFatPerServing',      maxField: 'maxFatPerServing',      recipeField: 'fat_per_serving_g',     defaultDir: 'max', defaultValue: 20,  sliderMin: 0, sliderMax: 60,   sliderStep: 5 },
+};
+const TIME_SLIDER = { min: 10, max: 120, step: 5 };
+
+// 11D: bucket recipes by a numeric value into N bins for the slider histogram.
+const HISTO_BINS = 18;
+function buildHistogram(
+  items: Recipe[],
+  accessor: (r: Recipe) => number | null | undefined,
+  min: number,
+  max: number,
+  bins: number,
+): number[] {
+  const size = (max - min) / bins;
+  const out = new Array(bins).fill(0);
+  for (const r of items) {
+    const x = accessor(r);
+    if (x == null) continue;
+    let i = Math.floor((x - min) / size);
+    if (i < 0) i = 0;
+    if (i >= bins) i = bins - 1;
+    out[i]++;
+  }
+  return out;
+}
+
+// 11A-CP3: legacy QuickFilter interface removed — the four quick filters are
+// now facet-driven refinements on BrowseState.refinements (dietary, protein,
+// quickUnder30, vibeTags).
 
 export default function RecipeListScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const activeSpaceId = useActiveSpaceId();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
+  // 11A-CP2 (CP1 carryover cleanup #2): `filteredRecipes` is now a useMemo
+  // derived from `browseState`. Declared below alongside the other browse
+  // useMemos.
   // 8R-UX1: search results live as a Set of recipe IDs (or null = no active
   // search). applyFilters intersects with this; previously handleSearch wrote
   // straight to filteredRecipes and got clobbered by the next applyFilters
@@ -136,8 +151,37 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [searchedRecipeIds, setSearchedRecipeIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  // 11A-CP4: section the RefineSheet should scroll to on open. The `cuisine`
+  // facet sets this to 'cuisine' so the user lands on the picker directly
+  // instead of scrolling past Time/Nutrition/Dietary. Cleared on close.
+  const [refineInitialSection, setRefineInitialSection] = useState<SectionId | undefined>(undefined);
+  // 11A-CP5a: explicit screen mode. 'home' = tiles only (discovery); 'list' =
+  // recipe list with the compact filter line. Explicit rather than derived so
+  // "Browse all" can land in Mode B with context='all' (which derivation from
+  // context alone can't express). Initial value 'home'.
+  const [screenMode, setScreenMode] = useState<'home' | 'list'>('home');
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [searchText, setSearchText] = useState('');
+  // 11D stacked search — committed search terms (pills); the box (`searchText`)
+  // holds the in-progress word. `entitySet` (real ingredient + chef names)
+  // keeps multi-word entities like "olive oil" from splitting.
+  const [searchTerms, setSearchTerms] = useState<SearchTerm[]>([]);
+  const [entitySet, setEntitySet] = useState<Set<string>>(new Set());
+  // 11D typeahead — suggestion index (ingredients/categories/chefs/cuisines).
+  const [suggestionIndex, setSuggestionIndex] = useState<Suggestion[]>([]);
+  // 11D: true while a committed search is in flight — shows a spinner in the
+  // list area so an Enter-commit lands on the list immediately (with pills)
+  // rather than hanging on the home screen until results return.
+  const [searching, setSearching] = useState(false);
+  // 11D: tap-a-pill threshold picker target (a macro w/ direction, or time).
+  const [adjustTarget, setAdjustTarget] = useState<{ kind: 'time' } | { kind: 'nutrient'; nutrient: NutrientKey } | null>(null);
+  const [adjustDir, setAdjustDir] = useState<'min' | 'max'>('max');
+  const [sliderValue, setSliderValue] = useState(0);
+  // Recipes passing ALL other active filters except the one being adjusted —
+  // cached on open so the live count is a cheap numeric filter per slider tick.
+  const [adjustBaseSet, setAdjustBaseSet] = useState<Recipe[]>([]);
+  // Histogram bin counts (the distribution of the base set across the range).
+  const [adjustBins, setAdjustBins] = useState<number[]>([]);
   // CP6d-SmokeFix-3 (D11): set when initialIngredient route param drives the
   // search; the next searchText change after this flag triggers handleSearch.
   const [userId, setUserId] = useState<string | null>(null);
@@ -145,8 +189,8 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [historyMap, setHistoryMap] = useState<Map<string, CookingHistory>>(new Map());
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
-  // Browse mode
-  const [browseMode, setBrowseMode] = useState<BrowseMode>('all');
+  // Browse mode — 11A-CP2: BrowseContextId now covers tile contexts as well.
+  const [browseMode, setBrowseMode] = useState<BrowseContextId>('all');
   const [selectedBook, setSelectedBook] = useState<string | null>(null);
   const [showBookDropdown, setShowBookDropdown] = useState(false);
 
@@ -155,6 +199,27 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [showSortPicker, setShowSortPicker] = useState(false);
   const [sortAnchor, setSortAnchor] = useState({ top: 0, right: 0 });
   const sortButtonRef = useRef<any>(null);
+  // 11D: monotonically-increasing search id so a slower earlier query can't
+  // clobber a newer one's results as the user types (latest-wins guard).
+  const searchSeqRef = useRef(0);
+
+  // 11D: direction-aware collapsing filter chrome (list mode). Scrolling down
+  // collapses search bar + filter line + status to a tappable pill; scrolling
+  // up / reaching the top restores them. `listRef` powers scroll-to-top on
+  // pill tap.
+  const { collapsed, onScroll: onListScroll, expand: expandHeader } = useCollapsibleHeader();
+  const listRef = useRef<any>(null);
+  const scrollListToTop = useCallback(() => {
+    const r: any = listRef.current;
+    if (!r) return;
+    if (r.scrollToOffset) r.scrollToOffset({ offset: 0, animated: true });
+    else if (r.scrollToLocation) {
+      try { r.scrollToLocation({ sectionIndex: 0, itemIndex: 0, animated: true }); } catch {}
+    }
+  }, []);
+  // Start every fresh result view expanded (new search / tile / mode) so the
+  // chrome is visible before the user scrolls.
+  useEffect(() => { expandHeader(); }, [screenMode, browseMode, searchedRecipeIds, expandHeader]);
 
   // 8D-CP1: bulk recipe ↔ pantry match results, keyed by recipe id.
   const [matchMap, setMatchMap] = useState<Map<string, PantryMatchResult>>(new Map());
@@ -168,21 +233,20 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectionFormData, setSelectionFormData] = useState<any>(null);
 
-  // Quick filters state
-  const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
-    { id: 'vegetarian',   label: 'Vegetarian', IconComponent: VegetablesIcon, active: false },
-    { id: 'highProtein',  label: 'High Protein', IconComponent: BodybuilderIcon, active: false },
-    { id: 'quick30',      label: 'Under 30m', IconComponent: TimerIcon, active: false },
-    { id: 'comfort',      label: 'Comfort', IconComponent: SoupIcon, active: false },
-  ]);
+  // 11A-CP3: legacy quickFilters state removed. The four semantics now live
+  // as refinements toggled via the contextual facet row (see refine surface
+  // below): `vegetarian` → dietaryFlags.is_vegetarian, `highProtein` →
+  // minProteinPerValues=25, `quick30` → quickUnder30=true, `comfort` →
+  // vibeTags=['comfort'] (the latter is via More, not a default facet).
 
-  // Advanced filter state (managed by FilterDrawer)
+  // Advanced filter state (managed by FilterDrawer + the CP3 facet row)
   const [advancedFilters, setAdvancedFilters] = useState<Partial<FilterState>>({});
 
-  // 10F — user dietary prefs (drives the "From your dietary preferences" indicator
-  // + auto-applies to advancedFilters.dietaryFlags when auto_apply_to_browse is true)
+  // 10F — user dietary prefs auto-applied to refinements.dietaryFlags on load.
+  // CP3 removes the "From your dietary preferences / Show all" text indicator;
+  // active dietary flags now render as dismissible refinement chips in the
+  // refine row (clearing one removes the chip without touching saved prefs).
   const [userDietaryPrefs, setUserDietaryPrefs] = useState<DietaryPreferences | null>(null);
-  const [autoFilterDismissed, setAutoFilterDismissed] = useState(false);
 
   // Smart counts
   const [pinnedCount, setPinnedCount] = useState(0);
@@ -220,50 +284,41 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     [recipes, matchMap]
   );
 
-  // 8D-CP4: count of recipes passing the shared ready-to-cook gate. Drives the
-  // "X you can make now" badge. Heroes are name-resolved against each recipe's
-  // catalog ingredients via the readyToCookService gate.
-  const canMakeCount = useMemo(() => {
-    if (recipes.length === 0 || matchMap.size === 0) return 0;
+  // 11A-CP2: ready-to-cook id set (used by both the `ready_to_cook` tile
+  // context predicate and the legacy "X you can make now" badge). Computed
+  // once via readyToCookService.filterReadyToCook over matchMap +
+  // recipeIngredientsMap; the tile context predicate just does set membership.
+  // Returns null when the gate hasn't been computed yet (no supplies / no
+  // recipes loaded), which the predicate treats as "no matches".
+  const readyToCookIds = useMemo<Set<string> | null>(() => {
+    if (recipes.length === 0 || matchMap.size === 0) return null;
     const withIngredients = recipes.map(r => ({
       ...r,
       ingredients: recipeIngredientsMap.get(r.id) ?? [],
     }));
-    return filterReadyToCook(withIngredients, matchMap).length;
+    const ready = filterReadyToCook(withIngredients, matchMap);
+    return new Set(ready.map(r => r.id));
   }, [recipes, matchMap, recipeIngredientsMap]);
 
-  // Cook Again sections — organises filteredRecipes (already browse-filtered) into smart groups
-  const cookAgainSections = useMemo(() => {
-    if (browseMode !== 'cook_again') return [];
-    const now = Date.now();
-    const msPerDay = 1000 * 60 * 60 * 24;
+  // 8D-CP4: "X you can make now" status-bar count, now derived from
+  // readyToCookIds (was its own filterReadyToCook call; consolidated in CP2).
+  const canMakeCount = readyToCookIds?.size ?? 0;
 
-    const recentFavorites = filteredRecipes.filter(r => {
-      if (!r.last_cooked) return false;
-      const days = (now - new Date(r.last_cooked).getTime()) / msPerDay;
-      return days <= 30 && (r.avg_rating ?? 0) >= 4;
+  // 11A-CP2: dictionary of dietary flags the user has set in their preferences.
+  // Drives the `for_your_diet` tile predicate (AND over set flags) and its
+  // liveness gate (live iff at least one flag is set).
+  const userDietaryFlagsActive = useMemo<Record<string, boolean>>(() => {
+    if (!userDietaryPrefs) return {};
+    const flags: Record<string, boolean> = {};
+    DIETARY_FLAG_KEYS.forEach(k => {
+      if (userDietaryPrefs[k]) flags[k] = true;
     });
+    return flags;
+  }, [userDietaryPrefs]);
 
-    const forgottenGems = filteredRecipes.filter(r => {
-      if (!r.last_cooked) return false;
-      const days = (now - new Date(r.last_cooked).getTime()) / msPerDay;
-      return (r.avg_rating ?? 0) >= 4 && days > 60;
-    });
-
-    const regulars = filteredRecipes.filter(r => (r.times_cooked ?? 0) >= 3);
-
-    const sections: { title: string; SectionIcon?: IconComponent; data: Recipe[] }[] = [];
-    if (recentFavorites.length > 0) sections.push({ title: 'Recent Favorites', SectionIcon: FireIcon, data: recentFavorites });
-    if (forgottenGems.length > 0) sections.push({ title: 'Forgotten Gems', SectionIcon: GemIcon, data: forgottenGems });
-    if (regulars.length > 0) sections.push({ title: 'Regulars', SectionIcon: AgainIcon, data: regulars });
-
-    // Fallback: show everything under a generic heading when no smart sections match
-    if (sections.length === 0 && filteredRecipes.length > 0) {
-      sections.push({ title: 'Cooked Recipes', data: filteredRecipes });
-    }
-
-    return sections;
-  }, [filteredRecipes, browseMode]);
+  // 11A-CP2: cookAgainSections moved to live next to the filteredRecipes
+  // useMemo (now derived from browseState rather than useState/useEffect).
+  // See "browse derivations" block below the route-param effect.
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -320,74 +375,287 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       fontWeight: '600',
     },
 
-    // ── Segmented control ─────────────────────────────────────────
-    segmentedWrapper: {
-      paddingHorizontal: 16,
+    // ── 11A-CP2: top search + tile grid + cuisine strip ───────────
+    topSearchContainer: {
+      paddingHorizontal: 15,
+      paddingTop: 0,
       paddingBottom: 10,
     },
-    segmentedContainer: {
-      flexDirection: 'row',
-      backgroundColor: colors.background.secondary,
-      borderRadius: 10,
-      padding: 3,
-    },
-    segmentedTab: {
-      flex: 1,
+    topSearchBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 7,
-      paddingHorizontal: 4,
-      borderRadius: 8,
-      gap: 4,
+      backgroundColor: colors.background.secondary,
+      borderRadius: 25,
+      paddingHorizontal: 15,
+      paddingVertical: 11,
     },
-    segmentedTabActive: {
+    // 11D typeahead suggestion dropdown (under the search bar).
+    suggestionDropdown: {
+      marginTop: 6,
       backgroundColor: colors.background.card,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.12,
-          shadowRadius: 2,
-        },
-        android: { elevation: 2 },
-      }),
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border.light,
+      overflow: 'hidden',
     },
-    segmentedTabIcon: {
-      fontSize: 13,
+    suggestionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      gap: 10,
     },
-    segmentedTabText: {
-      fontSize: 12,
-      color: colors.text.secondary,
-      fontWeight: '500',
+    suggestionRowBorder: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
     },
-    segmentedTabTextActive: {
+    suggestionLabel: {
+      flex: 1,
+      fontSize: 14,
       color: colors.text.primary,
-      fontWeight: '700',
     },
-
-    // ── Book filter ───────────────────────────────────────────────
-    bookFilterContainer: {
-      paddingHorizontal: 16,
+    suggestionKind: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      textTransform: 'capitalize',
+      fontWeight: '600',
+    },
+    tilePrompt: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: '600',
+      paddingHorizontal: 15,
+      paddingTop: 2,
       paddingBottom: 8,
     },
-    bookFilterButton: {
-      alignSelf: 'flex-start',
+    tileGrid: {
+      paddingHorizontal: 11,
+      paddingBottom: 4,
+    },
+    tileRow: {
+      flexDirection: 'row',
+    },
+    tileCell: {
+      flex: 1,
+      marginHorizontal: 4,
+      marginVertical: 4,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 12,
       backgroundColor: colors.background.card,
       borderWidth: 1,
-      borderColor: colors.border.medium,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 16,
+      borderColor: colors.border.light,
+      minHeight: 78,
     },
-    bookFilterText: {
+    tileCellInroad: {
+      borderStyle: 'dashed',
+      backgroundColor: colors.background.primary,
+      borderColor: colors.border.medium,
+    },
+    tileTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 6,
+    },
+    tileLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+      flex: 1,
+    },
+    tileLabelInroad: {
+      color: colors.text.tertiary,
+      fontWeight: '500',
+    },
+    tileCount: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    tileCountMuted: {
+      color: colors.text.tertiary,
+    },
+    tileInroadRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    tileInroadText: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+      flex: 1,
+    },
+    tileInroadArrow: {
+      fontSize: 14,
+      color: colors.text.tertiary,
+    },
+    cuisineStripContainer: {
+      paddingTop: 4,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+    cuisineStripLabel: {
       fontSize: 13,
       color: colors.text.secondary,
+      paddingHorizontal: 15,
+      marginBottom: 6,
+      fontWeight: '600',
     },
-    bookFilterTextActive: {
+    cuisineStripScroll: {
+      paddingHorizontal: 15,
+    },
+    cuisineChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 16,
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: colors.border.light,
+      marginRight: 6,
+    },
+    cuisineChipActive: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    cuisineChipText: {
+      fontSize: 13,
+      color: colors.text.primary,
+      fontWeight: '500',
+      textTransform: 'capitalize' as const,
+    },
+    cuisineChipTextActive: {
       color: colors.primary,
       fontWeight: '600',
     },
+
+    // ── 11A-CP3: refine surface ────────────────────────────────────
+    refinementChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 15,
+      paddingTop: 4,
+      paddingBottom: 2,
+    },
+    refinementChipSlot: {
+      marginRight: 6,
+      marginBottom: 6,
+    },
+    facetRowContainer: {
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+    },
+
+    // ── 11A-CP5a: Mode A "Browse all <N> →" link + Mode B filter line ──
+    browseAllRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 18,
+      paddingTop: 4,
+      paddingBottom: 10,
+    },
+    browseAllText: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    // 11D-CP2 Mode A "Browse by → Books · Chefs" row.
+    browseByRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      paddingTop: 4,
+      paddingBottom: 4,
+    },
+    browseByPrefix: {
+      fontSize: 13,
+      color: colors.text.secondary,
+    },
+    browseByLink: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    browseByLinkMuted: {
+      fontSize: 13,
+      color: colors.text.tertiary,
+      fontWeight: '500',
+    },
+    filterLineContainer: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+      gap: 6,
+    },
+    filterLineChips: {
+      flex: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    filterLineChipSlot: {
+      marginRight: 6,
+      marginBottom: 6,
+    },
+    refineButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background.card,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 16,
+      gap: 4,
+      marginTop: 0,
+    },
+    refineButtonText: {
+      fontSize: 13,
+      color: colors.text.primary,
+      fontWeight: '600',
+    },
+    compactStatus: {
+      paddingHorizontal: 18,
+      paddingTop: 4,
+      paddingBottom: 6,
+    },
+    compactStatusText: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      fontWeight: '500',
+    },
+    // 11D: collapsed filter pill (shown in place of the chrome when scrolled).
+    collapsedBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 15,
+      paddingVertical: 9,
+      backgroundColor: colors.background.secondary,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.light,
+    },
+    collapsedBarText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: '600',
+    },
+    collapsedBarChevron: {
+      fontSize: 14,
+      color: colors.text.tertiary,
+      fontWeight: '700',
+    },
+
+    // ── 11A-CP4 dead-style sweep: segmentedWrapper/Container/Tab*
+    // (segmented control gone in CP2) + bookFilter* (standalone book dropdown
+    // gone in CP3, cookbook is a facet now) removed.
 
     // ── Book picker bottom sheet ──────────────────────────────────
     modalOverlay: {
@@ -401,6 +669,122 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       borderTopRightRadius: 16,
       paddingBottom: 32,
       maxHeight: '60%',
+    },
+    // 11D: tap-a-pill threshold picker sheet.
+    adjustSheet: {
+      backgroundColor: colors.background.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingTop: 8,
+      paddingBottom: 32,
+    },
+    adjustTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text.tertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+    },
+    adjustOption: {
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.light,
+    },
+    adjustOptionText: {
+      fontSize: 16,
+      color: colors.text.primary,
+    },
+    adjustToggleRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 20,
+      paddingBottom: 8,
+    },
+    adjustToggle: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 9,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.background.card,
+    },
+    adjustToggleActive: {
+      // Solid fill so the active toggle matches the coloured (included) bars.
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    adjustToggleText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text.secondary,
+    },
+    adjustToggleTextActive: {
+      color: '#ffffff',
+    },
+    adjustCaption: {
+      fontSize: 12,
+      color: colors.text.tertiary,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 6,
+    },
+    adjustValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text.primary,
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
+    adjustCount: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    histoRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      height: 60,
+      paddingHorizontal: 20,
+      gap: 2,
+      marginBottom: 2,
+    },
+    histoCol: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    histoBar: {
+      width: '100%',
+      borderRadius: 2,
+    },
+    adjustSliderWrap: {
+      paddingHorizontal: 20,
+    },
+    adjustSliderBounds: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: -4,
+    },
+    adjustBoundText: {
+      fontSize: 11,
+      color: colors.text.tertiary,
+    },
+    adjustDone: {
+      marginTop: 12,
+      marginHorizontal: 20,
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 13,
+      alignItems: 'center',
+    },
+    adjustDoneText: {
+      color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '600',
     },
     bookPickerHeader: {
       paddingHorizontal: 20,
@@ -438,23 +822,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       color: colors.primary,
     },
 
-    // ── Sort button + dropdown ────────────────────────────────────
-    sortButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.background.card,
-      borderWidth: 1,
-      borderColor: colors.border.medium,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: 20,
-      gap: 4,
-    },
-    sortButtonText: {
-      fontSize: 13,
-      color: colors.text.tertiary,
-      fontWeight: '500',
-    },
+    // ── Sort dropdown (button removed in CP3 — Sort is now a facet) ───
     sortOverlay: {
       flex: 1,
     },
@@ -529,33 +897,12 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       letterSpacing: 0.2,
     },
 
-    quickFiltersContainer: {
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border.medium,
-    },
-    // 10F — "From your dietary preferences" indicator (above the quick-filters row)
-    dietaryPrefIndicator: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 6,
-      gap: 6,
-      backgroundColor: colors.background.card,
-    },
-    dietaryPrefIndicatorIcon: {
-      fontSize: 12,
-    },
-    dietaryPrefIndicatorText: {
-      fontSize: 11,
-      color: colors.text.secondary,
-      flex: 1,
-    },
-    dietaryPrefShowAll: {
-      fontSize: 11,
-      color: colors.primary,
-      fontWeight: '500',
-    },
+    // 11A-CP4 dead-style sweep: dietaryPrefIndicator* (10F text indicator
+    // removed in CP3; dietary chips render via BrowseLensChip now);
+    // quickFiltersContainer (replaced by facetRowContainer in CP3);
+    // quickFilterChipActive / quickFilterLabelActive (active facets render
+    // as dismissible refinement chips above, not in the facet row);
+    // quickFilterIcon (emoji text style — never used post-CP3).
     quickFiltersScroll: {
       paddingHorizontal: 15,
       gap: 8,
@@ -571,22 +918,10 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       borderWidth: 1,
       borderColor: colors.border.light,
     },
-    quickFilterChipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    quickFilterIcon: {
-      fontSize: 14,
-      marginRight: 4,
-    },
     quickFilterLabel: {
       fontSize: 13,
       color: colors.text.secondary,
       fontWeight: '500',
-    },
-    quickFilterLabelActive: {
-      color: '#ffffff',
-      fontWeight: '600',
     },
     moreChip: {
       flexDirection: 'row',
@@ -772,26 +1107,9 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       fontWeight: '600',
     },
 
-    bottomSearchContainer: {
-      backgroundColor: colors.background.card,
-      borderTopWidth: 1,
-      borderTopColor: colors.border.medium,
-      paddingHorizontal: 15,
-      paddingVertical: 10,
-      paddingBottom: 20,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.background.secondary,
-      borderRadius: 25,
-      paddingHorizontal: 15,
-      paddingVertical: 12,
-    },
-    searchIcon: {
-      fontSize: 18,
-      marginRight: 8,
-    },
+    // 11A-CP4 dead-style sweep: bottomSearchContainer / searchBar / searchIcon
+    // (bottom search bar replaced with topSearchBar in CP2; searchIcon was an
+    // emoji text style — SearchIcon SVG used now).
     searchInput: {
       flex: 1,
       fontSize: 15,
@@ -1006,6 +1324,8 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   useEffect(() => {
     loadRecipes();
     getCurrentUser();
+    getSearchEntities().then(setEntitySet).catch(() => {});
+    getSearchSuggestions().then(setSuggestionIndex).catch(() => {});
   }, []);
 
   // 8D-CP1: bulk-compute recipe ↔ pantry match for the loaded recipe set.
@@ -1052,6 +1372,27 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     }, [route.params?.selectionMode, route.params?.returnToMeals])
   );
 
+  // 11A-CP5a — Recipes tab tap while focused → reset to Mode A. Acts as a
+  // "go home" affordance: from any Mode B lens/filter state, tapping the tab
+  // icon returns to the discovery tiles. Skipped on a different tab
+  // (isFocused false at event time) or in selection mode (clearLens would
+  // wipe state the picker flow expects).
+  //
+  // Navigation tree from this screen: `navigation` IS the RecipesStack
+  // navigator; `navigation.getParent()` is the bottom-tab navigator (where
+  // `tabPress` is emitted). One climb — not two. (The framework's documented
+  // "reset nested stack on tab re-press" pattern.)
+  useEffect(() => {
+    const tab = navigation.getParent();
+    if (!tab) return;
+    const unsubscribe = tab.addListener('tabPress' as any, () => {
+      if (navigation.isFocused() && !isSelectionMode) {
+        clearLens();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, clearLens, isSelectionMode]);
+
   // Handle initial filter params from stats drill-downs
   useEffect(() => {
     const params = route.params;
@@ -1079,11 +1420,23 @@ export default function RecipeListScreen({ navigation, route }: Props) {
 
     if (!hasInitialFilter) return;
 
-    // Apply browse mode
-    if (initialBrowseMode) {
-      setBrowseMode(initialBrowseMode);
+    // 11A-CP5a: stats drill-downs land in Mode B (list view), not Mode A —
+    // the user came in with a specific lens, they want to see results, not
+    // the home tiles.
+    setScreenMode('list');
+
+    // Apply browse mode. 11A-CP2: legacy stats drill-down values
+    // ('cook_again' / 'try_new') map to the new tile contexts. Default for
+    // drill-down without an explicit mode is `something_new` (preserves the
+    // pre-CP2 "Try New" default for cuisine/concept/dietary drill-downs).
+    if (initialBrowseMode === 'cook_again') {
+      setBrowseMode('your_classics');
+    } else if (initialBrowseMode === 'try_new') {
+      setBrowseMode('something_new');
+    } else if (initialBrowseMode === 'all') {
+      setBrowseMode('all');
     } else {
-      setBrowseMode('try_new');
+      setBrowseMode('something_new');
     }
 
     // Build advanced filters from initial params
@@ -1129,10 +1482,153 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     } as any);
   }, [route.params?.initialCuisine, route.params?.initialCookingConcept, route.params?.initialDietaryFlag, route.params?.initialBrowseMode, route.params?.initialChefId, route.params?.initialBookId, route.params?.initialIngredient]);
 
-  useEffect(() => {
-    const runFilters = async () => { await applyFilters(); };
-    runFilters();
-  }, [recipesWithMatch, quickFilters, advancedFilters, browseMode, selectedBook, sortOption, matchMap, searchedRecipeIds]);
+  // ── 11A-CP2 browse derivations ────────────────────────────────
+  // CP1 introduced BrowseState as a useMemo + a setFilteredRecipes useEffect.
+  // CP2 (a) extends BrowseState with readyToCookIds + userDietaryFlags for the
+  // new tile contexts, (b) converts filteredRecipes from useState/useEffect to
+  // a useMemo derived directly from browseState (drops the exhaustive-deps
+  // warning CP1 carried), and (c) adds the tile counts + cuisine strip
+  // useMemos that drive the new home presentation.
+  const browseState = useMemo<BrowseState>(() => ({
+    context: browseMode,
+    selectedBook,
+    refinements: advancedFilters,
+    searchedRecipeIds,
+    sort: sortOption,
+    readyToCookIds,
+    userDietaryFlags: userDietaryFlagsActive,
+  }), [
+    browseMode,
+    selectedBook,
+    advancedFilters,
+    searchedRecipeIds,
+    sortOption,
+    readyToCookIds,
+    userDietaryFlagsActive,
+  ]);
+
+  const filteredRecipes = useMemo(
+    () => resolveBrowse(recipesWithMatch, matchMap, browseState),
+    [recipesWithMatch, matchMap, browseState],
+  );
+
+  // Cook Again sectioning — gated on the your_classics tile (CP1 cook_again).
+  // The pure grouping lives in recipeBrowseService.getCookAgainSections.
+  const cookAgainSections = useMemo(() => {
+    if (browseMode !== 'your_classics') return [];
+    // Tag each item with its section title so the SectionList keyExtractor can
+    // build keys that are unique across sections. A recipe may legitimately
+    // appear in more than one Cook Again section (e.g. Recent Favorites AND
+    // Regulars); without the section in the key, `${id}-${index}` collides
+    // (index resets per section) and React warns about duplicate keys.
+    return getCookAgainSections(filteredRecipes).map(s => ({
+      ...s,
+      data: s.data.map(r => ({ ...r, _sectionKey: s.title })),
+    }));
+  }, [filteredRecipes, browseMode]);
+
+  // Tile counts — one resolveBrowse pass per default tile with empty
+  // refinements/quickFilters/search so the count reflects the tile lens alone.
+  // ready_to_cook + for_your_diet pull readyToCookIds + userDietaryFlagsActive
+  // from the same state used by resolveBrowse, so counts stay consistent.
+  const tileCounts = useMemo(() => {
+    const out: Partial<Record<BrowseContextId, number>> = {};
+    for (const tile of DEFAULT_TILES) {
+      out[tile.id] = resolveBrowse(recipesWithMatch, matchMap, {
+        context: tile.id,
+        selectedBook: null,
+        refinements: {},
+        searchedRecipeIds: null,
+        sort: 'newest',
+        readyToCookIds,
+        userDietaryFlags: userDietaryFlagsActive,
+      }).length;
+    }
+    return out;
+  }, [recipesWithMatch, matchMap, readyToCookIds, userDietaryFlagsActive]);
+
+  // Tile liveness — when the gate is unmet, the tile renders as an inroad CTA
+  // instead of a count. quick_tonight + recently_added are always live (so
+  // long as the user has any recipes); the rest gate on real signal.
+  const tileLiveness = useMemo<Partial<Record<BrowseContextId, boolean>>>(() => ({
+    quick_tonight: recipes.length > 0,
+    ready_to_cook: !!readyToCookIds && readyToCookIds.size > 0,
+    recently_added: recipes.length > 0,
+    your_classics: recipes.some(r => (r.times_cooked ?? 0) > 0),
+    for_your_diet: Object.keys(userDietaryFlagsActive).length > 0,
+    friends_cook: recipes.some(r => (r.friends_cooked_count ?? 0) > 0),
+  }), [recipes, readyToCookIds, userDietaryFlagsActive]);
+
+  // Cuisine strip — top ~8 cuisines from the loaded recipe set, by frequency.
+  // Powers the horizontal chip row below the tile grid; CP4 may revisit the
+  // ordering (e.g. dietary-aware boosting).
+  const cuisineStrip = useMemo(() => {
+    const counts: Record<string, number> = {};
+    recipes.forEach(r => (r.cuisine_types ?? []).forEach(c => {
+      counts[c] = (counts[c] ?? 0) + 1;
+    }));
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name]) => name);
+  }, [recipes]);
+
+  // 11A-CP5a — lens chip ✕. Returns to Mode A (home), resets context to
+  // 'all', clears search + selectedBook + all refinements EXCEPT the
+  // auto-applied dietary flags (which get re-seeded so Mode A's tile counts
+  // continue to reflect the user's dietary prefs). Removing a dietary chip
+  // in Mode B still leaves saved prefs untouched per the CP3 semantic — this
+  // re-seed only fires on the lens-clear path, not on individual chip clears.
+  const clearLens = useCallback(() => {
+    const seededDietary = userDietaryPrefs?.auto_apply_to_browse ? userDietaryFlagsActive : {};
+    setAdvancedFilters({
+      dietaryFlags: seededDietary,
+      heroIngredients: [],
+      vibeTags: [],
+      difficultyLevels: [],
+      cookingMethods: [],
+      cuisineTypes: [],
+      courseTypes: [],
+      ingredientCountRanges: [],
+      servingTemp: [],
+      easierThanLooks: false,
+      makeAheadFriendly: false,
+      recentlySaved: false,
+      recentlyCookedByFriends: false,
+      quickUnder30: false,
+      onePotOnly: false,
+    });
+    setSearchText('');
+    setSearchTerms([]);
+    setSearchedRecipeIds(null);
+    setBrowseMode('all');
+    setSelectedBook(null);
+    setExpandedCardId(null);
+    setScreenMode('home');
+  }, [userDietaryPrefs, userDietaryFlagsActive]);
+
+  // 11A-CP5a — active-lens label for the Mode B filter line. Search wins
+  // over tile context (a search inside a tile is still primarily a search
+  // from the user's perspective); tile wins over the implicit "Browse all"
+  // case. Closes P11A-CP5-deferred-1 — the search lens now surfaces a
+  // `"<query>"` label rather than falling back silently. Clearing always
+  // returns to Mode A via `clearLens` (supersedes CP2's clear-in-place).
+  const lens = useMemo<{ label: string; clear: () => void } | null>(() => {
+    if (screenMode !== 'list') return null;
+    // 11D: the search query lives in the persistent search bar (now mounted in
+    // list mode too), so the lens reflects the browse CONTEXT rather than the
+    // search term — no redundant `"<query>"` chip duplicating the bar.
+    if (browseMode !== 'all') {
+      const tile = DEFAULT_TILES.find(t => t.id === browseMode);
+      const label =
+        tile?.label
+        ?? (browseMode === 'something_new' ? 'Something new' : String(browseMode));
+      return { label, clear: clearLens };
+    }
+    // 11D: no "All recipes" lens chip — redundant; the search bar/pills already
+    // convey state. Plain 'all' context shows no lens chip.
+    return null;
+  }, [screenMode, browseMode, clearLens]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1256,7 +1752,8 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       });
 
       setRecipes(enrichedRecipes);
-      setFilteredRecipes(enrichedRecipes);
+      // 11A-CP2: filteredRecipes is derived via useMemo from browseState;
+      // setting recipes triggers the resolveBrowse recomputation downstream.
 
       const pinned = enrichedRecipes.filter(r => r.is_pinned).length;
       setPinnedCount(pinned);
@@ -1270,260 +1767,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     }
   };
 
-  const applyFilters = async () => {
-    // 8D-CP4: filter over recipesWithMatch so filteredRecipes carry the real
-    // pantry_match value (the pantry_match sort still reads matchMap directly).
-    let filtered = [...recipesWithMatch];
-
-    // 0. Search filter (8R-UX1). When searchedRecipeIds is non-null, the user
-    // has an active search; intersect with the search hits before applying
-    // other filters. This makes search survive subsequent applyFilters re-runs
-    // triggered by matchMap updates etc. — previously handleSearch wrote
-    // straight to filteredRecipes and got overwritten.
-    if (searchedRecipeIds !== null) {
-      filtered = filtered.filter((r) => searchedRecipeIds.has(r.id));
-    }
-
-    // 1. Browse mode (applied first)
-    if (browseMode === 'cook_again') {
-      filtered = filtered.filter(r => (r.times_cooked ?? 0) > 0);
-    } else if (browseMode === 'try_new') {
-      filtered = filtered.filter(r => (r.times_cooked ?? 0) === 0);
-      if (selectedBook) {
-        filtered = filtered.filter(r => r.book_name === selectedBook);
-      }
-    }
-
-    // 2. Quick filters
-    quickFilters.forEach(filter => {
-      if (!filter.active) return;
-      switch (filter.id) {
-        case 'vegetarian':
-          filtered = filtered.filter(r => r.is_vegetarian === true);
-          break;
-        case 'highProtein':
-          filtered = filtered.filter(r =>
-            r.protein_per_serving_g != null && r.protein_per_serving_g >= 25
-          );
-          break;
-        case 'quick30':
-          filtered = filtered.filter(r =>
-            (r.total_time_min && r.total_time_min <= 30) ||
-            (r.active_time_min && r.active_time_min <= 30) ||
-            (r.prep_time_min + r.cook_time_min <= 30)
-          );
-          break;
-        case 'comfort':
-          filtered = filtered.filter(r =>
-            r.vibe_tags?.some(t => t.toLowerCase() === 'comfort')
-          );
-          break;
-      }
-    });
-
-    // 3. Advanced filters
-    const af = advancedFilters;
-
-    // Dietary — AND logic: every selected flag must be true on the recipe
-    if (af.dietaryFlags) {
-      const flags = af.dietaryFlags as Record<string, boolean | undefined>;
-      Object.entries(flags).forEach(([key, required]) => {
-        if (!required) return;
-        filtered = filtered.filter(r => (r as any)[key] === true);
-      });
-    }
-
-    // Hero ingredients — OR logic: at least one selected ingredient in recipe.hero_ingredients
-    if (af.heroIngredients?.length) {
-      filtered = filtered.filter(r =>
-        af.heroIngredients!.some(h =>
-          r.hero_ingredients?.some(rh => rh.toLowerCase() === h.toLowerCase())
-        )
-      );
-    }
-
-    // Vibe tags — OR logic
-    if (af.vibeTags?.length) {
-      filtered = filtered.filter(r =>
-        af.vibeTags!.some(v =>
-          r.vibe_tags?.some(rv => rv.toLowerCase() === v.toLowerCase())
-        )
-      );
-    }
-
-    // Nutrition
-    if (af.maxCaloriesPerServing != null) {
-      filtered = filtered.filter(r =>
-        r.cal_per_serving == null || r.cal_per_serving <= af.maxCaloriesPerServing!
-      );
-    }
-    if (af.minProteinPerServing != null) {
-      filtered = filtered.filter(r =>
-        r.protein_per_serving_g != null && r.protein_per_serving_g >= af.minProteinPerServing!
-      );
-    }
-
-    // Time
-    if (af.maxActiveTime != null) {
-      filtered = filtered.filter(r =>
-        r.active_time_min == null || r.active_time_min <= af.maxActiveTime!
-      );
-    }
-    if (af.maxTotalTime != null) {
-      filtered = filtered.filter(r =>
-        (r.total_time_min == null || r.total_time_min <= af.maxTotalTime!) &&
-        (r.active_time_min == null || r.active_time_min <= af.maxTotalTime!)
-      );
-    }
-
-    // Difficulty — OR logic across selected levels
-    if (af.difficultyLevels?.length) {
-      filtered = filtered.filter(r =>
-        r.difficulty_level != null && af.difficultyLevels!.includes(r.difficulty_level)
-      );
-    }
-    if (af.easierThanLooks) {
-      filtered = filtered.filter(r => r.easier_than_looks === true);
-    }
-
-    // Cooking methods — OR logic
-    if (af.cookingMethods?.length) {
-      filtered = filtered.filter(r =>
-        r.cooking_methods?.some(m => af.cookingMethods!.includes(m))
-      );
-    }
-
-    // Cuisine — OR logic
-    if (af.cuisineTypes?.length) {
-      filtered = filtered.filter(r =>
-        r.cuisine_types?.some(c => af.cuisineTypes!.includes(c))
-      );
-    }
-
-    // Course type — OR logic
-    if (af.courseTypes?.length) {
-      filtered = filtered.filter(r =>
-        r.course_type != null && af.courseTypes!.includes(r.course_type)
-      );
-    }
-
-    // Ingredient count ranges — OR logic (ranges are '1–5', '6–10', etc.)
-    if (af.ingredientCountRanges?.length) {
-      filtered = filtered.filter(r => {
-        if (r.ingredient_count == null) return false;
-        return af.ingredientCountRanges!.some(range => {
-          if (range === '16+') return r.ingredient_count! >= 16;
-          const [lo, hi] = range.split('–').map(Number);
-          return r.ingredient_count! >= lo && r.ingredient_count! <= hi;
-        });
-      });
-    }
-
-    // Make-ahead
-    if (af.makeAheadFriendly) {
-      filtered = filtered.filter(r => r.make_ahead_friendly === true);
-    }
-
-    // Serving temp — OR logic
-    if (af.servingTemp?.length) {
-      filtered = filtered.filter(r =>
-        r.serving_temp != null && af.servingTemp!.includes(r.serving_temp)
-      );
-    }
-
-    // Social
-    if (af.recentlySaved) {
-      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      filtered = filtered.filter(r =>
-        (r as any).created_at && new Date((r as any).created_at).getTime() >= thirtyDaysAgo
-      );
-    }
-    if (af.recentlyCookedByFriends) {
-      filtered = filtered.filter(r => (r.friends_cooked_count ?? 0) > 0);
-    }
-
-    // 4. Sort (nulls/undefineds pushed to end)
-    switch (sortOption) {
-      case 'newest':
-        // Already ordered by created_at desc from the query — no-op
-        break;
-      case 'alpha':
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case 'cal_low':
-        filtered.sort((a, b) => {
-          if (a.cal_per_serving == null && b.cal_per_serving == null) return 0;
-          if (a.cal_per_serving == null) return 1;
-          if (b.cal_per_serving == null) return -1;
-          return a.cal_per_serving - b.cal_per_serving;
-        });
-        break;
-      case 'cal_high':
-        filtered.sort((a, b) => {
-          if (a.cal_per_serving == null && b.cal_per_serving == null) return 0;
-          if (a.cal_per_serving == null) return 1;
-          if (b.cal_per_serving == null) return -1;
-          return b.cal_per_serving - a.cal_per_serving;
-        });
-        break;
-      case 'protein_high':
-        filtered.sort((a, b) => {
-          if (a.protein_per_serving_g == null && b.protein_per_serving_g == null) return 0;
-          if (a.protein_per_serving_g == null) return 1;
-          if (b.protein_per_serving_g == null) return -1;
-          return b.protein_per_serving_g - a.protein_per_serving_g;
-        });
-        break;
-      case 'fastest':
-        filtered.sort((a, b) => {
-          const timeA = a.total_time_min ?? a.active_time_min ?? null;
-          const timeB = b.total_time_min ?? b.active_time_min ?? null;
-          if (timeA == null && timeB == null) return 0;
-          if (timeA == null) return 1;
-          if (timeB == null) return -1;
-          return timeA - timeB;
-        });
-        break;
-      case 'most_cooked':
-        filtered.sort((a, b) => {
-          const ca = a.times_cooked ?? 0;
-          const cb = b.times_cooked ?? 0;
-          if (ca === 0 && cb === 0) return 0;
-          if (ca === 0) return 1;
-          if (cb === 0) return -1;
-          return cb - ca;
-        });
-        break;
-      case 'highest_rated':
-        filtered.sort((a, b) => {
-          if (a.avg_rating == null && b.avg_rating == null) return 0;
-          if (a.avg_rating == null) return 1;
-          if (b.avg_rating == null) return -1;
-          return b.avg_rating - a.avg_rating;
-        });
-        break;
-      case 'pantry_match':
-        // 8D-CP1: descending by pantry match %. Recipes with no match data
-        // (match not yet computed) sort to the bottom at 0.
-        filtered.sort((a, b) => {
-          const ma = matchMap.get(a.id)?.matchPercentage ?? 0;
-          const mb = matchMap.get(b.id)?.matchPercentage ?? 0;
-          return mb - ma;
-        });
-        break;
-    }
-
-    setFilteredRecipes(filtered);
-  };
-
-  const toggleQuickFilter = (filterId: string) => {
-    setQuickFilters(prev =>
-      prev.map(f => f.id === filterId ? { ...f, active: !f.active } : f)
-    );
-  };
-
   const clearAllFilters = () => {
-    setQuickFilters(prev => prev.map(f => ({ ...f, active: false })));
     setAdvancedFilters({
       dietaryFlags: {},
       heroIngredients: [],
@@ -1538,18 +1782,187 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       makeAheadFriendly: false,
       recentlySaved: false,
       recentlyCookedByFriends: false,
+      quickUnder30: false,
+      onePotOnly: false,
     });
     setSearchText('');
+    setSearchTerms([]);
     setBrowseMode('all');
     setSelectedBook(null);
-    setFilteredRecipes(recipes);
+    // 11A-CP2: filteredRecipes is derived — the state resets above are enough
+    // to recompute it via the browseState useMemo.
   };
 
-  const getActiveFilterCount = () => {
-    const quickCount = quickFilters.filter(f => f.active).length;
-    const advancedCount = Object.keys(advancedFilters).length;
-    return quickCount + advancedCount;
+  // 11A-CP5a: clearLens hoisted above the `lens` useMemo where it's consumed.
+
+  // ── 11A-CP3 refinement chip / facet plumbing ───────────────────
+  // DIETARY_LABELS mirrors the FilterDrawer DIETARY_FLAGS labels (kept here to
+  // avoid coupling the screen to FilterDrawer's internal constants).
+  const DIETARY_LABELS: Record<string, string> = {
+    is_vegan: 'Vegan',
+    is_vegetarian: 'Vegetarian',
+    is_gluten_free: 'Gluten-free',
+    is_dairy_free: 'Dairy-free',
+    is_nut_free: 'Nut-free',
+    is_shellfish_free: 'Shellfish-free',
+    is_soy_free: 'Soy-free',
+    is_egg_free: 'Egg-free',
   };
+
+  const updateRefinement = (patch: Partial<FilterState>) => {
+    setAdvancedFilters(prev => ({ ...prev, ...patch }));
+  };
+  const unsetDietary = (key: string) => {
+    setAdvancedFilters(prev => {
+      const next = { ...(prev.dietaryFlags ?? {}) } as Record<string, boolean>;
+      delete next[key];
+      return { ...prev, dietaryFlags: next };
+    });
+  };
+  const removeFromArray = (field: keyof FilterState, item: string) => {
+    setAdvancedFilters(prev => {
+      const cur = (prev[field] as string[] | undefined) ?? [];
+      return { ...prev, [field]: cur.filter(v => v !== item) };
+    });
+  };
+
+  // 11D: open the slider picker. Seed the High/Low toggle + value from current
+  // state, and cache the base set (all OTHER filters applied) so the live count
+  // is a cheap numeric filter per slider tick.
+  const openAdjust = (a: { kind: 'time' } | { kind: 'nutrient'; nutrient: NutrientKey }) => {
+    let cleared: Partial<FilterState> = { ...advancedFilters };
+    if (a.kind === 'nutrient') {
+      const cfg = NUTRIENTS[a.nutrient];
+      const curMax = advancedFilters[cfg.maxField] as number | undefined;
+      const curMin = advancedFilters[cfg.minField] as number | undefined;
+      setAdjustDir(curMax != null ? 'max' : curMin != null ? 'min' : cfg.defaultDir);
+      setSliderValue(curMax ?? curMin ?? cfg.defaultValue);
+      cleared = { ...cleared, [cfg.minField]: undefined, [cfg.maxField]: undefined };
+    } else {
+      setSliderValue(advancedFilters.maxTotalTime ?? 30);
+      cleared = { ...cleared, maxTotalTime: undefined, maxActiveTime: undefined, quickUnder30: false };
+    }
+    const base = resolveBrowse(recipesWithMatch, matchMap, { ...browseState, refinements: cleared });
+    setAdjustBaseSet(base);
+    const lo = a.kind === 'nutrient' ? NUTRIENTS[a.nutrient].sliderMin : TIME_SLIDER.min;
+    const hi = a.kind === 'nutrient' ? NUTRIENTS[a.nutrient].sliderMax : TIME_SLIDER.max;
+    const accessor = a.kind === 'nutrient'
+      ? (r: Recipe) => (r as any)[NUTRIENTS[a.nutrient].recipeField] as number | null | undefined
+      : (r: Recipe) => r.total_time_min ?? r.active_time_min ?? null;
+    setAdjustBins(buildHistogram(base, accessor, lo, hi, HISTO_BINS));
+    setAdjustTarget(a);
+  };
+  // Apply the threshold to the filter (live as the slider moves — does NOT close).
+  const applyNutrient = (nutrient: NutrientKey, dir: 'min' | 'max', value: number) => {
+    const cfg = NUTRIENTS[nutrient];
+    setAdvancedFilters(prev => ({
+      ...prev,
+      [cfg.minField]: dir === 'min' ? value : undefined,
+      [cfg.maxField]: dir === 'max' ? value : undefined,
+    }));
+  };
+  const applyTimeAdjust = (value: number) => updateRefinement({ maxTotalTime: value, quickUnder30: false });
+  // Live count: recipes in the base set that pass the candidate threshold.
+  const adjustCount = (
+    target: typeof adjustTarget,
+    dir: 'min' | 'max',
+    value: number,
+  ): number => {
+    if (!target) return 0;
+    if (target.kind === 'nutrient') {
+      const cfg = NUTRIENTS[target.nutrient];
+      return adjustBaseSet.filter(r => {
+        const x = (r as any)[cfg.recipeField] as number | null | undefined;
+        return dir === 'min' ? (x != null && x >= value) : (x == null || x <= value);
+      }).length;
+    }
+    return adjustBaseSet.filter(r => {
+      const total = r.total_time_min ?? null;
+      const active = r.active_time_min ?? null;
+      return (total == null || total <= value) && (active == null || active <= value);
+    }).length;
+  };
+
+  // Active-refinement chip list. Each entry → one dismissible chip on the
+  // refine row. Order: facet-driven booleans first, then dietary, then
+  // multi-selects, then numeric bounds, then social/misc, then cookbook.
+  interface RefinementChip {
+    key: string;
+    label: string;
+    clear: () => void;
+    // Numeric refinements are tappable to adjust their threshold (a macro with
+    // High/Low direction, or max time).
+    adjust?: { kind: 'time' } | { kind: 'nutrient'; nutrient: NutrientKey };
+  }
+  const activeRefinementChips = useMemo<RefinementChip[]>(() => {
+    const af = advancedFilters;
+    const chips: RefinementChip[] = [];
+
+    if (af.quickUnder30)
+      chips.push({ key: 'quick', label: 'Under 30m', adjust: { kind: 'time' }, clear: () => updateRefinement({ quickUnder30: false }) });
+    if (af.onePotOnly)
+      chips.push({ key: 'one_pot', label: 'One pot', clear: () => updateRefinement({ onePotOnly: false }) });
+    // 11D: macro threshold chips (high/low) generated from NUTRIENTS — tap to
+    // adjust direction + value.
+    (Object.keys(NUTRIENTS) as NutrientKey[]).forEach(nk => {
+      const cfg = NUTRIENTS[nk];
+      const minV = af[cfg.minField] as number | undefined;
+      const maxV = af[cfg.maxField] as number | undefined;
+      if (minV != null) chips.push({ key: `nut:${nk}:min`, label: `${cfg.label} ${minV}${cfg.unit}+`, adjust: { kind: 'nutrient', nutrient: nk }, clear: () => updateRefinement({ [cfg.minField]: undefined } as Partial<FilterState>) });
+      if (maxV != null) chips.push({ key: `nut:${nk}:max`, label: `${cfg.label} ${maxV}${cfg.unit} max`, adjust: { kind: 'nutrient', nutrient: nk }, clear: () => updateRefinement({ [cfg.maxField]: undefined } as Partial<FilterState>) });
+    });
+
+    if (af.dietaryFlags) {
+      Object.entries(af.dietaryFlags).forEach(([k, v]) => {
+        if (v) chips.push({ key: `diet:${k}`, label: DIETARY_LABELS[k] ?? k, clear: () => unsetDietary(k) });
+      });
+    }
+    (af.cuisineTypes ?? []).forEach(c =>
+      chips.push({ key: `cuisine:${c}`, label: c, clear: () => removeFromArray('cuisineTypes', c) }),
+    );
+    (af.heroIngredients ?? []).forEach(h =>
+      chips.push({ key: `hero:${h}`, label: h, clear: () => removeFromArray('heroIngredients', h) }),
+    );
+    (af.vibeTags ?? []).forEach(v =>
+      chips.push({ key: `vibe:${v}`, label: v, clear: () => removeFromArray('vibeTags', v) }),
+    );
+    (af.cookingMethods ?? []).forEach(m =>
+      chips.push({ key: `method:${m}`, label: m, clear: () => removeFromArray('cookingMethods', m) }),
+    );
+    (af.courseTypes ?? []).forEach(c =>
+      chips.push({ key: `course:${c}`, label: c, clear: () => removeFromArray('courseTypes', c) }),
+    );
+    (af.difficultyLevels ?? []).forEach(d =>
+      chips.push({ key: `diff:${d}`, label: d, clear: () => removeFromArray('difficultyLevels', d) }),
+    );
+    (af.servingTemp ?? []).forEach(t =>
+      chips.push({ key: `temp:${t}`, label: t, clear: () => removeFromArray('servingTemp', t) }),
+    );
+    (af.ingredientCountRanges ?? []).forEach(rng =>
+      chips.push({ key: `ing:${rng}`, label: `Ingredients ${rng}`, clear: () => removeFromArray('ingredientCountRanges', rng) }),
+    );
+
+    if (af.maxActiveTime != null)
+      chips.push({ key: 'maxActive', label: `Active ≤${af.maxActiveTime}m`, adjust: { kind: 'time' }, clear: () => updateRefinement({ maxActiveTime: undefined }) });
+    if (af.maxTotalTime != null)
+      chips.push({ key: 'maxTotal', label: `Total ≤${af.maxTotalTime}m`, adjust: { kind: 'time' }, clear: () => updateRefinement({ maxTotalTime: undefined }) });
+
+    if (af.easierThanLooks)
+      chips.push({ key: 'easier', label: 'Easier than looks', clear: () => updateRefinement({ easierThanLooks: false }) });
+    if (af.makeAheadFriendly)
+      chips.push({ key: 'makeAhead', label: 'Make-ahead', clear: () => updateRefinement({ makeAheadFriendly: false }) });
+    if (af.recentlySaved)
+      chips.push({ key: 'recentlySaved', label: 'Recently saved', clear: () => updateRefinement({ recentlySaved: false }) });
+    if (af.recentlyCookedByFriends)
+      chips.push({ key: 'friendsCooked', label: 'Friends cooked', clear: () => updateRefinement({ recentlyCookedByFriends: false }) });
+
+    if (selectedBook)
+      chips.push({ key: 'book', label: selectedBook, clear: () => setSelectedBook(null) });
+
+    return chips;
+  }, [advancedFilters, selectedBook]);
+
+  const getActiveFilterCount = () => activeRefinementChips.length;
 
   // 8R-UX1: live-as-you-type search. 300ms debounce on searchText changes.
   // Empty text clears the search constraint; non-empty kicks off the search
@@ -1567,32 +1980,105 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     }, 300);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, userId]);
+  }, [searchText, searchTerms, userId]);
 
   const handleSearch = async () => {
-    const term = searchText.trim();
-    if (!term) {
-      // Clear the search constraint; applyFilters re-runs over recipesWithMatch
-      // with no search filter.
+    // 11D: search the EFFECTIVE term list = committed pills + the in-progress
+    // box word. Each term is one entity-aware phrase; the engine AND's them.
+    const terms = effectiveSearchTerms(searchTerms, searchText, entitySet);
+    // 11D: bump the sequence on every invocation (incl. clears) so any
+    // in-flight earlier search recognises it's stale before applying.
+    const seq = ++searchSeqRef.current;
+    if (terms.length === 0) {
       setSearchedRecipeIds(null);
+      setSearching(false);
       return;
     }
     try {
-      // 8R-UX1: tokenize on whitespace so multi-word queries AND across
-      // tokens. Drives the "Find recipes" bulk action from Pantry which
-      // passes a space-joined list of ingredient names. Single-word queries
-      // are unaffected (one token == previous behavior).
-      const tokens = term.split(/\s+/).filter(Boolean);
-      const recipeIds = await searchRecipesByMixedTerms(
-        tokens.length > 0 ? tokens : [term]
-      );
+      const recipeIds = await searchRecipesByScopedTerms(terms);
+      // 11D: ignore stale responses — only the latest search applies (a newer
+      // search owns the `searching` flag, so don't clear it here).
+      if (seq !== searchSeqRef.current) return;
       // recipesWithMatch is already user-scoped (loadRecipes filters by user_id);
       // applyFilters does the intersection. We don't need a second user_id query.
       setSearchedRecipeIds(new Set(recipeIds));
+      // 11D: active search lands in list mode. The search bar stays mounted
+      // (rendered above both layouts) so typing continues seamlessly.
+      setScreenMode('list');
+      setSearching(false);
     } catch (error) {
       console.error('Search error:', error);
+      setSearching(false);
     }
   };
+
+  // 11D stacked-search input handler: peel off completed leading terms into
+  // pills (prefix-deferred so multi-word entities like "molly baz" don't split)
+  // and keep the in-progress tail in the box.
+  const asText = (v: string): SearchTerm => ({ kind: 'text', value: v, label: v });
+  const onSearchChange = (value: string) => {
+    const { commit, rest } = processBox(value, entitySet);
+    if (commit.length) setSearchTerms(prev => [...prev, ...commit.map(asText)]);
+    setSearchText(rest);
+  };
+  const removeSearchTerm = (index: number) => {
+    setSearchTerms(prev => prev.filter((_, i) => i !== index));
+  };
+  // 11D: Enter/Search key force-commits the box to free-text pill(s), overriding
+  // the prefix-deferral (so "chicken" — a prefix of "chicken stock" — still pills).
+  const commitSearchNow = () => {
+    const toks = tokenize(searchText, entitySet);
+    if (toks.length === 0 && searchTerms.length === 0) return; // nothing to search
+    if (toks.length) setSearchTerms(prev => [...prev, ...toks.map(asText)]);
+    setSearchText('');
+    // Land on the list immediately (pills visible) + show a spinner until the
+    // debounced search returns, instead of hanging on home.
+    setScreenMode('list');
+    setSearching(true);
+  };
+  // 11D typeahead — a picked suggestion either becomes a SCOPED search pill
+  // (ingredient/category/chef/cuisine) or applies a REFINEMENT (dietary /
+  // cooking method / vibe / course / attribute), rendered as a refinement chip.
+  const onSuggestionPick = (s: Suggestion) => {
+    setSearchText('');
+    setScreenMode('list');
+    if (isSearchSuggestion(s.kind)) {
+      setSearchTerms(prev => [...prev, { kind: s.kind as SearchTerm['kind'], value: s.value, label: s.label }]);
+      setSearching(true);
+      return;
+    }
+    applyRefineSuggestion(s);
+  };
+  const applyRefineSuggestion = (s: Suggestion) => {
+    switch (s.kind) {
+      case 'dietary':
+        setAdvancedFilters(prev => ({ ...prev, dietaryFlags: { ...(prev.dietaryFlags ?? {}), [s.value]: true } }));
+        break;
+      case 'method':
+        setAdvancedFilters(prev => ({ ...prev, cookingMethods: [...new Set([...(prev.cookingMethods ?? []), s.value])] }));
+        break;
+      case 'vibe':
+        setAdvancedFilters(prev => ({ ...prev, vibeTags: [...new Set([...(prev.vibeTags ?? []), s.value])] }));
+        break;
+      case 'course':
+        setAdvancedFilters(prev => ({ ...prev, courseTypes: [...new Set([...(prev.courseTypes ?? []), s.value])] }));
+        break;
+      case 'attribute':
+        if (s.value.startsWith('nut:')) {
+          const [, nutrient, dir, valStr] = s.value.split(':');
+          applyNutrient(nutrient as NutrientKey, dir as 'min' | 'max', Number(valStr));
+        }
+        else if (s.value === 'quick') updateRefinement({ quickUnder30: true });
+        else if (s.value === 'one_pot') updateRefinement({ onePotOnly: true });
+        else if (s.value === 'make_ahead') updateRefinement({ makeAheadFriendly: true });
+        else if (s.value === 'easier') updateRefinement({ easierThanLooks: true });
+        break;
+    }
+  };
+  const suggestions = useMemo(
+    () => matchSuggestions(searchText, suggestionIndex),
+    [searchText, suggestionIndex],
+  );
 
   const handleRecipePress = (recipe: Recipe) => {
     navigation.navigate('RecipeDetail', { recipe });
@@ -1660,54 +2146,309 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     </View>
   );
 
-  const renderSegmentedControl = () => {
+  // 11A-CP2: top-of-screen search bar (relocated from the bottom). Search
+  // logic — debounced searchedRecipeIds + searchService call — is unchanged;
+  // only the bar's position moves.
+  const renderTopSearch = () => {
     if (isSelectionMode) return null;
-
-    const tabs: { mode: BrowseMode; TabIcon: IconComponent; label: string }[] = [
-      { mode: 'all', TabIcon: BookIcon, label: 'All' },
-      { mode: 'cook_again', TabIcon: AgainIcon, label: 'Cook Again' },
-      { mode: 'try_new', TabIcon: NewIcon, label: 'Try New' },
-    ];
-
     return (
-      <View style={styles.segmentedWrapper}>
-        <View style={styles.segmentedContainer}>
-          {tabs.map(tab => {
-            const active = browseMode === tab.mode;
-            return (
-              <TouchableOpacity
-                key={tab.mode}
-                style={[styles.segmentedTab, active && styles.segmentedTabActive]}
-                onPress={() => { setBrowseMode(tab.mode); setExpandedCardId(null); }}
-                activeOpacity={0.8}
-              >
-                <tab.TabIcon size={13} color={active ? '#fff' : colors.text.tertiary} />
-                <Text style={[styles.segmentedTabText, active && styles.segmentedTabTextActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <View style={styles.topSearchContainer}>
+        <View style={styles.topSearchBar}>
+          <SearchIcon size={18} color={colors.text.tertiary} />
+          <TextInput
+            style={[styles.searchInput, { marginLeft: 8 }]}
+            placeholder={searchTerms.length ? 'Add another term…' : 'Try: thai chicken, quick, from molly'}
+            placeholderTextColor={colors.text.tertiary}
+            value={searchText}
+            onChangeText={onSearchChange}
+            // Return force-commits the in-progress term to a pill + dismisses
+            // the keyboard (tap the box again to add another term).
+            onSubmitEditing={commitSearchNow}
+            blurOnSubmit={true}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
+        {/* 11D typeahead dropdown — pick a precise, scoped term. */}
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionDropdown}>
+            {suggestions.map((s, i) => (
+              <TouchableOpacity
+                key={`${s.kind}-${s.value}-${i}`}
+                style={[styles.suggestionRow, i > 0 && styles.suggestionRowBorder]}
+                activeOpacity={0.7}
+                onPress={() => onSuggestionPick(s)}
+              >
+                <Text style={styles.suggestionLabel} numberOfLines={1}>{s.label}</Text>
+                <Text style={styles.suggestionKind}>{KIND_LABEL[s.kind]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
     );
   };
 
-  const renderBookFilter = () => {
-    if (browseMode !== 'try_new' || availableBooks.length === 0) return null;
+  // 11A-CP2: tile metadata wired to existing SVG icons + inroad copy. Live
+  // tiles set BrowseState.context; inroads cross-stack-navigate to the screen
+  // that unlocks the gate.
+  const TILE_ICONS: Partial<Record<BrowseContextId, IconComponent>> = {
+    quick_tonight: TimerIcon,
+    ready_to_cook: PantryOutline,
+    recently_added: NewIcon,
+    your_classics: AgainIcon,
+    for_your_diet: VegetablesIcon,
+    friends_cook: FriendsIcon,
+  };
+  const TILE_INROAD_LABEL: Partial<Record<BrowseContextId, string>> = {
+    ready_to_cook: 'Track your pantry',
+    for_your_diet: 'Set dietary preferences',
+    friends_cook: 'Follow friends',
+    your_classics: 'Cook a few to build these',
+  };
+  const handleTileInroad = (id: BrowseContextId) => {
+    switch (id) {
+      case 'ready_to_cook':
+        navigation.getParent()?.navigate('PantryStack');
+        break;
+      case 'for_your_diet':
+        navigation.getParent()?.navigate('FeedStack', { screen: 'DietaryPreferences' });
+        break;
+      case 'friends_cook':
+        navigation.getParent()?.navigate('FeedStack', { screen: 'UserSearch' });
+        break;
+      case 'your_classics':
+        setBrowseMode('all');
+        break;
+    }
+  };
+  const handleTilePress = (id: BrowseContextId) => {
+    setExpandedCardId(null);
+    if (tileLiveness[id]) {
+      setBrowseMode(id);
+      // 11A-CP5a: live tile tap transitions Mode A → Mode B with the tile
+      // context as the lens. Inroad tiles handle their own navigation
+      // (cross-stack); they don't change screen mode.
+      setScreenMode('list');
+    } else {
+      handleTileInroad(id);
+    }
+  };
+
+  // 11A-CP5a — "Browse all <N> →" link on Mode A. Lands in Mode B with
+  // context='all' (no tile/cuisine/search lens); the lens chip shows
+  // "All recipes" so the user can ✕ back to home.
+  const handleBrowseAll = () => {
+    setExpandedCardId(null);
+    setScreenMode('list');
+  };
+
+  const renderTilePrompt = () => {
+    if (isSelectionMode) return null;
+    return <Text style={styles.tilePrompt}>What are you looking for?</Text>;
+  };
+
+  const renderTileGrid = () => {
+    if (isSelectionMode) return null;
+    const rows = [DEFAULT_TILES.slice(0, 3), DEFAULT_TILES.slice(3, 6)];
     return (
-      <View style={styles.bookFilterContainer}>
-        <TouchableOpacity
-          style={styles.bookFilterButton}
-          onPress={() => setShowBookDropdown(true)}
+      <View style={styles.tileGrid}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={styles.tileRow}>
+            {row.map(tile => {
+              const live = !!tileLiveness[tile.id];
+              const Icon = TILE_ICONS[tile.id];
+              const count = tileCounts[tile.id] ?? 0;
+              return (
+                <TouchableOpacity
+                  key={tile.id}
+                  style={[styles.tileCell, !live && styles.tileCellInroad]}
+                  activeOpacity={0.8}
+                  onPress={() => handleTilePress(tile.id)}
+                >
+                  <View style={styles.tileTopRow}>
+                    {Icon && (
+                      <Icon
+                        size={16}
+                        color={live ? colors.primary : colors.text.tertiary}
+                      />
+                    )}
+                    <Text style={[styles.tileLabel, !live && styles.tileLabelInroad]}>
+                      {tile.label}
+                    </Text>
+                  </View>
+                  {live ? (
+                    <Text style={styles.tileCount}>{count}</Text>
+                  ) : (
+                    <View style={styles.tileInroadRow}>
+                      <Text style={styles.tileInroadText}>
+                        {TILE_INROAD_LABEL[tile.id] ?? ''}
+                      </Text>
+                      <Text style={styles.tileInroadArrow}>›</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderCuisineStrip = () => {
+    if (isSelectionMode) return null;
+    if (cuisineStrip.length === 0) return null;
+    const activeCuisine = advancedFilters.cuisineTypes?.length === 1
+      ? advancedFilters.cuisineTypes[0]
+      : null;
+    return (
+      <View style={styles.cuisineStripContainer}>
+        <Text style={styles.cuisineStripLabel}>Or by cuisine</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cuisineStripScroll}
         >
-          <Text style={[styles.bookFilterText, !!selectedBook && styles.bookFilterTextActive]}>
-            {selectedBook ?? 'All Books'} ▾
+          {cuisineStrip.map(cuisine => {
+            const active = activeCuisine === cuisine;
+            return (
+              <TouchableOpacity
+                key={cuisine}
+                style={[styles.cuisineChip, active && styles.cuisineChipActive]}
+                onPress={() => {
+                  setBrowseMode('all');
+                  setAdvancedFilters(prev => ({
+                    ...prev,
+                    cuisineTypes: active ? [] : [cuisine],
+                  }));
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.cuisineChipText, active && styles.cuisineChipTextActive]}>
+                  {cuisine}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.cuisineChip}
+            onPress={() => setShowFilterDrawer(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cuisineChipText}>More ›</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // 11A-CP5a: renderActiveLensChip removed — the lens chip is now part of
+  // the Mode B filter line (see renderFilterLine).
+
+  // 11A-CP5a — Mode A "Browse all <N> →" link below the tile grid.
+  // Right-aligned, small. Tapping enters Mode B with context='all'.
+  const renderBrowseAllLink = () => {
+    if (isSelectionMode) return null;
+    return (
+      <View style={styles.browseAllRow}>
+        <TouchableOpacity onPress={handleBrowseAll} activeOpacity={0.7}>
+          <Text style={styles.browseAllText}>
+            Browse all {recipes.length} →
           </Text>
         </TouchableOpacity>
       </View>
     );
   };
+
+  // 11D-CP2 — Mode A "Browse by →" entry into the Books/Chefs index screens.
+  // Plain text row, "Books" tappable → BookList. "Chefs" muted/non-tappable
+  // until 11D-CP4 ships ChefListScreen (Tom-locked 2026-05-29).
+  const renderBrowseByRow = () => {
+    if (isSelectionMode) return null;
+    return (
+      <View style={styles.browseByRow}>
+        <Text style={styles.browseByPrefix}>Browse by → </Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('BookList')}
+        >
+          <Text style={styles.browseByLink}>Books</Text>
+        </TouchableOpacity>
+        <Text style={styles.browseByPrefix}> · </Text>
+        <Text style={styles.browseByLinkMuted}>Chefs</Text>
+      </View>
+    );
+  };
+
+  // 11A-CP5a — Mode B filter line. Lens chip (always present, leftmost) +
+  // dismissible refinement chips (auto-dietary + user-set) + right-aligned
+  // Refine button that opens RefineSheet. Replaces the CP3 trio (active lens
+  // chip row, refinement chips row, persistent facet row).
+  const renderFilterLine = () => {
+    if (isSelectionMode) return null;
+    return (
+      <View style={styles.filterLineContainer}>
+        <View style={styles.filterLineChips}>
+          {/* Tile/cuisine lens chip (only when a real lens is active). */}
+          {lens && (
+            <View style={styles.filterLineChipSlot}>
+              <BrowseLensChip label={lens.label} variant="lens" onClear={lens.clear} />
+            </View>
+          )}
+          {/* 11D stacked search-term pills — free-text + scoped (labelled by
+              kind so you can see exactly what you're filtering on). */}
+          {searchTerms.map((t, i) => (
+            <View key={`term-${t.value}-${i}`} style={styles.filterLineChipSlot}>
+              <BrowseLensChip
+                label={t.kind === 'text' ? t.value : `${KIND_LABEL[t.kind]}: ${t.label}`}
+                variant={t.kind === 'text' ? 'refinement' : 'lens'}
+                onClear={() => removeSearchTerm(i)}
+              />
+            </View>
+          ))}
+          {activeRefinementChips.map(chip => (
+            <View key={chip.key} style={styles.filterLineChipSlot}>
+              <BrowseLensChip
+                label={chip.label}
+                variant="refinement"
+                onClear={chip.clear}
+                onPress={chip.adjust ? () => openAdjust(chip.adjust!) : undefined}
+              />
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={styles.refineButton}
+          onPress={() => setShowFilterDrawer(true)}
+          activeOpacity={0.7}
+        >
+          <SortIcon size={13} color={colors.text.secondary} />
+          <Text style={styles.refineButtonText}>Refine</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // 11A-CP5a — Mode B compact status: "<N> recipes". Drops the previous
+  // "Y you can make now" tap-through (Ready to cook tile is the entry now;
+  // CP5b will formalize that absorption).
+  const renderCompactStatus = () => {
+    if (isSelectionMode) return null;
+    const n = filteredRecipes.length;
+    return (
+      <View style={styles.compactStatus}>
+        <Text style={styles.compactStatusText}>
+          {n} recipe{n !== 1 ? 's' : ''}
+        </Text>
+      </View>
+    );
+  };
+
+  // 11A-CP3: renderBookFilter removed — cookbook is now a contextual facet
+  // in something_new (and any other context that registers it). The book
+  // picker modal below is still used; the facet chip just triggers it.
 
   const renderBookPickerModal = () => (
     <Modal
@@ -1805,130 +2546,193 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     );
   };
 
-  const renderSectionHeader = ({ section }: { section: { title: string; SectionIcon?: IconComponent } }) => (
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionHeaderContent}>
-        {section.SectionIcon && <section.SectionIcon size={18} color={colors.primary} />}
-        <Text style={styles.sectionHeaderText}>{section.title}</Text>
-      </View>
-    </View>
-  );
-
-  // 10F — small indicator above the quick-filters row when the user's dietary
-  // prefs are auto-applied. Tapping "Show all" clears the dietary flags and
-  // suppresses the indicator for this session.
-  const renderDietaryPrefIndicator = () => {
-    if (!userDietaryPrefs) return null;
-    if (!userDietaryPrefs.auto_apply_to_browse) return null;
-    if (autoFilterDismissed) return null;
-    const hasAnyPref = DIETARY_FLAG_KEYS.some(k => userDietaryPrefs[k]);
-    if (!hasAnyPref) return null;
+  // 11A-CP1: iconKey ('fire' | 'gem' | 'again' | undefined) comes from the
+  // pure recipeBrowseService section builder; the screen owns the icon mapping
+  // so the service stays React-free.
+  const SECTION_ICONS: Record<'fire' | 'gem' | 'again', IconComponent> = {
+    fire: FireIcon,
+    gem: GemIcon,
+    again: AgainIcon,
+  };
+  const renderSectionHeader = ({ section }: { section: { title: string; iconKey?: 'fire' | 'gem' | 'again' } }) => {
+    const SectionIcon = section.iconKey ? SECTION_ICONS[section.iconKey] : null;
     return (
-      <View style={styles.dietaryPrefIndicator}>
-        <Text style={styles.dietaryPrefIndicatorIcon}>🥬</Text>
-        <Text style={styles.dietaryPrefIndicatorText}>From your dietary preferences</Text>
-        <TouchableOpacity
-          onPress={() => {
-            setAdvancedFilters(prev => ({ ...prev, dietaryFlags: {} }));
-            setAutoFilterDismissed(true);
-          }}
-        >
-          <Text style={styles.dietaryPrefShowAll}>Show all</Text>
-        </TouchableOpacity>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderContent}>
+          {SectionIcon && <SectionIcon size={18} color={colors.primary} />}
+          <Text style={styles.sectionHeaderText}>{section.title}</Text>
+        </View>
       </View>
     );
   };
 
-  const renderQuickFilters = () => (
-    <View style={styles.quickFiltersContainer}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.quickFiltersScroll}
-      >
-        {quickFilters.map(filter => (
-          <TouchableOpacity
-            key={filter.id}
-            style={[
-              styles.quickFilterChip,
-              filter.active && styles.quickFilterChipActive
-            ]}
-            onPress={() => toggleQuickFilter(filter.id)}
-          >
-            {filter.IconComponent
-              ? <filter.IconComponent size={14} color={filter.active ? '#fff' : colors.text.secondary} />
-              : filter.icon ? <Text style={styles.quickFilterIcon}>{filter.icon}</Text> : null}
-            <Text style={[
-              styles.quickFilterLabel,
-              filter.active && styles.quickFilterLabelActive
-            ]}>
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
+  // 11A-CP3: refine surface — dismissible refinement chips (incl. auto-
+  // applied dietary pills) on top, contextual facet chips + Sort + More
+  // below. Replaces the legacy quickFilters row, the standalone Sort button,
+  // the standalone book dropdown, and the 10F "From your dietary preferences"
+  // text indicator.
+  const FACET_ICONS: Partial<Record<FacetId, IconComponent>> = {
+    quick: TimerIcon,
+    vegetarian: VegetablesIcon,
+    high_protein: BodybuilderIcon,
+    one_pot: PotIcon,
+    cuisine: VegetablesIcon,
+    cookbook: BookIcon,
+    sort: SortIcon,
+  };
+
+  // For toggle facets: flip the corresponding refinement on. Clearing happens
+  // via the dismissible refinement chip (one-source-of-truth).
+  const applyToggleFacet = (id: FacetId) => {
+    switch (id) {
+      case 'quick':
+        updateRefinement({ quickUnder30: true });
+        break;
+      case 'vegetarian':
+        setAdvancedFilters(prev => ({
+          ...prev,
+          dietaryFlags: { ...(prev.dietaryFlags ?? {}), is_vegetarian: true },
+        }));
+        break;
+      case 'high_protein':
+        updateRefinement({ minProteinPerServing: 25 });
+        break;
+      case 'one_pot':
+        updateRefinement({ onePotOnly: true });
+        break;
+    }
+  };
+
+  const openPickerFacet = (id: FacetId) => {
+    if (id === 'sort') {
+      handleSortPress();
+    } else if (id === 'cookbook') {
+      setShowBookDropdown(true);
+    } else if (id === 'cuisine') {
+      // 11A-CP4: cuisine facet opens the RefineSheet anchored at the Cuisine
+      // section (replaces the CP3 stopgap that opened the drawer at the top).
+      setRefineInitialSection('cuisine');
+      setShowFilterDrawer(true);
+    }
+  };
+
+  // 11A-CP4 — closure passed to RefineSheet.previewCount. The draft is the
+  // sheet's local refinement state; we resolve the full pipeline (active
+  // context + search + draft) so the count reflects what Apply will produce.
+  const previewRefineCount = (draft: FilterState) =>
+    resolveBrowse(recipesWithMatch, matchMap, { ...browseState, refinements: draft }).length;
+
+  // 11A-CP4 — header label for "Refine · <lens>". Reuses the CP5a `lens`
+  // which now covers search-lens too (closes P11A-CP5-deferred-1).
+  const refineLensLabel = lens?.label;
+
+  const renderRefinementChipsRow = () => {
+    if (isSelectionMode) return null;
+    if (activeRefinementChips.length === 0) return null;
+    return (
+      <View style={styles.refinementChipsRow}>
+        {activeRefinementChips.map(chip => (
+          <View key={chip.key} style={styles.refinementChipSlot}>
+            <BrowseLensChip label={chip.label} variant="refinement" onClear={chip.clear} />
+          </View>
         ))}
+      </View>
+    );
+  };
 
-        {/* More › chip — opens FilterDrawer */}
-        <TouchableOpacity
-          style={styles.moreChip}
-          onPress={() => setShowFilterDrawer(true)}
+  const renderFacetRow = () => {
+    if (isSelectionMode) return null;
+    const facets = getActiveFacets(browseState);
+    return (
+      <View style={styles.facetRowContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickFiltersScroll}
         >
-          <Text style={styles.moreChipText}>More ›</Text>
-        </TouchableOpacity>
+          {facets.map(id => {
+            const meta = FACET_META[id];
+            const active = isFacetActive(id, browseState);
+            // Active toggle facets are already rendered as dismissible chips
+            // above — don't double-render them in the facet row.
+            if (meta.kind === 'toggle' && active) return null;
+            const Icon = FACET_ICONS[id];
+            const isPicker = meta.kind === 'picker';
+            return (
+              <TouchableOpacity
+                key={id}
+                style={styles.quickFilterChip}
+                onPress={() => (isPicker ? openPickerFacet(id) : applyToggleFacet(id))}
+                activeOpacity={0.7}
+              >
+                {Icon && <Icon size={14} color={colors.text.secondary} />}
+                <Text style={styles.quickFilterLabel}>
+                  {meta.label}{isPicker ? ' ▾' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
 
-        {/* Sort button */}
-        <TouchableOpacity
-          ref={sortButtonRef}
-          style={styles.sortButton}
-          onPress={handleSortPress}
-        >
-          <SortIcon size={14} color={colors.text.tertiary} />
-          <Text style={styles.sortButtonText}>Sort</Text>
-        </TouchableOpacity>
-
-        {getActiveFilterCount() > 0 && (
+          {/* Sort facet — always present, opens existing sort picker modal. */}
           <TouchableOpacity
-            style={styles.clearFiltersChip}
-            onPress={clearAllFilters}
+            ref={sortButtonRef}
+            style={styles.quickFilterChip}
+            onPress={handleSortPress}
+            activeOpacity={0.7}
           >
-            <Text style={styles.clearFiltersText}>✕ Clear</Text>
+            <SortIcon size={14} color={colors.text.secondary} />
+            <Text style={styles.quickFilterLabel}>Sort ▾</Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
-    </View>
-  );
 
+          {/* More chip — opens the existing FilterDrawer (unchanged in CP3). */}
+          <TouchableOpacity
+            style={styles.moreChip}
+            onPress={() => setShowFilterDrawer(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.moreChipText}>More ›</Text>
+          </TouchableOpacity>
+
+          {getActiveFilterCount() > 0 && (
+            <TouchableOpacity
+              style={styles.clearFiltersChip}
+              onPress={clearAllFilters}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearFiltersText}>✕ Clear</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // 11A-CP2: status bar now leads with "All recipes · N" by default and
+  // reflects the active tile context when one is set. The "X you can make now"
+  // tap-target survives unchanged (8D-CP4 Preservation Contract).
   const renderStatusBar = () => {
-    if (browseMode === 'cook_again') {
-      return (
-        <View style={styles.statusBar}>
-          <Text style={styles.statusText}>
-            {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''} you've cooked
-          </Text>
-        </View>
-      );
-    }
-    if (browseMode === 'try_new') {
-      return (
-        <View style={styles.statusBar}>
-          <Text style={styles.statusText}>
-            {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''} to try
-          </Text>
-        </View>
-      );
-    }
-    if (filteredRecipes.length === recipes.length && getActiveFilterCount() === 0) {
-      return null;
+    const n = filteredRecipes.length;
+    let title: string;
+    if (browseMode === 'your_classics') {
+      title = `${n} recipe${n !== 1 ? 's' : ''} you've cooked`;
+    } else if (browseMode === 'something_new') {
+      title = `${n} recipe${n !== 1 ? 's' : ''} to try`;
+    } else if (browseMode !== 'all') {
+      const tile = DEFAULT_TILES.find(t => t.id === browseMode);
+      title = `${tile?.label ?? 'Filtered'} · ${n}`;
+    } else {
+      // 'all' context — suppress the bar when nothing is narrowing the set.
+      if (n === recipes.length && getActiveFilterCount() === 0 && !lens) {
+        return null;
+      }
+      title = `All recipes · ${n}`;
     }
     return (
       <View style={styles.statusBar}>
-        <Text style={styles.statusText}>
-          {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''}
-        </Text>
-        {canMakeCount > 0 && (
+        <Text style={styles.statusText}>{title}</Text>
+        {browseMode === 'all' && canMakeCount > 0 && (
           <>
             <Text style={styles.statusDot}> • </Text>
-            {/* 8D-CP4: tappable → WhatCanICookScreen. activeOpacity only, no
-                other visual treatment (Preservation Contract). */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => navigation.navigate('WhatCanICook')}
@@ -1941,23 +2745,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     );
   };
 
-  const renderBottomSearchBar = () => (
-    <View style={styles.bottomSearchContainer}>
-      <View style={styles.searchBar}>
-        <SearchIcon size={18} color={colors.text.tertiary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search recipes (e.g., lemon, molly or basil, italian)"
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-    </View>
-  );
+  // 11A-CP2: bottom search bar removed; search lives in renderTopSearch.
 
   // 8D-CP4: card rendering extracted to <RecipeCard> (components/recipe/
   // RecipeCard.tsx) — internal refactor, byte-identical visual output. The
@@ -1979,15 +2767,15 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   const emptyListComponent = (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>
-        {searchText
+        {(searchText || searchTerms.length > 0)
           ? 'No recipes found'
-          : browseMode === 'cook_again'
+          : browseMode === 'your_classics'
           ? "You haven't cooked any recipes yet"
-          : browseMode === 'try_new'
+          : browseMode === 'something_new'
           ? 'No new recipes to try'
-          : 'No recipes yet'}
+          : 'No recipes match'}
       </Text>
-      {(searchText || getActiveFilterCount() > 0) && (
+      {(searchText || searchTerms.length > 0 || getActiveFilterCount() > 0 || browseMode !== 'all') && (
         <TouchableOpacity style={styles.clearButton} onPress={clearAllFilters}>
           <Text style={styles.clearButtonText}>Clear Filters</Text>
         </TouchableOpacity>
@@ -2003,62 +2791,197 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     );
   }
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      {renderHeader()}
-      {renderSegmentedControl()}
-      {renderBookFilter()}
-      {renderDietaryPrefIndicator()}
-      {renderQuickFilters()}
-      {renderStatusBar()}
+  // 11A-CP5a — render list (FlatList or SectionList for your_classics).
+  // Extracted so both Mode B and selection mode can render it without
+  // duplicating the branch.
+  const renderList = () =>
+    browseMode === 'your_classics' ? (
+      <SectionList
+        ref={listRef}
+        onScroll={onListScroll}
+        scrollEventThrottle={16}
+        sections={cookAgainSections}
+        renderItem={renderCardItem}
+        renderSectionHeader={renderSectionHeader}
+        keyExtractor={(item, index) => `${(item as any)._sectionKey ?? ''}-${item.id}-${index}`}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={emptyListComponent}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+      />
+    ) : (
+      <FlatList
+        ref={listRef}
+        onScroll={onListScroll}
+        scrollEventThrottle={16}
+        data={filteredRecipes}
+        renderItem={renderCardItem}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={emptyListComponent}
+        showsVerticalScrollIndicator={false}
+      />
+    );
 
-      {browseMode === 'cook_again' ? (
-        <SectionList
-          sections={cookAgainSections}
-          renderItem={renderCardItem}
-          renderSectionHeader={renderSectionHeader}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={emptyListComponent}
-          showsVerticalScrollIndicator={false}
-          stickySectionHeadersEnabled={false}
-        />
-      ) : (
-        <FlatList
-          data={filteredRecipes}
-          renderItem={renderCardItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={emptyListComponent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+  // 11D: collapsed filter pill — replaces the search bar + filter line + status
+  // when the user scrolls down into results. Summarizes the active lens/search
+  // + count; tap to expand the full chrome and jump back to the top.
+  const renderCollapsedBar = () => {
+    const n = filteredRecipes.length;
+    const activeTerms = effectiveSearchTerms(searchTerms, searchText, entitySet);
+    const summary = activeTerms.length ? activeTerms.map(t => t.label).join(', ') : (lens?.label ?? 'All recipes');
+    return (
+      <TouchableOpacity
+        style={styles.collapsedBar}
+        activeOpacity={0.7}
+        onPress={() => { expandHeader(); scrollListToTop(); }}
+      >
+        <SearchIcon size={14} color={colors.text.secondary} />
+        <Text style={styles.collapsedBarText} numberOfLines={1}>
+          {summary} · {n} recipe{n !== 1 ? 's' : ''}
+        </Text>
+        <Text style={styles.collapsedBarChevron}>⌄</Text>
+      </TouchableOpacity>
+    );
+  };
 
-      {/* Bottom search bar - hide in selection mode */}
-      {!isSelectionMode && renderBottomSearchBar()}
+  // 11A-CP5a — modal/sheet block reused across all three layouts (Mode A,
+  // Mode B, selection mode) so each branch stays small.
+  // 11D: slider threshold picker. Macros get a High/Low (≥/≤) toggle; time is
+  // max-only. A live recipe count updates as the slider moves; the threshold is
+  // applied to the filter on release (Done just closes).
+  const renderAdjustModal = () => {
+    const t = adjustTarget;
+    const cfg = t && t.kind === 'nutrient' ? NUTRIENTS[t.nutrient] : null;
+    const dir = cfg ? adjustDir : 'max';
+    const sMin = cfg ? cfg.sliderMin : TIME_SLIDER.min;
+    const sMax = cfg ? cfg.sliderMax : TIME_SLIDER.max;
+    const sStep = cfg ? cfg.sliderStep : TIME_SLIDER.step;
+    const unit = cfg ? cfg.unit : ' min';
+    const count = adjustCount(t, dir, sliderValue);
+    const maxBin = adjustBins.length ? Math.max(1, ...adjustBins) : 1;
+    const binSize = adjustBins.length ? (sMax - sMin) / adjustBins.length : 1;
+    const applyValue = (v: number) => {
+      if (t && t.kind === 'nutrient') applyNutrient(t.nutrient, adjustDir, v);
+      else applyTimeAdjust(v);
+    };
+    return (
+      <Modal
+        visible={t !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAdjustTarget(null)}
+      >
+        <View style={styles.modalOverlay}>
+          {/* Backdrop behind the sheet — tap to close. Kept separate (not a
+              wrapping Touchable) so it never steals the Slider's drag gesture. */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAdjustTarget(null)} />
+          <View style={styles.adjustSheet}>
+            <Text style={styles.adjustTitle}>{cfg ? `${cfg.label} per serving` : 'Total time'}</Text>
+            {cfg && (
+              <View style={styles.adjustToggleRow}>
+                {(['min', 'max'] as const).map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.adjustToggle, adjustDir === d && styles.adjustToggleActive]}
+                    onPress={() => { setAdjustDir(d); if (t && t.kind === 'nutrient') applyNutrient(t.nutrient, d, sliderValue); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.adjustToggleText, adjustDir === d && styles.adjustToggleTextActive]}>
+                      {d === 'min' ? 'More than' : 'Less than'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {/* Graph label + distribution histogram. Bars on the INCLUDED side
+                are coloured (same fill as the active toggle); flipping More/Less
+                flips which side lights up. */}
+            <Text style={styles.adjustCaption}>
+              Recipes by {cfg ? `${cfg.label.toLowerCase()} per serving` : 'total time'}
+            </Text>
+            {adjustBins.length > 0 && (
+              <View style={styles.histoRow}>
+                {adjustBins.map((c, i) => {
+                  const center = sMin + (i + 0.5) * binSize;
+                  const included = dir === 'min' ? center >= sliderValue : center <= sliderValue;
+                  return (
+                    <View key={i} style={styles.histoCol}>
+                      <View
+                        style={[
+                          styles.histoBar,
+                          {
+                            height: Math.max(3, (c / maxBin) * 56),
+                            backgroundColor: included ? colors.primary : colors.border.medium,
+                          },
+                        ]}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            <View style={styles.adjustSliderWrap}>
+              <Slider
+                style={{ width: '100%', height: 40 }}
+                minimumValue={sMin}
+                maximumValue={sMax}
+                step={sStep}
+                value={sliderValue}
+                onValueChange={setSliderValue}
+                onSlidingComplete={(v) => { setSliderValue(v); applyValue(v); }}
+                // Track colour = the INCLUDED side: "Less than" fills the left
+                // (teal), "More than" fills the right (teal); the excluded side
+                // is grey. Matches the histogram + active toggle.
+                minimumTrackTintColor={dir === 'min' ? colors.border.medium : colors.primary}
+                maximumTrackTintColor={dir === 'min' ? colors.primary : colors.border.medium}
+                thumbTintColor={colors.primary}
+              />
+              <View style={styles.adjustSliderBounds}>
+                <Text style={styles.adjustBoundText}>{sMin}{unit}</Text>
+                <Text style={styles.adjustBoundText}>{sMax}{unit}</Text>
+              </View>
+            </View>
+            <Text style={styles.adjustValue}>
+              {sliderValue}{unit} {dir === 'min' ? 'or more' : 'or less'}{cfg ? ' per serving' : ''}
+              <Text style={styles.adjustCount}>   ·   {count} recipe{count !== 1 ? 's' : ''}</Text>
+            </Text>
+            <TouchableOpacity style={styles.adjustDone} onPress={() => setAdjustTarget(null)} activeOpacity={0.8}>
+              <Text style={styles.adjustDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
 
-      {/* Book picker modal */}
+  const renderModalsAndSheets = () => (
+    <>
       {renderBookPickerModal()}
-
-      {/* Sort picker modal */}
       {renderSortPickerModal()}
-
-      {/* Filter Drawer */}
-      <FilterDrawer
+      {renderAdjustModal()}
+      <RefineSheet
         visible={showFilterDrawer}
-        onClose={() => setShowFilterDrawer(false)}
+        onClose={() => {
+          setShowFilterDrawer(false);
+          setRefineInitialSection(undefined);
+        }}
         filters={advancedFilters as FilterState}
         onApplyFilters={(filters: FilterState) => {
           setAdvancedFilters(filters);
           setShowFilterDrawer(false);
+          setRefineInitialSection(undefined);
         }}
         availableHeroIngredients={availableHeroIngredients}
+        lensLabel={refineLensLabel}
+        previewCount={previewRefineCount}
+        initialSection={refineInitialSection}
+        activeFacets={getActiveFacets(browseState)}
+        onOpenCookbookPicker={() => {
+          setShowFilterDrawer(false);
+          setShowBookDropdown(true);
+        }}
       />
-
-      {/* Add Recipe Modal - only in normal mode */}
       {!isSelectionMode && (
         <AddRecipeModal
           visible={showAddRecipeModal}
@@ -2091,6 +3014,60 @@ export default function RecipeListScreen({ navigation, route }: Props) {
           }}
         />
       )}
+    </>
+  );
+
+  // 11A-CP5a — selection mode bypasses the mode split entirely. Header swap
+  // + recipe list, no tile/search/filter-line chrome (matches the existing
+  // pre-CP5a selection picker layout).
+  if (isSelectionMode) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {renderHeader()}
+        {renderList()}
+        {renderModalsAndSheets()}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // 11D search-UX fix — header + search bar render ONCE, above both layouts,
+  // so the search TextInput stays mounted across the home↔list flip and keeps
+  // focus while you type a full query. Only the content BELOW the bar switches
+  // on screenMode. (Previously home and list were separate returns, so the
+  // input unmounted on the first debounced search → focus dropped mid-type.)
+  //   • home (discovery): tile grid + browse links
+  //   • list: filter line + compact status + recipe list
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {renderHeader()}
+      {screenMode === 'list' && collapsed ? renderCollapsedBar() : renderTopSearch()}
+      {screenMode === 'home' ? (
+        <>
+          {renderTilePrompt()}
+          {renderTileGrid()}
+          {renderBrowseByRow()}
+          {renderBrowseAllLink()}
+        </>
+      ) : (
+        <>
+          {!collapsed && renderFilterLine()}
+          {!collapsed && renderCompactStatus()}
+          {searching ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            renderList()
+          )}
+        </>
+      )}
+      {renderModalsAndSheets()}
     </KeyboardAvoidingView>
   );
 }

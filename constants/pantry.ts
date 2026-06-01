@@ -45,7 +45,9 @@ export const INGREDIENT_TYPE_ICONS = {
   // Proteins
   'Red Meat': '🥩',
   'Poultry': '🍗',
-  'Seafood': '🐟',
+  'Fish': '🐟',            // 11D: split from Seafood
+  'Shellfish': '🦐',       // 11D: split from Seafood
+  'Seafood': '🐟',         // transitional — retired once backfill SQL applied
   'Plant-Based Proteins': '🫘',
   
   // Dairy
@@ -56,6 +58,9 @@ export const INGREDIENT_TYPE_ICONS = {
   'Eggs': '🥚',
   
   // Pantry
+  'Pasta': '🍝',           // 11D: split from Grains
+  'Noodles': '🍜',         // 11D: Asian noodles split from Grains
+  'Rice': '🍚',            // 11D: split from Grains
   'Grains': '🌾',
   'Baking': '🧁',
   'Oils & Fats': '🫒',
@@ -66,6 +71,11 @@ export const INGREDIENT_TYPE_ICONS = {
   'Dried Fruit': '🫐',
   'Canned/Jarred Goods': '🥫',
   'Legumes': '🫘',
+  // 11D: orphan types that existed in data with no icon (were falling back to 📦)
+  'Wines & Spirits': '🍷',
+  'Coffee & Tea': '☕',
+  'Stocks & Broths': '🍲',
+  'Beverages': '🥤',
 } as const;
 
 // ============================================
@@ -204,6 +214,8 @@ export const INGREDIENT_TYPE_ICON_COMPONENTS: Record<string, IconComponent> = {
   'Mushrooms': MushroomIcon,
   'Red Meat': SteakIcon,
   'Poultry': PoultryIcon,
+  'Fish': SeafoodIcon,        // 11D: split from Seafood (reuses Seafood SVG)
+  'Shellfish': SeafoodIcon,   // 11D: split from Seafood (reuses Seafood SVG)
   'Seafood': SeafoodIcon,
   'Plant-Based Proteins': TofuIcon,
   'Fresh Dairy': MilkIcon,
@@ -211,6 +223,9 @@ export const INGREDIENT_TYPE_ICON_COMPONENTS: Record<string, IconComponent> = {
   'Cheese': CheeseIcon,
   'Butter': ButterIcon,
   'Eggs': EggsIcon,
+  'Pasta': GrainIcon,         // 11D: split from Grains (reuses Grain SVG until a Pasta icon exists)
+  'Noodles': GrainIcon,       // 11D: Asian noodles (reuses Grain SVG)
+  'Rice': GrainIcon,          // 11D: split from Grains (reuses Grain SVG)
   'Grains': GrainIcon,
   'Baking': BakingIcon,
   'Oils & Fats': OliveOilIcon,

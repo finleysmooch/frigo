@@ -9,10 +9,11 @@
  */
 export interface SearchOptions {
   // What to search in
-  searchIngredients?: boolean;  // Search ingredient names
+  searchIngredients?: boolean;  // Search ingredient names (full list, not just hero)
   searchTitles?: boolean;        // Search recipe titles
   searchChefs?: boolean;         // Search chef names
-  searchCuisines?: boolean;      // Search cuisine types
+  searchCuisines?: boolean;      // Deprecated alias — subsumed by searchMetadata
+  searchMetadata?: boolean;      // Cuisine, cooking methods, vibe tags, course type, difficulty
   
   // Future options
   caseSensitive?: boolean;       // Case-sensitive search (default: false)

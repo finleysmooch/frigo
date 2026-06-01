@@ -1,6 +1,6 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** May 27, 2026  
+**Last Updated:** May 28, 2026  
 **Version:** 5.31  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
@@ -79,7 +79,8 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| P11-input-1 | **Active dietary filter visibility on RecipeListScreen.** When dietary prefs auto-apply (or any dietary flag is set via FilterDrawer), the active flags are invisible in the filter UI — the quick-filter pills don't reflect them and the only cue is the "From your dietary preferences" text indicator. Surface active dietary flags as visible, dismissible pills in the filter row. Part of the broader RecipeListScreen browse/navigation redesign Tom wants in Phase 11. Wireframe Surface 3 from the 10F design session (chips with × to dismiss individually) is a starting reference. The current screen has accumulated significant UI density (segmented control, quick filters, More drawer, sort dropdown, dietary indicator, search bar, pantry-match badges) — the redesign should tighten the information hierarchy. | 🎨 | 🟡 | Phase 11 input — surfaced 2026-05-27 during 10F design. |
+| P11-input-1 | **Active dietary filter visibility on RecipeListScreen.** When dietary prefs auto-apply (or any dietary flag is set via FilterDrawer), the active flags are invisible in the filter UI — the quick-filter pills don't reflect them and the only cue is the "From your dietary preferences" text indicator. Surface active dietary flags as visible, dismissible pills in the filter row. Part of the broader RecipeListScreen browse/navigation redesign Tom wants in Phase 11. Wireframe Surface 3 from the 10F design session (chips with × to dismiss individually) is a starting reference. The current screen has accumulated significant UI density (segmented control, quick filters, More drawer, sort dropdown, dietary indicator, search bar, pantry-match badges) — the redesign should tighten the information hierarchy. | 🎨 | 🟡 | ✅ Resolved 2026-05-28 by 11A-CP3 (dismissible dietary pills replace the text indicator; CP2 already retired the segmented control). |
+| P11A-CP5-deferred-1 | **Search-lens label.** CP2's `activeLens` shape doesn't surface a search label, so opening the `RefineSheet` during an active search shows "Refine recipes" rather than `Refine · "<query>"`. Extend `BrowseState.activeLens` to carry a search-lens variant and update `refineLensLabel` in `RecipeListScreen` to read it. Touched code: `lib/services/recipeBrowseService.ts`, `screens/RecipeListScreen.tsx`. | 🎨 | 🟢 | Low priority — cosmetic header improvement. Surfaced during 11A-CP4 SESSION_LOG (2026-05-28). |
 
 ---
 
