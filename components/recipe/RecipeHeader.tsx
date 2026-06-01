@@ -32,6 +32,9 @@ interface Recipe {
   // book/photo recipes, which use book_title above instead.
   source_url?: string;
   source_domain?: string;
+  source_authors?: string[];    // all original authors; [0] is the primary (chef_name)
+  source_byline?: string;       // NYT byline / adapter, e.g. "Sam Sifton"
+  source_updated_at?: string;   // source last-modified (ISO) — shown as "Updated …"
 }
 
 interface RecipeHeaderProps {
@@ -66,6 +69,14 @@ function sourceLabel(domain?: string): string | null {
   if (domain === 'cooking.nytimes.com') return 'NYT Cooking';
   const base = domain.replace(/^www\./, '').split('.')[0];
   return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+/** "2020-07-08T00:00:00Z" -> "Jul 2020". Returns null on bad input. */
+function formatMonthYear(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
 export default function RecipeHeader({
@@ -123,6 +134,11 @@ export default function RecipeHeader({
                 <Text style={styles.chefText}>{recipe.chef_name}</Text>
               </TouchableOpacity>
             ) : null}
+            {/* Co-authors beyond the primary (e.g. "with Sami Tamimi"). The
+                primary author is the clickable chef line above. */}
+            {recipe.source_authors && recipe.source_authors.length > 1 ? (
+              <Text style={styles.bylineText}>with {recipe.source_authors.slice(1).join(', ')}</Text>
+            ) : null}
             {recipe.book_title ? (
               <TouchableOpacity style={styles.sourceRow} onPress={onBookPress}>
                 <BookIcon size={14} color={SOURCE_LINK_COLOR} />
@@ -142,6 +158,9 @@ export default function RecipeHeader({
                   {sourceLabel(recipe.source_domain)} {'\u2197'}
                 </Text>
               </TouchableOpacity>
+            ) : null}
+            {recipe.source_byline ? (
+              <Text style={styles.bylineText}>Adapted by {recipe.source_byline}</Text>
             ) : null}
           </View>
           <View style={styles.actionCol}>
@@ -171,6 +190,9 @@ export default function RecipeHeader({
         )}
         {recipe.servings ? (
           <Text style={styles.infoText}>{recipe.servings} servings</Text>
+        ) : null}
+        {formatMonthYear(recipe.source_updated_at) ? (
+          <Text style={styles.infoText}>Updated {formatMonthYear(recipe.source_updated_at)}</Text>
         ) : null}
 
         {/* Description */}
@@ -255,6 +277,10 @@ const styles = StyleSheet.create({
   bookText: {
     fontSize: 14,
     color: '#0d9488',
+  },
+  bylineText: {
+    fontSize: 13,
+    color: '#64748b',
   },
   actionBtn: {
     paddingHorizontal: 10,

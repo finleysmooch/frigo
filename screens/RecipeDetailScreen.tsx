@@ -31,6 +31,7 @@ import CreateMealModal from '../components/CreateMealModal';
 import RecipeNutritionPanel from '../components/RecipeNutritionPanel';
 import RecipeHeader from '../components/recipe/RecipeHeader';
 import IngredientsSection from '../components/recipe/IngredientsSection';
+import SourceNotesSection from '../components/recipe/SourceNotesSection';
 import PreparationSection from '../components/recipe/PreparationSection';
 import ScaleConvertControls from '../components/recipe/ScaleConvertControls';
 import {
@@ -115,6 +116,12 @@ interface Recipe {
   source_url?: string;
   source_domain?: string;
   external_source_id?: string;
+  source_authors?: string[];
+  source_byline?: string;
+  source_credit?: string;
+  source_published_at?: string;
+  source_updated_at?: string;
+  source_extracted_at?: string;
 }
 
 const UNIT_SYSTEMS: Array<{ label: string; value: UnitSystem }> = [
@@ -401,6 +408,12 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         source_url: recipeData.source_url || undefined,
         source_domain: recipeData.source_domain || undefined,
         external_source_id: recipeData.external_source_id || undefined,
+        source_authors: recipeData.source_authors || undefined,
+        source_byline: recipeData.source_byline || undefined,
+        source_credit: recipeData.source_credit || undefined,
+        source_published_at: recipeData.source_published_at || undefined,
+        source_updated_at: recipeData.source_updated_at || undefined,
+        source_extracted_at: recipeData.source_extracted_at || undefined,
       };
 
 
@@ -1378,6 +1391,15 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onStepLayout={handleStepLayout}
           onHeaderLayout={(y) => setPreparationHeaderY(y)}
         />
+
+        {/* Community notes from the recipe source (NYT Cooking). Renders
+            nothing if the recipe has none. */}
+        {recipe.source_url ? (
+          <SourceNotesSection
+            recipeId={recipe.id}
+            sourceLabel={recipe.source_domain === 'cooking.nytimes.com' ? 'NYT Cooking' : 'the source'}
+          />
+        ) : null}
 
         {/* Primary CTA: Log This Cook */}
         <TouchableOpacity

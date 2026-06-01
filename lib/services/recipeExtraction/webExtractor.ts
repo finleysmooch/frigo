@@ -32,6 +32,36 @@ export interface StandardizedRecipeData {
     tags?: string[];
     storageNotes?: string;
   };
+  // Community notes/comments embedded in the source page (NYT Cooking).
+  // Populated by the scrape-recipe edge function; empty for other sources.
+  notes?: SourceNoteRaw[];
+  notesTotal?: number;
+  // Richer provenance from the source payload (NYT scoopRecipe).
+  sourceMeta?: SourceMetaRaw;
+}
+
+/** Provenance fields from the scrape-recipe edge function (NYT scoopRecipe). */
+export interface SourceMetaRaw {
+  originalAuthor?: string | null;
+  authors?: string[];
+  byline?: string | null;
+  credit?: string | null;
+  publishedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+/** A community note as returned by the scrape-recipe edge function. */
+export interface SourceNoteRaw {
+  sourceNoteId: string;
+  type: string;
+  authorName?: string | null;
+  authorExternalId?: string | null;
+  message: string;
+  parentSourceNoteId?: string | null;
+  isRecommended: boolean;
+  recommendationsCount: number;
+  repliesCount: number;
+  createdAt?: string | null;
 }
 
 /**

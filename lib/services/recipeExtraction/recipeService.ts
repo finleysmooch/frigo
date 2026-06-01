@@ -8,6 +8,7 @@ import { ProcessedRecipe } from '../../types/recipeExtraction';
 import { getChefFromBookAuthor } from './chefService';
 import { saveInstructionSections } from '../instructionSectionsService';
 import { getDomainFromUrl } from './webExtractor';
+import { saveSourceNotes } from './sourceNotesService';
 
 /**
  * Source provenance derived from a recipe's source URL.
@@ -124,6 +125,18 @@ export async function saveRecipeToDatabase(
       console.log('⚠️ No instruction sections to save');
     }
 
+    // Save community source notes (NYT Cooking comments), if any. Idempotent
+    // upsert; non-fatal on failure. Keyed with the same source metadata derived
+    // for the recipe row.
+    if (processedRecipe.source_notes && processedRecipe.source_notes.length > 0) {
+      console.log(`💬 Saving ${processedRecipe.source_notes.length} source notes...`);
+      const noteMeta = deriveSourceMetadata(processedRecipe.raw_extraction_data?.source_url);
+      await saveSourceNotes(recipeId, processedRecipe.source_notes, {
+        externalSourceId: noteMeta.external_source_id,
+        sourceDomain: noteMeta.source_domain,
+      });
+    }
+
     // Save cross-references if any
     if (processedRecipe.cross_references && processedRecipe.cross_references.length > 0) {
       console.log('🔗 Saving cross-references...');
@@ -157,6 +170,9 @@ async function saveRecipe(
   chefId?: string | null
 ): Promise<string> {
   const { recipe, book_metadata, ai_difficulty_assessment, raw_extraction_data } = processedRecipe;
+  // Richer provenance (NYT byline/credit/dates). `source_meta` here is distinct
+  // from the URL-derived `sourceMeta` (domain/external id) computed below.
+  const provenance = processedRecipe.source_meta;
 
   console.log('\n💾 Saving recipe record to database...');
   console.log('Title:', recipe.title);
@@ -193,6 +209,16 @@ async function saveRecipe(
       source_url: sourceMeta.source_url,
       source_domain: sourceMeta.source_domain,
       external_source_id: sourceMeta.external_source_id,
+      // Richer provenance: byline/credit + source + extraction dates. These let
+      // us later re-scrape and compare source_updated_at to detect changes.
+      // source_author/chef_id stay single (primary author); source_authors holds
+      // the full co-author list for display.
+      source_authors: provenance?.authors && provenance.authors.length > 0 ? provenance.authors : null,
+      source_byline: provenance?.byline || null,
+      source_credit: provenance?.credit || null,
+      source_published_at: provenance?.publishedAt || null,
+      source_updated_at: provenance?.updatedAt || null,
+      source_extracted_at: raw_extraction_data?.extraction_date || null,
       image_url: recipe.image_url || null,
       servings: recipe.servings || null,
       prep_time_min: recipe.prep_time_min || null,

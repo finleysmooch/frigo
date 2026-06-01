@@ -9,6 +9,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
 
 // Types for our standardized format
+interface SourceNote {
+  sourceNoteId: string;          // the source's own note id (NYT note id)
+  type: string;                  // 'comment' | 'userReply'
+  authorName?: string | null;
+  authorExternalId?: string | null;
+  message: string;
+  parentSourceNoteId?: string | null;  // threading
+  isRecommended: boolean;
+  recommendationsCount: number;
+  repliesCount: number;
+  createdAt?: string | null;     // ISO date from the source
+}
+
 interface StandardizedRecipeData {
   source: {
     type: 'web';
@@ -35,6 +48,32 @@ interface StandardizedRecipeData {
     tags?: string[];
     storageNotes?: string;
   };
+  // Community notes/comments embedded in the page payload (NYT Cooking).
+  // Empty for sources that don't expose them. notesTotal is how many the
+  // source reports overall (may exceed notes.length — first page only for now).
+  notes?: SourceNote[];
+  notesTotal?: number;
+  // Richer provenance from the source payload (NYT scoopRecipe).
+  sourceMeta?: SourceMeta;
+}
+
+interface SourceMeta {
+  originalAuthor?: string | null;   // raw "from" string (NYT sourcesString) e.g. "Yotam Ottolenghi and Sami Tamimi"
+  authors?: string[];               // split into individual authors; authors[0] is the primary (chef)
+  byline?: string | null;           // NYT byline / adapter, e.g. "Sam Sifton"
+  credit?: string | null;           // credit line, e.g. "Adapted from Yotam Ottolenghi"
+  publishedAt?: string | null;      // source first-published date (ISO)
+  updatedAt?: string | null;        // source last-major-modification date (ISO) — drives staleness checks
+}
+
+// Split a "from" string into individual author names. NYT joins co-authors
+// with " and " (e.g. "Yotam Ottolenghi and Sami Tamimi"); also handle ","/"&".
+function splitAuthors(s?: string | null): string[] {
+  if (!s) return []
+  return s
+    .split(/\s+and\s+|\s*&\s*|,\s*/i)
+    .map((x) => x.trim())
+    .filter(Boolean)
 }
 
 serve(async (req) => {
@@ -79,8 +118,20 @@ serve(async (req) => {
     // Extract recipe data using multiple strategies
     const recipeData = extractRecipeData(doc, url)
 
+    // Community notes/comments live in the page's __NEXT_DATA__ payload (NYT),
+    // not the DOM — extract from the raw HTML string.
+    const { notes, notesTotal } = extractSourceNotes(html)
+    recipeData.notes = notes
+    recipeData.notesTotal = notesTotal
+
+    // Richer provenance (original author / byline / credit / dates) from
+    // the __NEXT_DATA__ scoopRecipe payload.
+    recipeData.sourceMeta = extractSourceMeta(html)
+
     console.log(`✅ Extracted recipe: ${recipeData.rawText.title}`)
     console.log(`📝 Found ${recipeData.rawText.ingredients.length} ingredients, ${recipeData.rawText.instructions.length} steps`)
+    console.log(`💬 Found ${notes.length} source notes (of ${notesTotal} reported)`)
+    console.log(`✍️ Source meta: from="${recipeData.sourceMeta.originalAuthor}" byline="${recipeData.sourceMeta.byline}" updated=${recipeData.sourceMeta.updatedAt}`)
 
     return new Response(
       JSON.stringify(recipeData),
@@ -109,6 +160,81 @@ serve(async (req) => {
     )
   }
 })
+
+/**
+ * Extract community notes/comments from the page's __NEXT_DATA__ payload.
+ * NYT Cooking embeds these (no auth needed) under props.pageProps as JSON
+ * strings: { totals: {all, parents, helpful}, notes: [...] }.
+ *
+ * Prefer `helpfulNotes` (the top ~15 by upvotes — NYT's "most helpful" view)
+ * over `allNotes` (the first ~15 in default order). Both blocks cap at one
+ * page (~15); pulling the full helpful set needs NYT-API pagination (future).
+ * notesTotal reports the source's overall count (e.g. 148) for display.
+ * Returns [] for sources that don't expose this shape.
+ */
+function extractSourceNotes(html: string): { notes: SourceNote[]; notesTotal: number } {
+  const empty = { notes: [], notesTotal: 0 }
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!m) return empty
+
+  let data: any
+  try { data = JSON.parse(m[1]) } catch { return empty }
+
+  const pp = data?.props?.pageProps
+  const raw = pp?.helpfulNotes ?? pp?.allNotes
+  if (!raw) return empty
+
+  let parsed: any
+  try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { return empty }
+
+  const rawNotes = parsed?.notes
+  if (!Array.isArray(rawNotes)) return empty
+
+  const notes: SourceNote[] = rawNotes
+    .map((n: any) => ({
+      sourceNoteId: String(n.id),
+      type: n.type || 'comment',
+      authorName: n.author?.name ?? null,
+      authorExternalId: n.author?.id != null ? String(n.author.id) : null,
+      message: typeof n.message === 'string' ? n.message.trim() : '',
+      parentSourceNoteId: n.parentId != null ? String(n.parentId) : null,
+      isRecommended: !!n.isRecommended,
+      recommendationsCount: Number(n.recommendationsCount) || 0,
+      repliesCount: Number(n.repliesCount) || 0,
+      createdAt: n.createDate ?? null,
+    }))
+    .filter((n: SourceNote) => n.message && n.sourceNoteId)
+
+  const notesTotal = Number(parsed?.totals?.all) || notes.length
+  return { notes, notesTotal }
+}
+
+/**
+ * Extract richer provenance from the __NEXT_DATA__ scoopRecipe payload (NYT):
+ * the original author the recipe is "from" (sourcesString), the NYT byline /
+ * adapter, the credit line, and publish/last-modified dates. Returns {} for
+ * sources that don't expose this shape.
+ */
+function extractSourceMeta(html: string): SourceMeta {
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!m) return {}
+  let data: any
+  try { data = JSON.parse(m[1]) } catch { return {} }
+  const sr = data?.props?.pageProps?.scoopRecipe
+  if (!sr) return {}
+
+  const firstByline = Array.isArray(sr.bylines) && sr.bylines.length ? sr.bylines[0] : null
+  const byline = firstByline ? (firstByline.displayName || firstByline.name || null) : null
+
+  return {
+    originalAuthor: sr.sourcesString || null,
+    authors: splitAuthors(sr.sourcesString),
+    byline,
+    credit: sr.credit || null,
+    publishedAt: sr.publishInfo?.firstPublishedAt || null,
+    updatedAt: sr.seoMeta?.lastMajorModification || null,
+  }
+}
 
 /**
  * Extract recipe data from HTML document

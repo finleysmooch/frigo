@@ -8,6 +8,59 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 
 ## 2026-06-01
 
+**Task:** NYT community notes import + richer attribution (multi-author) + most-helpful notes
+
+Tom-directed feature extending the NYT provenance work. Captures NYT Cooking community notes and richer attribution (original author(s), byline/adapter, credit, source dates) — all from the page's `__NEXT_DATA__` payload (no auth; same soft-paywall access path as the recipe). Verified end-to-end in-app on recipes 12957 (multi-author) and others.
+
+### Key discoveries (via signed-out `node fetch` probes — Claude Code is blocked from cooking.nytimes.com, but a plain fetch on the dev machine sees the same payload the edge function does)
+- Notes live in `__NEXT_DATA__.props.pageProps.allNotes` / `helpfulNotes` (JSON strings: `{totals:{all,parents,helpful}, notes:[...]}`). **Both blocks cap at ~15 (one page).** `helpfulNotes` = top ~15 by upvotes; `allNotes` = first ~15. Full set (e.g. 29 helpful / 148 all) needs NYT-API pagination — deferred.
+- Attribution: `sourcesString` = original author(s) the recipe is "from" (e.g. "Yotam Ottolenghi and Sami Tamimi" — **co-authors joined by " and "**); `bylines[].displayName` = NYT adapter (e.g. "Tara Parker-Pope"); `credit` = full credit line; `publishInfo.firstPublishedAt` + `seoMeta.lastMajorModification` = dates.
+- **Bug found & fixed:** setting `source_author = sourcesString` would create one garbage chef named "Yotam Ottolenghi and Sami Tamimi". Now the combined string is split; the PRIMARY author (authors[0]) drives the single `chef_id`; co-authors stored in `source_authors` for display. (Option B — keeps the single-chef machinery across ~20 files untouched; per-author chef pages/stats = future Option A.)
+
+### Migrations (Tom ran both; SQL also in files)
+- `20260601_recipe_source_notes.sql` — `recipe_source_notes` table (FK→recipes cascade, `UNIQUE(recipe_id, source_note_id)`, helpful-first index). No RLS (matches sibling recipe child tables `instruction_sections`/`recipe_ingredients`, which are anon-readable — confirmed by live probe).
+- `20260601_recipe_source_attribution.sql` — adds `source_authors text[]`, `source_byline`, `source_credit`, `source_published_at`, `source_updated_at`, `source_extracted_at` to `recipes`.
+
+### Edge function (REDEPLOYED — `supabase functions deploy scrape-recipe`, done this session via `--project-ref siaawxcgyghuphwgufkn`)
+- `supabase/functions/scrape-recipe/index.ts` — parses `__NEXT_DATA__` for notes (prefers `helpfulNotes`) + `sourceMeta` (authors split, byline, credit, dates); returns `notes[]`, `notesTotal`, `sourceMeta` on the payload. Note: edge `console.log`s appear in Supabase logs, not Metro.
+
+### App files changed
+- `lib/services/recipeExtraction/recipeService.ts` — saves the new provenance columns + calls `saveSourceNotes`. ⚠️ PK snapshot now stale (was 2026-04-22)
+- `lib/services/recipeExtraction/unifiedParser.ts` — primary-author selection (authors[0]) for chef; carries `source_notes`/`source_meta`. ⚠️ PK snapshot now stale (was 2026-04-22)
+- `lib/services/recipeExtraction/webExtractor.ts` — `StandardizedRecipeData` gains `notes`/`notesTotal`/`sourceMeta` types. ⚠️ PK snapshot now stale (was 2026-04-22)
+- `lib/types/recipeExtraction.ts` — `SourceNote`, `SourceMetaInfo`, `ProcessedRecipe.source_notes/source_meta`, `raw_extraction_data.extraction_date`. ⚠️ PK snapshot now stale (was 2026-04-22)
+- `screens/RecipeDetailScreen.tsx` — maps new fields; renders `SourceNotesSection`. ⚠️ PK snapshot now stale (was 2026-05-19)
+- `components/recipe/RecipeHeader.tsx` — co-authors line ("with …"), "Adapted by {byline}", "Updated {Mon YYYY}". (Not in PK tracking doc.)
+
+### App files created
+- `lib/services/recipeExtraction/sourceNotesService.ts` — `saveSourceNotes` (idempotent upsert) + `getSourceNotes` (helpful/recommended-first).
+- `components/recipe/SourceNotesSection.tsx` — collapsible "Most helpful notes from NYT Cooking (N)" with threaded replies + ★ Recommended.
+
+### Verification (in-app, recipe 12957 "Chermoula Eggplant", multi-author)
+- chef (linked) = **Yotam Ottolenghi** (not the combined string, not the byline); `source_authors` = ["Yotam Ottolenghi","Sami Tamimi"]; `source_byline` = "Tara Parker-Pope"; credit + published(2012-11-13)/updated(2020-07-08)/extracted(now) all populated; image single URL; 4 sections, no dupes.
+- Notes: 15 most-helpful stored, recommendations 90 → 11 (Philip 90, Hillary 83, JRussell 71…), sorted by helpfulness. tsc clean throughout.
+
+### Deferred / follow-ups (recommend for DEFERRED_WORK)
+- **All notes via pagination** — embedded payload caps at ~15; pulling all helpful (29) / all (148) needs NYT notes-API paging.
+- **Option A multi-chef** — per-co-author chef pages + stats via a `recipe_chefs` join table (touches ~20 files); current Option B keeps one primary chef.
+- **Staleness monitor** — re-scrape and compare live `lastMajorModification` vs stored `source_updated_at`; `source_extracted_at` records last pull.
+- **Project-wide RLS / data-exposure review** — recipe tables are anon-readable; same class as client-side `ANTHROPIC_API_KEY`. Belongs with increment-3 gating.
+- Threaded-reply / ★ Recommended display code is in place but unexercised by sampled recipes (their first pages had none).
+
+### Recommended doc updates
+- `FRIGO_ARCHITECTURE.md` — none yet (note `recipe_source_notes` + the source_* columns once the NYT feature set stabilizes).
+- `DEFERRED_WORK.md` — add the four follow-ups above (CC did not edit it — flagging for Claude.ai).
+- `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+### Recommended next steps for Tom
+1. Eyeball the chermoula detail page (notes + multi-author header) — confirm UI.
+2. Photo-extraction test (Sonnet 4.6 vision path) still outstanding.
+3. Decide whether all-notes pagination / Option A multi-chef are in scope for F&F.
+
+---
+
+## 2026-06-01
+
 **Task:** Recipe-detail source provenance UI (NYT Cooking attribution + link)
 
 Surfaces a web recipe's source on the detail page, in the same slot the book title occupies for book recipes. Builds on the increment-1 source columns. Tom-directed follow-on; verified visually in-app on a NYT recipe (link opens correctly).

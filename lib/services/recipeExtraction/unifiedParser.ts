@@ -5,9 +5,15 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_API_KEY } from '@env';
-import { ExtractedRecipeData } from '../../types/recipeExtraction';
+import { ExtractedRecipeData, SourceNote, SourceMetaInfo } from '../../types/recipeExtraction';
 import { StandardizedRecipeData } from './webExtractor';
 import { RECIPE_PARSE_MODEL } from './models';
+
+type ParsedRecipeWithNotes = ExtractedRecipeData & {
+  source_notes?: SourceNote[];
+  source_notes_total?: number;
+  source_meta?: SourceMetaInfo;
+};
 
 const anthropic = new Anthropic({
   apiKey: ANTHROPIC_API_KEY,
@@ -198,7 +204,7 @@ Score 0-100 and assign level:
  */
 export async function parseStandardizedRecipe(
   standardizedData: StandardizedRecipeData
-): Promise<ExtractedRecipeData> {
+): Promise<ParsedRecipeWithNotes> {
   try {
     console.log('🤖 Parsing standardized recipe data...');
     const startTime = Date.now();
@@ -257,8 +263,20 @@ export async function parseStandardizedRecipe(
     console.log('✅ Parser validation passed');
     console.log(`📊 Parsed: ${parsedData.ingredients.length} ingredients, ${parsedData.instruction_sections.length} sections`);
 
-    // FIXED: Force preserve author from source (Claude often misses it)
-    if (standardizedData.source.author) {
+    // FIXED: Force preserve author from source (Claude often misses it).
+    // Prefer the ORIGINAL author the recipe is "from" (NYT sourcesString, e.g.
+    // "Yotam Ottolenghi") over the page byline/adapter (e.g. "Sam Sifton"),
+    // so chef attribution credits the creator, not the NYT editor.
+    // Use the PRIMARY original author (authors[0]) for chef attribution — not
+    // the raw sourcesString, which may combine co-authors ("A and B") and would
+    // otherwise create a single garbage chef. Co-authors are stored separately
+    // (source_authors) for display.
+    const primaryAuthor =
+      standardizedData.sourceMeta?.authors?.[0] || standardizedData.sourceMeta?.originalAuthor;
+    if (primaryAuthor) {
+      parsedData.recipe.source_author = primaryAuthor;
+      console.log('✅ Preserved primary author from sourceMeta:', primaryAuthor);
+    } else if (standardizedData.source.author) {
       parsedData.recipe.source_author = standardizedData.source.author;
       console.log('✅ Preserved author from source:', standardizedData.source.author);
     } else if (standardizedData.rawText.author) {
@@ -313,10 +331,14 @@ export async function parseStandardizedRecipe(
       },
     };
 
-    // Add raw extraction data to result
+    // Add raw extraction data + carry source notes (NYT comments) through to
+    // the saver. standardizedData.notes already matches the SourceNote shape.
     return {
       ...parsedData,
       raw_extraction_data: rawExtractionData,
+      source_notes: standardizedData.notes,
+      source_notes_total: standardizedData.notesTotal,
+      source_meta: standardizedData.sourceMeta,
     };
 
   } catch (error: any) {

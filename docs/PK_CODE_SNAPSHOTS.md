@@ -65,7 +65,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/recipeExtraction/ingredientMatcher.ts` | 2026-04-22 | | Low | Instruction text highlighting |
 | `lib/services/recipeExtraction/recipeService.ts` | 2026-05-19 | Phase 3A | HIGH | saveRecipe (distinct from top-level) |
 | `lib/services/recipeExtraction/unifiedParser.ts` | 2026-04-22 | | HIGH | |
-| `lib/services/recipeExtraction/webExtractor.ts` | 2026-04-22 | | Low | |
+| `lib/services/recipeExtraction/webExtractor.ts` | 2026-04-22 | | HIGH | |
 | `lib/utils/mealTypeHelpers.ts` | 2026-05-19 | Phase 7E Fix Pass 1 | Low | Extracted from postService |
 | `lib/utils/timerDetection.ts` | 2026-05-19 | Phase 6 | Low | detectTimersInText + formatTime |
 | `constants/cookingMethods.ts` | 2026-05-19 | Phase 7M | Low | 16-value DB CHECK match |
@@ -77,7 +77,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/types/supplies.ts` | 2026-05-19 | Phase 8R-CP2a / CP6d-Schema / CP6e-Services-a / Services-b / FlowsUI-b2 | HIGH | NEW (8R-CP2a): Supply, SupplyWithTags, SupplyIngredient, SupplyStatus, SupplyInitialStatus, SupplyStatusResult, CreateSupplyParams, UpdateSupplyParams. CP6d-Schema added tracking_mode/storage_location/archived_at/is_priority/usage_level + StorageLocation/TrackingMode types. CP6e-Services-a added tracks_lots + lots/lot_aggregate + lot types. CP6e-Services-b added LotDeductionPlanItem + lots_affected.quantity_unit. CP6e-FlowsUI-b2 (2026-05-13): added `SearchMatchDimension` union ('name'|'family'|'type'|'tag'|'variant'|'brand'|'notes'|'storage') and `SupplySearchMatch` interface (supplyId + rank + matchedDimensions Set + matchedLotIds Set) for the server-search + post-hoc dimension matcher. |
 | `lib/types/tags.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): Tag, TagDimension ('store' \| 'urgency' \| 'recipe' \| 'event' \| 'storage' per Q1), SupplyTagRow, NeedTagRow (split tables per Q39). |
 | `lib/types/views.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): View, ViewWithFilters, ViewFilter, ViewFilterDimension, RenderMode (tier/aisle/flat per Q25), CreateViewParams, UpdateViewParams, ViewFilterInput. |
-| `lib/types/recipeExtraction.ts` | 2026-04-22 | | Low | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
+| `lib/types/recipeExtraction.ts` | 2026-04-22 | | HIGH | ExtractedRecipeData, ProcessedRecipe, Book, Chef |
 | `lib/types/recipeFeatures.ts` | 2026-04-22 | | HIGH | DB-corrected Book + author types |
 | `lib/types/search.ts` | 2026-04-22 | | Low | SearchOptions, SearchResult, SearchError class |
 | `lib/types/space.ts` | 2026-04-22 | | Low | SpaceRole, SpaceAction, permissions, invitations |
