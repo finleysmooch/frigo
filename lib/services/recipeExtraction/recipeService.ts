@@ -7,6 +7,63 @@ import { supabase } from '../../supabase';
 import { ProcessedRecipe } from '../../types/recipeExtraction';
 import { getChefFromBookAuthor } from './chefService';
 import { saveInstructionSections } from '../instructionSectionsService';
+import { getDomainFromUrl } from './webExtractor';
+
+/**
+ * Source provenance derived from a recipe's source URL.
+ * All three fields are null for photo/book recipes (no source URL) — that is
+ * correct, not a failure.
+ */
+export interface SourceMetadata {
+  source_url: string | null;
+  source_domain: string | null;
+  external_source_id: string | null;
+}
+
+/**
+ * NYT Import #1: derive the three top-level source-metadata columns from the
+ * raw source URL captured during extraction (raw_extraction_data.source_url).
+ *
+ * - source_url: the URL with query string / hash (tracking params) stripped.
+ * - source_domain: hostname with leading "www." removed — reuses
+ *   getDomainFromUrl so there is one domain parser in the codebase.
+ * - external_source_id: for cooking.nytimes.com, the numeric recipe ID parsed
+ *   from /recipes/(\d+) (robust to slug + query params; NYT keys on this ID).
+ *   Null for every other domain for now.
+ *
+ * The backfill script (scripts/backfill_source_metadata.mjs) mirrors this
+ * logic in plain JS — keep the two in sync if the rules change.
+ */
+export function deriveSourceMetadata(rawUrl?: string | null): SourceMetadata {
+  if (!rawUrl) {
+    return { source_url: null, source_domain: null, external_source_id: null };
+  }
+
+  let cleanUrl: string;
+  let domain: string | null;
+  try {
+    const u = new URL(rawUrl);
+    u.search = ''; // strip query string (utm_*, etc.)
+    u.hash = '';
+    cleanUrl = u.toString();
+    domain = getDomainFromUrl(rawUrl); // hostname, www. stripped
+  } catch {
+    // Not a parseable URL — preserve the raw string, no domain/id.
+    return { source_url: rawUrl, source_domain: null, external_source_id: null };
+  }
+
+  let externalSourceId: string | null = null;
+  if (domain === 'cooking.nytimes.com') {
+    const match = cleanUrl.match(/\/recipes\/(\d+)/);
+    if (match) externalSourceId = match[1];
+  }
+
+  return {
+    source_url: cleanUrl,
+    source_domain: domain,
+    external_source_id: externalSourceId,
+  };
+}
 
 /**
  * Save complete recipe to database
@@ -114,6 +171,14 @@ async function saveRecipe(
   });
   console.log('Raw extraction data:', raw_extraction_data ? 'YES' : 'NO');
 
+  // NYT Import #1: derive top-level source-provenance columns from the source
+  // URL captured during extraction. Null for photo/book recipes (no URL).
+  const sourceMeta = deriveSourceMetadata(raw_extraction_data?.source_url);
+  console.log('Source metadata:', {
+    domain: sourceMeta.source_domain || 'none',
+    external_id: sourceMeta.external_source_id || 'none',
+  });
+
   const { data, error } = await supabase
     .from('recipes')
     .insert({
@@ -123,7 +188,11 @@ async function saveRecipe(
       page_number: book_metadata?.page_number || null,
       title: recipe.title,
       description: recipe.description || null,
-      source_author: recipe.source_author || null,                
+      source_author: recipe.source_author || null,
+      // NYT Import #1: source provenance (null for photo/book recipes)
+      source_url: sourceMeta.source_url,
+      source_domain: sourceMeta.source_domain,
+      external_source_id: sourceMeta.external_source_id,
       image_url: recipe.image_url || null,
       servings: recipe.servings || null,
       prep_time_min: recipe.prep_time_min || null,
