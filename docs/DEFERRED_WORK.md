@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** May 28, 2026  
-**Version:** 5.31  
+**Last Updated:** June 1, 2026  
+**Version:** 5.32  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,19 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: Phase 11 — Ingredient Family Search & Recipe Search UX (June 1, 2026)
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| P11-FS-1 | **Port the new recipe-search surface to BookView (cookbook) for parity.** RecipeListScreen got stacked entity-aware search pills, the typeahead dropdown (scoped + refine kinds), and the nutrition high/low slider+histogram; BookViewScreen only got the unified server engine + the collapsing filter bar. Wire the same `searchTerms` + `getSearchSuggestions` + tap-to-adjust picker into BookView. | 🚀 | 🟡 | Self-contained — shared helpers (`searchTerms`, `searchService`, `useCollapsibleHeader`, `BrowseLensChip.onPress`) already exist. |
+| P11-FS-2 | **Molly Baz / "Cook This Book" chef attribution backfill.** 47 Cook This Book recipes have `chef_id = NULL` (book author = "Molly Baz" but neither the book nor those rows link to her chef_id). `UPDATE recipes SET chef_id = <MollyBaz> WHERE book_id = <CookThisBook> AND chef_id IS NULL` + set the book's `chef_id`. Search already bridges this via chef→book-author broadening, but the data gap remains. Likely a broader "null chef_id under an authored book" pattern. | 📊 | 🟡 | Surfaced 2026-06-01: "baz" returned 84 (chef_id-attributed) vs ~131 expected. |
+| P11-FS-3 | **Normalize `recipes.cooking_methods`.** Values are fragmented (`grill` / `grilled` / `char grilled` stored separately → each filters a different slice) — the cousin of the ingredient-taxonomy problem. A small classify-and-backfill to a canonical method set (reuse `classifyIngredients.mjs`). Until then the cooking-method typeahead filters exact stored values only. | 📊 | 🟡 | Reported 2026-06-01. |
+| P11-FS-4 | **Classifier-prompt realignment + taxonomy self-protection (family-search fast-follow).** `ingredientSuggestionService` emits a divergent lowercase vocabulary; no DB CHECK constraint on `family`/`ingredient_type`. Recon confirmed new ingredients aren't auto-classified on the live path (low drift risk), so deferred. When tackled: realign the prompt to the canonical types (single source = a future `ingredientTaxonomy.ts`), consider a CHECK constraint, add `search_aliases text[]` ("many doors" layer, per `measurement_units.aliases`). | 🔧 | 🟡 | Per the 2026-06-01 Decision Record (PHASE_11). |
+| P11-FS-5 | **Dead `recipes_with_books` view references.** `bookViewService.getRecipesByChef` + `getUserBooks` still query the non-existent view (would 500 if called; no live callers today). Rewrite to direct `recipes` queries like `getRecipesByBook`, or drop if dead. Also `recipe.book_name` read in RecipeListScreen is a no-op (no such column). | 🐛 | 🟡 | Found 2026-06-01 while fixing the BookDetail crash. |
+| P11-FS-6 | **Deferred taxonomy / nutrition polish.** (a) `Chiles & Peppers` ingredient_type split (deferred — fresh-vs-dried ambiguity, better via `form`). (b) Dedicated "Bread" type (bread rows parked under Baking). (c) Nutrition slider covers only cal/protein/carbs/fat — no sugar/fibre/sodium per-serving data; add if nutrition enrichment provides them. (d) Optional inline tier presets on macro pills. | 📊/💡 | 🟢 | From the 2026-06-01 family-search + nutrition-slider work. |
 
 ---
 

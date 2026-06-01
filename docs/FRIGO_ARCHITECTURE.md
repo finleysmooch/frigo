@@ -1,8 +1,8 @@
 # Frigo — Architecture & Codebase Map
-**Last Updated:** May 28, 2026
-**Version:** 4.0
+**Last Updated:** 2026-06-01
+**Version:** 4.1
 
-Phase 11A (Browse rebuild): CP1–CP4 shipped 2026-05-28; CP5 (cards + WhatCanICook absorption) outstanding. See `docs/PHASE_11_RECIPE_POLISH.md` for the full phase doc.
+Phase 11A (Browse rebuild): CP1–CP4 shipped 2026-05-28; CP5 outstanding. **2026-06-01: ingredient family search + recipe-search UX overhaul shipped** (see the `searchService` / `searchTerms` / `RecipeListScreen` entries below + the Decision Record in `docs/PHASE_11_RECIPE_POLISH.md`). See `docs/PHASE_11_RECIPE_POLISH.md` for the full phase doc.
 
 ---
 
@@ -247,13 +247,13 @@ frigo/
 | **groceryService.ts** | Grocery items | addItem, checkOff |
 | **groceryListsService.ts** | Grocery list management | createList, getLists |
 | **storeService.ts** | Grocery store management | getStores, createStore |
-| **searchService.ts** | Recipe search (mixed term) | searchRecipes |
+| **searchService.ts** | Recipe search engine (mixed term + family + scoped) | `searchRecipes`, `searchRecipesByIngredient` (catalog name/plural + **Path C** ingredient_type + recipe display-text, with synonym expansion), `searchRecipesByMetadata` (cuisine/methods/vibes/course/difficulty), `searchRecipesByMixedTerms`, **`searchRecipesByScopedTerms`** (AND across typed terms — chef scope broadened via book author), `searchRecipesByType` (exact ingredient_type), `getSearchEntities` (multi-word entity dict for tokenization), `getSearchSuggestions` (typeahead index: ingredient/category/chef/cuisine + dietary/method/vibe/course/attribute). Directed `SEARCH_SYNONYMS` (incl. `seafood→[fish,shellfish]` emptied-parent umbrella). **2026-06-01.** ⚠️ still at `lib/` root (T4). |
 | **ingredientService.ts** | Ingredient lookup/management | getIngredient, searchIngredients |
 | **ingredientSuggestionService.ts** | Autocomplete for ingredients | getSuggestions |
 | **instructionSectionsService.ts** | Instruction section CRUD | getSections, updateStep |
 | **recipeAnnotationsService.ts** | Recipe annotation tracking | getAnnotations, saveAnnotation |
 | **userRecipeTagsService.ts** | Cook Soon tags | tagRecipe, getTaggedRecipes |
-| **bookViewService.ts** | Cookbook browsing | getBookRecipes |
+| **bookViewService.ts** | Cookbook browsing | `getBook`, `getRecipesByBook` (**2026-06-01: rewritten off the non-existent `recipes_with_books` view → direct `recipes` query with `books`/`chefs` joins**), `getCuratedBookSections`, `getBooksForIndex`, `getChefsForIndex`. Note: `getRecipesByChef` / `getUserBooks` still reference the missing view (dead paths — would 500 if called; tracked as deferred). |
 | **imageStorageService.ts** | Photo upload/retrieval | uploadImage, getImageUrl |
 | **subscriptionService.ts** | User subscription tiers | getSubscription |
 | **annotationService.ts** | Recipe edit annotations | — |
@@ -262,7 +262,8 @@ frigo/
 | **vibeService.ts** | **Phase 7F** — vibe tag formatting + aggregation | **getRecipeVibe**(recipeId), **getVibeFromTags**(tags) — pre-fetched variant to avoid extra query, **computeMealVibe**(mealId) — aggregates dish vibes with most-common-wins + alphabetical tiebreak. Exports `VibeTag` interface (`{emoji, label}`). Internal: `VIBE_EMOJI_MAP` (14 known tags → emoji, `✨` fallback) and `VIBE_LABEL_OVERRIDES` (punctuation/capitalization). |
 | **pantryMatchingService.ts** | **Phase 8D-CP1/CP2** — recipe ↔ supply 4-level matcher | **calculateRecipeSupplyMatch**(recipeId, spaceId), **calculateRecipeSupplyMatchBulk**(recipeIds, spaceId). Fixed 3-query bulk design (recipe_ingredients → supplies → ingredient catalog). Returns `PantryMatchResult` whose `matched: MatchedIngredient[]` carries a `level`: **L1 exact** (same row, or `base_ingredient_id`-linked), **L2 form_variant** (same `ingredient_subtype`, different `form`), **L3 substitute** (same subtype + form), **L4 no match** (→ `missing[]`). `ingredient_subtype='always_available'` (water, ice) is L1 with no supply lookup. `matchPercentage` counts L1+L2+L3+always_available. **CP2 patch:** L2/L3 are whitelist-gated by `SUBSTITUTABLE_SUBTYPES` (~75 subtypes) — non-whitelisted same-subtype matches demote to L4; a null-form wildcard collapses generic-base pairings to silent L1. See `SUBSTITUTION_INTELLIGENCE_ROADMAP.md`. **CP3:** `MatchedIngredient` gained `supplyStatus` (`SupplyStatus \| null`) — populated from the existing supply rows, no extra query — so the recipe ingredient tap-sheet can distinguish in-stock vs low/critical. |
 | **readyToCookService.ts** | **Phase 8D-CP4** — "ready to cook" gate (D8D-Q3) | **isReadyToCook**(recipe, matchResult), **filterReadyToCook**(recipes, matchMap), **resolveHeroToIngredientId**(heroName, recipeIngredients), **getRecipeIngredientNames**(recipeIds), `READY_TO_COOK_THRESHOLD = 0.9`. Single source of truth for the predicate: `matchPercentage >= 0.90` AND every resolvable hero ingredient matched. `getRecipeIngredientNames` is a **new public surface** — batch-loads each recipe's catalog `{id,name}` ingredient pairs from `recipe_ingredients` (needed because `recipes.hero_ingredients` is a bare `text[]` with no catalog ids; heroes are name-resolved at filter time). Unresolvable heroes are a soft pass + permanent `console.warn` for data-quality measurement (T31). |
-| **recipeBrowseService.ts** | **Phase 11A-CP1–CP4** — pure browse domain model | Owns `BrowseState`, the `BROWSE_CONTEXTS` registry (tile + cook-again contexts with base predicates and per-context facets), the facet config layer (`FACET_META`, `CUISINE_LENS_FACETS`, `SEARCH_LENS_FACETS`, `isFacetActive`, `getActiveFacets`), the resolver (`resolveBrowse`), and Cook Again sectioning (`getCookAgainSections`). No Supabase, no React. Consumer: RecipeListScreen. |
+| **recipeBrowseService.ts** | **Phase 11A-CP1–CP4** — pure browse domain model | Owns `BrowseState`, the `BROWSE_CONTEXTS` registry (tile + cook-again contexts with base predicates and per-context facets), the facet config layer (`FACET_META`, `CUISINE_LENS_FACETS`, `SEARCH_LENS_FACETS`, `isFacetActive`, `getActiveFacets`), the resolver (`resolveBrowse`), and Cook Again sectioning (`getCookAgainSections`). **2026-06-01: `resolveBrowse` extended with high/low macro thresholds** (min/max for calories/protein/carbs/fat). No Supabase, no React. Consumer: RecipeListScreen, BookViewScreen. |
+| **searchTerms.ts** (`lib/`) | **2026-06-01** — pure stacked-search helpers | Entity-aware, prefix-deferred tokenizer for the stacked-search pills (`tokenize`, `processBox`, `effectiveSearchTerms`), `matchSuggestions` (typeahead ranking + keyword aliases), and the `SearchTerm` / `Suggestion` / `SearchKind` / `RefineKind` types. No Supabase, no React. Consumers: RecipeListScreen (BookView port pending). |
 
 ### statsService.ts Key Patterns
 
@@ -305,7 +306,8 @@ getWeeklyFrequency(userId, mealType) → WeeklyFrequency[]
 
 | Hook | Notes |
 |------|-------|
-| **useReadyToCookRecipes.ts** | **Phase 8D-CP4.** `useReadyToCookRecipes(spaceId)` → loads the user's recipes, bulk-matches against the active space's supplies, applies the `readyToCookService` gate, and returns `{ readyToCookRecipes, matchMap, loading, error, refresh }`. Backs WhatCanICookScreen. |
+| **useReadyToCookRecipes.ts** (`lib/hooks/`) | **Phase 8D-CP4.** `useReadyToCookRecipes(spaceId)` → loads the user's recipes, bulk-matches against the active space's supplies, applies the `readyToCookService` gate, and returns `{ readyToCookRecipes, matchMap, loading, error, refresh }`. Backs WhatCanICookScreen. |
+| **useCollapsibleHeader.ts** (**`hooks/`** at repo root — note: not `lib/hooks/`) | **2026-06-01.** Direction-aware collapsing filter chrome for a scroll list. Returns `{ collapsed, onScroll, expand }`; "sticky-collapsed" model (collapse on scroll-down past a short run; re-expand only at the top or via `expand()` — no upscroll reveal, Tom-tuned). Consumers: RecipeListScreen, BookViewScreen. |
 
 ---
 
@@ -378,7 +380,7 @@ ClassicView.tsx, SectionCard.tsx, StepIngredients.tsx (per-step ingredient displ
 
 RecipeNutritionPanel.tsx (collapsible: calories+PCF collapsed, full macro breakdown expanded, quality confidence indicator), DietaryBadgeRow.tsx (color-coded dietary flags, compact/default sizes, overflow +N), UserAvatar.tsx (handles emoji strings, URLs, and null via regex `/^[\p{Emoji}\u200D\uFE0F]+$/u`; emoji font size 0.75x), NutritionGoalsModal.tsx (6 nutrients, stepper inputs, daily/per-meal toggle, MEALS_PER_DAY=2.5), PostActionMenu.tsx (legacy — see above), CategoryHeader.tsx (SVG family icons, chip-style type breakdown), TypeHeader.tsx (SVG type icons with emoji fallback), PantryItemRow.tsx (SVG stock status: NoneIcon/WarningIcon/LowFuelIcon), GroceryListItem.tsx, MealInvitationsCard.tsx, PendingSpaceInvitations.tsx, MarkupText.tsx
 
-**recipe/BrowseLensChip.tsx (Phase 11A-CP3)** — Reusable locked-filter chip implementing the 8E-CP3 pattern. API: `{ label, icon?, count?, variant: 'lens' | 'refinement', onClear }`. Lens variant = filled primary, used for the active context / cuisine / search; refinement variant = lighter outline with ✕, used for individual applied refinements. Current consumer: RecipeListScreen. Future consumers (post-F&F): WhatCanICookScreen, DrillDownScreen.
+**recipe/BrowseLensChip.tsx (Phase 11A-CP3)** — Reusable locked-filter chip implementing the 8E-CP3 pattern. API: `{ label, icon?, count?, variant: 'lens' | 'refinement', onClear, onPress? }`. Lens variant = filled primary, used for the active context / cuisine / search; refinement variant = lighter outline with ✕, used for individual applied refinements. **2026-06-01: optional `onPress` makes the chip BODY tappable (separate from ✕)** — used so numeric-threshold pills open the macro/time slider picker. Consumers: RecipeListScreen, BookViewScreen. Future (post-F&F): WhatCanICookScreen, DrillDownScreen.
 
 ### Phase 7I Feed Card Components (components/feedCard/)
 

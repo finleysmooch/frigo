@@ -29,9 +29,30 @@ The dedicated "view all my NYT Cooking recipes" surface was deferred to you. Mir
 - **Wire the currently-inert pills:** in `AuthorViewScreen` the "Other sources" chips (search `sourceChip`) are info-only — make them `navigation.navigate('SourceView', { domain })`. There's a code comment marking this.
 - Optional entry point: a top-level "Sources" shelf (note: there's no top-level "all books shelf" today either — books are reached via chef/stats pages, so decide whether a shelf is worth it or if chip/badge taps suffice).
 
-## Still outstanding (not yet done by anyone)
-- **Photo-extraction smoke test** — the Sonnet 4.6 vision path (`claudeVisionAPI`) was migrated but never tested end-to-end in-app. Do one photo import.
-- **Deferred (see SESSION_LOG):** all-notes pagination (embedded payload caps at ~15), Option A multi-chef (per-co-author chef pages/stats via a `recipe_chefs` join table — currently single primary chef), source-staleness monitor (re-scrape, compare `source_updated_at`), and a **project-wide RLS / data-exposure review** (recipe tables are anon-readable; same class as the client-side `ANTHROPIC_API_KEY` exposure — both flagged, neither fixed).
+## Still outstanding
+
+### ⚠️ Time-critical
+- **Redeploy 4 migrated edge functions before 2026-06-15.** Their model strings were migrated from the retired `claude-sonnet-4-20250514` → `claude-sonnet-4-6` **in code (committed)**, but only `scrape-recipe` was actually deployed. These four are **still running the retired model in production** and will start returning 404s on June 15:
+  `supabase functions deploy scan-book-pages`
+  `supabase functions deploy process-recipe-queue`
+  `supabase functions deploy extract-book-toc`
+  `supabase functions deploy assemble-book-recipes`
+  (Deploy each against project `siaawxcgyghuphwgufkn`. Sonnet 4.6 keeps the same $3/MTok input price, so their cost constants stay valid.)
+
+### Verification
+- **Photo-extraction smoke test** — the Sonnet 4.6 vision path (`claudeVisionAPI`) was migrated but never tested end-to-end in-app. Do one photo import and confirm parse + save.
+
+### Build / feature backlog (recommend adding to DEFERRED_WORK)
+- **③ In-app source browse screen** + wiring the inert chef-page "Other sources" pills (your primary task above).
+- **All-notes pagination** — embedded NYT payload caps at ~15 most-helpful; pulling all helpful / all notes needs NYT notes-API paging.
+- **Option A multi-chef** — per-co-author chef pages + stats via a `recipe_chefs` join table. Currently single primary `chef_id` + `source_authors` list for display.
+- **Source-staleness monitor** — re-scrape and compare live `lastMajorModification` vs stored `source_updated_at`; `source_extracted_at` records last pull.
+
+### Tech-debt / security (flagged, not fixed)
+- **Client-side `ANTHROPIC_API_KEY` exposure** — `unifiedParser` + `claudeVisionAPI` instantiate the Anthropic client with the key from `@env`, bundling it into the shipped app. Should move extraction calls server-side (edge function), like the book-scan functions. Security item.
+- **Project-wide RLS / data-exposure review** — recipe tables (`recipes`, `recipe_ingredients`, `instruction_sections`, and the new `recipe_source_notes`) are anon-readable (no RLS); same class of issue as the API-key exposure. Belongs with the increment-3 (non-owner gating) design.
+- **Edge-function model consistency** — `extract-recipe-three-pass` is on Sonnet 4.5 (`claude-sonnet-4-5-20250929`) while the others are now on 4.6; decide on one and align.
+- **Normalize image URL upstream** — the `scrape-recipe` edge function still passes the raw JSON-LD image array; `unifiedParser.normalizeImageUrl()` is an app-side safety net. Ideally the scraper returns a single best URL so the array never reaches the client.
 
 ## Watch-outs
 - `chef_id` is a **single FK across ~20 files**; multi-author is intentionally "primary chef + `source_authors` list", not many-to-many. Don't assume co-authors are clickable entities yet.

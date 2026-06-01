@@ -4,7 +4,9 @@ Phase 11 absorbs all remaining pre-F&F recipe-system polish work — the browse 
 
 By this point the dependent systems (ingredients, pantry, meals, nutrition) are stable, so the recipe-system polish can land without rework.
 
-**Status:** Active. 11A (Browse rebuild) in flight — CP1–CP4 shipped 2026-05-28, CP5 outstanding. Remaining sub-phases (11B–11H) outstanding, not yet scoped.
+**Last Updated:** 2026-06-01
+
+**Status:** Active. 11A (Browse rebuild) — CP1–CP4 shipped 2026-05-28, CP5 outstanding. **Ingredient family search + recipe-search UX overhaul shipped 2026-06-01** (see Decision Record at the end of this doc). 11D cookbook screens (BookList / BookDetail / BookView, CP1–CP3b) shipped per SESSION_LOG; porting the new stacked-search/typeahead/collapse to BookView is outstanding. Remaining sub-phases (11B–11H) outstanding, not yet scoped.
 
 ---
 
@@ -186,5 +188,35 @@ Outstanding — stretch only; may be cut from Phase 11.
 - `FF_LAUNCH_MASTER_PLAN_2026-05-27.md` — Phase 11 row + ordering rationale + 8E merge note (this doc supersedes that scattered content)
 - `PHASE_8_PANTRY_AND_GROCERY_2026-05-19.md` — 8E retirement section pointing forward to Phase 11
 - `docs/SUBSTITUTION_INTELLIGENCE_ROADMAP_2026-05-26.md` — 11G primary planning artifact
-- `docs/SESSION_LOG.md` — 11A-CP1 through 11A-CP4 entries (2026-05-28)
+- `docs/SESSION_LOG.md` — 11A-CP1 through 11A-CP4 entries (2026-05-28); 2026-06-01 family-search + search-UX entry
 - `DEFERRED_WORK.md` — scattered Phase 11 territory items (B2, P11-input-1, etc.)
+
+---
+
+## Decision Record — Ingredient Family Search (2026-06-01, shipped)
+
+Executed via `docs/CC_HANDOFF_ingredient_family_search_2026-06-01.md` + `docs/CC_PROMPT_family_search_code_2026-06-01.md`. Approved by Tom + a Claude.ai strategic pass. Supersedes the `INGREDIENT_TAXONOMY_REFINEMENT_PROPOSAL` draft (directionally right; this corrects the noodle/bread/forward-drift specifics).
+
+### Architecture principle: one home, many doors
+`ingredient_type` stays **single-valued** — it is the classification used for grouping/display (pantry aisles, stats pills, icons), where a single answer is correct and multi-membership would render an item twice + break the `===` filters and icon lookups. Multi-membership for SEARCH ("spaghetti is also a noodle") lives in the **search layer only**:
+- **Synonym map** — directed, curated query-time expansion (`SEARCH_SYNONYMS` in `lib/searchService.ts`). Shipped.
+- **`search_aliases text[]` on `ingredients`** — matched in search, ignored by grouping (follows the `measurement_units.aliases` precedent). **Post-launch fast-follow — not built.**
+
+### Hard constraint
+The **4 `family` values** (Produce / Proteins / Dairy / Pantry) are FIXED — hardcoded as aisle tabs + icons + in the classifier prompt. Refinement happens to `ingredient_type` *under* them.
+
+### Scope shipped
+- Split `Grains` → **Pasta / Noodles / Rice / Grains**. `Noodles` adopted as its own type (Asian noodles: udon/soba/ramen/rice/glass/vermicelli) at the review gate; "egg noodles"/"lasagna noodles" intentionally Pasta (European). 10 bread rows reclassified to **Baking** (a mis-file the classifier surfaced).
+- Split `Seafood` → **Fish / Shellfish**. `Seafood` is now an **empty type by design.**
+- **Emptied-parent umbrella principle:** any fully-emptied parent type is restored in the search layer via a one-to-many synonym (`seafood → [fish, shellfish]`), never by re-typing data. Seafood is the only emptied parent this round (`Grains` retains real grains).
+- `Chiles & Peppers` split **DEFERRED** (fresh-vs-dried ambiguity → better via the existing `form` column).
+- A dedicated "Bread" type **DEFERRED** post-launch; bread rows kept under `Baking` for now (classifier signal logged).
+- Icons added for the new types + the 4 orphan types previously falling back to 📦 (Wines & Spirits, Coffee & Tea, Stocks & Broths, Beverages).
+- Formal `ingredientTaxonomy.ts` constant **DEFERRED** to the classifier fast-follow (its only consumer); created then removed this session to honor the deferral.
+
+### Search (shipped)
+- **Path C** — `ingredient_type` substring folded into the catalog `.or()` in `searchRecipesByIngredient`. **Type-only, NOT `family`.** ("shellfish" contains "fish", so `fish` returns Fish+Shellfish and `shellfish` returns Shellfish only — accepted.)
+- **Metadata search** (cuisine/methods/vibes/course/difficulty), **entity dictionary** (`getSearchEntities`), **typeahead suggestions** (`getSearchSuggestions` — scoped search kinds + refine kinds + keyword aliases), **scoped resolution** (`searchRecipesByScopedTerms`; chef scope broadened via book author → addresses the Molly Baz / Cook This Book attribution gap *in search*, no data change).
+
+### Forward drift (data integrity — deferred fast-follow)
+The classifier (`ingredientSuggestionService`) emits a different lowercase vocabulary and there is **no DB CHECK constraint** enforcing the taxonomy. BUT recon confirmed new ingredients are **not** auto-classified on the live extraction path (unmatched → `ingredient_id = null` + `needs_review`), so drift risk is low. Realigning the classifier vocabulary to the canonical types + an optional CHECK constraint = **deferred**, scoped after recon (done).
