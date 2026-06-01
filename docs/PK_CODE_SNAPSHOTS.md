@@ -127,7 +127,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/ManageSuppliesScreen.tsx` | 2026-04-30 | Phase 8R-CP4 | HIGH | RENAMED from ManageStaplesScreen.tsx in 8R-CP4. Search via search_ingredients RPC + createSupply + cycleSupplyStatus on every row + edit-custom-name + delete. Resolves P8-22 (status cycling on every row in the management surface). |
 | `screens/PendingApprovalsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/ProfileScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/RecipeDetailScreen.tsx` | 2026-05-19 | Phase 7B-Rev / 7J / 8B-CP4 / 8D-CP1 | Low | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path. 8D-CP1 (2026-05-18): wired `calculateRecipeSupplyMatch` → `matchResult` state feeding IngredientsSection ✓ marks + missing count. |
+| `screens/RecipeDetailScreen.tsx` | 2026-05-19 | Phase 7B-Rev / 7J / 8B-CP4 / 8D-CP1 | HIGH | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path. 8D-CP1 (2026-05-18): wired `calculateRecipeSupplyMatch` → `matchResult` state feeding IngredientsSection ✓ marks + missing count. |
 | `screens/RecipeExtractionLoadingScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/RecipeListScreen.tsx` | 2026-05-19 | Phase 3A / 8D-CP1 | HIGH | 8D-CP1 (2026-05-18): added 'pantry_match' sort option + bulk `pantryMatchingService` wiring + `matchMap` state. |
 | `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | HIGH | |

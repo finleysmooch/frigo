@@ -111,6 +111,10 @@ interface Recipe {
   book_title?: string;
   book_author?: string;
   servings?: number;
+  // Source provenance for web-imported recipes (NYT Import #1)
+  source_url?: string;
+  source_domain?: string;
+  external_source_id?: string;
 }
 
 const UNIT_SYSTEMS: Array<{ label: string; value: UnitSystem }> = [
@@ -393,6 +397,10 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         book_title: recipeData.book?.title,
         book_author: recipeData.book?.author,
         servings: recipeData.servings || undefined,
+        // Source provenance (NYT Import #1) — surfaced in RecipeHeader
+        source_url: recipeData.source_url || undefined,
+        source_domain: recipeData.source_domain || undefined,
+        external_source_id: recipeData.external_source_id || undefined,
       };
 
 

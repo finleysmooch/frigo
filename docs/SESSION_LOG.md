@@ -8,6 +8,36 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 
 ## 2026-06-01
 
+**Task:** Recipe-detail source provenance UI (NYT Cooking attribution + link)
+
+Surfaces a web recipe's source on the detail page, in the same slot the book title occupies for book recipes. Builds on the increment-1 source columns. Tom-directed follow-on; verified visually in-app on a NYT recipe (link opens correctly).
+
+### Files changed
+- `components/recipe/RecipeHeader.tsx` — added `source_url` / `source_domain` to its local Recipe interface; renders a tappable source line in `metaCol` (same place as the book line, since web recipes have no `book_title`). `cooking.nytimes.com` → label "NYT Cooking"; other domains → title-cased first segment (generalizes for free). Tapping calls `Linking.openURL(source_url)`. Added a `BookIcon` to the existing book line and a `GlobeIcon` to the new source line (14px, teal `#0d9488`), with a shared `sourceRow` flex style. (Not in PK snapshot tracking doc — no Rule E flag.)
+- `components/icons/recipe/GlobeIcon.tsx` — NEW. Stroke-based `react-native-svg` globe (circle + meridian + equator + 2 latitude lines) matching the app's icon convention (`{size, color}` props, default export).
+- `screens/RecipeDetailScreen.tsx` — mapped `source_url` / `source_domain` / `external_source_id` from the recipe row (already selected via `*`) into `formattedRecipe` + its Recipe interface, so RecipeHeader receives them. ⚠️ PK snapshot now stale (was 2026-05-19)
+
+### Verification
+- tsc --noEmit clean on all touched files.
+- In-app: NYT recipe 1025971 shows "🌐 NYT Cooking ↗"; tap opens the source URL. Book recipes show the book icon + title. Tom confirmed look + link.
+
+### Comments / community notes — feasibility (investigated, NOT built)
+Tom asked whether NYT community notes can be imported. Findings: the `scrape-recipe` edge function reads static-HTML JSON-LD, which does NOT contain community notes — they load client-side from NYT's internal (undocumented) endpoint into the page's `#notes_section`. Web search found no public NYT notes API; only third-party paid scrapers (Apify) and recipe-body tools. Claude Code is blocked from fetching `cooking.nytimes.com`, so the live endpoint probe must come from Tom's browser DevTools. Recommended as its own gated increment (new `recipe_source_notes` table + edge function), pending: (a) the actual notes request URL + whether it needs auth/cookie, (b) a ToS decision on storing NYT users' comments. We already store `external_source_id` (their key), so if the endpoint is fetchable unauthenticated it's viable.
+
+### Recommended doc updates
+- `FRIGO_ARCHITECTURE.md` — none (could note RecipeHeader now renders web-source attribution once the feature set stabilizes).
+- `DEFERRED_WORK.md` — recommend adding **"import NYT community notes"** as a gated increment with the two prerequisites above (CC did not edit DEFERRED_WORK — flagging for Claude.ai).
+- `PROJECT_CONTEXT.md` — none.
+- `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+### Recommended next steps for Tom
+1. (Optional) Capture the NYT notes request from DevTools to decide whether the comments increment is viable.
+2. Photo extraction test (still outstanding from the model-migration task) to confirm the Sonnet 4.6 vision path.
+
+---
+
+## 2026-06-01
+
 **Task:** Migrate retired extraction model strings (unblock recipe import)
 
 URL recipe import was failing with `404 not_found_error` — the parse path called `claude-3-haiku-20240307` (Haiku 3), which Anthropic retired ~2026-04-20. The photo path used `claude-sonnet-4-20250514` (Sonnet 4), which retires 2026-06-15 and would break the same way. Migrated both, centralized the IDs, and swept the whole repo for other dated model strings. Model-string migration only — no prompt/max_tokens/parsing changes.
