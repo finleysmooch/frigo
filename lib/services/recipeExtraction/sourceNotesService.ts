@@ -73,8 +73,9 @@ export async function getSourceNotes(recipeId: string): Promise<StoredSourceNote
       'id, source_note_id, note_type, author_name, message, parent_source_note_id, is_recommended, recommendations_count, replies_count, source_created_at'
     )
     .eq('recipe_id', recipeId)
-    .order('is_recommended', { ascending: false })
+    // Most-upvoted first — that's the "most helpful" ordering users expect.
     .order('recommendations_count', { ascending: false })
+    .order('is_recommended', { ascending: false })
     .order('source_created_at', { ascending: false });
 
   if (error) {

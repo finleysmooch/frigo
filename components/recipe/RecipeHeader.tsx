@@ -71,14 +71,6 @@ function sourceLabel(domain?: string): string | null {
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
-/** "2020-07-08T00:00:00Z" -> "Jul 2020". Returns null on bad input. */
-function formatMonthYear(iso?: string): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-}
-
 export default function RecipeHeader({
   recipe, totalTime, onBookPress, onChefPress,
   onShowMealModal, onToggleCookSoon, isCookSoon, onTitleLayout,
@@ -190,9 +182,6 @@ export default function RecipeHeader({
         )}
         {recipe.servings ? (
           <Text style={styles.infoText}>{recipe.servings} servings</Text>
-        ) : null}
-        {formatMonthYear(recipe.source_updated_at) ? (
-          <Text style={styles.infoText}>Updated {formatMonthYear(recipe.source_updated_at)}</Text>
         ) : null}
 
         {/* Description */}

@@ -5,6 +5,7 @@ import {
   StoredSourceNote,
 } from '../../lib/services/recipeExtraction/sourceNotesService';
 import GlobeIcon from '../icons/recipe/GlobeIcon';
+import ThumbsUpIcon from '../icons/recipe/ThumbsUpIcon';
 
 interface SourceNotesSectionProps {
   recipeId: string;
@@ -45,9 +46,10 @@ export default function SourceNotesSection({
   if (!loaded || notes.length === 0) return null;
 
   const byId = new Map(notes.map((n) => [n.source_note_id, n]));
-  const parents = notes.filter(
-    (n) => !n.parent_source_note_id || !byId.has(n.parent_source_note_id)
-  );
+  const parents = notes
+    .filter((n) => !n.parent_source_note_id || !byId.has(n.parent_source_note_id))
+    // Most-upvoted first (defensive — service already orders this way).
+    .sort((a, b) => (b.recommendations_count || 0) - (a.recommendations_count || 0));
   const repliesOf = (sourceNoteId: string) =>
     notes.filter((n) => n.parent_source_note_id === sourceNoteId);
 
@@ -56,6 +58,12 @@ export default function SourceNotesSection({
       <View style={styles.noteHead}>
         <Text style={styles.author}>{n.author_name || 'NYT reader'}</Text>
         {n.is_recommended ? <Text style={styles.badge}>★ Recommended</Text> : null}
+        {n.recommendations_count > 0 ? (
+          <View style={styles.upvotes}>
+            <ThumbsUpIcon size={13} color="#64748b" />
+            <Text style={styles.upvoteCount}>{n.recommendations_count}</Text>
+          </View>
+        ) : null}
       </View>
       <Text style={styles.message}>{n.message}</Text>
       {!isReply && repliesOf(n.source_note_id).map((r) => renderNote(r, true))}
@@ -125,6 +133,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#334155',
+  },
+  upvotes: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  upvoteCount: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
   },
   badge: {
     fontSize: 11,
