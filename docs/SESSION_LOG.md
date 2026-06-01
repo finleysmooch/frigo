@@ -7,6 +7,26 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-01 — Integrate NYT Cooking import branch + ship increment ③ (SourceViewScreen)
+
+Integrated `origin/nyt-source-metadata` into `main` and built the deferred source-browse screen. (NYT branch's own 2026-06-01 entries follow below.)
+
+**Merge (`35fef07`):** fast-forwarded `main` to the recipe-search-overhaul work, then merged the NYT branch. ~27 NYT files merged clean (extraction model migration, source provenance UI, notes, edge fns, migrations). **5 conflicts resolved** — `RecipeListScreen` + `RefineSheet` (took ours, re-implemented the NYT Source multi-select + "Source: Recently Updated" sort into the new browse/search architecture: `availableSources` memo, RefineSheet "Source" section + `sources` FilterState field, sort entry); `recipeBrowseService` (added `sources` OR-filter + `source_updated` sort case to `resolveBrowse`/`SortOption`); `SESSION_LOG` (base had only the intro → stacked NYT's entries above mine, no duplication); `PK_CODE_SNAPSHOTS` (unioned staleness rows). Shared Supabase project confirmed same (`siaawxcgyghuphwgufkn`) — migrations + `scrape-recipe` **not re-run**.
+
+**Increment ③ shipped:** new `screens/SourceViewScreen.tsx` (mirrors the BookView load pattern — `recipes where source_domain=? AND user_id=?` ordered by `source_updated_at` desc, nutrition/history/friends enrichment, `RecipeCard` list); `App.tsx` `RecipesStackParamList.SourceView: { domain }` + screen registration; `AuthorViewScreen` "Other sources" pills now `navigation.navigate('SourceView', { domain })` (were inert).
+
+**Files modified/added:** `screens/SourceViewScreen.tsx` (new), `App.tsx`, `screens/AuthorViewScreen.tsx` ⚠️ PK snapshot stale (flagged HIGH in merge), `lib/services/recipeBrowseService.ts`, `components/RefineSheet.tsx`, `screens/RecipeListScreen.tsx`, `docs/DEFERRED_WORK.md` (v5.33 — new "From: NYT Cooking Import" section NYT-1..10).
+
+**Verification:** `tsc --noEmit` clean for all merge-touched + ③ files (the 181 totals are pre-existing CookSoonSection/DayMealsModal + node_modules lib-check noise). **In-app smoke NOT yet run** — recommend: import a NYT recipe (chef/notes/badge), check the Source filter + "Source: Recently Updated" sort, and tap a chef-page "Other sources" pill → SourceView.
+
+**⚠️ Time-critical (DEFERRED NYT-1):** redeploy 4 edge functions (`scan-book-pages`, `process-recipe-queue`, `extract-book-toc`, `assemble-book-recipes`) before **2026-06-15** — still on the retired model in prod. `supabase functions deploy` (Tom's CLI auth).
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — add `SourceViewScreen` to the Screens section + the `SourceView` route; note the NYT source-provenance services (`sourceNotesService`, `sourceLabel`, `models.ts`) and the RefineSheet "Source" facet. `DEFERRED_WORK.md` — done (this session). `PHASE_11`/`PROJECT_CONTEXT` — none.
+
+**Recommended next steps for Tom:** (1) the NYT-1 edge-fn redeploys (time-critical); (2) smoke the merge + ③ in-app; (3) NYT-9 photo-extraction smoke (Sonnet 4.6 vision); (4) push `main` when satisfied. Working tree clean (besides `_scratch/`).
+
+---
+
 ## 2026-06-01
 
 **Task:** Surface NYT/web source across the app — card badge, list filter + sort, chef "Other sources"

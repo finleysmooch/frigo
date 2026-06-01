@@ -37,6 +37,7 @@ import ViewsScreen from './screens/ViewsScreen';
 import ViewDetailScreen from './screens/ViewDetailScreen';
 import StoresScreen from './screens/StoresScreen';
 import BookViewScreen from './screens/BookViewScreen';
+import SourceViewScreen from './screens/SourceViewScreen';
 import AuthorViewScreen from './screens/AuthorViewScreen';
 import MyPostDetailsScreen from './screens/MyPostDetailsScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -162,6 +163,7 @@ export type RecipesStackParamList = {
   // 11D-CP3a: optional `sectionId` is set by BookDetail's "See all →" links
   // so CP3b can preset BookView's sort (mostCooked → most_cooked, etc.).
   BookView: { bookId: string; sectionId?: 'mostCooked' | 'recentlyCooked' | 'friendsFavorites' | 'bookmarked' };
+  SourceView: { domain: string };
   AuthorView: { chefName: string };
   AddRecipeFromPhoto: { userId: string; source: 'camera' | 'gallery' };
   AddRecipeFromUrl: { userId: string };
@@ -545,12 +547,20 @@ function RecipesStackNavigator() {
           title: 'Cooking Mode',
         }}
       />
-      <RecipesStack.Screen 
-        name="BookView" 
+      <RecipesStack.Screen
+        name="BookView"
         component={BookViewScreen}
         options={{
           headerShown: true,
           title: 'Cookbook',
+        }}
+      />
+      <RecipesStack.Screen
+        name="SourceView"
+        component={SourceViewScreen}
+        options={{
+          headerShown: true,
+          title: 'Source',
         }}
       />
       <RecipesStack.Screen 

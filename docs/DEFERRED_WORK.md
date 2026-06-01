@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** June 1, 2026  
-**Version:** 5.32  
+**Version:** 5.33  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,25 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: NYT Cooking Import (June 1, 2026)
+
+Integrated from `origin/nyt-source-metadata` (merge `35fef07`). Increment ③ (SourceViewScreen + wiring the AuthorViewScreen "Other sources" pills) **shipped** in the same session. Remaining:
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| NYT-1 | **⚠️ TIME-CRITICAL — redeploy 4 migrated edge functions before 2026-06-15.** `scan-book-pages`, `process-recipe-queue`, `extract-book-toc`, `assemble-book-recipes` had their model migrated `claude-sonnet-4-20250514` → `claude-sonnet-4-6` **in code (committed)**, but were never deployed — they're **still running the retired model in prod** and will 404 on June 15. `supabase functions deploy <name>` × 4 against project `siaawxcgyghuphwgufkn`. Ops action (CLI auth), not code. | 🐛 | 🔴 | From the NYT handoff. |
+| NYT-2 | **Client-side `ANTHROPIC_API_KEY` exposure (security).** `unifiedParser` + `claudeVisionAPI` instantiate the Anthropic client with the key from `@env`, bundling it into the shipped app. Move extraction calls server-side (edge function), like the book-scan functions. | 🔧 | 🔴 | Security. |
+| NYT-3 | **Project-wide RLS / anon-readable data review (security).** `recipes`, `recipe_ingredients`, `instruction_sections`, and the new `recipe_source_notes` are anon-readable (no RLS) — same class as NYT-2. Pair with the non-owner gating design (also ties to the orphan-recipe `user_id` scoping work). | 🔧 | 🔴 | Security. |
+| NYT-4 | **All-notes pagination.** The embedded NYT page payload caps at ~15 most-helpful notes; pulling all helpful / all notes needs NYT notes-API paging (comments aren't separately fetchable without auth). | 🚀 | 🟢 | |
+| NYT-5 | **Option A multi-chef.** Per-co-author chef pages + stats via a `recipe_chefs` join table. Currently single primary `chef_id` + a `source_authors` list for display only (co-authors aren't clickable entities). `chef_id` is a single FK across ~20 files. | 🚀 | 🟡 | |
+| NYT-6 | **Source-staleness monitor.** Re-scrape and compare live `lastMajorModification` vs stored `source_updated_at`; `source_extracted_at` records the last pull. | 💡 | 🟢 | |
+| NYT-7 | **Edge-function model consistency.** `extract-recipe-three-pass` is on Sonnet 4.5 (`claude-sonnet-4-5-20250929`) while the others are now 4.6; pick one and align. | 🔧 | 🟡 | |
+| NYT-8 | **Normalize image URL upstream.** `scrape-recipe` still passes the raw JSON-LD image array; `unifiedParser.normalizeImageUrl()` is an app-side safety net. Ideally the scraper returns one best URL. | 🔧 | 🟢 | |
+| NYT-9 | **Photo-extraction smoke test (verification).** The Sonnet 4.6 vision path (`claudeVisionAPI`) was migrated but never tested end-to-end. One photo import to confirm parse + save. | 🧪 | 🟡 | |
+| NYT-10 | **SourceView parity polish (optional).** ③ shipped as a minimal list (sorted by `source_updated_at`). Could later gain the BookView niceties (search / collapse / RefineSheet) — folds into P11-FS-1. | 🚀 | 🟢 | |
 
 ---
 

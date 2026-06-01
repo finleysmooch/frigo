@@ -387,8 +387,8 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
       )}
 
       {/* Sources Section — web sources (e.g. NYT Cooking) this chef's recipes
-          came from, alongside Books. (Tapping to filter to a source is a
-          follow-up once the SourceView screen lands.) */}
+          came from, alongside Books. Tapping a chip opens SourceView (increment
+          ③) filtered to that domain. */}
       {sources.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
@@ -396,11 +396,16 @@ export default function AuthorViewScreen({ route, navigation }: Props) {
           </Text>
           <View style={styles.sourceChipRow}>
             {sources.map(([domain, count]) => (
-              <View key={domain} style={styles.sourceChip}>
+              <TouchableOpacity
+                key={domain}
+                style={styles.sourceChip}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('SourceView', { domain })}
+              >
                 <GlobeIcon size={15} color={colors.text.secondary} />
                 <Text style={styles.sourceChipText}>{sourceLabel(domain) || domain}</Text>
                 <Text style={styles.sourceChipCount}>{count}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
