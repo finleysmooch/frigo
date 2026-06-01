@@ -32,7 +32,8 @@ export type SortOption =
   | 'fastest'
   | 'most_cooked'
   | 'highest_rated'
-  | 'pantry_match';
+  | 'pantry_match'
+  | 'source_updated';
 
 // 11A-CP2: tile contexts added. `your_classics` and `something_new` replace
 // CP1's `cook_again` / `try_new` IDs (identical predicates + sectioning). The
@@ -392,6 +393,13 @@ export function resolveBrowse(
     );
   }
 
+  // Source — OR logic on source_domain (NYT import; book/photo recipes have none)
+  if (af.sources?.length) {
+    filtered = filtered.filter(
+      (r) => (r as any).source_domain && af.sources!.includes((r as any).source_domain)
+    );
+  }
+
   // Cuisine — OR logic
   if (af.cuisineTypes?.length) {
     filtered = filtered.filter((r) =>
@@ -524,6 +532,18 @@ export function resolveBrowse(
         const ma = matchMap.get(a.id)?.matchPercentage ?? 0;
         const mb = matchMap.get(b.id)?.matchPercentage ?? 0;
         return mb - ma;
+      });
+      break;
+    case 'source_updated':
+      // NYT import: web recipes by the source's last-modified date, newest
+      // first. Recipes with no source date (book/photo) sort to the bottom.
+      filtered.sort((a, b) => {
+        const ta = (a as any).source_updated_at ? new Date((a as any).source_updated_at).getTime() : null;
+        const tb = (b as any).source_updated_at ? new Date((b as any).source_updated_at).getTime() : null;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb - ta;
       });
       break;
   }

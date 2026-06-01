@@ -225,6 +225,7 @@ export interface ExtractedRecipeData {
     source_url?: string;
     source_site?: string;
     scraped_at?: string;
+    extraction_date?: string; // ISO timestamp set by unifiedParser at extraction
     raw_text?: any; // All the raw text from scraping
   };
 }
@@ -288,6 +289,40 @@ export interface ProcessedRecipe extends ExtractedRecipeData {
   ingredients_with_matches: ProcessedIngredient[];
   book?: Book | null;
   needsOwnershipVerification?: boolean;
+  // Community notes/comments captured from the source (NYT Cooking). Carried
+  // through from the scraper so saveRecipeToDatabase can persist them.
+  source_notes?: SourceNote[];
+  source_notes_total?: number;
+  // Richer provenance (original author / byline / credit / dates) carried
+  // through from the scraper so saveRecipeToDatabase can persist the columns.
+  source_meta?: SourceMetaInfo;
+}
+
+/** Provenance captured from a recipe source (NYT scoopRecipe). */
+export interface SourceMetaInfo {
+  originalAuthor?: string | null;   // raw "from" string (may contain co-authors)
+  authors?: string[];               // split authors; authors[0] is the primary (chef)
+  byline?: string | null;           // NYT byline / adapter
+  credit?: string | null;           // credit line, e.g. "Adapted from Yotam Ottolenghi"
+  publishedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * A single community note/comment from a recipe source (NYT Cooking).
+ * camelCase mirrors the scrape-recipe edge function payload.
+ */
+export interface SourceNote {
+  sourceNoteId: string;
+  type: string;                 // 'comment' | 'userReply'
+  authorName?: string | null;
+  authorExternalId?: string | null;
+  message: string;
+  parentSourceNoteId?: string | null;
+  isRecommended: boolean;
+  recommendationsCount: number;
+  repliesCount: number;
+  createdAt?: string | null;    // ISO date from the source
 }
 
 export interface ProcessedIngredient extends ExtractedIngredient {

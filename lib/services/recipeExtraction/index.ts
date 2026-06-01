@@ -180,22 +180,11 @@ export async function saveExtractedRecipe(
       await createUserBookOwnership(userId, bookId, false);
     }
 
-    // Save recipe to database
+    // Save recipe to database. NOTE: saveRecipeToDatabase() also saves the
+    // instruction sections internally — do NOT call saveInstructionSections()
+    // again here or every section + its steps get inserted twice.
     const recipeId = await saveRecipeToDatabase(userId, processedRecipe, bookId);
     console.log(`✅ Recipe saved with ID: ${recipeId}`);
-
-    // Save instruction sections
-    if (processedRecipe.instruction_sections && processedRecipe.instruction_sections.length > 0) {
-      console.log(`📝 Saving ${processedRecipe.instruction_sections.length} instruction sections...`);
-      
-      try {
-        await saveInstructionSections(recipeId, processedRecipe.instruction_sections);
-        console.log('✅ Instruction sections saved successfully');
-      } catch (sectionError) {
-        console.error('⚠️ Error saving instruction sections:', sectionError);
-        // Don't fail the entire save if sections fail
-      }
-    }
 
     return recipeId;
 

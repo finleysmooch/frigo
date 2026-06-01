@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, LayoutChangeEvent, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image, LayoutChangeEvent, Dimensions, Linking } from 'react-native';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { NoPhotoPlaceholder } from '../feedCard/sharedCardElements';
+import BookIcon from '../icons/recipe/BookIcon';
+import GlobeIcon from '../icons/recipe/GlobeIcon';
+
+const SOURCE_LINK_COLOR = '#0d9488';
 
 const RECIPE_HERO_HEIGHT = 250;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -24,6 +28,13 @@ interface Recipe {
   book_title?: string;
   book_author?: string;
   servings?: number;
+  // Source provenance for web-imported recipes (NYT Import #1). Null for
+  // book/photo recipes, which use book_title above instead.
+  source_url?: string;
+  source_domain?: string;
+  source_authors?: string[];    // all original authors; [0] is the primary (chef_name)
+  source_byline?: string;       // NYT byline / adapter, e.g. "Sam Sifton"
+  source_updated_at?: string;   // source last-modified (ISO) — shown as "Updated …"
 }
 
 interface RecipeHeaderProps {
@@ -46,6 +57,18 @@ function toTitleCase(str: string): string {
     if (idx > 0 && MINOR_WORDS.has(word.toLowerCase())) return word.toLowerCase();
     return word.charAt(0).toUpperCase() + word.slice(1);
   });
+}
+
+/**
+ * Friendly source name for a web-imported recipe's domain. NYT Cooking gets a
+ * branded label; other domains fall back to a title-cased first segment
+ * (e.g. seriouseats.com -> "Seriouseats"). Returns null when no domain.
+ */
+function sourceLabel(domain?: string): string | null {
+  if (!domain) return null;
+  if (domain === 'cooking.nytimes.com') return 'NYT Cooking';
+  const base = domain.replace(/^www\./, '').split('.')[0];
+  return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
 export default function RecipeHeader({
@@ -103,13 +126,33 @@ export default function RecipeHeader({
                 <Text style={styles.chefText}>{recipe.chef_name}</Text>
               </TouchableOpacity>
             ) : null}
+            {/* Co-authors beyond the primary (e.g. "with Sami Tamimi"). The
+                primary author is the clickable chef line above. */}
+            {recipe.source_authors && recipe.source_authors.length > 1 ? (
+              <Text style={styles.bylineText}>with {recipe.source_authors.slice(1).join(', ')}</Text>
+            ) : null}
             {recipe.book_title ? (
-              <TouchableOpacity onPress={onBookPress}>
+              <TouchableOpacity style={styles.sourceRow} onPress={onBookPress}>
+                <BookIcon size={14} color={SOURCE_LINK_COLOR} />
                 <Text style={styles.bookText}>
                   {recipe.book_title}
                   {recipe.page_number ? ` \u00B7 p. ${recipe.page_number}` : ''}
                 </Text>
               </TouchableOpacity>
+            ) : null}
+            {/* Web source attribution (NYT Cooking etc.) \u2014 same slot as the
+                book line, since a web recipe has no book_title. Tappable: opens
+                the original recipe URL in the browser. */}
+            {recipe.source_url && sourceLabel(recipe.source_domain) ? (
+              <TouchableOpacity style={styles.sourceRow} onPress={() => Linking.openURL(recipe.source_url!)}>
+                <GlobeIcon size={14} color={SOURCE_LINK_COLOR} />
+                <Text style={styles.bookText}>
+                  {sourceLabel(recipe.source_domain)} {'\u2197'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {recipe.source_byline ? (
+              <Text style={styles.bylineText}>Adapted by {recipe.source_byline}</Text>
             ) : null}
           </View>
           <View style={styles.actionCol}>
@@ -215,9 +258,18 @@ const styles = StyleSheet.create({
     color: '#0d9488',
     fontWeight: '500',
   },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   bookText: {
     fontSize: 14,
     color: '#0d9488',
+  },
+  bylineText: {
+    fontSize: 13,
+    color: '#64748b',
   },
   actionBtn: {
     paddingHorizontal: 10,

@@ -14,6 +14,7 @@ import {
   EasyIcon, SearchIcon, SortIcon, StarIcon, PinIcon, ChefHat2, VegetablesIcon, SoupIcon,
   PantryOutline,
 } from '../components/icons';
+import GlobeIcon from '../components/icons/recipe/GlobeIcon';
 import { VIBE_TAG_ICONS } from '../constants/vibeIcons';
 import {
   StyleSheet,
@@ -271,6 +272,18 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name)
       .slice(0, 50);
+  }, [recipes]);
+
+  // NYT import — distinct web-source domains across the user's recipes,
+  // most-common first. Feeds the RefineSheet "Source" multi-select (raw domains;
+  // friendly labels via sourceLabel()).
+  const availableSources = useMemo(() => {
+    const counts: Record<string, number> = {};
+    recipes.forEach(r => {
+      const d = (r as any).source_domain;
+      if (d) counts[d] = (counts[d] ?? 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([d]) => d);
   }, [recipes]);
 
   // 8D-CP4: recipes with the real pantry_match % threaded in from the matcher
@@ -1588,6 +1601,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       difficultyLevels: [],
       cookingMethods: [],
       cuisineTypes: [],
+      sources: [],
       courseTypes: [],
       ingredientCountRanges: [],
       servingTemp: [],
@@ -1775,6 +1789,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       difficultyLevels: [],
       cookingMethods: [],
       cuisineTypes: [],
+      sources: [],
       courseTypes: [],
       ingredientCountRanges: [],
       servingTemp: [],
@@ -2504,6 +2519,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       { value: 'fastest',      IconComponent: TimerIcon,       label: 'Fastest' },
       { value: 'most_cooked',  IconComponent: PanIcon,         label: 'Most Cooked' },
       { value: 'highest_rated',IconComponent: StarIcon,        label: 'Highest Rated' },
+      { value: 'source_updated', IconComponent: GlobeIcon,     label: 'Source: Recently Updated' },
     ];
 
     return (
@@ -2973,6 +2989,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
           setRefineInitialSection(undefined);
         }}
         availableHeroIngredients={availableHeroIngredients}
+        availableSources={availableSources}
         lensLabel={refineLensLabel}
         previewCount={previewRefineCount}
         initialSection={refineInitialSection}

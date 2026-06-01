@@ -9,7 +9,7 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MODEL = "claude-sonnet-4-6"; // was claude-sonnet-4-20250514 (Sonnet 4, retires 2026-06-15)
 const MAX_TOKENS = 6000;
 const COST_PER_INPUT_TOKEN = 0.003 / 1000;
 const COST_PER_OUTPUT_TOKEN = 0.015 / 1000;

@@ -212,7 +212,7 @@ export interface ExtractionLog {
   user_corrections: Record<string, any> | null;
   extraction_quality_rating: number | null; // 1-5 stars
   provider_used: string; // 'anthropic'
-  provider_model: string; // 'claude-sonnet-4-20250514'
+  provider_model: string; // e.g. 'claude-sonnet-4-6'
   processing_time_ms: number | null;
   cost_usd: number | null;
   created_at: string;

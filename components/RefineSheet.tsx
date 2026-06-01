@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/theme/ThemeContext';
 import { VIBE_TAG_ICONS } from '../constants/vibeIcons';
+import { sourceLabel } from '../lib/utils/sourceLabel';
 import {
   SproutIcon, VegetablesIcon, GlutenFreeIcon, DairyFreeIcon,
   NutFreeIcon, ShellfishFreeIcon, SoyFreeIcon, EggFreeIcon,
@@ -63,6 +64,7 @@ export interface FilterState {
   easierThanLooks: boolean;
   cookingMethods: string[];
   cuisineTypes: string[];
+  sources: string[];
   courseTypes: string[];
   ingredientCountRanges: string[];
   makeAheadFriendly: boolean;
@@ -118,6 +120,8 @@ export interface RefineSheetProps {
    *  Quick refine. The parent closes the sheet + opens the existing book
    *  picker modal (which sets selectedBook on the screen). */
   onOpenCookbookPicker?: () => void;
+  /** NYT import — distinct web-source domains for the "Source" multi-select. */
+  availableSources?: string[];
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -132,6 +136,7 @@ const EMPTY_FILTERS: FilterState = {
   easierThanLooks: false,
   cookingMethods: [],
   cuisineTypes: [],
+  sources: [],
   courseTypes: [],
   ingredientCountRanges: [],
   makeAheadFriendly: false,
@@ -215,6 +220,7 @@ export default function RefineSheet({
   filters,
   onApplyFilters,
   availableHeroIngredients = [],
+  availableSources = [],
   lensLabel,
   previewCount,
   initialSection,
@@ -374,6 +380,7 @@ export default function RefineSheet({
     if (localFilters.easierThanLooks) n++;
     n += localFilters.cookingMethods.length;
     n += localFilters.cuisineTypes.length;
+    n += localFilters.sources.length;
     n += localFilters.courseTypes.length;
     n += localFilters.ingredientCountRanges.length;
     if (localFilters.makeAheadFriendly) n++;
@@ -805,6 +812,27 @@ export default function RefineSheet({
             </View>
 
             <View style={styles.divider} />
+
+            {/* ── Source (web-imported, e.g. NYT Cooking) — only when present ── */}
+            {availableSources.length > 0 && (
+              <>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Source</Text>
+                  <View style={styles.chipRow}>
+                    {availableSources.map(domain =>
+                      renderChip(
+                        domain,
+                        sourceLabel(domain) || domain,
+                        null,
+                        localFilters.sources.includes(domain),
+                        () => toggleInArray('sources', domain),
+                      )
+                    )}
+                  </View>
+                </View>
+                <View style={styles.divider} />
+              </>
+            )}
 
             {/* ── Course ───────────────────────────────────────────── */}
             <View style={styles.section} onLayout={onSectionLayout('course')}>

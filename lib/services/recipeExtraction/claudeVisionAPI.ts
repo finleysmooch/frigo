@@ -6,6 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_API_KEY } from '@env';
 import { ExtractedRecipeData } from '../../types/recipeExtraction';
+import { VISION_MODEL } from './models';
 
 // Initialize Claude client
 const anthropic = new Anthropic({
@@ -262,7 +263,7 @@ export async function extractRecipeFromImage(
     const startTime = Date.now();
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: VISION_MODEL,
       max_tokens: 4000,
       messages: [
         {
@@ -340,7 +341,7 @@ export async function extractRecipeFromImage(
 export async function testClaudeConnection(): Promise<boolean> {
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: VISION_MODEL,
       max_tokens: 10,
       messages: [
         {
