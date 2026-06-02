@@ -37,12 +37,12 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 - Desktop + mobile (single-column, ≥44px tap targets, ~64/96px section rhythm) render correctly; logo, three icons, italic quote, and footer all present. Privacy page render confirmed coherent + clearly marked placeholder.
 - **No typos found** in the locked copy.
 
-**Vercel deployment:** **PENDING TOM ACTION.** Not configured for this domain yet. README documents both the dashboard (import repo → framework "Other", no build → add `cookfrigo.com`/`www`) and CLI (`vercel`, `vercel --prod`, `vercel domains add`) paths. HTTPS auto-provisions (Let's Encrypt) once DNS resolves.
+**Vercel deployment:** **DONE 2026-06-02 — the site is live at https://cookfrigo.com.** Pushed to private GitHub repo `finleysmooch/cookfrigo-site` (`main`), imported into Vercel via the GitHub app (auto-deploys on every push), HTTPS auto-issued. Verified live over HTTPS: hero/capability copy + all public assets return 200; `logo-sandbox.html` and the sandbox-only fonts return 404 (`.vercelignore` working). **`www.cookfrigo.com` is canonical**; bare `cookfrigo.com` 308-redirects to www (can be flipped to apex-primary in Vercel → Settings → Domains).
 
-**DNS records to add at Namecheap (placeholders — confirm exact values against what Vercel shows when the domain is added):**
-- `A` `@` → `76.76.21.21` (Vercel's standard apex; confirm).
-- `CNAME` `www` → `cname.vercel-dns.com` (or the value Vercel displays).
-- Remove conflicting Namecheap parking/redirect records.
+**DNS records added at Namecheap** (Advanced DNS; nameservers left on Namecheap BasicDNS so email/MX can stay at Namecheap):
+- `A` `@` → `216.198.79.1` (Vercel's **current** apex IP — note: NOT the old `76.76.21.21`, which Vercel has retired).
+- `CNAME` `www` → `a539a3381c58f655.vercel-dns-017.com` (per-project target Vercel displayed).
+- Default Namecheap parking `CNAME www` + `URL Redirect @` rows removed.
 
 **Decisions made (small / not fully specified):**
 - **Active vs deprecated palette:** used `lib/theme/schemes.ts` (the live `useTheme` system — **tealMintSlate** scheme per Tom's logo config: teal primary `#0d9488`, mint accent `#34d399`), **not** `lib/oldTheme.ts` (celery green `#4A9B4F`, backwards-compat). Flagging because both exist. _(Initial build mistakenly used the `limeZing` lime accent; corrected to tealMintSlate when Tom shared Config 1.)_
