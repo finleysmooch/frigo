@@ -7,6 +7,72 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-01 — cookfrigo.com initial build
+
+**Goal:** Stand up a minimal, credible public marketing site for Frigo as part of the Apple Developer org enrollment track (LLC ↔ D-U-N-S ↔ website ↔ matching-domain email identity triangle). Executed from the CC prompt at `docs/CC_PROMPT_cookfrigo_site_build.md`. _(The prompt was authored 2026-04-30 and dates the legal stubs "April 30, 2026" — kept verbatim — but the build itself was done today, 2026-06-01.)_
+
+**What was built (in a NEW, separate repo — not the app repo):**
+- New local repo `C:\Users\tommo\cookfrigo-site` (adjacent to the app repo), `git init` + initial commit, **not yet pushed** (no GitHub remote — that's Tom's step; commands are in the repo README).
+- `index.html` — hero, "what Frigo is" lead paragraph, three capability sections, access/status section, founder note (V9 placeholder), footer. **All marketing copy reproduced verbatim** from the locked spec (diff-verified: em-dashes, straight apostrophes, the italic Mary quote, footer middot — all match; see Verification).
+- `privacy.html` + `terms.html` — plain-language SaaS stubs, each with a "Last updated: April 30, 2026" line and an explicit "placeholder pending review by counsel before public launch" callout; reference Frigo LLC / Portland, Oregon / join@cookfrigo.com.
+- `assets/styles.css` — vanilla CSS, design tokens as CSS custom properties, mobile-first, AA contrast, no frameworks/build step/external runtime deps.
+- `README.md` (deploy notes), `.gitignore`, `package.json` (metadata only, zero dependencies).
+
+**Design tokens copied from Frigo app theme files I read:**
+- `lib/theme/schemes.ts` — the **active** theme. Site uses the **`tealMintSlate`** scheme (corrected from `limeZing` after Tom supplied his real logo config — see the logo bullet): primary teal `#0d9488`, accent **mint `#34d399`**, pale-teal `#ccfbf1`, page bg `#f8fafc`, slate text ramp (`#0f172a`/`#475569`), borders `#e2e8f0`.
+- `lib/theme/typography.ts` — heading & body families are `'System'` → site body uses the system font stack. **The logo wordmark uses self-hosted Outfit Medium** (`assets/fonts/Outfit-Medium.ttf`, OFL) — the app loads Outfit via expo-font and the logo is configured in Outfit 500.
+- `lib/oldTheme.ts` — spacing (4px base) and radius scale only.
+- `lib/theme/ThemeContext.tsx`, `lib/theme/index.ts`, `contexts/LogoConfigContext.tsx`, `components/branding/Logo.tsx` — read to confirm the active scheme + the logo's default rendering.
+
+**Logo + icons copied/reconstructed from the app repo:**
+- **Logo:** there is **no static logo/wordmark asset in the app** — the logo is a composed RN component (`components/branding/Logo.tsx`: styled "frigo" text + chef-hat SVG above the "g"), and its actual appearance is driven by a device-stored config (`@frigo_app_logo_config`), not in the repo. My first pass used the component code-defaults (chefHat1, System font, limeZing lime hat) and **Tom said it looked nothing like his app logo.** He then supplied his saved **"Config 1": tealMintSlate, `chefHat2` (the smiley hat) above-g, font Outfit weight 500, fontSize 46 / iconSize 27 / iconOffsetY 16 / iconStrokeWidth 26, textColor theme-primary, iconColor theme-accent.** Rebuilt to match: header = inline HTML/CSS (Outfit-Medium teal `#0d9488` "frigo", −1px tracking, mint `#34d399` chefHat2 nestled over the "g"); `assets/logo.svg` = matching baked lockup (favicon/brand; falls back to system font in `<img>` context). Self-hosted `Outfit-Medium.ttf`. Re-rendered & verified (headless Chrome). **Flagged deviation: the prompt assumed a copyable logo file; none exists, so the header logo is a faithful reconstruction of the device config.**
+- **Capability icons (inlined as SVG, themed via `currentColor`), copied from app components:**
+  - "Your recipes, in one place" → `assets/icons/book.svg` ← `components/icons/recipe/BookIcon.tsx` (cookbook).
+  - "Grow your cooking community" → `assets/icons/friends.svg` ← `components/icons/recipe/FriendsIcon.tsx` (people).
+  - "Turn Frigo into your personal sous chef" → `assets/icons/fridge.svg` ← `components/branding/icons/Fridge.tsx` (fridge — ties to the name "Frigo" and the copy's "what's in your fridge").
+
+**Verification (headless Chrome render at 1200px & 390px + grep diff):**
+- Copy parity: every locked string matched verbatim via `grep -o`; em-dash count reconciled (7 in body copy + 3 in metadata/aria); zero smart quotes (no curly-quote substitution); straight apostrophes intact; Mary quote italicized as a `<em>` span (only the quoted speech, not Tom's narration around it).
+- All SVGs parse as valid XML; all HTML container tags balance.
+- Desktop + mobile (single-column, ≥44px tap targets, ~64/96px section rhythm) render correctly; logo, three icons, italic quote, and footer all present. Privacy page render confirmed coherent + clearly marked placeholder.
+- **No typos found** in the locked copy.
+
+**Vercel deployment:** **PENDING TOM ACTION.** Not configured for this domain yet. README documents both the dashboard (import repo → framework "Other", no build → add `cookfrigo.com`/`www`) and CLI (`vercel`, `vercel --prod`, `vercel domains add`) paths. HTTPS auto-provisions (Let's Encrypt) once DNS resolves.
+
+**DNS records to add at Namecheap (placeholders — confirm exact values against what Vercel shows when the domain is added):**
+- `A` `@` → `76.76.21.21` (Vercel's standard apex; confirm).
+- `CNAME` `www` → `cname.vercel-dns.com` (or the value Vercel displays).
+- Remove conflicting Namecheap parking/redirect records.
+
+**Decisions made (small / not fully specified):**
+- **Active vs deprecated palette:** used `lib/theme/schemes.ts` (the live `useTheme` system — **tealMintSlate** scheme per Tom's logo config: teal primary `#0d9488`, mint accent `#34d399`), **not** `lib/oldTheme.ts` (celery green `#4A9B4F`, backwards-compat). Flagging because both exist. _(Initial build mistakenly used the `limeZing` lime accent; corrected to tealMintSlate when Tom shared Config 1.)_
+- **Fridge icon for the sous-chef section** (vs another chef hat) so the three icons stay distinct and the fridge nods to the brand name + "in front of the fridge" copy.
+- **AA contrast on CTAs:** the exact app teal `#0d9488` with white text is ~3.75:1 (below the 4.5:1 normal-text bar). Kept the exact teal (honoring "don't introduce colors not in the app") and set CTA labels to 19px/700 so they qualify as WCAG **large text** (3:1) → passes. Derived a darker teal `#0b7d72` for the button hover/active press state only (same hue, not a new brand color).
+- **Mary-quote italic** uses italic system sans (the app defines no serif family), per the prompt's "otherwise italic of whatever the app's body font is" fallback.
+- Added (not in spec, low-risk): skip-link, `aria-label`s, lime `:focus-visible` outline (keyboard nav), Open Graph + `theme-color` meta. Footer legal links use relative paths (`privacy.html`) rather than `/privacy.html` so local file preview also works.
+
+**Open items for Tom:**
+- **Founder note (V9 placeholder)** needs Tom's final revision before going live (body text only; structure/styling can stay).
+- **Privacy + Terms** stubs need legal review before public launch (both clearly marked pending counsel).
+- **Vercel + DNS** configuration — steps in `cookfrigo-site/README.md` (Vercel not yet set up for this domain).
+- **Create + push** `finleysmooch/cookfrigo-site` on GitHub (repo is committed locally; `gh`/`git` commands in README).
+- **Mailboxes:** create + monitor three role addresses (per Tom's direction after the initial build): `join@cookfrigo.com` (the access-request CTAs), `privacy@cookfrigo.com` (privacy.html contact + all data-deletion requests, incl. the terms.html deletion line), `support@cookfrigo.com` (footer general contact on all pages + terms.html questions). `privacy@` and `support@` are NEW — they must exist before launch or those links bounce.
+- Optional: spot-check the `logo.svg` favicon cross-platform (it uses system-font `<text>`; the header logo is the robust HTML reconstruction and is unaffected).
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **none** (cookfrigo.com is a separate static-site repo, not app code; out of the architecture map's scope).
+- `DEFERRED_WORK.md` — **none** for app backlog. The site's open items (founder V9, legal review, Vercel/DNS, GitHub push) are tracked in `cookfrigo-site/README.md` + the "Open items for Tom" above; Claude.ai may optionally cross-reference if it tracks launch-infra backlog.
+- `PROJECT_CONTEXT.md` — **flag for Claude.ai:** new project-context facts worth recording — Frigo LLC filed in Oregon (Registry #256856791), `cookfrigo.com` acquired (Namecheap), public marketing site built (pending deploy). CC did not edit the doc (Rule D — not authoring strategic content).
+- `FF_LAUNCH_MASTER_PLAN.md` — **flag for Claude.ai:** the Apple Developer org enrollment track now has its public-website dependency built (pending Vercel/DNS); may warrant a status note in the launch plan.
+
+**Files created (new `cookfrigo-site` repo, 12 files):** `index.html`, `privacy.html`, `terms.html`, `assets/styles.css`, `assets/logo.svg`, `assets/icons/book.svg`, `assets/icons/friends.svg`, `assets/icons/fridge.svg`, `assets/fonts/Outfit-Medium.ttf` (self-hosted, copied from the app), `README.md`, `.gitignore`, `package.json`.
+
+**Logo tuning tool (added later in session):** `cookfrigo-site/logo-sandbox.html` — a self-contained dev page mirroring the app's Logo Playground (icon/position/font/weight/size/offsets/stroke/opacity/colors controls, live preview, localStorage-persisted) that outputs ready-to-paste **site CSS** + an app **`<Logo/>`** config. Added the sandbox's fonts (`Outfit-VariableFont_wght.ttf`, `Poppins-{Regular,Medium,SemiBold,Bold}.ttf`) and a `.vercelignore` excluding the sandbox + those fonts from the public deploy (prod still uses only `Outfit-Medium.ttf`). Per Tom's note that the hat sat too low, the live header hat was **raised to `top: -0.42em`** over the "g".
+
+**Files modified in Frigo app repo:** none except this `docs/SESSION_LOG.md` entry. (No app **code** files were edited — theme/branding/icon files were read-only — so Rule E / PK snapshot staleness does not apply. The prompt file `docs/CC_PROMPT_cookfrigo_site_build.md` and `_scratch/` were pre-existing untracked items, left as-is.)
+
+---
+
 ## 2026-06-01 — Integrate NYT Cooking import branch + ship increment ③ (SourceViewScreen)
 
 Integrated `origin/nyt-source-metadata` into `main` and built the deferred source-browse screen. (NYT branch's own 2026-06-01 entries follow below.)
