@@ -1,0 +1,15 @@
+# Supabase CLI project config — https://supabase.com/docs/guides/cli/config
+#
+# Links this repo to the Frigo project (remote ref: siaawxcgyghuphwgufkn).
+# This is the only field we rely on; the CLI fills sensible defaults for the
+# rest (local dev ports, image versions, etc.) which we don't use here because
+# Frigo operates against the shared remote project, not a local stack.
+#
+# A fresh clone still needs to authenticate + link before running migration
+# commands:
+#   supabase login
+#   supabase link --project-ref siaawxcgyghuphwgufkn
+# (The linked-ref cache lives in supabase/.temp/, which is gitignored.)
+#
+# See docs/MIGRATIONS.md for the full workflow and the shared-DB warning.
+project_id = "siaawxcgyghuphwgufkn"
