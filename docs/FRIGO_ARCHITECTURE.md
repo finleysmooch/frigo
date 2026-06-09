@@ -1,5 +1,5 @@
 # Frigo — Architecture & Codebase Map
-**Last Updated:** 2026-06-01
+**Last Updated:** 2026-06-09
 **Version:** 4.1
 
 Phase 11A (Browse rebuild): CP1–CP4 shipped 2026-05-28; CP5 outstanding. **2026-06-01: ingredient family search + recipe-search UX overhaul shipped** (see the `searchService` / `searchTerms` / `RecipeListScreen` entries below + the Decision Record in `docs/PHASE_11_RECIPE_POLISH.md`). See `docs/PHASE_11_RECIPE_POLISH.md` for the full phase doc.
@@ -999,7 +999,12 @@ npx expo start
 # Deploy edge functions
 supabase functions deploy scrape-recipe
 supabase functions deploy extract-recipe-three-pass
+
+# Migrations (schema changes)
+supabase migration new <name>   # author -> edit SQL -> supabase db push
 ```
+
+**Migrations:** schema changes are CLI-tracked in `supabase/migrations/` (baseline `20260609155555`, P7-23). Tiered push policy: CC pushes mechanical/additive migrations; Tom runs the push for CP5/auth-trigger and anything destructive. Full workflow + shared-DB warning in `docs/MIGRATIONS.md`.
 
 ---
 

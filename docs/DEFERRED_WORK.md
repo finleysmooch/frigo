@@ -1,6 +1,6 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 1, 2026  
+**Last Updated:** June 9, 2026  
 **Version:** 5.33  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
@@ -311,7 +311,7 @@ issues with recipe extraction quality that need a dedicated CP post-F&F.
 | P7-2 | `posts.make_again` column cleanup | 🔧 | 🟢 | Column exists but unused after 7B-Rev. Drop when convenient. |
 | P7-3 | `PostCookFlow.tsx` file deletion | 🔧 | 🟢 | Deprecated in 7B-Rev, no longer rendered. Delete in cleanup. |
 | P7-4 | `LogCookSheet` inline SVG extraction | 🔧 | 🟢 | 7 SVG icons inline. Extract to `components/icons/` if reused. |
-| P7-23 | Set up `supabase/migrations/` tracking | 🔧 | 🟡 | At least 8+ direct-in-Supabase migrations run without tracking. DB state non-reproducible for new environments. |
+| P7-23 | ~~Set up `supabase/migrations/` tracking~~ | 🔧 | ⚪ | ✅ **RESOLVED 2026-06-09** — baseline `20260609155555_baseline_public.sql`; 20 pre-baseline files archived to `supabase/migrations_provenance/`. See `docs/MIGRATIONS.md`. |
 | P7-24 | Silent error swallowing audit | 🔧 | 🟢 | Audit `lib/services/*.ts` for `try/catch { continue }` patterns. Replace with collect-and-report. |
 | P7-25 | `addDishesToMeal` 3-representation audit | 🔧 | 🟡 | Three parallel meal↔dish representations (`parent_meal_id`, `dish_courses`, `post_relationships`). Assess whether `post_relationships` can be dropped. |
 | P7-72 | Recipe image filename normalization | 🔧 | 🟡 | ~347 storage files with uppercase/double-extension filenames. Rename + update `recipes.image_url`. |

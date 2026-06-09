@@ -1,5 +1,5 @@
 # Frigo - Project Context
-**Last Updated:** May 28, 2026
+**Last Updated:** June 9, 2026
 **Version:** 10.8
 **Status:** Active Development — **Phase 10 (Nutrition Depth) shipped 2026-05-27 (single session, six sub-phases + hot fix).** Phase 8 complete pending cleanup pass; 8R closeout (CP1 → CP6e shipped 2026-04-29 → 2026-05-13; smoke clean 2026-05-15) + 8D (CP1 → CP4 shipped 2026-05-19, CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11 (2026-05-19). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done** (8, 10). Next: **Phase 11 (Recipe Polish, including RecipeListScreen redesign)** or Phase 9 (Meal & Planning UX). F&F launch target: **late August or early September 2026**.
 
@@ -78,6 +78,7 @@ Code and features tracked in **FRIGO_TRACKER** (Google Sheets). Claude Code uses
 - **Storage:** Supabase Storage (recipe photos, post photos, profile images)
 - **Edge Functions:** Deno (recipe extraction three-pass, book processing pipeline, web scraping)
 - **Full-text search:** PostgreSQL tsvector + GIN index, server-side RPC `search_supplies` (8R-CP6e — multi-dimension search across supplies + lots)
+- **Migrations:** CLI-tracked via `supabase/migrations/` (baseline `20260609155555`, P7-23). See `docs/MIGRATIONS.md` for the workflow + tiered push policy (CC pushes mechanical migrations; Tom runs the push for CP5/auth-trigger and anything destructive).
 
 ### AI/ML
 - **Claude Haiku:** Default for recipe extraction (92% cheaper than Sonnet), recipe classification (hero ingredients, vibe tags, course type, cooking concept)
@@ -182,7 +183,7 @@ Most Phase 7-era known issues are now tracked in `DEFERRED_WORK.md` under the "F
 - Cheese duplicate ingredient rows (feta/feta cheese, mozzarella/mozzarella cheese, etc.) — cleanup migration bundled as 8D-CP1 Part 0.
 
 **Infrastructure:**
-- `supabase/migrations/` tracking not yet set up; multiple direct-in-Supabase migrations run without version control (P7-23)
+- ~~`supabase/migrations/` tracking not yet set up; multiple direct-in-Supabase migrations run without version control~~ — **RESOLVED 2026-06-09 (P7-23):** CLI-tracked; baseline `20260609155555`; 20 pre-baseline files archived to `supabase/migrations_provenance/`. See `docs/MIGRATIONS.md`.
 - Schema change propagation discipline — T3 cross-cutting item
 
 **Deprecated but not yet deleted:**

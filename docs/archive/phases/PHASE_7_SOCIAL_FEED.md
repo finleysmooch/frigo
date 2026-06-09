@@ -654,6 +654,8 @@ Tests 7-9 were deferred because all three exercise createDishPost paths that are
 
 ## Direct DB Migrations (ran outside a migrations folder)
 
+> **Superseded 2026-06-09 by baseline `20260609155555_baseline_public.sql` (P7-23).** DDL below preserved as provenance; the live schema is now captured in the baseline. Historical files archived to `supabase/migrations_provenance/`. See `docs/MIGRATIONS.md`.
+
 Phase 7 has run several DDL changes directly in Supabase SQL Editor rather than through a migrations folder (which doesn't exist yet — see P7-23). Recording them here so the DDL isn't lost and new environments can reproduce the DB state.
 
 ### 2026-04-06 — 7B-Rev: rating column type change
