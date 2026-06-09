@@ -7,6 +7,39 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-09 — CP4 (books title-catalog): `searchBookCatalog` shipped + verified; SEED STOPPED (marker premise broken + CSV absent)
+
+**Scope:** data + search only for onboarding T8's title catalog. The T8 screens are CP6. **Two STOP conditions hit → the seed was NOT authored/pushed; the search half is done.**
+
+**STOP #1 — catalog marker premise is broken (the CP's explicit stop gate).** The CP said: count books with `user_id IS NULL` (expected 0); if >0, STOP. Result: **16 of 16 books have `user_id IS NULL` — all of them.** Ownership in this DB is NOT on `books.user_id`; it's modeled via the `user_books` join (confirmed by reading `getUserBooks`/`getBooksForIndex`/`findSimilarBooks`, which all scope through `user_books`/user recipes, never `books.user_id`). So `user_id IS NULL` cannot distinguish a catalog row from an existing owned/transcribed book. A different marker is needed before seeding — and the cleanest (an `is_catalog` column) conflicts with the CP constraint "no change to books columns," so this needs an oversight ruling.
+
+**STOP #2 — seed CSV absent.** `docs/seed/cookbook_titles.csv` does not exist (no `docs/seed/` dir). Per the CSV-absent fallback, I built + verified `searchBookCatalog` and stopped before the real seed; Tom drops the CSV, then the seed migration runs (after the marker ruling).
+
+**Shipped (search half):**
+- **`searchBookCatalog(query)`** in `lib/services/recipeExtraction/bookService.ts` — case-insensitive ilike on title (primary) + author (secondary) over ALL of `books`; returns `{ id, title, author, cover_image_url, toc_extracted_at, transcribed }` with **title-prefix matches first**, then contains, then author-only (alpha within groups). Returns RAW `toc_extracted_at` + a `transcribed` boolean — **no tier labels** (CP6 labels; never "recipes ready to cook"). New `CatalogBookResult` type. Mirrors `bookViewService.searchBooks`' ilike pattern but with the catalog-specific shape + ordering (not a duplicate — `searchBooks` returns `Book[]` which omits `toc_extracted_at` and sorts alphabetically). tsc clean.
+
+**Verified (against the live 16 books — 6 "on shelf"/toc NULL, 10 transcribed):**
+- Title prefix ordering: `cook` → "Cook This Book" / "Cook's Veg" / "Cooked Veg" (prefix) before "The Ambitious Kitchen Cookbook" (contains). ✅
+- Case-insensitive: `VEG` == `veg`. ✅  Author match: `Hailee` → "By Heart / Hailee Catalano". ✅
+- toc matrix: Plenty → `transcribed=true` (toc `2026-01-15`); Simple → `transcribed=false` (toc NULL). ✅  Empty/whitespace → `[]`. ✅
+- **Isolation (code-confirmed; empirical count-before==after deferred to seed time):** `getUserBooks` (queries `user_books` by user), `getBooksForIndex` (book IDs derived from the user's recipes), `getChefsForIndex` (chef IDs from user-scoped aggregates) — a global row with no `user_books` link and no recipes cannot appear in ANY of them. No behavior change to those functions; no `books` column change.
+
+**Files touched:** `lib/services/recipeExtraction/bookService.ts` (added `searchBookCatalog` + `CatalogBookResult`) — **uncommitted**. No migration authored (seed blocked). No `books` row modified. Assembly-workstream artifacts untouched.
+
+**Blocked / awaiting before the seed can run:**
+1. **Marker ruling** (oversight): how to mark catalog rows given all books already have `user_id NULL` and "no books column change" is a constraint. Options: (a) no explicit marker — catalog rows are just owner-less global books distinguished by absence of a `user_books` link (how isolation already works), isbn13 stays the dedup key; (b) add an `is_catalog` column (needs a waiver of the no-column-change constraint); (c) other.
+2. **The real `docs/seed/cookbook_titles.csv`** from Tom.
+
+**Open questions:**
+- The marker decision above (primary blocker).
+- Known limitation to carry forward (not fixed): a user who already owns a book also present in the catalog may see both in `searchBookCatalog` results — dedup/merge deferred to CP6/post-F&F.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **recommend:** add a `searchBookCatalog` entry (global title/author catalog search returning toc state; tiers labeled by CP6) + note that catalog UPDATES are a NEW migration (tracked seed runs once per env). Not edited (awaiting Claude.ai + the seed actually landing).
+- `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — **none.**
+
+---
+
 ## 2026-06-09 — CP2 (#69): Invite codes — tables + validate/redeem RPCs + service (first substantive tracked migration)
 
 **Scope:** backend + service only for onboarding T2's invite-code gate. The T2 screen is CP9. First substantive migration through the CP1-tracked loop. Mechanical/low-risk tier → CC authored AND pushed. No app screens wired.

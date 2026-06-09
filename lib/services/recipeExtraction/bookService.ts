@@ -454,3 +454,81 @@ export async function getBookRecipes(bookId: string, userId: string) {
     return [];
   }
 }
+
+/**
+ * A row from the global cookbook title catalog (onboarding T8 search).
+ *
+ * `toc_extracted_at` is returned RAW and `transcribed` is just `toc_extracted_at != null`.
+ * Tier labeling is CP6's job — and the ONLY honest labels are "on shelf" (toc NULL) and
+ * "transcribed/processed" (toc set). NEVER "recipes ready to cook": a set toc_extracted_at
+ * means the TOC was processed, not that recipes exist in the recipes table (that importer is
+ * a separate, unbuilt workstream).
+ */
+export interface CatalogBookResult {
+  id: string;
+  title: string;
+  author: string | null;
+  cover_image_url: string | null;
+  toc_extracted_at: string | null;
+  transcribed: boolean;
+}
+
+/**
+ * Search the global cookbook title catalog by title (primary) + author (secondary),
+ * case-insensitive. Title-prefix matches are returned first, then other title matches, then
+ * author-only matches (alphabetical within each group).
+ *
+ * Searches ALL of `books` (the catalog rows are global books) — it does NOT filter to a catalog
+ * marker, so a book a user has already added may also appear here. Dedup/merge of catalog-vs-owned
+ * is deferred to CP6/post-F&F (known limitation).
+ *
+ * Mirrors the ilike pattern of `bookViewService.searchBooks`, but returns the catalog-specific
+ * shape (incl. toc state) and prefix-first ordering that the T8 onboarding flow needs.
+ */
+export async function searchBookCatalog(query: string): Promise<CatalogBookResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('books')
+      .select('id, title, author, cover_image_url, toc_extracted_at')
+      .or(`title.ilike.%${q}%,author.ilike.%${q}%`)
+      .order('title', { ascending: true })
+      .limit(50);
+
+    if (error) throw error;
+
+    type Row = {
+      id: string;
+      title: string;
+      author: string | null;
+      cover_image_url: string | null;
+      toc_extracted_at: string | null;
+    };
+    const rows = (data ?? []) as Row[];
+    const needle = q.toLowerCase();
+
+    // Rank: 0 = title starts with query, 1 = title contains query, 2 = author-only match.
+    const rank = (r: Row): number => {
+      const title = (r.title ?? '').toLowerCase();
+      if (title.startsWith(needle)) return 0;
+      if (title.includes(needle)) return 1;
+      return 2;
+    };
+
+    return rows
+      .sort((a, b) => rank(a) - rank(b) || (a.title ?? '').localeCompare(b.title ?? ''))
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        author: r.author ?? null,
+        cover_image_url: r.cover_image_url ?? null,
+        toc_extracted_at: r.toc_extracted_at ?? null,
+        transcribed: r.toc_extracted_at != null,
+      }));
+  } catch (error) {
+    console.error('Error searching book catalog:', error);
+    return [];
+  }
+}
