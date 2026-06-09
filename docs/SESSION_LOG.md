@@ -7,6 +7,33 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-09 — CP2 closeout: working tree sliced into per-CP commits + anon-EXECUTE rule banked
+
+**Scope:** mechanical tree-cleaning (commits only — no DB, migrations, or push). The clean-tree precondition for the sensitive row-touching CPs (CP4b/CP5/CP6). Also banked the two CP2-owed doc items.
+
+**Inventory (CPs actually present):** pantry (prior session) ✅, CP2 ✅, **CP3 absent**, CP4 (search half) ✅. Out-of-scope untracked left uncommitted: `_scratch/`, `docs/CC_PROMPT_cookfrigo_site_build.md`, `docs/frigo_project_status_2026-06-08.html`. `.env` confirmed never staged.
+
+**Shipped — three per-CP commits in dependency order (nothing pushed):**
+- **`5cc22b6` `feat(pantry)`** — 15 files: 11 pantry app files + `PK_CODE_SNAPSHOTS.md` + 2 new components (AutomaticIcon, ListMembershipControl) + SESSION_LOG (the pantry 2026-06-04 ×2 **and** CP1 ×2 entries, which couldn't rejoin the sealed CP1 commits `cd43f44`/`91cf1fc`).
+- **`c41b4af` `feat(invite-codes)` (CP2)** — 8 files: 2 migrations + `inviteCodeService.ts` + `INVITE_CODES.md` + `DEFERRED_WORK.md` (OB-1/OB-2) + the two Step-2 doc edits + SESSION_LOG (CP2 entry).
+- **`90f143d` `feat(books)` (CP4)** — 2 files: `bookService.ts` (searchBookCatalog) + SESSION_LOG (CP4 entry).
+
+**Owed CP2 doc items banked (rode in `c41b4af`):**
+- **`MIGRATIONS.md` — anon-EXECUTE standing rule:** a new public function is callable by `anon` from TWO sources — the default `PUBLIC` grant **and** Supabase's explicit default-privilege grant to anon/authenticated. Lock down BOTH (`REVOKE ALL … FROM PUBLIC` + `REVOKE … FROM anon`) then `GRANT … TO <intended>`; verify with `has_function_privilege`. Cites the CP2 corrective migration `20260609184359` as the worked example. (Protects CP5's auth-trigger function.)
+- **`FRIGO_ARCHITECTURE.md` — `inviteCodeService` entry** added to the Core Services table.
+
+**Verified:**
+- `git log --oneline`: `90f143d` (CP4) → `c41b4af` (CP2) → `5cc22b6` (pantry) → `91cf1fc` → `cd43f44`. Per-CP, dependency order.
+- Per-commit `show --stat` clean (no cross-contamination): pantry 15 files / SESSION_LOG 183 lines; CP2 8 files / 41 lines; CP4 2 files / 33 lines. 183+41+33 = 257 = the entire SESSION_LOG diff, split with no overlap or loss (SESSION_LOG sliced non-interactively via content-swap staging + awk on `^##`-anchored entry headers, since `git add -p` isn't available here).
+- `.env` in no commit; no tracked modifications remain; **nothing pushed** (ahead of origin/main by 22).
+- `MIGRATIONS.md` has the standing rule; `FRIGO_ARCHITECTURE.md` has `inviteCodeService`; each CP's SESSION_LOG entry is in its own commit (pantry/CP1 entries with the pantry commit).
+
+**Open questions:** CP3 was confirmed **absent** in the tree (only pantry/CP2/CP4 present). CP4's seed remains blocked (marker ruling + CSV) per the CP4 entry below — its *search half* is what was committed.
+
+**Recommended doc updates:** none new (`MIGRATIONS.md` rule + `FRIGO_ARCHITECTURE.md` entry already applied this session as authorized).
+
+---
+
 ## 2026-06-09 — CP4 (books title-catalog): `searchBookCatalog` shipped + verified; SEED STOPPED (marker premise broken + CSV absent)
 
 **Scope:** data + search only for onboarding T8's title catalog. The T8 screens are CP6. **Two STOP conditions hit → the seed was NOT authored/pushed; the search half is done.**
