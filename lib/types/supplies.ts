@@ -23,6 +23,16 @@ export type SupplyInitialStatus = 'in_stock' | 'low' | 'out';
 //  - 'track_only' → auto-archive on out (no spawn).
 export type TrackingMode = 'restock' | 'track_only';
 
+// 2026-06-04: auto-list rule target. Which default grocery list a Staple
+// (tracking_mode='restock') is auto-added to at a status threshold.
+//   'short'  → urgency=today     (Short List)
+//   'medium' → urgency=this-week (Medium List)
+//   'long'   → status=need only  (Long List — no urgency tag)
+//   'none'   → not auto-listed
+// Maps to the default views seeded by seed_default_views(). Ignored entirely
+// for track_only supplies. See suppliesService.reconcileSupplyListNeed.
+export type ListTarget = 'none' | 'short' | 'medium' | 'long';
+
 // CP6d-Schema: canonical export of the storage-location enum.
 // Until CP6d, this lived inlined in ingredientSuggestionService.ts.
 // 8R-UX1: 'garden' added for items growing at home. Requires the DB CHECK
@@ -53,9 +63,14 @@ export interface Supply {
   storage_location: StorageLocation | null;
   archived_at: string | null;
   is_priority: boolean;
-  usage_level: number; // 0–5 inclusive
+  usage_level: number; // 0–4 inclusive (battery: 4 bars; legacy 5s clamp to 4)
   // CP6e-Schema field (D8R-Q43)
   tracks_lots: boolean;
+  // 2026-06-04: per-supply auto-list rule. Which grocery list this Staple is
+  // auto-added to when it drops to low / out. Only consulted when
+  // tracking_mode='restock'. See migration 20260604_supply_auto_list_rules.sql.
+  low_list_target: ListTarget;
+  out_list_target: ListTarget;
 }
 
 export interface SupplyIngredient {

@@ -3,9 +3,8 @@
 // ============================================
 // Compact pantry row with left-bar accent. CP6e-PantryUI-a layers lot-aware
 // rendering on top of the CP6d-SmokeFix-1 row:
-//   • Non-lots supplies (tracks_lots=false): unchanged from CP6d. StatusIcon
-//     5-circle progression; tap cycles 5 → 4 → 3 → 2 → 1 → 0 → 5 via
-//     setSupplyUsageLevel.
+//   • Non-lots supplies (tracks_lots=false): StatusIcon vertical-battery fill
+//     (0–4); tap cycles 4 → 3 → 2 → 1 → 0 → 4 via setSupplyUsageLevel.
 //   • Lots supplies (tracks_lots=true): LotBadge replaces StatusIcon. Tap
 //     cycles supply.status (in_stock → low → critical → out → in_stock) per
 //     D8R-Q54 — the numeric value comes from lot_aggregate and is
@@ -86,14 +85,16 @@ export interface SupplyRowProps {
   showHeroMarker?: boolean;
 }
 
-// Full 6-step progression: 5 → 4 → 3 → 2 → 1 → 0 → 5.
+// Battery cycle — tap decrements (uses up) and wraps: 4 → 3 → 2 → 1 → 0 → 4.
 function nextLevelInCycle(level: UsageLevel): UsageLevel {
-  return ((level + 5) % 6) as UsageLevel;
+  return ((level + 4) % 5) as UsageLevel;
 }
 
+// Clamp into the 0–4 battery range; also folds any legacy 5 (pre-rework data)
+// down to a full 4-bar battery on read.
 function clampUsageLevel(raw: number | null | undefined): UsageLevel {
-  if (raw === null || raw === undefined) return 5;
-  const n = Math.max(0, Math.min(5, Math.round(raw)));
+  if (raw === null || raw === undefined) return 4;
+  const n = Math.max(0, Math.min(4, Math.round(raw)));
   return n as UsageLevel;
 }
 
@@ -185,7 +186,7 @@ export default function SupplyRow({
   }, [isLotSupply, aggregate, activeLots]);
 
   const handleStatusIconTap = async () => {
-    const target: UsageLevel = supply.status === 'unknown' ? 5 : nextLevelInCycle(level);
+    const target: UsageLevel = supply.status === 'unknown' ? 4 : nextLevelInCycle(level);
     try {
       const updated = await setSupplyUsageLevel(supply.id, target);
       onSupplyChanged(updated);

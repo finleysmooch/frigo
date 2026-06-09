@@ -1,9 +1,16 @@
 // ============================================
 // FRIGO — USAGE LEVEL SLIDER (Phase 8R-CP6d-SmokeFix-4 follow-up)
 // ============================================
-// Single 5-circle widget that fills progressively based on usage_level (0–5).
-// Tap a circle → snap to that level. Drag across → continuously snap.
-// Color derives from the resulting status (in_stock/low/critical/out/unknown).
+// Single 4-segment widget (vertical-rectangle progress bars) that fills
+// progressively based on usage_level (0–4). Tap a bar → snap to that level.
+// Drag across → continuously snap. Color derives from the resulting status
+// (in_stock/low/out/unknown).
+//
+// The bars are built RN <View>s — NOT the noun-progress-bar-*-41956* SVG
+// assets — so each segment stays an independent tap/drag target. Proportions
+// mirror those rectangles (~0.6 aspect, fill left→right); the SVGs are the
+// matching static-display source if ever needed. (Earlier this rendered
+// circles; the inline pantry row uses the vertical battery in StatusIcon.)
 //
 // Replaces the 6-dot SupplyControls row AND the SupplyDetailScreen status
 // strip + standalone StatusIcon visual. Mirrors StarRating's PanResponder
@@ -25,12 +32,14 @@ import { typography } from '../../lib/theme';
 import { SupplyStatus } from '../../lib/types/supplies';
 import { UsageLevel } from './StatusIcon';
 
-const CIRCLE_SIZE = 32;
-const CIRCLE_GAP = 8;
-const TOTAL_WIDTH = 5 * CIRCLE_SIZE + 4 * CIRCLE_GAP; // 5 circles + 4 gaps
+const BAR_WIDTH = 24;
+const BAR_HEIGHT = 38;
+const BAR_GAP = 8;
+const SEGMENTS = 4; // progress-bar segments (vertical rectangles)
+const TOTAL_WIDTH = SEGMENTS * BAR_WIDTH + (SEGMENTS - 1) * BAR_GAP; // 4 bars + 3 gaps
 
 export interface UsageLevelSliderProps {
-  /** Current usage_level (0–5). Drives fill count + color. */
+  /** Current usage_level (0–4). Drives fill count + color. */
   level: UsageLevel;
   /** Current status. When 'unknown', renders all-outline grey + label. */
   status: SupplyStatus;
@@ -41,9 +50,8 @@ export interface UsageLevelSliderProps {
 }
 
 function statusForLevel(level: UsageLevel): SupplyStatus {
-  if (level >= 3) return 'in_stock';
-  if (level === 2) return 'low';
-  if (level === 1) return 'critical';
+  if (level >= 2) return 'in_stock';
+  if (level === 1) return 'low';
   return 'out';
 }
 
@@ -115,13 +123,13 @@ export default function UsageLevelSlider({
   const levelFromTouchX = useCallback((pageX: number): UsageLevel => {
     const relative = pageX - containerPageXRef.current;
     if (relative <= 0) return 0;
-    if (relative >= TOTAL_WIDTH) return 5;
+    if (relative >= TOTAL_WIDTH) return SEGMENTS as UsageLevel;
     // Snap to whichever circle the touch is "on or past."
-    for (let i = 0; i < 5; i++) {
-      const circleEnd = (i + 1) * CIRCLE_SIZE + i * CIRCLE_GAP;
-      if (relative <= circleEnd) return (i + 1) as UsageLevel;
+    for (let i = 0; i < SEGMENTS; i++) {
+      const barEnd = (i + 1) * BAR_WIDTH + i * BAR_GAP;
+      if (relative <= barEnd) return (i + 1) as UsageLevel;
     }
-    return 5;
+    return SEGMENTS as UsageLevel;
   }, []);
 
   const emitLevel = useCallback(
@@ -171,14 +179,14 @@ export default function UsageLevelSlider({
         },
         row: {
           flexDirection: 'row',
-          gap: CIRCLE_GAP,
+          gap: BAR_GAP,
           paddingVertical: 6,
           opacity: disabled ? 0.5 : 1,
         },
-        circle: {
-          width: CIRCLE_SIZE,
-          height: CIRCLE_SIZE,
-          borderRadius: CIRCLE_SIZE / 2,
+        bar: {
+          width: BAR_WIDTH,
+          height: BAR_HEIGHT,
+          borderRadius: 3,
           borderWidth: 2,
           alignItems: 'center',
           justifyContent: 'center',
@@ -222,7 +230,7 @@ export default function UsageLevelSlider({
     onLevelChange((level - 1) as UsageLevel);
   };
   const increment = () => {
-    if (disabled || level >= 5) return;
+    if (disabled || level >= SEGMENTS) return;
     onLevelChange((level + 1) as UsageLevel);
   };
 
@@ -230,7 +238,7 @@ export default function UsageLevelSlider({
     <View style={styles.wrap}>
       {/* Label above the circles per Tom's smoke pass. */}
       <Text style={styles.label}>
-        {fillCount}/5 ·{' '}
+        {fillCount}/{SEGMENTS} ·{' '}
         {statusLabel(isUnknown ? 'unknown' : statusForLevel(level))}
       </Text>
       <View style={styles.sliderRow}>
@@ -250,18 +258,18 @@ export default function UsageLevelSlider({
           ref={containerRef}
           onLayout={handleLayout}
           style={styles.row}
-          accessibilityLabel={`Usage level ${fillCount} of 5. ${statusLabel(
+          accessibilityLabel={`Usage level ${fillCount} of ${SEGMENTS}. ${statusLabel(
             isUnknown ? 'unknown' : statusForLevel(level)
           )}.`}
           {...panResponder.panHandlers}
         >
-          {[0, 1, 2, 3, 4].map((i) => {
+          {[0, 1, 2, 3].map((i) => {
             const filled = i < fillCount;
             return (
               <View
                 key={i}
                 style={[
-                  styles.circle,
+                  styles.bar,
                   {
                     backgroundColor: filled ? activeColor : 'transparent',
                     borderColor: filled ? activeColor : colors.border.medium,
@@ -273,9 +281,9 @@ export default function UsageLevelSlider({
         </View>
 
         <TouchableOpacity
-          style={[styles.stepButton, level >= 5 && styles.stepButtonDisabled]}
+          style={[styles.stepButton, level >= SEGMENTS && styles.stepButtonDisabled]}
           onPress={increment}
-          disabled={disabled || level >= 5}
+          disabled={disabled || level >= SEGMENTS}
           activeOpacity={0.6}
           accessibilityRole="button"
           accessibilityLabel="Increase level"

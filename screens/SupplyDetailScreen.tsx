@@ -7,8 +7,8 @@
 //
 // Sections:
 //   • Header (back / name / overflow ⋯)
-//   • Hero state strip (4-segment tap-to-set: in_stock/low/critical/out)
-//   • Inline 5-circle visual driven by usage_level
+//   • Hero state strip (tap-to-set: in_stock/low/out/unknown — 'critical' retired)
+//   • Inline usage-level slider (0–4) driven by usage_level
 //   • Dual CTAs: + Add to needs / Restock
 //   • Priority toggle (★ is_priority)
 //   • Tracking mode radio (restock auto-spawn / track_only auto-archive)
@@ -83,7 +83,10 @@ type Props = NativeStackScreenProps<PantryStackParamList, 'SupplyDetail'>;
 // CP6d-SmokeFix-4 Task 3: 'unknown' added as a 5th tap-to-set option here.
 // Long-press on PantryRow + this strip are the only entry points into
 // 'unknown'; cycle-tap on the row's status icon does NOT cycle through it.
-const STATUS_SEGMENTS: SupplyStatus[] = ['in_stock', 'low', 'critical', 'out', 'unknown'];
+// Battery rework: 'critical' retired from the level system AND removed here, so
+// it's no longer user-selectable anywhere. The value stays in the SupplyStatus
+// type + the label/color helpers so any legacy 'critical' row still renders.
+const STATUS_SEGMENTS: SupplyStatus[] = ['in_stock', 'low', 'out', 'unknown'];
 const STORAGE_OPTIONS: StorageLocation[] = ['fridge', 'freezer', 'pantry', 'counter'];
 
 function statusLabel(s: SupplyStatus): string {
@@ -102,8 +105,8 @@ function statusLabel(s: SupplyStatus): string {
 }
 
 function clampUsageLevel(raw: number | null | undefined): UsageLevel {
-  if (raw === null || raw === undefined) return 5;
-  const n = Math.max(0, Math.min(5, Math.round(raw)));
+  if (raw === null || raw === undefined) return 4;
+  const n = Math.max(0, Math.min(4, Math.round(raw)));
   return n as UsageLevel;
 }
 
@@ -292,7 +295,7 @@ export default function SupplyDetailScreen({ navigation, route }: Props) {
   const handleRestock = async () => {
     if (!supply || supply.status === 'in_stock') return;
     await withOptimisticReload(
-      (s) => ({ ...s, status: 'in_stock', usage_level: 5 }),
+      (s) => ({ ...s, status: 'in_stock', usage_level: 4 }),
       () => setSupplyStatus(supplyId, 'in_stock')
     );
   };
@@ -579,7 +582,7 @@ export default function SupplyDetailScreen({ navigation, route }: Props) {
           <View style={styles.fieldLeft}>
             <Text style={styles.fieldTitle}>★ Priority</Text>
             <Text style={styles.fieldHint}>
-              Spawns a need automatically when this drops to low.
+              Auto-adds to your Short List the moment this runs low.
             </Text>
           </View>
           <Switch

@@ -30,7 +30,13 @@ import {
 import { Tag } from '../types/tags';
 import { createLot } from './lotsService';
 import { getSupplyById, setSupplyStatus } from './suppliesService';
-import { getTagsForSpace, setNeedTags } from './tagsService';
+import {
+  addNeedTag,
+  getOrCreateTag,
+  getTagsForSpace,
+  removeNeedTag,
+  setNeedTags,
+} from './tagsService';
 
 // ============================================
 // ERROR CLASSES
@@ -260,6 +266,37 @@ export async function getNeedsByStatus(
 
   if (error) {
     console.error('❌ Error loading needs by status:', error);
+    throw error;
+  }
+
+  const flattened = (data ?? []).map((row) =>
+    flattenNeedRow(
+      row as Need & {
+        ingredient: NeedIngredient | null;
+        need_tags: Array<{ tag: Tag | null }> | null;
+      }
+    )
+  );
+  return sortNeeds(flattened);
+}
+
+/**
+ * 2026-06-04: all active (need / in_cart) needs linked to a supply, with tags.
+ * Drives the inline "On: <lists>" membership display in SupplyControls — the
+ * caller derives list membership from each need's status + urgency tag, and
+ * distinguishes rule-driven (added_from='supply_spawn') from manual adds.
+ */
+export async function getActiveNeedsForSupply(
+  supplyId: string
+): Promise<NeedWithTags[]> {
+  const { data, error } = await supabase
+    .from('needs')
+    .select(NEED_SELECT)
+    .eq('supply_id', supplyId)
+    .in('status', ['need', 'in_cart']);
+
+  if (error) {
+    console.error('❌ Error loading needs for supply:', error);
     throw error;
   }
 
@@ -1043,6 +1080,104 @@ export async function cycleNeedStatusWithDetails(
   // next === 'in_cart' — no side-effects on this transition.
   const need = await setNeedStatus(needId, next);
   return { need, acquireSideEffect: null };
+}
+
+// ============================================
+// LIST MEMBERSHIP (2026-06-04) — manual add / move
+// ============================================
+// Lists map to the default views via status + urgency tag:
+//   short  → status=need, urgency=today
+//   medium → status=need, urgency=this-week
+//   long   → status=need, no urgency tag
+//   in_cart→ status=in_cart
+// Power the inline "Grocery lists" editor in SupplyControls. Manual adds use
+// added_from='manual' so the supply auto-list rule never removes them on
+// restock (only added_from='supply_spawn' needs are rule-managed).
+
+export type GroceryListTarget = 'short' | 'medium' | 'long' | 'in_cart';
+
+function urgencyValueForListTarget(
+  target: GroceryListTarget
+): 'today' | 'this-week' | null {
+  if (target === 'short') return 'today';
+  if (target === 'medium') return 'this-week';
+  return null; // long / in_cart carry no urgency tag
+}
+
+/**
+ * Move an existing need onto a target list by reconciling its status + urgency
+ * tag. Returns the refreshed need.
+ */
+export async function setNeedListMembership(
+  needId: string,
+  spaceId: string,
+  target: GroceryListTarget,
+  actingUserId: string
+): Promise<NeedWithTags> {
+  console.log('🛒 Setting need list membership:', { needId, target });
+
+  if (target === 'in_cart') {
+    return setNeedStatus(needId, 'in_cart');
+  }
+
+  const current = await getNeedByIdWithTagsOnly(needId);
+  if (!current) throw new NeedNotFoundError(needId);
+
+  // Move back out of the cart if needed (target is a need-status list).
+  if (current.status !== 'need') {
+    await setNeedStatus(needId, 'need');
+  }
+
+  const desired = urgencyValueForListTarget(target);
+  const urgencyTags = current.tags.filter((t) => t.dimension === 'urgency');
+  for (const t of urgencyTags) {
+    if (desired === null || t.value !== desired) {
+      await removeNeedTag(needId, t.id);
+    }
+  }
+  if (desired !== null && !urgencyTags.some((t) => t.value === desired)) {
+    const tag = await getOrCreateTag(spaceId, 'urgency', desired, actingUserId);
+    await addNeedTag(needId, tag.id);
+  }
+
+  const refreshed = await getNeedByIdWithTagsOnly(needId);
+  if (!refreshed) throw new NeedNotFoundError(needId);
+  return refreshed;
+}
+
+/**
+ * Manually add a supply to a list (added_from='manual' so the supply auto-list
+ * rule never removes it on restock). Reuses createNeed (dedup-aware) then sets
+ * the urgency tag for the target list.
+ */
+export async function addSupplyToListManual(
+  params: {
+    spaceId: string;
+    ingredientId?: string | null;
+    customName?: string | null;
+    supplyId: string;
+    forUserIds?: string[];
+    storeTagIds?: string[];
+  },
+  target: 'short' | 'medium' | 'long',
+  actingUserId: string
+): Promise<NeedWithTags> {
+  const tagIds = [...(params.storeTagIds ?? [])];
+  const urgency = urgencyValueForListTarget(target);
+  if (urgency !== null) {
+    const tag = await getOrCreateTag(params.spaceId, 'urgency', urgency, actingUserId);
+    tagIds.push(tag.id);
+  }
+  return createNeed({
+    spaceId: params.spaceId,
+    ingredientId: params.ingredientId ?? undefined,
+    customName: params.ingredientId ? undefined : params.customName ?? undefined,
+    forUserIds: params.forUserIds,
+    supplyId: params.supplyId,
+    addedBy: actingUserId,
+    addedFrom: 'manual',
+    tagIds,
+  });
 }
 
 // ============================================

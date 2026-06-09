@@ -707,9 +707,9 @@ export default function AddNeedSheet({
                   {(selected.tier === 'tier2' || selected.tier === 'tier3') && (
                     <View style={styles.toggleRow}>
                       <View style={styles.toggleBody}>
-                        <Text style={styles.toggleLabel}>Save as regular</Text>
+                        <Text style={styles.toggleLabel}>Save as staple</Text>
                         <Text style={styles.toggleHint}>
-                          Adds to your supplies list so it shows up in Regulars next time.
+                          Adds to your supplies list so it shows up in Staples next time.
                         </Text>
                       </View>
                       <Switch value={saveAsRegular} onValueChange={setSaveAsRegular} />

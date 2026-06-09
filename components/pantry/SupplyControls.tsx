@@ -6,11 +6,12 @@
 //   • SupplyQuickEditModal long-press surface (P32)
 //
 // Controls:
-//   • 0–5 status slider with PanResponder (StarRating-style gesture)
+//   • 0–4 usage-level slider with PanResponder (StarRating-style gesture)
 //   • Regular bookmark toggle (tracking_mode = restock vs track_only)
 //   • Priority bookmark toggle (is_priority)
 //   • Storage segmented picker
-//   • "+ Add to grocery list" → view picker → createNeed with inherited tags
+//   • Grocery-list membership (ListMembershipControl) — show / add / move /
+//     remove the list(s) this supply is on, plus the Staple auto-list rule
 //   • "Search Recipes →" cross-stack to RecipesStack/RecipeList
 //
 // Each control writes its field individually (direct manipulation pattern,
@@ -23,7 +24,6 @@ import {
   Alert,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -37,33 +37,27 @@ import {
   setSupplyStorage,
   setSupplyTrackingMode,
   setSupplyUsageLevel,
-  getSupplyDisplayName,
 } from '../../lib/services/suppliesService';
-import { createNeed } from '../../lib/services/needsService';
-import { getTagsForSpace } from '../../lib/services/tagsService';
-import { getViewsForSpace } from '../../lib/services/viewsService';
 import {
   StorageLocation,
   SupplyStatus,
   SupplyWithTags,
   TrackingMode,
 } from '../../lib/types/supplies';
-import { Tag } from '../../lib/types/tags';
-import { ViewWithFilters } from '../../lib/types/views';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { typography, spacing, borderRadius, shadows } from '../../lib/theme';
 import { UsageLevel } from './StatusIcon';
 import UsageLevelSlider from './UsageLevelSlider';
+import ListMembershipControl from './ListMembershipControl';
 import { RegularBookmarkIcon, PriorityBookmarkIcon } from './BookmarkIcons';
 import { StorageIcon, storageLabel } from './StorageIcons';
 import RecipesOutline from '../icons/RecipesOutline';
-import { resolveViewTagIds } from '../../lib/utils/viewTagResolution';
 
 const STORAGE_OPTIONS: StorageLocation[] = ['fridge', 'freezer', 'pantry', 'counter'];
 
 function clampLevel(raw: number | null | undefined): UsageLevel {
-  if (raw === null || raw === undefined) return 5;
-  const n = Math.max(0, Math.min(5, Math.round(raw)));
+  if (raw === null || raw === undefined) return 4;
+  const n = Math.max(0, Math.min(4, Math.round(raw)));
   return n as UsageLevel;
 }
 
@@ -94,7 +88,6 @@ export default function SupplyControls({
   onSupplyChanged,
   showOpenDetail = false,
   onOpenDetail,
-  onNeedCreated,
   userId,
 }: SupplyControlsProps) {
   const { colors, functionalColors } = useTheme();
@@ -104,10 +97,6 @@ export default function SupplyControls({
   const status = supply.status;
 
   const [busy, setBusy] = useState(false);
-  const [viewPickerOpen, setViewPickerOpen] = useState(false);
-  const [views, setViews] = useState<ViewWithFilters[]>([]);
-  const [viewsLoading, setViewsLoading] = useState(false);
-  const [spaceTags, setSpaceTags] = useState<Tag[]>([]);
 
   // CP6d-SmokeFix-4 follow-up: anchored modals over the storage + bookmark
   // icon buttons. Each menu measures its button on tap and positions the
@@ -128,8 +117,8 @@ export default function SupplyControls({
     });
   }, []);
 
-  // ----- Usage-level slider (CP6d-SmokeFix-4 follow-up) -----
-  // Single 5-circle widget; UsageLevelSlider owns the gesture handling.
+  // ----- Usage-level slider (CP6d-SmokeFix-4 follow-up; battery rework: 0–4) -----
+  // Single 4-segment widget; UsageLevelSlider owns the gesture handling.
   const applyLevel = useCallback(
     async (next: UsageLevel) => {
       if (next === level || busy) return;
@@ -188,66 +177,6 @@ export default function SupplyControls({
     } catch (error) {
       console.error('❌ SupplyControls storage change error:', error);
       Alert.alert('Error', 'Could not update storage.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // ----- + Add to grocery list -----
-
-  const openViewPicker = async () => {
-    setViewPickerOpen(true);
-    if (views.length > 0) return; // cached
-    try {
-      setViewsLoading(true);
-      const [v, t] = await Promise.all([
-        getViewsForSpace(supply.space_id, false),
-        getTagsForSpace(supply.space_id),
-      ]);
-      setViews(v);
-      setSpaceTags(t);
-    } catch (error) {
-      console.error('❌ SupplyControls views load error:', error);
-    } finally {
-      setViewsLoading(false);
-    }
-  };
-
-  // 8R-UX6 Item 4a: resolveViewTagIds extracted to lib/utils/viewTagResolution.ts.
-  // The supply.tags union (so the spawned need carries store / etc. tags) is
-  // specific to this surface and stays here as a post-call addition.
-  const resolveTagsForSupplyNeed = async (
-    view: ViewWithFilters
-  ): Promise<string[]> => {
-    const viewTagIds = await resolveViewTagIds(view, spaceTags, supply.space_id, userId);
-    const tagIds = [...viewTagIds];
-    for (const t of supply.tags) {
-      if (!tagIds.includes(t.id)) tagIds.push(t.id);
-    }
-    return tagIds;
-  };
-
-  const pickView = async (view: ViewWithFilters) => {
-    if (busy) return;
-    try {
-      setBusy(true);
-      const tagIds = await resolveTagsForSupplyNeed(view);
-      await createNeed({
-        spaceId: supply.space_id,
-        ingredientId: supply.ingredient_id ?? undefined,
-        customName: supply.ingredient_id ? undefined : supply.custom_name ?? undefined,
-        forUserIds: supply.for_user_ids,
-        supplyId: supply.id,
-        addedBy: userId,
-        addedFrom: 'manual',
-        tagIds,
-      });
-      setViewPickerOpen(false);
-      onNeedCreated?.();
-      Alert.alert('Added', `${getSupplyDisplayName(supply)} added to ${view.name}.`);
-    } catch (error) {
-      console.error('❌ SupplyControls add-to-list error:', error);
-      Alert.alert('Error', 'Could not add to list.');
     } finally {
       setBusy(false);
     }
@@ -354,8 +283,8 @@ export default function SupplyControls({
               bookmarkKind === 'priority'
                 ? 'Priority — tap to change'
                 : bookmarkKind === 'regular'
-                ? 'Regular — tap to change'
-                : 'Not tracked — tap to change'
+                ? 'Staple — tap to change'
+                : 'On hand — tap to change'
             }
           >
             {bookmarkKind === 'priority' ? (
@@ -371,17 +300,17 @@ export default function SupplyControls({
               {bookmarkKind === 'priority'
                 ? 'Priority'
                 : bookmarkKind === 'regular'
-                ? 'Regular'
+                ? 'Staple'
                 : 'On hand'}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Bottom row — first line has [+ Add] and [Open detail]; Search and
-          Storage each wrap to their own lines, right-aligned so their right
-          edges align to the panel's right edge (matching the 'location
-          placement'). */}
+      {/* 2026-06-04: grocery-list membership block (left, flex:1) + Search
+          (right, content-sized, pinned top) share ONE row, so Search's Y
+          position is independent of how the list chips wrap. Open detail /
+          Location is its own row below (direct child of container). */}
       {(() => {
         const rawIngredientName =
           supply.ingredient?.name ?? supply.custom_name ?? '';
@@ -390,17 +319,14 @@ export default function SupplyControls({
             ? rawIngredientName.slice(0, 14) + '...'
             : rawIngredientName;
         return (
-          <View style={styles.bottomRow}>
-            <TouchableOpacity
-              style={styles.addToListButton}
-              onPress={openViewPicker}
-              disabled={busy}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Add to grocery list"
-            >
-              <Text style={styles.addToListText}>+ Add to grocery list ▾</Text>
-            </TouchableOpacity>
+          <View style={styles.listsSearchRow}>
+            <View style={styles.listsCol}>
+              <ListMembershipControl
+                supply={supply}
+                userId={userId}
+                onSupplyChanged={onSupplyChanged}
+              />
+            </View>
 
             <TouchableOpacity
               style={styles.searchRecipesButton}
@@ -423,53 +349,50 @@ export default function SupplyControls({
                 <Text style={styles.footerLink}> Recipes →</Text>
               </View>
             </TouchableOpacity>
-
-            {/* Line 2 — Open detail (left edge) + Location (right edge) on
-                the same horizontal line. Wrapped together in a 100%-wide
-                sub-row with space-between justification so they always
-                share a line and align to opposite edges. */}
-            <View style={styles.line2Wrap}>
-              {showOpenDetail ? (
-                <TouchableOpacity
-                  onPress={onOpenDetail}
-                  activeOpacity={0.6}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open detail screen"
-                  style={styles.openDetailButton}
-                >
-                  <Text style={styles.openDetailText}>Open detail ›</Text>
-                </TouchableOpacity>
-              ) : (
-                /* Empty spacer so Location stays right-aligned even when
-                   Open detail is hidden (e.g., inside SupplyQuickEditModal
-                   where showOpenDetail=false). */
-                <View />
-              )}
-
-              <View ref={storageBtnRef} collapsable={false}>
-                <TouchableOpacity
-                  style={styles.storageInlineButton}
-                  onPress={openStorageMenu}
-                  disabled={busy}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Location: ${storageLabel(supply.storage_location)}`}
-                >
-                  <Text style={styles.storageInlinePrefix}>Location:</Text>
-                  <Text style={styles.storageInlineLabel} numberOfLines={1}>
-                    {storageLabel(supply.storage_location)}
-                  </Text>
-                  <StorageIcon
-                    storage={supply.storage_location}
-                    size={16}
-                    color={supply.storage_location ? colors.text.primary : colors.text.tertiary}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
           </View>
         );
       })()}
+
+      {/* Open detail (left edge) + Location (right edge) — own row below the
+          lists/Search row; container `gap` provides the separation. */}
+      <View style={styles.line2Wrap}>
+        {showOpenDetail ? (
+          <TouchableOpacity
+            onPress={onOpenDetail}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Open detail screen"
+            style={styles.openDetailButton}
+          >
+            <Text style={styles.openDetailText}>Open detail ›</Text>
+          </TouchableOpacity>
+        ) : (
+          /* Empty spacer so Location stays right-aligned even when Open detail
+             is hidden (e.g., inside SupplyQuickEditModal where showOpenDetail=false). */
+          <View />
+        )}
+
+        <View ref={storageBtnRef} collapsable={false}>
+          <TouchableOpacity
+            style={styles.storageInlineButton}
+            onPress={openStorageMenu}
+            disabled={busy}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Location: ${storageLabel(supply.storage_location)}`}
+          >
+            <Text style={styles.storageInlinePrefix}>Location:</Text>
+            <Text style={styles.storageInlineLabel} numberOfLines={1}>
+              {storageLabel(supply.storage_location)}
+            </Text>
+            <StorageIcon
+              storage={supply.storage_location}
+              size={16}
+              color={supply.storage_location ? colors.text.primary : colors.text.tertiary}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Storage menu — anchored over the storage icon. */}
       <Modal
@@ -546,14 +469,14 @@ export default function SupplyControls({
                   kind === 'priority'
                     ? 'Priority'
                     : kind === 'regular'
-                    ? 'Regular'
+                    ? 'Staple'
                     : 'On hand';
                 const description =
                   kind === 'priority'
-                    ? 'Spawns when low; tagged urgent today.'
+                    ? 'Auto-adds to your Short List when it runs low.'
                     : kind === 'regular'
-                    ? 'Auto-adds to grocery list when out.'
-                    : 'Just track in pantry — no auto-restock.';
+                    ? 'Auto-adds to Long List when low, Short List when out.'
+                    : 'Just track in pantry — never auto-listed.';
                 return (
                   <TouchableOpacity
                     key={kind}
@@ -604,55 +527,6 @@ export default function SupplyControls({
         </Pressable>
       </Modal>
 
-      {/* View-picker secondary modal */}
-      <Modal
-        visible={viewPickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setViewPickerOpen(false)}
-      >
-        <Pressable
-          style={styles.pickerOverlay}
-          onPress={() => setViewPickerOpen(false)}
-        >
-          <Pressable style={styles.pickerCard} onPress={() => {}}>
-            <Text style={styles.pickerTitle}>Add to which list?</Text>
-            {viewsLoading ? (
-              <Text style={styles.pickerHint}>Loading…</Text>
-            ) : (
-              <ScrollView style={styles.pickerScroll}>
-                {views.map((v) => (
-                  <TouchableOpacity
-                    key={v.id}
-                    style={styles.pickerRow}
-                    onPress={() => pickView(v)}
-                    disabled={busy}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.pickerRowLabel}>
-                      {v.emoji ? `${v.emoji} ` : ''}
-                      {v.name}
-                    </Text>
-                    <Text style={styles.pickerRowMeta}>
-                      {v.filters
-                        .filter((f) => f.dimension !== 'status')
-                        .map((f) => `${f.dimension}=${f.values.join('/')}`)
-                        .join(' · ') || 'no filters'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            <TouchableOpacity
-              style={styles.pickerCancel}
-              onPress={() => setViewPickerOpen(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.pickerCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -662,7 +536,7 @@ function makeStyles(
   _fc: ReturnType<typeof useTheme>['functionalColors']
 ) {
   return StyleSheet.create({
-    container: { gap: 12 },
+    container: { gap: 8 },
     topRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -791,21 +665,23 @@ function makeStyles(
       color: colors.primary,
       fontWeight: typography.weights.medium,
     },
-    bottomRow: {
+    listsSearchRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingTop: 4,
-      flexWrap: 'wrap',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    listsCol: {
+      flex: 1,
+      minWidth: 0, // lets the chip row wrap instead of overflowing the column
     },
     searchRecipesButton: {
-      // Shares Line 1 with [+ Add to grocery list]. flex:1 absorbs leftover
-      // space so the content can right-align to the panel's right edge —
-      // matching the Open detail / Location lines below.
-      flex: 1,
+      // 2026-06-04: shares the lists row — content-sized + pinned top-right so
+      // its Y position is independent of how the list chips wrap.
+      flexShrink: 0,
       flexDirection: 'column',
       alignItems: 'flex-end',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 2,
     },
     searchLine1: {
       lineHeight: 16,
@@ -821,15 +697,12 @@ function makeStyles(
       alignItems: 'center',
     },
     line2Wrap: {
-      // Forces Open detail + Location onto a shared line below Line 1,
-      // with space-between to anchor Open detail on the LEFT edge and
-      // Location on the RIGHT edge. Pushed down vertically with a top
-      // margin so it sits clearly below the Search block.
-      flexBasis: '100%',
+      // 2026-06-04: own row (direct child of container); container `gap`
+      // separates it. Open detail (left) + Location (right) via space-between.
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 12,
+      marginTop: 0,
     },
     openDetailButton: {
       paddingVertical: 4,

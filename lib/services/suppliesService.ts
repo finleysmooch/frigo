@@ -39,10 +39,10 @@
 
 import { supabase } from '../supabase';
 import { createLot, getLotAggregate } from './lotsService';
-import { createNeed } from './needsService';
 import {
   CreateLotParams,
   CreateSupplyParams,
+  ListTarget,
   StorageLocation,
   Supply,
   SupplyIngredient,
@@ -54,7 +54,7 @@ import {
   UpdateSupplyParams,
 } from '../types/supplies';
 import { Tag } from '../types/tags';
-import { addNeedTag, getOrCreateTag, setSupplyTags } from './tagsService';
+import { addNeedTag, getOrCreateTag, removeNeedTag, setSupplyTags } from './tagsService';
 
 // ============================================
 // ERROR CLASSES
@@ -305,14 +305,75 @@ export async function getSuppliesByStatus(
 // CREATE
 // ============================================
 
+// 2026-06-04: shared active-match lookup used both by createSupply's upfront
+// dedup AND by its 23505 race-recovery path. Picks the EARLIEST active row so
+// multiple pre-existing dupes never trigger the old `.maybeSingle()`
+// error-then-insert-a-third footgun. Returns a flattened SupplyWithTags.
+async function findActiveSupplyMatch(
+  params: CreateSupplyParams
+): Promise<SupplyWithTags | null> {
+  if (params.ingredientId) {
+    const { data, error } = await supabase
+      .from('supplies')
+      .select(SUPPLY_SELECT)
+      .eq('space_id', params.spaceId)
+      .eq('ingredient_id', params.ingredientId)
+      .is('archived_at', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('❌ createSupply dedup lookup (ingredient):', error);
+      return null;
+    }
+    return data
+      ? flattenSupplyRow(
+          data as Supply & {
+            ingredient: SupplyIngredient | null;
+            supply_tags: Array<{ tag: Tag | null }> | null;
+          }
+        )
+      : null;
+  }
+
+  if (params.customName) {
+    const { data, error } = await supabase
+      .from('supplies')
+      .select(SUPPLY_SELECT)
+      .eq('space_id', params.spaceId)
+      .ilike('custom_name', params.customName.trim())
+      .is('archived_at', null)
+      .is('ingredient_id', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('❌ createSupply dedup lookup (custom_name):', error);
+      return null;
+    }
+    return data
+      ? flattenSupplyRow(
+          data as Supply & {
+            ingredient: SupplyIngredient | null;
+            supply_tags: Array<{ tag: Tag | null }> | null;
+          }
+        )
+      : null;
+  }
+
+  return null;
+}
+
 // Initial usage_level seed at create. Q35 keeps 'critical' off the create path,
 // so only in_stock / low / out land here.
+// Battery rework: scale is now 0–4 (4 bars). in_stock seeds a full battery (4),
+// low → 1 bar, out → 0.
 function initialUsageLevelForStatus(status: SupplyInitialStatus): number {
   switch (status) {
     case 'in_stock':
-      return 5;
+      return 4;
     case 'low':
-      return 2;
+      return 1;
     case 'out':
       return 0;
   }
@@ -404,43 +465,14 @@ export async function createSupply(params: CreateSupplyParams): Promise<SupplyWi
     params.trackingMode ?? inferredTrackingMode;
   const finalIsPriority = params.isPriority ?? false;
 
-  // 8R-UX6 Item 2: service-layer dedup. Returns the existing supply when
-  // an active match is found (same space, same ingredient_id OR
-  // case-insensitive custom_name when no ingredient). Out-status existing
-  // matches get restocked to the requested initial status. Mirrors the
-  // createNeed pattern. Archived-supply restore is out of scope — see
-  // DEFERRED_WORK P8R-UX6-1.
-  let existingMatch: SupplyWithTags | null = null;
-  if (params.ingredientId) {
-    const { data, error } = await supabase
-      .from('supplies')
-      .select(SUPPLY_SELECT)
-      .eq('space_id', params.spaceId)
-      .eq('ingredient_id', params.ingredientId)
-      .is('archived_at', null)
-      .maybeSingle();
-    if (error) {
-      console.error('❌ createSupply dedup lookup (ingredient):', error);
-      // Don't block creation on lookup failure — fall through to insert.
-    } else if (data) {
-      existingMatch = data as SupplyWithTags;
-    }
-  } else if (params.customName) {
-    const { data, error } = await supabase
-      .from('supplies')
-      .select(SUPPLY_SELECT)
-      .eq('space_id', params.spaceId)
-      .ilike('custom_name', params.customName.trim())
-      .is('archived_at', null)
-      .is('ingredient_id', null)
-      .maybeSingle();
-    if (error) {
-      console.error('❌ createSupply dedup lookup (custom_name):', error);
-    } else if (data) {
-      existingMatch = data as SupplyWithTags;
-    }
-  }
-
+  // 8R-UX6 Item 2 / 2026-06-04: service-layer dedup via the shared
+  // findActiveSupplyMatch helper (earliest active row; tolerant of pre-existing
+  // dupes). Returns the existing supply when an active match is found,
+  // restocking an out match to the requested status. The DB-level partial
+  // unique index (migration 20260604_supply_dedup_and_unique.sql) is the hard
+  // guard; this is the soft fast-path + nicer restock UX. Archived-supply
+  // restore is out of scope — see DEFERRED_WORK P8R-UX6-1.
+  const existingMatch = await findActiveSupplyMatch(params);
   if (existingMatch) {
     console.log('📦 createSupply dedup hit — returning existing supply:', existingMatch.id);
     // If the existing supply is 'out' and a non-out status was requested,
@@ -466,6 +498,12 @@ export async function createSupply(params: CreateSupplyParams): Promise<SupplyWi
     storage_location: finalStorage,
     is_priority: finalIsPriority,
     usage_level: initialUsageLevelForStatus(params.status),
+    // 2026-06-04: seed the auto-list rule from the bookmark preset. track_only
+    // never auto-lists; priority escalates to Short on low; a plain Staple goes
+    // to Long on low, Short on out.
+    low_list_target:
+      finalTrackingMode === 'track_only' ? 'none' : finalIsPriority ? 'short' : 'long',
+    out_list_target: finalTrackingMode === 'track_only' ? 'none' : 'short',
     archived_at: null,
     // 8R-UX4: explicit on insert (DB default exists as a safety net but we
     // own the timestamp at the service layer so all bumper functions are
@@ -480,6 +518,21 @@ export async function createSupply(params: CreateSupplyParams): Promise<SupplyWi
     .single();
 
   if (insertError) {
+    // 23505 = unique_violation against the active-uniqueness partial index
+    // (supplies_uniq_active_ingredient / _customname). A concurrent create beat
+    // us to it; recover by returning the existing active row (restocking it if
+    // it was out + a non-out status was requested) rather than surfacing an error.
+    if ((insertError as { code?: string }).code === '23505') {
+      console.log('📦 createSupply hit active-uniqueness guard — recovering existing row');
+      const recovered = await findActiveSupplyMatch(params);
+      if (recovered) {
+        if (recovered.status === 'out' && params.status && params.status !== 'out') {
+          const result = await setSupplyStatus(recovered.id, params.status);
+          return result.supply;
+        }
+        return recovered;
+      }
+    }
     console.error('❌ Error creating supply:', insertError);
     throw insertError;
   }
@@ -541,10 +594,12 @@ export async function updateSupply(
 function usageLevelForTransition(newStatus: SupplyStatus): number | null {
   switch (newStatus) {
     case 'in_stock':
-      return 5;
+      return 4;
     case 'low':
-      return 2;
+      return 1;
     case 'critical':
+      // Legacy-only: 'critical' is retired from the level system. Kept here for
+      // type-exhaustiveness / back-compat — maps to the same 1 bar as low.
       return 1;
     case 'out':
       return 0;
@@ -553,22 +608,178 @@ function usageLevelForTransition(newStatus: SupplyStatus): number | null {
   }
 }
 
+// ============================================
+// AUTO-LIST RULE — reconciliation (2026-06-04)
+// ============================================
+// A Staple's grocery-list membership is a function of its status + its
+// configured rule (low_list_target / out_list_target). reconcileSupplyListNeed
+// keeps a single rule-driven need (added_from='supply_spawn') in sync:
+//   • target 'none'   → delete the rule need (e.g., restocked → in_stock)
+//   • target 'long'   → need exists, no urgency tag (Long List)
+//   • target 'medium' → need exists, urgency=this-week (Medium List)
+//   • target 'short'  → need exists, urgency=today (Short List)
+// Manual needs (added_from='manual') are NEVER touched here — they persist
+// regardless of stock status (Tom's rule). A rule need the user has already
+// moved into the cart is also left alone.
+
+// Which list a supply targets at its CURRENT status, per its configured rule.
+function listTargetForStatus(supply: SupplyWithTags): ListTarget {
+  if (supply.tracking_mode !== 'restock') return 'none';
+  switch (supply.status) {
+    case 'low':
+      return supply.low_list_target;
+    case 'critical':
+    case 'out':
+      return supply.out_list_target;
+    case 'in_stock':
+    case 'unknown':
+    default:
+      return 'none';
+  }
+}
+
+// Urgency tag value that places a need on the target list. 'long'/'none' → no
+// urgency tag (Long List is just status=need).
+function urgencyValueForTarget(target: ListTarget): 'today' | 'this-week' | null {
+  if (target === 'short') return 'today';
+  if (target === 'medium') return 'this-week';
+  return null;
+}
+
 /**
- * Set status directly. CP6d-Schema behavior gates layered on top of CP3-era spawn:
+ * Reconcile the rule-driven grocery-list need for a supply against its current
+ * status + rule. Returns the touched need (for spawn toasts) or undefined.
+ * Best-effort: errors are logged, not thrown — a list-sync hiccup must not roll
+ * back the status change that triggered it.
+ */
+async function reconcileSupplyListNeed(
+  supply: SupplyWithTags
+): Promise<SupplyStatusResult['spawnedNeed']> {
+  const target = listTargetForStatus(supply);
+
+  // Find the existing rule-driven need (earliest, if somehow >1).
+  const { data: ruleNeeds, error: findError } = await supabase
+    .from('needs')
+    .select('id, status, need_tags(tag:tags(*))')
+    .eq('supply_id', supply.id)
+    .eq('added_from', 'supply_spawn')
+    .in('status', ['need', 'in_cart'])
+    .order('created_at', { ascending: true });
+
+  if (findError) {
+    console.error('❌ reconcileSupplyListNeed find error:', findError);
+    return undefined;
+  }
+
+  const ruleNeed = (ruleNeeds ?? [])[0] as
+    | { id: string; status: string; need_tags: Array<{ tag: Tag | null }> | null }
+    | undefined;
+
+  // A rule need already in the cart is the user's in-flight purchase — leave it.
+  if (ruleNeed && ruleNeed.status === 'in_cart') return undefined;
+
+  // target 'none' → remove the rule-driven need entirely (restock path).
+  if (target === 'none') {
+    if (ruleNeed) {
+      const { error: delError } = await supabase
+        .from('needs')
+        .delete()
+        .eq('id', ruleNeed.id);
+      if (delError) console.error('❌ reconcileSupplyListNeed delete error:', delError);
+    }
+    return undefined;
+  }
+
+  // Ensure a rule-driven need exists.
+  const currentUrgencyTags: Tag[] = ruleNeed
+    ? (ruleNeed.need_tags ?? [])
+        .map((r) => r.tag)
+        .filter((t): t is Tag => t !== null && t.dimension === 'urgency')
+    : [];
+
+  let needId: string;
+  if (ruleNeed) {
+    needId = ruleNeed.id;
+  } else {
+    const needInsert = {
+      space_id: supply.space_id,
+      ingredient_id: supply.ingredient_id,
+      custom_name: supply.ingredient_id ? null : supply.custom_name,
+      status: 'need' as const,
+      quantity_display: null,
+      unit_display: null,
+      for_user_ids: supply.for_user_ids,
+      supply_id: supply.id,
+      added_by: supply.added_by,
+      added_from: 'supply_spawn' as const,
+    };
+    const { data: created, error: insertError } = await supabase
+      .from('needs')
+      .insert(needInsert)
+      .select('id')
+      .single();
+    if (insertError) {
+      console.error('❌ reconcileSupplyListNeed insert error:', insertError);
+      return undefined;
+    }
+    needId = (created as { id: string }).id;
+
+    // Copy store-dimension tags from the supply (mirrors the old spawn behavior).
+    const storeTagIds = supply.tags
+      .filter((t) => t.dimension === 'store')
+      .map((t) => t.id);
+    if (storeTagIds.length > 0) {
+      const { error: tagErr } = await supabase
+        .from('need_tags')
+        .insert(storeTagIds.map((tagId) => ({ need_id: needId, tag_id: tagId })));
+      if (tagErr) console.error('❌ reconcileSupplyListNeed store-tag copy error:', tagErr);
+    }
+  }
+
+  // Reconcile the urgency tag to the target list.
+  const desiredUrgency = urgencyValueForTarget(target);
+  for (const t of currentUrgencyTags) {
+    if (desiredUrgency === null || t.value !== desiredUrgency) {
+      await removeNeedTag(needId, t.id);
+    }
+  }
+  if (
+    desiredUrgency !== null &&
+    !currentUrgencyTags.some((t) => t.value === desiredUrgency)
+  ) {
+    const urgencyTag = await getOrCreateTag(
+      supply.space_id,
+      'urgency',
+      desiredUrgency,
+      supply.added_by ?? ''
+    );
+    await addNeedTag(needId, urgencyTag.id);
+  }
+
+  return {
+    id: needId,
+    ingredient_id: supply.ingredient_id,
+    custom_name: supply.ingredient_id ? null : supply.custom_name,
+    status: 'need',
+    supply_id: supply.id,
+  };
+}
+
+/**
+ * Set status directly. Behavior:
  *
- *   1. usage_level is updated to track the new status (5 / 2 / 1 / 0). On a
+ *   1. usage_level is updated to track the new status (4 / 1 / 0). On a
  *      no-op transition (status unchanged), usage_level is left alone.
- *   2. Spawn-on-out is gated by tracking_mode:
- *      - 'restock': existing CP3 spawn behavior (Q48 idempotency, store-tag copy).
- *      - 'track_only': no spawn; instead set archived_at = NOW() and return
- *        autoArchived=true.
- *   3. Priority spawn-on-low: if old != 'low' and new === 'low' and is_priority,
- *      fire createNeed with supply's tag_ids EXCLUDING any urgency tag, then
- *      attach the 'today' urgency tag explicitly. Mirrors restock spawn-on-out
- *      shape but with an urgency override.
+ *   2. track_only at out auto-archives (archived_at = NOW(), autoArchived=true).
+ *   3. in_stock transitions unarchive (closes the resurrection loop).
+ *   4. 2026-06-04: grocery-list membership is reconciled from the per-supply
+ *      auto-list rule (low_list_target / out_list_target) via
+ *      reconcileSupplyListNeed — this replaced the old hard-coded restock
+ *      spawn-on-out + priority spawn-on-low blocks. A status→in_stock clears
+ *      the rule-driven need; low/out add or escalate it; manual needs untouched.
  *
  * The cookDepletionService integration is unchanged (it calls setSupplyStatus,
- * which means depletion automatically inherits the new gates).
+ * so depletion automatically inherits the rule reconciliation).
  */
 export async function setSupplyStatus(
   supplyId: string,
@@ -637,132 +848,11 @@ export async function setSupplyStatus(
 
   let spawnedNeed: SupplyStatusResult['spawnedNeed'] = undefined;
 
-  // ---- Restock spawn-on-out path (CP3-era; preserved verbatim, gated). ----
-  if (
-    isTransition &&
-    newStatus === 'out' &&
-    before.tracking_mode === 'restock'
-  ) {
-    // Q48 idempotency check.
-    const { data: existing, error: existingError } = await supabase
-      .from('needs')
-      .select('id')
-      .eq('supply_id', supplyId)
-      .in('status', ['need', 'in_cart'])
-      .limit(1)
-      .maybeSingle();
-
-    if (existingError) {
-      console.error('❌ Error checking existing spawned need:', existingError);
-      throw existingError;
-    }
-
-    if (!existing) {
-      // Spawn new need. Inherits identity + for_user_ids from the supply (Q27).
-      const needInsert = {
-        space_id: before.space_id,
-        ingredient_id: before.ingredient_id,
-        custom_name: before.ingredient_id ? null : before.custom_name,
-        status: 'need' as const,
-        quantity_display: null,
-        unit_display: null,
-        for_user_ids: before.for_user_ids,
-        supply_id: supplyId,
-        added_by: before.added_by,
-        added_from: 'supply_spawn' as const,
-      };
-
-      const { data: createdNeed, error: needError } = await supabase
-        .from('needs')
-        .insert(needInsert)
-        .select('id, ingredient_id, custom_name, status, supply_id')
-        .single();
-
-      if (needError) {
-        console.error('❌ Error spawning need on supply→out:', needError);
-        throw needError;
-      }
-
-      const needRow = createdNeed as {
-        id: string;
-        ingredient_id: string | null;
-        custom_name: string | null;
-        status: string;
-        supply_id: string;
-      };
-
-      // Copy store-dimension tags from supply to the new need.
-      const storeTagIds = before.tags
-        .filter((t) => t.dimension === 'store')
-        .map((t) => t.id);
-
-      if (storeTagIds.length > 0) {
-        const tagInserts = storeTagIds.map((tagId) => ({
-          need_id: needRow.id,
-          tag_id: tagId,
-        }));
-
-        const { error: tagInsertError } = await supabase
-          .from('need_tags')
-          .insert(tagInserts);
-
-        if (tagInsertError) {
-          console.error('❌ Error copying store tags to spawned need:', tagInsertError);
-          throw tagInsertError;
-        }
-      }
-
-      spawnedNeed = needRow;
-      console.log('📦 Spawned need from supply→out:', needRow.id);
-    } else {
-      console.log('📦 Active need already exists for this supply — skipping spawn (Q48)');
-    }
-  }
-
-  // ---- Priority spawn-on-low path (CP6d-Schema). ----
-  if (
-    isTransition &&
-    newStatus === 'low' &&
-    before.is_priority === true
-  ) {
-    // Reuse createNeed (gets dedup softening for free). Strip any urgency tags
-    // from the supply's tag set so the spawned need's urgency comes from the
-    // explicit 'today' override, not the supply's resting urgency.
-    const tagIdsWithoutUrgency = before.tags
-      .filter((t) => t.dimension !== 'urgency')
-      .map((t) => t.id);
-
-    const created = await createNeed({
-      spaceId: before.space_id,
-      ingredientId: before.ingredient_id ?? undefined,
-      customName: before.ingredient_id ? undefined : before.custom_name ?? undefined,
-      forUserIds: before.for_user_ids,
-      supplyId: supplyId,
-      addedBy: before.added_by ?? '',
-      addedFrom: 'supply_spawn',
-      tagIds: tagIdsWithoutUrgency,
-    });
-
-    // Resolve / create the 'today' urgency tag and attach it. added_by may be
-    // null on legacy rows; fall back to empty string (tags.created_by is
-    // nullable on the SQL side but getOrCreateTag types it non-null).
-    const todayTag = await getOrCreateTag(
-      before.space_id,
-      'urgency',
-      'today',
-      before.added_by ?? ''
-    );
-    await addNeedTag(created.id, todayTag.id);
-
-    spawnedNeed = {
-      id: created.id,
-      ingredient_id: created.ingredient_id,
-      custom_name: created.custom_name,
-      status: created.status,
-      supply_id: supplyId,
-    };
-    console.log('📦 Priority spawn-on-low fired:', created.id);
-  }
+  // 2026-06-04: grocery-list membership is now driven by the per-supply
+  // auto-list rule (low_list_target / out_list_target), reconciled below after
+  // the post-mutation re-fetch. This replaces the former restock-spawn-on-out +
+  // priority-spawn-on-low (urgency=today) blocks — those two behaviors are now
+  // just the default presets of the configurable rule. See reconcileSupplyListNeed.
 
   // CP6e-SmokeFix-SF2: post-mutation re-fetch hydrates lots + aggregate so
   // callers' onSupplyChanged map-by-id retains the LotBadge / LotsCollapser
@@ -770,6 +860,13 @@ export async function setSupplyStatus(
   // lot IN-query via hydrateSupplyLots's tracks_lots-aware short-circuit.
   const supplyAfter = await getSupplyById(supplyId, { includeLots: true });
   if (!supplyAfter) throw new SupplyNotFoundError(supplyId);
+
+  // Reconcile the rule-driven grocery-list need to match the new status. Only
+  // on an actual transition; in_stock / unknown resolve to target 'none', which
+  // removes any rule-driven need. Manual needs (added_from='manual') untouched.
+  if (isTransition) {
+    spawnedNeed = await reconcileSupplyListNeed(supplyAfter);
+  }
 
   return {
     supply: supplyAfter,
@@ -794,8 +891,14 @@ export async function cycleSupplyStatus(supplyId: string): Promise<SupplyStatusR
 
 /**
  * Toggle (or set) `is_priority` on a supply. Used by SupplyRow's expanded-state
- * star toggle. The priority flag is what gates the spawn-on-low path inside
- * setSupplyStatus (added in CP6d-Schema).
+ * star toggle + the bookmark menu.
+ *
+ * 2026-06-04: Priority is now the "Low → Short List" preset of the auto-list
+ * rule and implies restock semantics. Setting it writes low='short' / out=
+ * 'short' / tracking_mode='restock'; clearing it returns the low target to
+ * 'long' (Staple default) when the supply is a restock item. The rule is then
+ * reconciled against the supply's current status so the change takes effect
+ * immediately (e.g., a currently-low item moves Long→Short on the spot).
  */
 export async function setSupplyPriority(
   supplyId: string,
@@ -803,19 +906,72 @@ export async function setSupplyPriority(
 ): Promise<SupplyWithTags> {
   console.log('📦 Setting supply priority:', { supplyId, isPriority });
 
-  const { error } = await supabase
-    .from('supplies')
-    .update({ is_priority: isPriority })
-    .eq('id', supplyId);
+  const before = await getSupplyById(supplyId);
+  if (!before) throw new SupplyNotFoundError(supplyId);
 
+  const patch: Record<string, unknown> = isPriority
+    ? {
+        is_priority: true,
+        tracking_mode: 'restock',
+        low_list_target: 'short',
+        out_list_target: 'short',
+      }
+    : {
+        is_priority: false,
+        // Only reset the rule for restock items; track_only stays none/none.
+        ...(before.tracking_mode === 'restock'
+          ? { low_list_target: 'long', out_list_target: 'short' }
+          : {}),
+      };
+
+  const { error } = await supabase.from('supplies').update(patch).eq('id', supplyId);
   if (error) {
     console.error('❌ Error setting supply priority:', error);
     throw error;
   }
 
-  const result = await getSupplyById(supplyId);
+  const result = await getSupplyById(supplyId, { includeLots: true });
   if (!result) throw new SupplyNotFoundError(supplyId);
-  return result;
+  await reconcileSupplyListNeed(result);
+  const after = await getSupplyById(supplyId, { includeLots: true });
+  if (!after) throw new SupplyNotFoundError(supplyId);
+  return after;
+}
+
+/**
+ * 2026-06-04: fine-grained auto-list rule setter for the rule editor (per-list
+ * customization beyond the three bookmark presets). Writes low/out targets,
+ * keeps is_priority's display in sync (priority == Low→Short), and reconciles
+ * the rule against the supply's current status so it takes effect immediately.
+ * Only meaningful for restock supplies (track_only never auto-lists).
+ */
+export async function setSupplyListingRule(
+  supplyId: string,
+  rule: { lowTarget?: ListTarget; outTarget?: ListTarget }
+): Promise<SupplyWithTags> {
+  console.log('📦 Setting supply listing rule:', { supplyId, rule });
+
+  const patch: Record<string, unknown> = {};
+  if (rule.lowTarget !== undefined) {
+    patch.low_list_target = rule.lowTarget;
+    patch.is_priority = rule.lowTarget === 'short';
+  }
+  if (rule.outTarget !== undefined) patch.out_list_target = rule.outTarget;
+
+  if (Object.keys(patch).length > 0) {
+    const { error } = await supabase.from('supplies').update(patch).eq('id', supplyId);
+    if (error) {
+      console.error('❌ Error setting supply listing rule:', error);
+      throw error;
+    }
+  }
+
+  const result = await getSupplyById(supplyId, { includeLots: true });
+  if (!result) throw new SupplyNotFoundError(supplyId);
+  await reconcileSupplyListNeed(result);
+  const after = await getSupplyById(supplyId, { includeLots: true });
+  if (!after) throw new SupplyNotFoundError(supplyId);
+  return after;
 }
 
 // ============================================
@@ -903,35 +1059,35 @@ export async function searchCatalogIngredients(
 // ============================================
 
 /**
- * Set usage_level directly. Status is derived from level via the standard
- * mapping (5/4/3 → in_stock, 2 → low, 1 → critical, 0 → out). When the
+ * Set usage_level directly. Status is derived from level via the battery
+ * mapping (4/3/2 → in_stock, 1 → low, 0 → out — 'critical' retired). When the
  * derived status differs from current, routes through setSupplyStatus to
  * preserve spawn-on-out + tracking_mode + archived_at gating. When status
- * stays the same (e.g., 5 → 4 within in_stock), patches usage_level only.
+ * stays the same (e.g., 4 → 3 within in_stock), patches usage_level only.
  *
  * Resolves P8R-D24: setSupplyStatus's transition-only usage_level patch
- * meant the slider's level=4 case was a no-op when the row was already
- * in_stock. This helper closes that gap.
+ * meant the in-stock-internal level changes (e.g. 4→3→2) were a no-op when
+ * the row was already in_stock. This helper closes that gap.
  */
 export async function setSupplyUsageLevel(
   supplyId: string,
   newLevel: number
 ): Promise<SupplyWithTags> {
-  if (newLevel < 0 || newLevel > 5 || !Number.isFinite(newLevel)) {
-    throw new Error(`Invalid usage_level: ${newLevel}. Must be 0-5.`);
+  if (newLevel < 0 || newLevel > 4 || !Number.isFinite(newLevel)) {
+    throw new Error(`Invalid usage_level: ${newLevel}. Must be 0-4.`);
   }
   const level = Math.round(newLevel);
 
   const newStatus: SupplyStatus =
-    level >= 3 ? 'in_stock' : level === 2 ? 'low' : level === 1 ? 'critical' : 'out';
+    level >= 2 ? 'in_stock' : level === 1 ? 'low' : 'out';
 
   const current = await getSupplyById(supplyId);
   if (!current) throw new SupplyNotFoundError(supplyId);
 
   // Status-changing transition → setSupplyStatus owns the lifecycle.
   // Note: setSupplyStatus's usage_level patch will land on a fixed value
-  // (5/2/1/0) for those transitions, which is correct — level=4 doesn't
-  // hit this branch.
+  // (4/1/0) for those transitions, which is correct — in-stock-internal
+  // level changes (3, 2) don't hit this branch.
   //
   // 2026-05-13 fix: unwrap SupplyStatusResult — setSupplyStatus returns
   // { supply, spawnedNeed?, autoArchived? } but this function declares
@@ -944,7 +1100,7 @@ export async function setSupplyUsageLevel(
     return result.supply;
   }
 
-  // Same-status refinement (e.g., 5 → 4 within in_stock) — patch level only.
+  // Same-status refinement (e.g., 4 → 3 within in_stock) — patch level only.
   const { error } = await supabase
     .from('supplies')
     .update({ usage_level: level })
@@ -974,17 +1130,39 @@ export async function setSupplyTrackingMode(
   trackingMode: TrackingMode
 ): Promise<SupplyWithTags> {
   console.log('📦 Setting supply tracking_mode:', { supplyId, trackingMode });
-  const { error } = await supabase
-    .from('supplies')
-    .update({ tracking_mode: trackingMode })
-    .eq('id', supplyId);
+
+  const before = await getSupplyById(supplyId);
+  if (!before) throw new SupplyNotFoundError(supplyId);
+
+  // 2026-06-04: keep the auto-list rule consistent with the bookmark preset.
+  //   track_only ("On hand") → never auto-lists; clear targets + priority.
+  //   restock ("Staple"/"Priority") → restore targets from the priority flag.
+  const patch: Record<string, unknown> =
+    trackingMode === 'track_only'
+      ? {
+          tracking_mode: 'track_only',
+          is_priority: false,
+          low_list_target: 'none',
+          out_list_target: 'none',
+        }
+      : {
+          tracking_mode: 'restock',
+          low_list_target: before.is_priority ? 'short' : 'long',
+          out_list_target: 'short',
+        };
+
+  const { error } = await supabase.from('supplies').update(patch).eq('id', supplyId);
   if (error) {
     console.error('❌ Error setting supply tracking_mode:', error);
     throw error;
   }
-  const result = await getSupplyById(supplyId);
+
+  const result = await getSupplyById(supplyId, { includeLots: true });
   if (!result) throw new SupplyNotFoundError(supplyId);
-  return result;
+  await reconcileSupplyListNeed(result);
+  const after = await getSupplyById(supplyId, { includeLots: true });
+  if (!after) throw new SupplyNotFoundError(supplyId);
+  return after;
 }
 
 export async function setSupplyStorage(

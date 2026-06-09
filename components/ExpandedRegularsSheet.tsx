@@ -279,7 +279,7 @@ export default function ExpandedRegularsSheet({
       const summary = parts.join(' · ') || 'No changes';
 
       onSaved();
-      Alert.alert('Regulars', summary, [{ text: 'OK', onPress: onClose }]);
+      Alert.alert('Staples', summary, [{ text: 'OK', onPress: onClose }]);
     } catch (error) {
       console.error('❌ ExpandedRegularsSheet submit error:', error);
       Alert.alert('Error', 'Could not add. Try again.');
@@ -344,7 +344,7 @@ export default function ExpandedRegularsSheet({
             <TouchableOpacity onPress={onClose} disabled={submitting}>
               <Text style={styles.headerCancel}>Close</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Regulars</Text>
+            <Text style={styles.headerTitle}>Staples</Text>
             <View style={{ width: 50 }} />
           </View>
 

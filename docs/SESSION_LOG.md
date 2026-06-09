@@ -7,6 +7,189 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-09 — CP1 close-out: pre-commit review, 2 commits, MIGRATIONS caveats, living-doc reconciliation
+
+**Scope:** mechanical close-out of the CP1 migration work logged below. No schema changes, no new migrations, no app code. Executed from a Claude.ai CC prompt ("CP1 close-out"). Two commits made on `main`.
+
+**Shipped:**
+- **Pre-commit gate passed** (all checks): `supabase/migrations/` = exactly 2 (baseline + inert marker); `supabase/migrations_provenance/` = exactly 20; `.env` gitignored + not staged; `grep -i password supabase/config.toml` → no match. Staged set was CP1-only (24 changes: 4 new files + 17 renames + 3 provenance adds); the prior pantry session's app-code changes were left unstaged.
+- **MIGRATIONS.md caveats added** (2): (a) toolchain — CLI ≥ 2.105.0 required (2.58.5 crashes pull/diff on storage-image skew), Docker needed for `db pull`/`db diff` but **not** `db push` (applying a migration incl. CP5 needs only the linked project + DB password); (b) `db diff` noise — the 3 self-cancelling `ANY(ARRAY[...])` CHECK re-adds are baseline noise to ignore when verifying future migrations (esp. CP5). Re-staged `_pk_sync/MIGRATIONS_2026-06-09.md`.
+- **Commit 1 — `cd43f44`** `chore(db): adopt supabase/migrations tracking (P7-23)`: baseline `20260609155555_baseline_public.sql`, inert marker `20260609163207_adopt_migrations_marker.sql`, `supabase/config.toml`, `docs/MIGRATIONS.md`, + 20 files relocated to `supabase/migrations_provenance/`.
+- **Commit 2 — `91cf1fc`** `docs: reconcile CP1 migration tracking (P7-23 resolved, ledger + pointers)`: the 4 living-doc edits below.
+
+**Living-doc reconciliation (surgical — add/annotate only; headers bumped to 2026-06-09 per Rule A):**
+- `DEFERRED_WORK.md` — **P7-23 marked resolved** (strikethrough + ⚪ + `✅ RESOLVED 2026-06-09 …`), matching the doc's existing resolved-item convention.
+- `docs/archive/phases/PHASE_7_SOCIAL_FEED.md` — "Direct DB Migrations" ledger annotated with a superseded-by-baseline blockquote. (Archived/complete phase doc → header **not** bumped; it's frozen, not a living doc.)
+- `PROJECT_CONTEXT.md` — added a Backend "Migrations" pointer line **and** reconciled the now-false Known-Issues line (it still said "tracking not yet set up (P7-23)") → struck through + RESOLVED. *(This 2nd PROJECT_CONTEXT edit is beyond the CP's literal 4 — flagged: the CP couldn't have known that stale line existed; reconciling it was required for correctness.)*
+- `FRIGO_ARCHITECTURE.md` — added a Migrations note + `migration new` command in Development Setup, with the tiered-push-policy one-liner.
+
+**Verified:**
+- Gate output pasted above; `.env` confirmed not staged.
+- `git log --oneline -2`: `91cf1fc docs: reconcile …` / `cd43f44 chore(db): adopt …`.
+- Commit 2 = exactly 4 files (`git diff --cached --name-only` confirmed), 13 insertions / 5 deletions; diff hunks reviewed (strikethrough P7-23 row; superseded blockquote; 2 PROJECT_CONTEXT lines; ARCHITECTURE setup note).
+- `supabase/functions/**` and the baseline/provenance files unchanged by Step 4 (Commit 2 touched only the 4 docs).
+- `_pk_sync` dated copies staged for all edited docs: `MIGRATIONS`, `DEFERRED_WORK`, `PROJECT_CONTEXT`, `FRIGO_ARCHITECTURE`, `PHASE_7_SOCIAL_FEED` (all `_2026-06-09.md`; `_pk_sync` is gitignored, as intended).
+
+**Open questions / decisions:**
+- **SESSION_LOG.md left uncommitted (deliberate).** It carries the prior pantry session's two 2026-06-04 entries (146 uncommitted lines spanning pantry + CP1 + this close-out). Committing it in a CP1 commit would drag pantry log content into a migrations commit, so it's left in the working tree for Tom to commit alongside the pantry work. Both CP1 SESSION_LOG entries (adoption + this close-out) are therefore written but not yet committed.
+- The extra PROJECT_CONTEXT Known-Issues reconciliation (noted above) — surgical, but beyond the literal CP scope.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **DONE this session** (authorized by CP): Development Setup migrations note.
+- `DEFERRED_WORK.md` — **DONE this session** (authorized by CP): P7-23 resolved.
+- `PROJECT_CONTEXT.md` — **DONE this session** (authorized by CP): Backend pointer + Known-Issues reconciliation.
+- `FF_LAUNCH_MASTER_PLAN.md` — **none** (CP4/CP5 migration prerequisite is now cleared; note only if Claude.ai tracks prereqs there).
+
+**Recommended next steps for Tom:** (1) commit the pantry-session working-tree changes (app code + `SESSION_LOG.md` + `PK_CODE_SNAPSHOTS.md`) — that commit will carry both CP1 SESSION_LOG entries; (2) upload the `_pk_sync/*_2026-06-09.md` copies to PK; (3) CP5 can proceed — author the auth-trigger change as a tracked migration, but **you** run the push (Sensitive tier).
+
+---
+
+## 2026-06-09 — CP1 (P7-23): Supabase migration tracking adopted (baseline + forward-loop proof)
+
+**Scope:** infra only — no app code touched. Executed from a Claude.ai CC prompt ("CP1 — supabase/migrations/ tracking setup"). Adopts CLI-tracked migrations on the existing shared Supabase project (ref `siaawxcgyghuphwgufkn`) so future schema changes are versioned/reviewable/reproducible. **Resolves P7-23.** Hard prerequisite for CP4 (books catalog) and CP5 (auth trigger).
+
+**Major deviation from the prompt's premise (Tom decided live):** the prompt assumed `supabase/migrations/` held ~2 untracked files. It actually held **20** real, granular files (the whole `20260424`→`20260604` series), **none** in remote history (remote migration history was completely empty). I stopped and surfaced this; Tom chose **"single live baseline + archive the 20"** (vs keeping them tracked + a supplement). Rationale: the 20 files are provably incomplete — `handle_new_user` and the `on_auth_user_created` trigger exist live but appear in none of them — so a `db pull` baseline from the live DB is required regardless, and the archived files' effects are all captured by it.
+
+**What shipped:**
+- **Linked** the project non-interactively — DB password read from `SUPABASE_DB_PASSWORD` in `.env` (no prompt). Link did **not** create `config.toml` (it stashed the ref in gitignored `supabase/.temp/project-ref`), so I hand-wrote a minimal `supabase/config.toml` (`project_id` only + comments) to satisfy reproducibility; a fresh clone still runs `supabase link`.
+- **Baseline** `supabase/migrations/20260609155555_baseline_public.sql` via `supabase db pull --schema public` — full live public schema (76 tables, 46 functions, 148 policies). Registered as **applied** in remote history via `migration repair --status applied`. **Public only**: zero auth-schema DDL (the 73 `auth.` hits are all FK refs to `auth.users(id)` on public tables); `handle_new_user` present as `public.handle_new_user()` (~L1273–1293).
+- **20 pre-baseline files relocated** to `supabase/migrations_provenance/` (CLI ignores sibling folders → no spurious pending entries; git tracked the 17 tracked ones as renames + I `git add`ed the 3 untracked: `20260602`, both `20260604`). This is the reconciliation the prompt asked for, applied to all 20 rather than just the two `20260604` files.
+- **Forward-loop proof** `supabase/migrations/20260609163207_adopt_migrations_marker.sql` (inert `COMMENT ON SCHEMA public`) authored → `db push --dry-run` → `db push`. Proves author→push→tracked end to end.
+- **CP5 reference snapshot** recorded verbatim in `docs/MIGRATIONS.md` (read from live DB, not assumed): `CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" FOR EACH ROW EXECUTE FUNCTION "public"."handle_new_user"();`
+- **`docs/MIGRATIONS.md`** created: everyday workflow, public-only baseline note, shared-production-DB warning, tiered push policy (CC pushes mechanical CPs; **Tom** pushes Sensitive — CP5 auth trigger, CP8, destructive DDL), the CP5 snapshot, the `db diff` caveat, CLI/Docker prerequisites, and pre-baseline provenance pointers.
+
+**Environment fixes needed mid-CP (flagging — not in the prompt):**
+- **CLI upgraded 2.58.5 → 2.105.0** via `scoop update supabase`. The old CLI crashed `db pull`/`db diff` ("error running container") because it pulled a newer `storage-api:v1.29.0` image whose internal migrations it didn't recognise (`StorageBackendError: Migration optimize-existing-functions-again not found`). 2.105.0 fixed it. Reversible via scoop.
+- **Docker Desktop started** (daemon was down). `db pull`/`db diff` need a shadow Postgres container; `db push`/`migration list`/`migration new` do not.
+
+**Verification:**
+- Link: succeeded non-interactively via env-var password (no prompt).
+- `migration list` (final) — local == remote, no spurious entries:
+  ```
+  Local          | Remote         | Time (UTC)
+  20260609155555 | 20260609155555 | 2026-06-09 15:55:55
+  20260609163207 | 20260609163207 | 2026-06-09 16:32:07
+  ```
+- `db push --dry-run` listed only the marker (baseline correctly seen as applied); real push applied it.
+- `db diff --linked --schema public` — **not literally empty**: migra emits a balanced, self-cancelling drop + re-add of three complex CHECK constraints (`measurement_units.has_metric_conversion` / `valid_unit_type`, `recipe_extraction_comparison.valid_scores`) that are present **identically** in the baseline (L1961, L3355–3356). Confirmed cosmetic migra churn on `ANY(ARRAY[...])`/`<> ALL` CHECKs, **not** a schema gap. The `--use-pg-schema` engine couldn't give a second opinion — it exhausts the pooler's session-mode 15-conn limit (`EMAXCONNSESSION`).
+- `handle_new_user` in baseline ✅; auth.users trigger snapshotted verbatim ✅; auth schema **not** tracked anywhere in `supabase/migrations/` ✅.
+- Functions config untouched (`git status`: only renames into `migrations_provenance/` + new infra files; `supabase/functions/**` unchanged). All 20 historical `.sql` files intact (relocated, not deleted); the six loose historical `.sql` under `docs/` untouched.
+
+**Files created/touched (CP1 only — the `M` files in `git status` under `components/`,`lib/`,`screens/` are the prior 2026-06-04 pantry session, NOT this CP):**
+- `supabase/config.toml` (new, minimal)
+- `supabase/migrations/20260609155555_baseline_public.sql` (new baseline)
+- `supabase/migrations/20260609163207_adopt_migrations_marker.sql` (new inert)
+- `supabase/migrations_provenance/*.sql` (20 files relocated; 17 git-renames + 3 added)
+- `docs/MIGRATIONS.md` (new) + staged copy `_pk_sync/MIGRATIONS_2026-06-09.md`
+- **Not committed** — changes left staged/untracked for Tom's review per standing "commit only when asked."
+- **Rule E:** no PK-tracked app-code files edited (infra/docs only; grep of `PK_CODE_SNAPSHOTS.md` for migrations/config found nothing) → no staleness flags.
+
+**Open questions / surprises:**
+- The 20-vs-2 file discrepancy (resolved by Tom's choice above) — the prompt's author may not have known the folder was already populated.
+- `db diff` can't produce a literally-empty report given the migra CHECK-constraint churn; documented as a no-op. If a clean diff is ever required, options are pinning a migra version or excluding those 3 constraints — not pursued (no real drift).
+- `config.toml` `project_id` is set to the **remote ref** (common pattern, technically the field is a local slug). Harmless; documented in `MIGRATIONS.md`.
+- Prior SESSION_LOG / tracker references to `supabase/migrations/20260604_*.sql` are now at `supabase/migrations_provenance/` — left historical entries unedited.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **recommend:** add a short "Database migrations" pointer to `docs/MIGRATIONS.md` (workflow + shared-DB warning + `migrations_provenance/` note). Not edited (living doc; awaiting Claude.ai).
+- `DEFERRED_WORK.md` — **recommend:** mark **P7-23 → resolved** (this CP). Leave **T3** (rating-type drift) as-is. Not edited.
+- `PROJECT_CONTEXT.md` — **recommend:** add migrations-workflow + tiered-push-policy pointer to `docs/MIGRATIONS.md`. Not edited.
+- `FF_LAUNCH_MASTER_PLAN.md` — **none** (beyond noting the CP4/CP5 prerequisite is now cleared, if Claude.ai tracks prereqs there).
+- *Other (non-living docs):* recommend annotating the Phase 7 "Direct DB Migrations" ledger (`docs/archive/phases/PHASE_7_SOCIAL_FEED.md` ~L655) with "superseded by baseline `20260609155555`, kept as provenance." Not edited (CC doesn't self-edit docs).
+
+**Recommended next steps for Tom:** (1) review the staged renames + new files and commit when satisfied; (2) for CP5, author the auth-trigger change as a tracked migration but **you** run the push (Sensitive tier); (3) consider whether `migrations_provenance/` should eventually move under `docs/` instead of `supabase/` (currently fine — CLI ignores it).
+
+---
+
+## 2026-06-04 — SupplyControls: "Search recipes" moved onto the grocery-lists row (layout fix)
+
+**Scope:** layout-only change to `components/pantry/SupplyControls.tsx` — no schema/service/behavior change. Executed from a Claude.ai CC prompt. Resolves the "expanded-panel Search recipes too low" issue flagged unresolved in the session entry below.
+
+**Root cause:** the expanded panel stacked `<ListMembershipControl/>` and then the Search/Open-detail/Location `bottomRow` *beneath* it, so Search rendered below the entire lists block and its Y position drifted as the chips wrapped. Margin/gap nudging couldn't fix it — the driver was layout structure, not spacing.
+
+**Change (structural):** the lists block and Search now share ONE row:
+- New `listsSearchRow` (`flexDirection:'row'`, `alignItems:'flex-start'`, `gap:12`) containing `listsCol` (`flex:1`, `minWidth:0`) wrapping `ListMembershipControl`, and the existing Search `TouchableOpacity` now content-sized + pinned top-right (`flexShrink:0`, `justifyContent:'flex-start'`, `paddingTop:2`; removed `flex:1`).
+- `line2Wrap` (Open detail / Location) is now its own direct child of `container` after the row (removed `flexBasis:'100%'`; `marginTop:0` — container `gap:8` separates it).
+- Removed the now-unreferenced `bottomRow` style (grep-confirmed zero refs).
+- `minWidth:0` on `listsCol` lets the chip row wrap inside the narrower column instead of overflowing.
+
+Net: recovers ~60–70px (fills the dead space left of Search) and makes Search's Y independent of chip wrapping.
+
+**Trade-off (expected, accepted):** the lists column is narrower, so a "Medium List" chip + "+ add to list" pill may wrap to two lines where it previously fit one. Search stays anchored top-right regardless — deliberately NOT shrunk to compensate.
+
+**Unchanged:** the name-truncation IIFE, `handleSearchRecipes` nav (`initialIngredient` + `initialBrowseMode:'all'`), `topRow` (slider + bookmark), the storage/bookmark anchored modals, `ListMembershipControl`, and all services.
+
+**Verification:** `npx tsc --noEmit` clean on `SupplyControls.tsx` (pre-existing CookSoonSection / DayMealsModal TS1382 errors excepted). **Tom visually confirmed the placement — "looks good" (2026-06-04):** Search now sits on the chips band top-right instead of a line below. (The pantry *auto-list behavior* from the entry below is still pending a full behavior smoke test — distinct from this layout confirmation.) Full layout checklist for reference: brown sugar (In Stock, single Medium chip) → Search top-right; force a 2-chip/wrapping state → Search does NOT move; "Not on a list" → Search still top-right; Open detail / Location row unchanged; tap Search → same RecipeList nav.
+
+**Files modified:** `components/pantry/SupplyControls.tsx` (not PK-tracked → no Rule E staleness flag).
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **none.**
+- `DEFERRED_WORK.md` — **none to file:** this closes the "expanded-panel Search too low" follow-up that the entry below *recommended* filing (it was never filed, so net effect is just "don't file it").
+- `PROJECT_CONTEXT.md` — **none.**
+- `FF_LAUNCH_MASTER_PLAN.md` — **none.**
+
+**Recommended next steps for Tom:** smoke-test per the Verify checklist; confirm the narrower-column wrap trade-off is acceptable.
+
+---
+
+## 2026-06-04 — Pantry: "Staple" rename + auto-list rules + supply-dedup fix + inline list-membership UI
+
+**Format note:** this was a single interactive Tom↔CC working session (not a discrete Claude.ai CC prompt), so it's one consolidated entry rather than one-per-prompt. The substantive work is feature + schema (logged here); the later pixel-level layout tuning of the expanded-row panel arguably belongs in `docs/UX_ITERATIONS_LOG.md` per this log's header convention — flagging so Claude.ai can relocate that slice if desired. **Status: IN PROGRESS / partially unverified** — Tom ran both SQL migrations successfully but was still mid-smoke-test at session end, and one UX issue (expanded-panel "Search recipes" line sitting too low) is **not yet resolved** — diagnosis done, files staged to `_pk_sync/code/` for Tom to take to Claude.ai with screenshots.
+
+**Goal:** Tom-driven pantry-tab work. Two explicit asks: (1) rename "Regular" → "Staple"; (2) when a Staple drops to Low auto-add it to the Long List, when it goes Out escalate to the Short List, with the list(s) it's on shown + editable inline in the expanded-row dropdown where "+ Add to grocery list" used to be — and make the thresholds user-configurable. Plus a reported bug: duplicate supplies (two "salt" rows).
+
+**Domain model recap (verified by reading the code):** "Lists" are **Views** (saved filters over the `needs` table): Short List = `urgency=today`, Medium = `urgency=this-week`, Long List = `status=need` (all needs), In Cart = `status=in_cart` — they nest (an urgency=today need shows in Short *and* Long). A grocery item is a `need` linked to its supply via `needs.supply_id`. "Regular" was the UI label for `supplies.tracking_mode='restock'`.
+
+**1. Duplicate-supply bug — root cause + fix.** No DB-level uniqueness existed; the app dedup in `createSupply` used `.maybeSingle()`, which **errors** when 2+ active matches already exist and then falls through to INSERT a third — self-perpetuating once a dup exists. Fix:
+- New migration `supabase/migrations/20260604_supply_dedup_and_unique.sql` — merges existing active dupes (keeps earliest per `(space_id, ingredient_id)` and per `(space_id, lower(custom_name))`, repoints `needs`/`supply_lots`/`supply_tags` to the survivor, **archives** the losers — non-destructive), then adds two **partial unique indexes** on active rows. (Rewritten mid-session: the first version used a `CREATE TEMP TABLE … ON COMMIT DROP` shared across statements, which failed in the Supabase SQL editor — "relation supply_dupe_map does not exist" — because the editor commits between statements; rewrote so each of the 5 steps recomputes the same loser→survivor mapping via an inline CTE, idempotent + editor-safe. Tom confirmed it ran.)
+- `createSupply` hardened: shared `findActiveSupplyMatch` helper (earliest match, tolerant of pre-existing dupes) used for both the upfront dedup and a new `23505` race-recovery path. **Cross-type dupes (one ingredient-linked "salt" + one custom-name "salt") are NOT merged** — flagged to Tom.
+
+**2. Auto-list rules engine.** New migration `supabase/migrations/20260604_supply_auto_list_rules.sql` adds `supplies.low_list_target` + `out_list_target` (`none|short|medium|long`, CHECK-constrained, backfilled from current `tracking_mode`/`is_priority`). Replaced the old hard-coded spawn logic in `setSupplyStatus` (restock-spawn-on-out + priority-spawn-on-low-urgency=today) with a single `reconcileSupplyListNeed(supply)` driven by the rule columns + status:
+  - Low → `low_list_target` (Staple default Long), Out/critical → `out_list_target` (default Short), In-stock/unknown → none (removes the rule-driven need).
+  - Manages exactly one **rule-driven** need per supply (`added_from='supply_spawn'`); sets its urgency tag to match the target list. **Manual** needs (`added_from='manual'`) are never touched by the rule; a rule need already in the cart is left alone.
+  - Bookmark presets now map to rule presets: On hand = no auto-list; Staple = Low→Long/Out→Short; Priority = Low→Short/Out→Short. `setSupplyPriority` / `setSupplyTrackingMode` now also maintain the rule columns + reconcile; new `setSupplyListingRule(supplyId, {lowTarget?, outTarget?})` for fine-grained per-list config (also keeps `is_priority` display in sync).
+  - New needsService helpers: `getActiveNeedsForSupply`, `setNeedListMembership`, `addSupplyToListManual`, `GroceryListTarget` type.
+  - **Known cosmetic gap:** supplies already Out before the migration keep their old Long-List need until their next status transition (reconciliation only fires on a transition). New transitions are correct. No backfill done.
+
+**3. "Regular" → "Staple" rename** (user-facing strings only; kept `tracking_mode='restock'` value + `RegularBookmarkIcon` symbol): SuppliesSection "Regulars" section header + merge/split a11y labels; SupplyControls bookmark label + menu + descriptions; AddNeedSheet "Save as staple" + hint; ExpandedRegularsSheet header + alert. (`ConceptBubbleMap` in the stats domain already uses "Staple" as an unrelated cooking-frequency tier — noted, no collision.)
+
+**4. Inline list-membership UI.** New `components/pantry/ListMembershipControl.tsx` replaces the old "+ Add to grocery list" button + view-picker modal in `SupplyControls`' expanded panel: shows the list(s) a supply is on as chips (rule-driven ones marked with the new automatic icon), each tappable to move/remove; a "+ add to list" pill for manual adds; and (Staples only) a compact auto-list rule config opened from an automatic-icon button → modal with an explanation + Low/Out segmented pickers. Chips use the grocery-page list icons (`renderListIcon` parity: bag/cart/receipt/cart). New `components/icons/AutomaticIcon.tsx` built from Tom's `assets/svg-source/noun-automatic-4521090.svg`.
+
+**5. Unresolved UX issue (handed off):** the expanded panel's "Search recipes" line reads too low. Diagnosis: the old add-to-list control lived ON the search line; pulling list membership into its own block above search dropped search by the block's height. Iterated the lists block from 4 rows → 2 and tightened SupplyControls gaps, but Tom says it's still too low. The next-biggest chunk above Search is the ~66px battery slider (label row + 38px bars). Staged files to `_pk_sync/code/` for Claude.ai diagnosis with screenshots.
+
+**Verification:** `npx tsc --noEmit` clean across all edited/created files (the only app-code errors are two pre-existing TS1382 JSX issues in `CookSoonSection.tsx` / `DayMealsModal.tsx`, untouched this session). Both SQL migrations confirmed run by Tom. Behavior **not yet smoke-tested in the app** at session end.
+
+**Files created:**
+- `supabase/migrations/20260604_supply_dedup_and_unique.sql`, `supabase/migrations/20260604_supply_auto_list_rules.sql`
+- `components/pantry/ListMembershipControl.tsx`, `components/icons/AutomaticIcon.tsx`
+- `_pk_sync/code/` snapshots (5, dated 2026-06-04): ListMembershipControl, SupplyControls, SupplyRow, UsageLevelSlider, AutomaticIcon — staged for Tom to send to Claude.ai (informal diagnosis hand-off, NOT a formal PK snapshot refresh; Snapshot Date column left unchanged).
+
+**Files modified** (PK staleness per Rule E):
+- `lib/services/suppliesService.ts` — ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH)
+- `lib/services/needsService.ts` — ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH)
+- `lib/types/supplies.ts` — ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH)
+- `components/pantry/SuppliesSection.tsx` — rename only; ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH)
+- `components/AddNeedSheet.tsx` — rename only; ⚠️ PK snapshot now stale (was 2026-05-19); tracker Staleness Low→HIGH
+- `components/ExpandedRegularsSheet.tsx` — rename only; ⚠️ PK snapshot now stale (was 2026-05-19); tracker Staleness Low→HIGH
+- `components/pantry/SupplyControls.tsx` — heavy rewire (not PK-tracked)
+- `screens/SupplyDetailScreen.tsx` — priority-hint string only (not PK-tracked)
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **recommend an update once this stabilizes:** new schema columns (`supplies.low_list_target` / `out_list_target` + the two partial unique indexes), the supply→need auto-list reconciliation model (replaces the old restock-spawn-on-out + priority-spawn-on-low behavior — the architecture doc likely still describes the old spawn rules), and the new `ListMembershipControl` component + needsService list helpers. Deferred until the UX settles and it's smoke-tested.
+- `DEFERRED_WORK.md` — **recommend new items:** (1) cross-type supply dedup (ingredient-linked vs custom-name same-name merge); (2) one-time backfill so already-Out supplies adopt the new Out→Short target without waiting for a transition; (3) the unresolved expanded-panel "Search too low" layout polish; (4) re-evaluate whether `is_priority` should be fully subsumed by the rule columns.
+- `PROJECT_CONTEXT.md` — **none.**
+- `FF_LAUNCH_MASTER_PLAN.md` — **none.**
+
+**Recommended next steps for Tom:**
+1. Smoke-test the auto-list behavior in the app (Low→Long, Out→Short escalation, In-stock clears, Priority→Short, manual add/move/remove, the config modal) and confirm the two "salt" rows collapsed to one.
+2. Take the staged `_pk_sync/code/` files + screenshots to Claude.ai for the "Search recipes too low" layout diagnosis (or let CC try the slider-compaction lever next).
+3. Decide on the Medium List question (keep it surfaced everywhere, or Short/Long only) and whether the rule editor should also live on the full SupplyDetail screen.
+
+**Surprises:**
+- The Supabase SQL editor commits between statements, so a `TEMP TABLE … ON COMMIT DROP` shared across statements vanishes — required rewriting the dedup migration to recompute its mapping inline per statement.
+- The "Search too low" complaint persisted through several margin tweaks because the real cause was **row count** in the new lists block, not gaps — worth measuring the stack before trimming margins next time.
+
 ## 2026-06-01 — cookfrigo.com initial build
 
 **Goal:** Stand up a minimal, credible public marketing site for Frigo as part of the Apple Developer org enrollment track (LLC ↔ D-U-N-S ↔ website ↔ matching-domain email identity triangle). Executed from the CC prompt at `docs/CC_PROMPT_cookfrigo_site_build.md`. _(The prompt was authored 2026-04-30 and dates the legal stubs "April 30, 2026" — kept verbatim — but the build itself was done today, 2026-06-01.)_

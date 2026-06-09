@@ -1398,7 +1398,7 @@ const SuppliesSection = forwardRef<SuppliesSectionRef, SuppliesSectionProps>(
                       <View style={styles.topHeader}>
                         <View style={styles.topTitleWithIcon}>
                           <RegularBookmarkIcon size={14} color={colors.primary} />
-                          <Text style={styles.topTitle}>Regulars</Text>
+                          <Text style={styles.topTitle}>Staples</Text>
                         </View>
                         <View style={styles.topRight}>
                           <Text style={styles.topCount}>{restockAll.length}</Text>
@@ -2241,7 +2241,7 @@ function SplitMergePill({
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={
-              value ? 'Merge On Hand and Regulars' : 'Split On Hand and Regulars'
+              value ? 'Merge On Hand and Staples' : 'Split On Hand and Staples'
             }
           >
             <Text
