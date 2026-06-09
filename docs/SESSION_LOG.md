@@ -7,6 +7,47 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-09 — CP2 (#69): Invite codes — tables + validate/redeem RPCs + service (first substantive tracked migration)
+
+**Scope:** backend + service only for onboarding T2's invite-code gate. The T2 screen is CP9. First substantive migration through the CP1-tracked loop. Mechanical/low-risk tier → CC authored AND pushed. No app screens wired.
+
+**Shipped:**
+- **Migration `20260609183710_invite_codes`** (pushed): tables `invite_codes` (code normalized via trigger to upper+trim; `max_uses` null=unlimited; `uses_count`; `expires_at` null=never; `is_active`; `note`; `created_by`→auth.users) + `invite_code_redemptions` (lean attribution, `unique(code_id,user_id)`); RPCs `validate_invite_code(text)→text` (anon-callable, STABLE, status-only) and `redeem_invite_code(text)→boolean` (authenticated, atomic/race-safe/idempotent-per-user); RLS enabled with **no policies** + table privileges revoked from anon/authenticated.
+- **Corrective migration `20260609184359_invite_codes_restrict_redeem_to_authenticated`** (pushed): verification caught that anon still had EXECUTE on `redeem` — Supabase default privileges auto-grant EXECUTE on new public functions to anon, and the base migration's `REVOKE … FROM PUBLIC` didn't remove the explicit anon grant. Forward-only fix (the base migration was already applied/tracked, so editing it wouldn't change the DB). After fix: redeem/anon = false.
+- **`lib/services/inviteCodeService.ts`**: `validateCode(code): Promise<InviteCodeStatus>` + `redeemCode(code): Promise<boolean>`. No generate/list (deferred). tsc clean.
+- **`docs/INVITE_CODES.md`**: architecture, SQL-editor minting snippets (batch + single + list + deactivate), the deferred-in-app-generation note, the anon-SECURITY-DEFINER security trade-off, CP9 notes.
+- **DEFERRED_WORK.md**: 2 new entries (OB-1 anon SECURITY DEFINER prod security note; OB-2 no admin-auth primitive → in-app generation deferred + flag the unguarded AdminScreen).
+
+**Files touched (all UNCOMMITTED — CP2 prompt did not request a commit):**
+- `supabase/migrations/20260609183710_invite_codes.sql` (new)
+- `supabase/migrations/20260609184359_invite_codes_restrict_redeem_to_authenticated.sql` (new)
+- `lib/services/inviteCodeService.ts` (new)
+- `docs/INVITE_CODES.md` (new) + staged `_pk_sync/INVITE_CODES_2026-06-09.md`
+- `docs/DEFERRED_WORK.md` (edited; header already 2026-06-09) + re-staged `_pk_sync/DEFERRED_WORK_2026-06-09.md`
+- **Rule E:** no PK-tracked app code edited (the new service isn't in PK snapshots) → no staleness flags.
+
+**Verified:**
+- **Grants** (via `has_function_privilege`): validate/anon=t, validate/auth=t, **redeem/anon=f** (after fix), redeem/auth=t. **RLS enabled on both tables; zero direct table grants for anon/authenticated; no policies.**
+- **Anon validate (pre-account, via supabase-js + anon key)** — 4-status matrix all PASS: `TESTVALID1`→valid, `TESTEXPIRED1`→expired, `TESTCAPPED1`→redeemed, `TESTINACTIVE1`→invalid, nonexistent→invalid; normalization (`testvalid1`, `  TESTVALID1  `)→valid. **Anon redeem → denied (`42501 permission denied for function`).**
+- **Redeem logic (psql, auth.uid() mocked via session JWT claims):** no-auth→false; userA→true, userA-again→true with **no double burn**; userB→true; uses_count=2 + 2 redemptions; capped(1/1)→false; race-cap functional A=true/B=false/uses=1 (exactly one true on max_uses=1); whitespace+lowercase redeem normalized→true no burn. **End-to-end lifecycle:** mint→validate `valid`→redeem `true`→validate `redeemed`.
+- **Test data cleaned up** (0 codes, 0 redemptions remaining — no F&F batch left; Tom mints the real batch via the documented snippet).
+- **Migration tracked:** `migration list` local==remote (4 versions); `db diff --linked --schema public` shows ONLY the known 3-CHECK noise — no `invite_codes` diff.
+
+**Open questions:**
+- `invite_code_redemptions` kept (CP7 seeded-graph attribution) — oversight may cut it.
+- Whether to bring the admin gate forward (OB-2) so invite generation/listing can move in-app, vs staying on the SQL-editor minting snippet for F&F.
+- Race-safety was verified functionally (sequential cap) + by the atomic `UPDATE … WHERE uses_count < max_uses RETURNING` structure; true concurrent two-session redeem not orchestrated (would need parallel connections).
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md` — **DONE this session** (authorized by CP): OB-1, OB-2 added.
+- `FRIGO_ARCHITECTURE.md` — **recommend:** add an `inviteCodeService` entry (validateCode/redeemCode → the two RPCs; tables RLS-locked, reached only via RPCs). Not edited (awaiting Claude.ai).
+- `PROJECT_CONTEXT.md` — **recommend (optional):** note invite-code backend exists for onboarding T2. Not edited.
+- `FF_LAUNCH_MASTER_PLAN.md` — **none.**
+
+**Recommended next steps for Tom:** (1) review + commit the CP2 working-tree files (2 migrations + service + 2 docs) — not committed per standing rule; (2) when ready for testers, mint the real F&F batch via the `docs/INVITE_CODES.md` snippet (choose count / max_uses / expiry); (3) CP9 will wire `validateCode` (pre-signup) + `redeemCode` (post-signup, best-effort).
+
+---
+
 ## 2026-06-09 — CP1 close-out: pre-commit review, 2 commits, MIGRATIONS caveats, living-doc reconciliation
 
 **Scope:** mechanical close-out of the CP1 migration work logged below. No schema changes, no new migrations, no app code. Executed from a Claude.ai CC prompt ("CP1 close-out"). Two commits made on `main`.

@@ -18,6 +18,17 @@ This is the master backlog — the accumulated deferred work from all completed 
 
 ---
 
+## From: Onboarding CP2 — Invite Codes (#69) (June 9, 2026)
+
+Surfaced while building the invite-code backend (tables + validate/redeem RPCs + `inviteCodeService`). See `docs/INVITE_CODES.md`.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| OB-1 | **`validate_invite_code` is an anon-callable `SECURITY DEFINER` function on prod (accepted trade-off).** Deliberate widening of the anon surface — a pre-auth code gate is unavoidable. Boundary: returns a status string only (`valid`/`invalid`/`expired`/`redeemed`), no table exposure, no mutation; both invite tables are RLS-locked with table privileges revoked from anon/authenticated. Revisit if abuse appears (enumeration / brute force) → add rate-limiting / captcha. | 🔧 | 🟡 | Security note (Tom's explicit ask). CP2 / #69. |
+| OB-2 | **No admin-auth primitive → in-app invite-code generation deferred.** `AdminScreen` is an **unguarded dev-only screen** and `user_profiles` has no `is_admin`/role column, so there's no gate to safely expose code generation/listing in-app. Codes are minted via a documented SQL snippet (`docs/INVITE_CODES.md`) for now. Build an admin gate (role column + RLS/route guard) before adding in-app generation — and **guard or remove the currently-unguarded AdminScreen**. | 🔧 | 🟡 | Pre-existing tech debt surfaced by CP2. |
+
+---
+
 ## From: NYT Cooking Import (June 1, 2026)
 
 Integrated from `origin/nyt-source-metadata` (merge `35fef07`). Increment ③ (SourceViewScreen + wiring the AuthorViewScreen "Other sources" pills) **shipped** in the same session. Remaining:

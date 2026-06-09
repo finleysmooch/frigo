@@ -256,6 +256,7 @@ frigo/
 | **bookViewService.ts** | Cookbook browsing | `getBook`, `getRecipesByBook` (**2026-06-01: rewritten off the non-existent `recipes_with_books` view → direct `recipes` query with `books`/`chefs` joins**), `getCuratedBookSections`, `getBooksForIndex`, `getChefsForIndex`. Note: `getRecipesByChef` / `getUserBooks` still reference the missing view (dead paths — would 500 if called; tracked as deferred). |
 | **imageStorageService.ts** | Photo upload/retrieval | uploadImage, getImageUrl |
 | **subscriptionService.ts** | User subscription tiers | getSubscription |
+| **inviteCodeService.ts** | **CP2 (#69)** — onboarding invite-code gate | **validateCode**(code) → `validate_invite_code` RPC (anon-callable, pre-account; returns `'valid'`/`'invalid'`/`'expired'`/`'redeemed'`), **redeemCode**(code) → `redeem_invite_code` RPC (authenticated; atomic, race-safe, idempotent per user). The `invite_codes` + `invite_code_redemptions` tables are RLS-locked (RLS on, no policies, table privileges revoked from anon/authenticated) and reached ONLY via the two `SECURITY DEFINER` RPCs. No in-app generation (deferred — no admin gate; mint via SQL snippet). See `docs/INVITE_CODES.md`. |
 | **annotationService.ts** | Recipe edit annotations | — |
 | **cookingService.ts** | Cooking session state, step notes | upsertStepNote, getStepNotes (table: recipe_step_notes) |
 | **unitConverter.ts** | Metric/imperial conversion | convert |

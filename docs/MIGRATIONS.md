@@ -68,6 +68,29 @@ supabase migration list        # Local vs Remote columns should match
 
 ---
 
+## Standing rule — function/RPC grants (anon-EXECUTE lockdown)
+
+**Every migration that creates a function/RPC MUST explicitly lock down EXECUTE, not assume the defaults are safe.** A freshly created public function is callable by `anon` immediately, from **two** independent sources:
+
+1. **The default `PUBLIC` grant** — Postgres grants `EXECUTE` to `PUBLIC` on every new function, and `anon`/`authenticated` inherit `PUBLIC`.
+2. **Supabase's default privileges** — which *also* hand `anon` / `authenticated` / `service_role` an **explicit** `EXECUTE` grant on new functions in `public`.
+
+Neutralizing only one source leaves the function callable. The reliable recipe is to revoke **both** the `PUBLIC` grant and any role you don't intend, then grant to the intended roles:
+
+```sql
+REVOKE ALL ON FUNCTION public.my_fn(args) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.my_fn(args) FROM anon;          -- if anon must NOT call it
+GRANT EXECUTE ON FUNCTION public.my_fn(args) TO authenticated; -- only the roles you intend
+```
+
+Always verify after pushing: `SELECT has_function_privilege('anon','public.my_fn(args)','execute');`
+
+**Worked example:** CP2's `redeem_invite_code` shipped *still callable by `anon`* even though the base migration did `REVOKE … FROM PUBLIC` + `GRANT … TO authenticated` — because the **explicit** `anon` grant from Supabase's default privileges survived (source #2). Fixed forward-only by `supabase/migrations/20260609184359_invite_codes_restrict_redeem_to_authenticated.sql` (`REVOKE EXECUTE … FROM anon`). `validate_invite_code` *intentionally* stays anon-callable (pre-account gate).
+
+This rule protects CP5's auth-trigger function and every future RPC migration.
+
+---
+
 ## The baseline (CP1)
 
 - **Baseline migration:** `supabase/migrations/20260609155555_baseline_public.sql`
