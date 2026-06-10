@@ -67,6 +67,71 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 
 ---
 
+## 2026-06-10 — CP6a-2: verification admin gate + review portal + trusted allowlist + CP6b seam (GATED; APPLIED to prod by Tom + smoke-verified; COMMITTED as isolated feat(verification) slice)
+
+**Closeout (2026-06-10):** oversight post-reviewed; **Tom pushed migration `20260610173954` to prod and smoke-verified** — admin seeded into `app_admins`, the portal opens for the admin, and `list_pending_verifications()` returns clean. Committed as the isolated `feat(verification)` per-CP slice (8 files: migration + 2 new code files + service/App.tsx/SettingsScreen edits + `COOKBOOK_VERIFICATION.md` + `PK_CODE_SNAPSHOTS.md` Rule-E rows + this entry). No push of the slice (git-only closeout); the migration was already live. The live negative case (non-admin blocked) was proven in the build's rollback-wrapped de-risk but not re-run against prod — optional follow-up.
+
+**TIER: gated.** Oversight PRE-reviewed the prompt (CC's pre-review accepted; B1–B5 resolved — see below); CC authored + de-risked rollback-wrapped + dry-ran. **CC did NOT `db push` and did NOT git-commit — Tom pushes after oversight post-review** (gated chain). Built on CP6a-1 (`473d6cd`). Delivers NO recipes: approval sets `status='verified'`, leaves `delivered_at` NULL; CP6b (not built) delivers. AI review out (empty placeholder only).
+
+**Pre-review decisions (resolved by oversight, implemented as authored):**
+- **B1** signed URLs minted in the SERVICE (`createSignedUrl`, 300s TTL), NOT in the RPC (a plpgsql fn can't mint a Storage-signed JWT). The RPC returns paths.
+- **B2** trusted auto-grant moved server-side: `submit_verification` SECURITY DEFINER RPC evaluates `trusted_verification_users`; **CP6a-1's `submitVerification` re-routed** from a direct RLS-gated upsert to this RPC (CP6a-1's RLS still blocks any direct client write of `verified` as a backstop).
+- **B3** single `is_admin()` definer helper used by every admin check, so the allowlist tables stay fully locked (no roster leak).
+- **B4** a NEW gated `VerificationReviewScreen` (not bolted onto the unguarded AdminScreen); two-layer gate (screen `isAdmin()` + RPC self-checks); nav entry hidden for non-admins.
+- **B5** CC authors + de-risk + dry-run only; **Tom pushes**.
+- **A** the named anchor/scope docs aren't in-repo; oversight ruled the prompt body is the complete spec (the untracked `ONBOARDING_AND_COLDSTART_SCOPING (1).md` flagged in CP6a-1 still awaits placement).
+
+**Shipped (migration `20260610173954_cp6a2_verification_admin_review` — authored, NOT pushed):**
+- **`app_admins` + `trusted_verification_users`** — one-column allowlist tables, FULLY LOCKED: RLS on, zero policies, client GRANTs revoked (no client SELECT/write); manual service-role SQL only.
+- **`is_admin()`** — SECURITY DEFINER, `SET search_path`, anon-EXECUTE locked (REVOKE PUBLIC+anon, GRANT authenticated). Used by the storage policy + all review RPCs.
+- **`submit_verification(p_book_id, p_proof_path)`** — SECURITY DEFINER, anon-EXECUTE locked. Server-evaluates trusted membership: trusted → `verified`+`auto_granted=true`+`verified_at`, audit (`reviewed_by` NULL); else `pending`. Re-submit swaps a pending proof; a reviewed (verified/rejected) row is not re-opened by a non-trusted re-submit (preserves the flag).
+- **`list_pending_verifications()`** (is_admin-gated, returns rows + paths) + **`review_verification(p_id, p_decision, p_note)`** (is_admin-gated; approve→verified/`delivered_at` NULL, reject→rejected+note; re-review guard: raises on already-delivered rows; preserves original `verified_at` on re-approve). Both anon-EXECUTE locked.
+- **Admin bucket-read-all** storage policy on `verification-images` via `is_admin()` (users still read only their own from CP6a-1) — authorizes the service's signed-URL minting for any proof.
+- **`ownershipVerificationService`**: `submitVerification` re-routed through the RPC; added `isAdmin()`, `listPendingVerifications()` (RPC + JS signed-URL minting), `reviewVerification()`.
+- **`VerificationReviewScreen`** (new, gated) + nav registration in both stacks + an `isAdmin()`-gated Settings→Developer entry (hidden for non-admins). Empty AI-recommendation placeholder (no logic).
+- **`COOKBOOK_VERIFICATION.md`** ops doc (admin/trusted insert snippets, security model, the CP6b seam + `createUserBookOwnership` linkage, partial-OB-2 caveat); `_pk_sync/COOKBOOK_VERIFICATION_2026-06-10.md` staged.
+- **Approve→CP6b seam DEFINED** (not built): queue = `status='verified' AND delivered_at IS NULL`; CP6b links via existing `createUserBookOwnership` + copies recipes with `book_id`=catalog id (`is_catalog` stays true) + stamps `delivered_at`.
+
+**Files modified:**
+- `supabase/migrations/20260610173954_cp6a2_verification_admin_review.sql` (new; **NOT pushed**)
+- `lib/services/ownershipVerificationService.ts` (submitVerification re-routed through `submit_verification` RPC; + isAdmin/listPendingVerifications/reviewVerification) — new file from CP6a-1, not in PK snapshots
+- `screens/VerificationReviewScreen.tsx` (new) — not in PK snapshots
+- `App.tsx` (registered VerificationReview in FeedStack + StatsStack + both param lists) ⚠️ PK snapshot now stale (was 2026-05-19)
+- `screens/SettingsScreen.tsx` (gated Verification Review entry) ⚠️ PK snapshot now stale (was 2026-05-19)
+- `docs/COOKBOOK_VERIFICATION.md` (new ops doc) + `_pk_sync/COOKBOOK_VERIFICATION_2026-06-10.md`
+- `docs/PK_CODE_SNAPSHOTS.md` (Rule E — App.tsx note; SettingsScreen.tsx Low→HIGH + note)
+- **Rule E:** App.tsx + SettingsScreen.tsx matched (flagged + rows updated); the 2 new code files are not snapshotted → no flags.
+
+**Verified (rollback-wrapped de-risk across admin/trusted/normal identities; nothing persisted):**
+- Locked allowlists: a client (incl. an admin) cannot SELECT or INSERT `app_admins`/`trusted_verification_users` (all denied).
+- `is_admin()` = f for a normal user, t for an admin; used by the storage policy + all RPCs.
+- `submit_verification`: non-trusted → `pending`/`auto_granted=f`; trusted → `verified`/`auto_granted=t`/`verified_at` set/`reviewed_by` NULL; **a direct client write of `verified` is still RLS-blocked** (CP6a-1 backstop) — trust is server-only.
+- `list_pending_verifications`/`review_verification`: a non-admin call **RAISES** "Admin privilege required"; admin approve → `verified`+`reviewed_by`+`delivered_at` NULL; reject → `rejected`+note; an already-delivered row **RAISES** on re-review.
+- Admin bucket-read-all: admin sees another user's proof object (count 1), a non-admin non-owner sees 0, the owner sees their own — so the service can mint signed URLs for any proof, others cannot.
+- `db push --dry-run` → only `20260610173954` would run. **NOT pushed.** (migration list / db diff to be re-confirmed by Tom post-push.)
+- **`tsc`:** the CP6a-2 files (service, screen, App.tsx, SettingsScreen.tsx) have zero errors (only the 2 pre-existing unrelated app-code errors remain — `CookSoonSection.tsx`, `DayMealsModal.tsx`).
+- **No recipe delivery/access:** `delivered_at` stays NULL on approval; no delivery/deep-copy/linkage built. `user_books.ownership_*` untouched.
+
+**Git/DB state:** **applied to prod by Tom + smoke-verified; committed** as the isolated `feat(verification)` slice. `.env` never staged; CP6b not swept in (it authors separately). Slice not separately pushed (git-only closeout).
+
+**Open questions:**
+- Live negative case — a non-admin call to `list_pending_verifications`/`review_verification` RAISES: proven in the build's rollback-wrapped de-risk, **not re-run live** (optional follow-up smoke).
+- Web review portal — deferred (in-app only for F&F).
+- User-level moderation beyond per-submission deny+note — deferred.
+- CP6b seam shape — defined here (`status='verified' AND delivered_at IS NULL`; `createUserBookOwnership` linkage; copy with catalog `book_id`); CP6b confirms/builds it.
+
+**Recommended doc updates:**
+- **`FRIGO_ARCHITECTURE.md`** — add the full verification model: `ownershipVerificationService` (submit re-routed via RPC + admin methods), `is_admin()` + the locked allowlist tables, the three definer RPCs, the admin bucket-read-all policy, and `VerificationReviewScreen`. Not edited (recommend).
+- **`DEFERRED_WORK.md`** — add: AI-review phases (recommendation, never approval); web review portal; user-level moderation; a real admin-auth primitive (OB-2 only partially addressed by this reviewer gate); plus the existing `user_books.ownership_*` consolidation + OB-6 getUserBooks dup. Not edited (recommend).
+- **`PROJECT_CONTEXT.md`** — recommend noting CP6a (verification) backend complete pending CP6a-2 push; CP6b (delivery) next. Not edited (recommend).
+- **`FF_LAUNCH_MASTER_PLAN.md`** — recommend marking CP6a-2 authored/awaiting-push; CP6b gated next. Not edited (recommend).
+
+**Recommended next steps for Tom (gated push, his step):**
+- Post-review the migration + this entry, then `supabase db push` (applies `20260610173954`). After push, confirm the standard: `migration list` local==remote; `db diff --linked --schema public` clean modulo the 3-CHECK noise; then seed `app_admins` with your uid (snippet in `COOKBOOK_VERIFICATION.md`) and smoke the portal (list pending → approve/deny; confirm `delivered_at` stays NULL).
+- A CP6a-2 closeout/commit prompt to slice this into an isolated commit (the migration is gated, so commit likely pairs with the push).
+
+---
+
 ## 2026-06-10 — CP6a-1: ownership-verification capture + private storage + submit (ADDITIVE half; pushed + verified; COMMITTED as isolated feat(verification) slice)
 
 **Closeout (2026-06-10):** committed as the isolated `feat(verification)` per-CP slice (6 files: the migration + 2 new code files + `imageStorageService.ts` + `PK_CODE_SNAPSHOTS.md` Rule-E row + this entry). No push (CC does not push unless Tom asks); the prod migration was already applied this session and stands. Tree clean for CP6a-2 (gated). The canonical anchor file is flagged below (Open questions) — deliberately NOT committed in this slice.

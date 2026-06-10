@@ -21,6 +21,7 @@ import {
   countActivePreferences,
   DietaryPreferences,
 } from '../lib/services/dietaryPreferencesService';
+import { isAdmin } from '../lib/services/ownershipVerificationService';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -39,6 +40,16 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // 10F — dietary preferences (for the subtitle on the Settings row)
   const [dietaryPrefs, setDietaryPrefs] = useState<DietaryPreferences | null>(null);
+  // CP6a-2 — is this user a verification reviewer? Gates the (hidden-for-non-admins) portal entry.
+  const [isReviewer, setIsReviewer] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    isAdmin()
+      .then((ok) => { if (active) setIsReviewer(ok); })
+      .catch(() => { /* non-fatal: just keep the entry hidden */ });
+    return () => { active = false; };
+  }, []);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -462,6 +473,21 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
+
+          {/* CP6a-2 — ownership-verification review portal. Shown ONLY to reviewers (app_admins);
+              the screen + RPCs both re-check admin status, so this is just hiding the entry. */}
+          {isReviewer && (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('VerificationReview')}
+            >
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowIcon}>✅</Text>
+                <Text style={styles.rowTitle}>Verification Review</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.row}

@@ -29,6 +29,7 @@ import DrillDownScreen from './screens/DrillDownScreen';
 import ChefDetailScreen from './screens/ChefDetailScreen';
 import BookDetailScreen from './screens/BookDetailScreen';
 import AdminScreen from './screens/AdminScreen';
+import VerificationReviewScreen from './screens/VerificationReviewScreen';
 import YasChefScreen from './screens/YasChefScreen';
 import CommentsScreen from './screens/CommentsScreen';
 import PantryScreen from './screens/PantryScreen';
@@ -192,6 +193,7 @@ export type FeedStackParamList = {
   DietaryPreferences: undefined;  // 10F — child of Settings → Preferences
   EditProfile: undefined;
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
+  VerificationReview: undefined;  // CP6a-2 — admin-gated review portal; Settings → Developer (admins only)
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
   RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
   AuthorView: { chefName: string };
@@ -263,6 +265,7 @@ export type StatsStackParamList = {
   DietaryPreferences: undefined;  // 10F — child of Settings → Preferences
   EditProfile: undefined;
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
+  VerificationReview: undefined;  // CP6a-2 — admin-gated review portal; Settings → Developer (admins only)
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
   /** Phase 7H: My Posts cards tap through to the 7I L6 detail screen.
    *  Same param shape as the FeedStack's CookDetail route. */
@@ -435,6 +438,14 @@ function FeedStackNavigator() {
         options={{
           headerShown: true,
           title: 'Admin Tools',
+        }}
+      />
+      <FeedStack.Screen
+        name="VerificationReview"
+        component={VerificationReviewScreen}
+        options={{
+          headerShown: true,
+          title: 'Verification Review',
         }}
       />
       <FeedStack.Screen
@@ -673,6 +684,11 @@ function StatsStackNavigator() {
         name="Admin"
         component={AdminScreen}
         options={{ headerShown: true, title: 'Admin Tools' }}
+      />
+      <StatsStackNav.Screen
+        name="VerificationReview"
+        component={VerificationReviewScreen}
+        options={{ headerShown: true, title: 'Verification Review' }}
       />
       <StatsStackNav.Screen
         name="LogoPlayground"
