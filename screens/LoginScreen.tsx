@@ -111,11 +111,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup }: Logi
           .single();
 
         if (profileError && profileError.code === 'PGRST116') {
-          // Profile doesn't exist, create it
+          // Profile doesn't exist, create it.
+          // S1 (CP5): no auto-generated username — leave username NULL (column is now nullable).
+          // handle_new_user already creates the profile on signup; this is a rare fallback path.
           await supabase.from('user_profiles').insert({
             id: data.user.id,
             email: data.user.email,
-            username: data.user.email,
             display_name: data.user.email?.split('@')[0],
           });
         }

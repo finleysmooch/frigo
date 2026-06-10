@@ -7,6 +7,83 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — CP5 (S1): handle_new_user no-username + OAuth-ready profile (oversight-CLEARED; COMMITTED, NOT db-pushed — Tom's gated push)
+
+**Closeout (2026-06-10):** oversight cleared artifact (i) live-body diff + artifact (ii) proven rollback (incl. the email-prefix `display_name` revision). Committed as `feat(auth)` onto the isolated tree (pantry/CP2/CP4 already committed). DEFERRED `OB-3..OB-6` + the no-default-space ordering resolution banked. **NOT db-pushed — applying CP5 to prod is Tom's gated step** (verify a real signup + roll back). The de-risking smoke/proof below were all rollback-wrapped (non-persisting).
+
+**TIER: gated/high-risk. CC AUTHORED the migration + proven rollback; CC did NOT push.** `handle_new_user` fires on EVERY `auth.users` INSERT — a broken function blocks all signups on the shared prod DB. Two artifacts (below) returned to oversight; **Tom pushes only after oversight clears both**, in a window where he can verify a real signup and roll back. All DB de-risking here was non-persisting (read-only or `BEGIN…ROLLBACK`).
+
+**Task 0 — tree state:** clean (in sync with origin/main; only the 3 known out-of-scope untracked items). Push precondition satisfiable.
+
+**Task 1 — LIVE body (`pg_get_functiondef`, verbatim) — and live == baseline ✅ (no drift):**
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, username, display_name)
+  VALUES (
+    new.id,
+    new.email,
+    new.email,
+    split_part(new.email, '@', 1)
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    username = COALESCE(user_profiles.username, EXCLUDED.username),
+    display_name = COALESCE(user_profiles.display_name, EXCLUDED.display_name);
+  RETURN new;
+END;
+$function$
+```
+Side-effect enumeration: **exactly ONE side effect** — the `user_profiles` upsert (id, email, username=email, display_name=email-prefix). No default-Space creation; no avatar_url; no other table writes; no `SET search_path`.
+
+**Task 2 — OAuth determination: NOT WIRED.** Zero matches anywhere for `signInWithOAuth`/`signInWithIdToken`/Apple/Google auth/`expo-auth-session`; **no file references `raw_user_meta_data`/`user_metadata`**; no OAuth deps in package.json. Email/password only. ⇒ The metadata-population logic is **forward-looking and tested only defensively** (insert with OAuth-shaped metadata, below); the **live OAuth flow is untested** (owed when OAuth ships).
+
+**Task 3 — Default-Space finding (pre-rewrite gate): handle_new_user creates NO default Space.** Confirmed from the live body (single `user_profiles` upsert) and positively asserted in the smoke test (0 `space_members` for the test users). ⇒ Nothing to preserve. **Closes CP3's space-timing question:** default spaces are created lazily by app code (`create_default_space_for_user` RPC), not by the auth trigger.
+
+**Task 4 — username → nullable + dependency sweep:** `ALTER … username DROP NOT NULL` (column NOT dropped). Sweep — every referencing object tolerates NULL: `user_profiles_username_key` is a UNIQUE index (NULLs distinct, multiple allowed); no CHECK/generated/FK on username; `pending_space_invitations` + `pending_participant_approvals` are **VIEWS** whose `*_username` columns are join-computed + nullable; **no stored denormalized username exists** anywhere.
+
+**Task 5 — new function (live body with ONLY username+metadata lines changed; + CP-required header hardening):** `supabase/migrations/20260610003320_cp5_handle_new_user_no_username.sql`.
+
+**Task 6 — no-username app audit:** removed the LoginScreen fallback `username: data.user.email` write (decided); reconciled spaceService `inviter_username` to fall back to `display_name` + typed the search return `username: string | null`. The dominant UI pattern is `display_name || username || fallback` (safe). **Flagged (not fixed):** ~6 secondary `@{username}` handle lines (InviteMemberModal, ParticipantsListModal, Add*ParticipantsModal) render a bare "@" for a NEW NULL-username user — cosmetic, not a break, and only on brand-new users who won't surface in mutual-follow invite lists yet.
+
+**Task 7 — rollback PROVEN:** `supabase/rollbacks/20260610003320_cp5_handle_new_user_ROLLBACK.sql` (generated verbatim from `pg_get_functiondef` so it round-trips). Method: `BEGIN; apply forward; assert def≠orig; apply rollback; assert pg_get_functiondef = orig; ROLLBACK`. Result: **forward_differs=t, rollback_restores_orig_VERBATIM=t, live_unchanged=t.** (Restores the function only; deliberately does NOT re-add `username NOT NULL` — NULL rows may exist post-CP5.)
+
+**SMOKE TEST (rollback-wrapped txn; 0 leftover after ROLLBACK):**
+- **email/pw** (`tommorley33@smoke.test`): profile created, **username NULL (no NOT-NULL error)**, **display_name = email-prefix `'tommorley33'`** (never NULL — revised 2026-06-10 per Tom's ruling), avatar_url NULL, `subscription_tier='free'`, `default_visibility='followers'`.
+- **OAuth-shaped** (metadata `full_name`+`avatar_url`): username NULL, **display_name='OAuth Tester'**, **avatar_url populated**, defaults applied.
+- **Default-Space: 0 `space_members`** auto-created (positively asserts no space).
+
+**TASK 8 — TWO ARTIFACTS FOR OVERSIGHT (push is blocked until both cleared):**
+- **(i) Live-body diff** — original vs new, ONLY these lines change (+ the header `SET search_path TO 'public'` hardening): INSERT column list `username, display_name` → `display_name, avatar_url`; VALUES `new.email` (username) + `split_part(email)` (display_name) → `COALESCE(meta display_name/full_name/name, split_part(NEW.email,'@',1))` + `COALESCE(meta avatar_url/picture)`; ON CONFLICT drops the `username =` line, changes `display_name` source, adds `avatar_url =`. **Revised 2026-06-10 (Tom's ruling):** email/pw `display_name` keeps the email-prefix fallback — NEVER NULL (metadata still wins when present); username stays NULL per S1.
+- **(ii) Proven rollback** — method + result above (verbatim restore confirmed).
+
+**Files touched (committed as the isolated `feat(auth)` CP5 slice; oversight cleared both artifacts; NOT db-pushed — Tom's gated step):**
+- `supabase/migrations/20260610003320_cp5_handle_new_user_no_username.sql` (new; **NOT db-pushed**)
+- `supabase/rollbacks/20260610003320_cp5_handle_new_user_ROLLBACK.sql` (new; rollback artifact)
+- `screens/LoginScreen.tsx` (removed username=email write)
+- `lib/services/spaceService.ts` (inviter_username fallback + nullable return type)
+- **Rule E:** LoginScreen/spaceService not in PK snapshots → no staleness flags. tsc clean.
+
+**Verified:** tree clean; live==baseline; OAuth absent (defensive-only); default-Space=none (asserted); nullable sweep (all NULL-safe); rollback proven verbatim; smoke test (email/pw + OAuth-shaped) all green; LoginScreen write removed + no tested display path broken. **Post-push (Tom, after oversight):** migration list local==remote; db diff clean modulo 3-CHECK noise; a REAL signup end-to-end.
+
+**Open questions:**
+- ~~email/pw `display_name` now NULL~~ — **RESOLVED 2026-06-10:** Tom ruled the email-prefix fallback (never NULL); re-smoked (`'tommorley33'`) + rollback re-proven verbatim.
+- The ~6 `@{username}` secondary-display lines (cosmetic "@" for new users) — guard later if desired.
+- `username`-column DROP as post-F&F cleanup (kept nullable for now).
+- OAuth smoke-test owed when OAuth actually ships.
+
+**Recommended doc updates:**
+- **Close CP3's space-timing question** with the finding: handle_new_user creates no default Space; spaces are app-code/RPC-created lazily.
+- `MIGRATIONS.md` CP5 snapshot — annotate that the trigger binding is unchanged and the function was replaced (S1) once pushed.
+- `DEFERRED_WORK.md` — add: (a) username-column DROP post-F&F; (b) OAuth signup smoke-test when OAuth ships; (c) the `@{username}` bare-handle guard. (Not added this session — recommend.)
+- S1 implementation note (no-username) for PROJECT_CONTEXT/build spec.
+
+---
+
 ## 2026-06-09 — CP4-seed (part 1): `is_catalog` column + searchBookCatalog filter + empirical isolation (real seed STILL deferred — CSV absent)
 
 **Scope:** completes the marker + search-filter correction oversight ruled for CP4; the net-new CSV seed remains blocked on the absent CSV. Data + search only. Mechanical tier → CC authored AND pushed the column migration.

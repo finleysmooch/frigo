@@ -1,6 +1,6 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 9, 2026  
+**Last Updated:** June 10, 2026  
 **Version:** 5.33  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
@@ -15,6 +15,21 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: Onboarding CP5 — Auth trigger / no-username (S1) (June 10, 2026)
+
+Surfaced authoring the CP5 `handle_new_user` rewrite (no auto-username; metadata-ready profile). See the CP5 SESSION_LOG entry (2026-06-10).
+
+**RESOLUTION — no default Space (closes CP3's space-timing question):** `handle_new_user` creates **NO** default Space (its only side effect is the `user_profiles` upsert; positively asserted in the CP5 smoke test — 0 `space_members`). Default spaces are created **lazily by app code** via the `create_default_space_for_user` RPC. **Hard ordering constraint:** CP3 (staples / T11) and CP9 (spine) MUST trigger that existing lazy space-create path BEFORE any supply write — do **NOT** invent a second space-create path.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| OB-3 | **Bare-"@" render for NULL-username users.** Post-S1, new users have NULL `username`; the secondary `@{username}` handle lines (`InviteMemberModal`, `ParticipantsListModal`, `AddMealParticipantsModal`, `AddCookingPartnersModal`) render a bare "@". Render `display_name` instead, or drop the "@" affordance entirely (there's no username anymore). | 🔧 | 🟡 | **PRE-F&F cleanup CP** (testers will see it) — not post-launch. Surfaced by CP5 S1. |
+| OB-4 | **OAuth app-smoke owed when OAuth sign-in ships.** CP5's `raw_user_meta_data` → `display_name`/`avatar_url` population is tested only **defensively** (OAuth-shaped insert). When S2 OAuth (Google + Apple) lands, smoke the real flow end-to-end — carries the Apple sign-in obligation. | 🧪 | 🟡 | CP5 forward-looking; owed at S2. |
+| OB-5 | **`user_profiles.username` column DROP.** CP5 made username **nullable** (not dropped) to de-risk. Once all surfaces stop reading username (after OB-3) and nothing depends on it, DROP the column. | 🔧 | 🟢 | Post-F&F cleanup. |
+| OB-6 | **`getUserBooks` duplication consolidation.** Two functions named `getUserBooks` exist — `lib/services/bookViewService.ts` and `lib/services/recipeExtraction/bookService.ts`. Consolidate to one. Related: **P11-FS-5** (bookViewService.getUserBooks dead `recipes_with_books` view ref) + the historical `recipeExtraction/` reorg. | 🔧 | 🟢 | Carry-forward tech debt. |
 
 ---
 

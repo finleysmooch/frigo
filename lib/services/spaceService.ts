@@ -576,8 +576,9 @@ export async function getPendingInvitations(userId: string): Promise<PendingSpac
       space_emoji: item.space?.emoji || '🏠',
       role: item.role,
       invited_by: item.invited_by,
+      // S1 (CP5): username may be NULL — fall back to display_name so display never breaks.
       inviter_name: item.inviter?.display_name || item.inviter?.username || 'Unknown',
-      inviter_username: item.inviter?.username || 'unknown',
+      inviter_username: item.inviter?.username || item.inviter?.display_name || 'unknown',
       invited_at: item.invited_at,
     }));
 
@@ -923,7 +924,7 @@ export async function searchUsersToInvite(
   spaceId: string,
   currentUserId: string,
   limit: number = 10
-): Promise<{ id: string; username: string; display_name: string | null; avatar_url: string | null; subscription_tier?: string }[]> {
+): Promise<{ id: string; username: string | null; display_name: string | null; avatar_url: string | null; subscription_tier?: string }[]> {
   try {
     if (!query || query.length < 2) return [];
 
