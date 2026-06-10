@@ -7,6 +7,37 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — CP5 (S1) POST-PUSH: applied to prod by Tom + verified — the standard three all PASS → CP5 CLOSED
+
+**LOG ONLY** (no DB, no migration, no code from this session — Tom ran the push; this entry records the verified result). Follows the `feat(auth)` commit (`cdfa973`) below, which authored but did NOT apply CP5.
+
+**Applied:** `supabase db push` by Tom — migration `20260610003320_cp5_handle_new_user_no_username` now live on prod (username nullable + the no-username / metadata-ready `handle_new_user`).
+
+**The standard three — all PASS:**
+- **migration list → local == remote** — all 6 versions present, CP5 included (no pending/divergent migration).
+- **db diff --linked --schema public → clean modulo the known 3-CHECK noise** — only the self-cancelling drop+re-add of `has_metric_conversion` / `valid_unit_type` / `valid_scores` (migra round-trip artifact, documented in `MIGRATIONS.md`). **No `handle_new_user` diff and no `username` diff** — the live function + the nullable column match the migration exactly.
+- **Real email/pw signup end-to-end → SUCCEEDED.** Profile row correct: **username NULL** (no NOT-NULL error — the `DROP NOT NULL` took), **display_name from metadata** (the COALESCE preferred `raw_user_meta_data` over the email-prefix — so BOTH branches are now confirmed against prod: metadata-wins *and* the prefix floor proven earlier in the rollback-wrapped smoke), `subscription_tier='free'`, `default_visibility='followers'`, `avatar_url NULL`.
+
+**Note:** the signup form passes a display name via `raw_user_meta_data`, so live email/pw signups hit the metadata branch; the email-prefix `split_part(NEW.email,'@',1)` fallback is the **never-NULL floor** for any path that arrives without one (Tom's ruling). Both are now exercised — prefix floor in the de-risk smoke, metadata branch in this live signup.
+
+**CP5 CLOSED** — the last gated/high-risk piece of the onboarding backend is applied + verified on prod. Rollback artifact (`supabase/rollbacks/20260610003320_cp5_handle_new_user_ROLLBACK.sql`) remains on disk as the proven revert if a regression ever surfaces.
+
+**Files touched (this session):** `docs/SESSION_LOG.md` only (log-only slice). No DB, no migration, no code. **Rule E:** no code files edited → no PK snapshot staleness flags.
+
+**Verified:** `git show --stat` = SESSION_LOG only; `.env` not staged; nothing applied to the DB this session (the push was Tom's). Origin push deferred to Tom.
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **recommend** (carried from the CP5 commit): note `handle_new_user` is now no-username + metadata-ready (S1) and is live; trigger binding unchanged.
+- `DEFERRED_WORK.md` — **none** (OB-3..OB-6 already banked in `cdfa973`; nothing new from the push).
+- `PROJECT_CONTEXT.md` — **recommend:** S1 (no-username onboarding) is now live on prod — fold into the onboarding-backend status.
+- `FF_LAUNCH_MASTER_PLAN.md` — **recommend:** mark CP5 (S1) DONE/applied if it tracks the onboarding-backend checkpoints.
+
+**Recommended next steps for Tom:**
+- `git push` origin when ready (the `feat(auth)` commit + this log entry are ahead of origin).
+- OAuth signup smoke-test (`OB-4`) is still owed when OAuth actually ships — the metadata avatar/full_name branches are prod-verified only via the email/pw metadata path so far, not a live OAuth round-trip.
+
+---
+
 ## 2026-06-10 — CP5 (S1): handle_new_user no-username + OAuth-ready profile (oversight-CLEARED; COMMITTED, NOT db-pushed — Tom's gated push)
 
 **Closeout (2026-06-10):** oversight cleared artifact (i) live-body diff + artifact (ii) proven rollback (incl. the email-prefix `display_name` revision). Committed as `feat(auth)` onto the isolated tree (pantry/CP2/CP4 already committed). DEFERRED `OB-3..OB-6` + the no-default-space ordering resolution banked. **NOT db-pushed — applying CP5 to prod is Tom's gated step** (verify a real signup + roll back). The de-risking smoke/proof below were all rollback-wrapped (non-persisting).
