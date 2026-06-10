@@ -7,6 +7,31 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — Docs CP: anchor v0.3.4 → v0.3.5 + CLAUDE.md log-before-close rule (mechanical; committed, NOT pushed) · Task 2 backfill DROPPED at STOP
+
+**Scope:** mechanical docs CP — land the anchor at **v0.3.5** (unblocks the CP6b engine prompt, which cites the anchor by name) + bank a preventive logging standing rule. No DB writes, no app code, no migrations.
+
+**Task 2 (SESSION_LOG backfill) — DROPPED at STOP; premise false.** The audit claimed CP5/CP6a-1/CP6a-2/canonicalization entries "were never written." They **pre-exist in HEAD** (and on `origin/main`) in correct chronological order, no gap: `cdfa973` (CP5), `473d6cd` (CP6a-1), `3786267` (CP6a-2), `d595c8f` (canonicalization). **Oversight's audit ran against a stale PK copy of the log, not the repo.** Backfilling would have duplicated them — not done. (Confirmed via working-tree grep + `git show HEAD:` + `git show origin/main:`.)
+
+**Shipped:**
+- **Anchor v0.3.4 → v0.3.5** (`docs/ONBOARDING_AND_COLDSTART_SCOPING.md`) — eight oversight-authored verbatim edits: (1a) version line; (1b) §3 photos mechanism **CONFIRMED (a) reference**, purge **row-scoped**; (1c) §4.3 mechanism ruled **`recipeDeliveryService`** (supersedes the `saveRecipeToDatabase` mandate); (1d) §4.3 **ratified copy-set** (`recipe_step_notes` EXCLUDED, `recipe_source_notes` COPIED, live-FK-scan completeness guard); (1e) §7 CP6b row → 🟡 provenance migration authored, engine cleared on v0.3.5; (1f) §9 IP bullet → full-recipe copy + hard counsel gate; (1g) §7 canonicalization note + the line-4 `(1).md` reference **deleted** (resolved — no artifacts; canonical + scope committed); (1h) 0.3.5 changelog row.
+  - **One mechanical connective flagged:** 1d collapsed two child-table parentheticals into the single ratified block (placed in the copy-scope bullet); the copy-on-verify bullet's inline list was replaced by a pointer — "(per the ratified copy-set, copy-scope bullet below)" — to keep the sentence grammatical. No scope authored.
+- **`CLAUDE.md`** — preventive **log-before-close** standing rule under SESSION_LOG Entry Format (a CP isn't complete until its entry is written same-session; gated-tier entries include verification evidence verbatim; no CP closes on transcript-only evidence). Worded preventively — does **not** claim a gap occurred here. `Last Updated` bumped (Rule A, living doc).
+- **`_pk_sync` dated copies refreshed** (gitignored, for PK upload): anchor (v0.3.5), SESSION_LOG, CLAUDE.md — fixes the stale-PK-log root cause of the audit error.
+- **Schema CSVs — NOT regenerated (flagged):** no schema CSVs exist in-repo and their canonical format/location is unspecified; not invented. If PK keys on schema CSVs, regenerating them needs a canonical spec — a separate task.
+
+**Verified:** anchor version = v0.3.5; grep **ZERO** for "sole child-saver", "Unverified premise", "description excluded"; changelog 0.3.5 row present; canonicalization note + "(1).md" reference removed; `recipeDeliveryService`/`Ratified copy-set`/`row-scoped`/`CONFIRMED (a) reference` present.
+
+**Files touched (Commit 1 — committed, NOT pushed):** `docs/ONBOARDING_AND_COLDSTART_SCOPING.md`, `CLAUDE.md`, `docs/SESSION_LOG.md` (the existing RLS-verify entry + this entry — **patch-staged to EXCLUDE the in-flight CP6b entry**). `_pk_sync` copies staged on disk (gitignored).
+
+**Left uncommitted (CP6b in-flight slice):** `supabase/migrations/20260610192408_cp6b_recipe_provenance_columns.sql` + the CP6b SESSION_LOG entry — they commit at CP6b closeout.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none (beyond the anchor edits this CP applies).
+
+**Recommended next steps for Tom:** the CP6b engine prompt is unblocked — it can cite anchor v0.3.5 §4.3 (`recipeDeliveryService` + ratified copy-set + completeness guard) by name. Re-pull the refreshed `_pk_sync` SESSION_LOG copy to PK so the PK log stops being stale (the root cause of this CP's audit error).
+
+---
+
 ## 2026-06-10 — Anchor v0.3.3 → v0.3.4 (content-swap: full-content copy scope + §3 photos-mechanism caveat + reversibility reqs)
 
 **Mechanical tier — CC committed + pushed.** Plain content UPDATE of the already-canonical anchor (`docs/ONBOARDING_AND_COLDSTART_SCOPING.md`, landed at v0.3.3 in `d595c8f`). NOT a re-canonicalization — the suffix / `(1)` / `(2)` were already removed in `d595c8f`, so no suffix-hunting. The v0.3.4 text was authored by oversight and dropped into the repo by Tom; CC committed it **without edits** (content-swap only).
@@ -64,6 +89,26 @@ _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged
 - (Anchor §7 itself already records the canonical-doc-set landing in its v0.3.3 changelog — no external living-doc edit needed.)
 
 **Recommended next steps for Tom:** with the doc set citable, CP6b can be drafted (delivery / copy-on-verify) citing the anchor + scope doc by name. CP6a-2's gated push + closeout remain outstanding.
+
+---
+
+## 2026-06-10 — CP6a RLS backstop — LIVE verification via supabase-js (anon key + signed-in non-admin) — PASS, no security hole
+
+**Verification task (no schema changes, no commits).** Tested the CP6a verification gate END-TO-END through the real client path — `supabase-js`, the app's anon key, a signed-in **non-admin** session — a stronger check than the build's psql role-simulation. Setup/cleanup via the service-role key ONLY (never for the RLS-tested writes): two throwaway confirmed users (non-admin + admin) + one pending row, all created and then fully deleted (0 residue).
+
+**Results (all PASS; HOLE=false):**
+- **(1) Direct INSERT `status='verified'`** (non-admin, own `user_id`) → **DENIED**, `code=42501` — "new row violates row-level security policy for table book_ownership_verifications".
+- Legit pending: `submit_verification` RPC → row **pending**, `auto_granted=false` (non-admin not in the trusted allowlist — server-evaluated).
+- **(2) Direct UPDATE that row → `status='verified'`** → **DENIED**, `code=42501` (RLS violation).
+- **(3) Re-read** → status still **`pending`**, `verified_at` null — the direct writes left the row unmutated.
+- **(4) Approve only via the admin RPC:** non-admin `review_verification` → **DENIED**, `code=P0001` "Admin privilege required"; admin `review_verification` → **SUCCEEDED** (status→verified, `reviewed_by` set) — the sole approve path.
+- **(5) Cleanup:** verification row deleted, both test users deleted, `app_admins` seed removed; **0 leftover rows**.
+
+**Verdict: PASS.** Both direct-write attempts denied with `42501`; the row never left `pending` via any client write; approval is reachable only through the admin-gated SECURITY DEFINER RPC. **The CP6a RLS backstop holds in production against a real authenticated non-admin client — no security hole.**
+
+**Method:** `_scratch/cp6a_rls_verify.cjs` (gitignored; removed after the run). No schema changes; nothing committed.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
 
 ---
 

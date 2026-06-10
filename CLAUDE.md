@@ -1,5 +1,5 @@
 # Frigo - Project Context for Claude Code
-**Last Updated:** April 22, 2026
+**Last Updated:** June 10, 2026
 
 *Entry point for Claude Code sessions. Read by CC at the start of every session. If you are a Claude.ai instance reading this from PK, you're reading it to audit for drift against `DOC_MAINTENANCE_PROCESS.md` — the rules inside are for CC, not for you. Claude.ai follows `DOC_MAINTENANCE_PROCESS.md` directly as the canonical source.*
 
@@ -37,6 +37,8 @@ Frigo is a "Strava for cooking" mobile app - users track their cooking, manage p
 ### SESSION_LOG Entry Format
 
 See `docs/DOC_MAINTENANCE_PROCESS.md` Section 8 for the canonical entry format — header level (H2 `## YYYY-MM-DD`), mandatory "Recommended doc updates" block (list all four living docs explicitly, using "none" when nothing applies rather than omitting a doc), "Recommended next steps for Tom" block, and key rules (one entry per prompt execution, include `git status` for non-trivial file operations, verify rather than assert). Add new entries at the TOP of `docs/SESSION_LOG.md`.
+
+**Preventive standing rule — log-before-close.** A CP is not complete until its SESSION_LOG entry is written in the same session. For gated-tier CPs the entry must include the verification evidence verbatim. No CP closes on transcript-only evidence.
 
 ### Key principles
 - **Follow decisions/constraints from Claude.ai prompts** — don't re-decide things that have already been decided
