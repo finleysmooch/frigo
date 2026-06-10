@@ -7,6 +7,31 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — CP6b POST-PUSH real-service smoke (binding gate) — caught a generated-column bug → fixed → PASS
+
+**The binding post-push gate (anchor §7) is SATISFIED.** After Tom's `git push` + `supabase db push` of `20260610192408` (provenance columns now LIVE — verified: 3 columns, additive, 823 rows all default, no existing-row writes; `migration list` local==remote across 9 versions), I ran the **real (compiled) `recipeDeliveryService`** against prod via a service-role harness: fixture (catalog book + 2 canonical recipes spanning the §4.3 copy-set + EXCLUDED children + a verified verification row) → **`deliverVerifiedBook`** → verify per §4.3 → full cleanup.
+
+**Bug the smoke caught (the SQL mirror could not):** the service copies children with `SELECT *` → re-insert, but `recipe_ingredients.total_time_min` is **GENERATED ALWAYS** (`prep+cook+inactive`); Postgres rejects inserting a non-DEFAULT value into a generated column → the first run FAILED (`cannot insert a non-DEFAULT value into column "total_time_min"`). The SQL mirror listed columns explicitly, so it never hit this — exactly the gap the shipped-path smoke exists to close.
+
+**Fix (config-driven, code-only — no migration):** added `NON_INSERTABLE_COLUMNS` to `copySet.ts` (a per-table map of GENERATED/identity columns the copier must drop; live-scanned — only `recipe_ingredients.total_time_min` exists today) and applied it in `recipeDeliveryService` for the recipe row + every child. Per the §4.3 deny-list rule, a future generated column must be added here in its CP.
+
+**Re-run → VERDICT PASS** (17/17 checks, against the actual service, fixtures cleaned up):
+- `deliverVerifiedBook` → `{status:'delivered', recipesCopied:2}`; **2 copies** under the user (`book_id`=catalog, `parent_recipe_id` set).
+- **Full content + image-by-reference** (copy `image_url` == canonical); `is_public=false`. **Provenance INHERITED** — r1 `book_photo`/`claude-sonnet-4-x` (from `raw_extraction_data`), r2 `manual`/`human-v1` (from columns), **not** models.ts; `is_author_authenticated=false`; `gold_standard_*` reset/excluded.
+- **Children copied + re-parented:** ingredients 3, sections 1, steps 2, media 1 (url ref), source_notes 1. **EXCLUDED absent:** step_notes 0, user_ingredient_choices 0.
+- **Canonical UNCHANGED**; **idempotent re-run** → `already-delivered`, copies still 2.
+- **Real corpus 823==823; 0 leftover fixtures** (full cleanup confirmed).
+
+**Verdict: the shipped `recipeDeliveryService` is verified end-to-end on prod.** Chain complete: tsc + SQL mirror + **real-service post-push smoke (PASS)**. CP4b promotion / real-user delivery is now unblocked from the CP6b side.
+
+**Files touched (corrective — code only, no migration):** `lib/services/recipeDelivery/copySet.ts` (`NON_INSERTABLE_COLUMNS`), `lib/services/recipeDelivery/recipeDeliveryService.ts` (apply it), `docs/SESSION_LOG.md` (this entry). **Rule E:** new-this-week files, not in PK snapshots → no staleness flags.
+
+**Open questions:** none for the gate. (Carry-forwards unchanged: OB-7 neutral link primitive; `recipe_references` config hook; legacy provenance backfill; stale extraction child-savers.)
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — note the delivery copier drops GENERATED/identity columns via `NON_INSERTABLE_COLUMNS`; `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — CP6b shipped + post-push-verified (gate cleared). (Not edited — recommend.)
+
+---
+
 ## 2026-06-10 — Anchor v0.3.6 → v0.3.7 (mechanical doc catch-up to ratified CP6b behavior)
 
 Five verbatim anchor edits + DEFERRED_WORK OB-7, own docs slice (anchor + DEFERRED_WORK + this note); nothing pushed. Anchor read v0.3.6 pre-edit (STOP check passed). §4.3 library-linkage updated to the inlined shape-faithful `user_books` insert in `recipeDeliveryService` (F&F exception — isolation over reuse; neutral primitive DEFERRED as **OB-7**, rides OB-6); §4.3 EXCLUDE now names the **gold_standard_* family** (reset on copies); **deny-list standing rule** added (any new recipes/copied-child column must be classified in the same CP). Changelog 0.3.7. **Flag:** the changelog's "invocation-auth confirm added to the gated-RPC/function checklist" clause has no separate edit in this CP — the edge function's service-role-only constraint is already documented in `supabase/functions/deliver-book/index.ts` (CP6b); no living-doc checklist was edited (none instructed) — surfaced for oversight. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` / `DEFERRED_WORK.md` (OB-7 added) / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none beyond these edits.

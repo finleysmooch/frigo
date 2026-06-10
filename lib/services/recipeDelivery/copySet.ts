@@ -59,6 +59,15 @@ export const COPIED_CHILDREN: ChildCopySpec[] = [
 /** Per-child columns the engine sets (everything else on the row is copied verbatim). */
 export const CHILD_ENGINE_SET_COLUMNS = ['id', 'created_at', 'updated_at']; // + the spec's parentKey
 
+// Columns that must NOT be written by the copy because the DB computes them — GENERATED ALWAYS /
+// identity. The copier reads canonical rows with SELECT *, so these would otherwise be re-inserted and
+// Postgres rejects them. Discovered from the live schema (information_schema is_generated/is_identity).
+// Per the §4.3 deny-list rule, any NEW generated/identity column on `recipes` or a copied child MUST be
+// added here in the same CP. Keyed by table; applied on top of the engine-set/excluded drops.
+export const NON_INSERTABLE_COLUMNS: Record<string, string[]> = {
+  recipe_ingredients: ['total_time_min'], // GENERATED ALWAYS = prep+cook+inactive (live scan 2026-06-10)
+};
+
 // ── EXCLUDED child/grandchild tables (anchor §4.3) — documented for the completeness guard ────────
 export const EXCLUDED_CHILD_TABLES = [
   // user content

@@ -23,6 +23,7 @@ import {
   RECIPE_EXCLUDED_COLUMNS,
   COPIED_CHILDREN,
   CHILD_ENGINE_SET_COLUMNS,
+  NON_INSERTABLE_COLUMNS,
 } from './copySet';
 
 export interface DeliveryResult {
@@ -148,7 +149,7 @@ async function copyOneRecipe(
   // Recipe row: copy all columns except engine-owned + excluded; set the engine-owned ones.
   const recipeInsert = copyRowValues(
     canonical,
-    [...RECIPE_ENGINE_SET_COLUMNS, ...RECIPE_EXCLUDED_COLUMNS],
+    [...RECIPE_ENGINE_SET_COLUMNS, ...RECIPE_EXCLUDED_COLUMNS, ...(NON_INSERTABLE_COLUMNS['recipes'] || [])],
     {
       user_id: userId,
       book_id: catalogBookId,
@@ -169,7 +170,7 @@ async function copyOneRecipe(
   // re-parent (two-level) to the NEW instruction_sections ids.
   const sectionIdMap = new Map<string, string>(); // old section id → new section id
   for (const spec of COPIED_CHILDREN) {
-    const drop = [...CHILD_ENGINE_SET_COLUMNS, spec.parentKey];
+    const drop = [...CHILD_ENGINE_SET_COLUMNS, spec.parentKey, ...(NON_INSERTABLE_COLUMNS[spec.table] || [])];
 
     if (spec.parentMap === 'recipe') {
       const { data: kids, error: kidErr } = await client
