@@ -7,6 +7,43 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — Anchor-landing: canonicalize the doc set (anchor v0.3.3 suffix-dropped; COOKBOOK_DELIVERY_SCOPE.md committed)
+
+**Mechanical tier — CC authored + committed + pushed.** Resolves the "unreachable-doc wall" that blocked citation on CP6a-1/CP6a-2: the canonical anchor had been living in-repo as an UNTRACKED, duplicate-suffixed file, and `COOKBOOK_DELIVERY_SCOPE.md` had been cited but not committed. This is the GATE before CP6b is drafted — future CP prompts can now cite both BY NAME and have them resolve. **Placement/canonicalization only — no anchor/scope CONTENT edited (text preserved exactly).**
+
+**Step 0 finding (content-source check before any destructive action):**
+- Newest anchor content = **v0.3.3** (reconciled 2026-06-10; it even records this anchor-canonicalization fix), held in the untracked `docs/ONBOARDING_AND_COLDSTART_SCOPING (2).md`. No `(1)` file remained; no canonical no-suffix anchor existed yet.
+- `COOKBOOK_DELIVERY_SCOPE.md` content **was present** in-repo — untracked, already at the canonical path (11.5KB; Tom dropped it in since CP6a-2). No STOP triggered (both content sets present).
+- No `CP6A_HANDOFF.md` / `CP6B_HANDOFF.md` anywhere in-repo → nothing to archive.
+
+**Shipped:**
+- **Anchor canonicalized** → `docs/ONBOARDING_AND_COLDSTART_SCOPING.md` (no suffix), copied byte-identical from `(2)` (`diff -q` IDENTICAL), version line **v0.3.3**. The suffixed `(2)` artifact removed; **no `docs/*( *).md` artifacts remain**.
+- **`docs/COOKBOOK_DELIVERY_SCOPE.md`** committed as a real, citable file (was untracked at the canonical path).
+- **Handoffs:** none in-repo — nothing moved to `docs/archive/handoffs/` (noted, skipped per spec).
+- **`_pk_sync/ONBOARDING_AND_COLDSTART_SCOPING_2026-06-10.md`** staged (dated copy, convention).
+- Committed as an isolated `docs: canonicalize…` slice (anchor + scope + this SESSION_LOG entry only) and **pushed to origin** (mechanical tier). The gated CP6a-2 work in the tree was deliberately NOT included (its SESSION_LOG entry stays uncommitted for CP6a-2's closeout).
+
+**Content note (not edited):** `COOKBOOK_DELIVERY_SCOPE.md` still reads "Feeds: the cookbook section of anchor v0.3.2" while the anchor is now v0.3.3 — content was preserved exactly as provided (placement-only task); any reconciliation is oversight's call.
+
+**Verified:**
+- `ls docs/ONBOARDING_AND_COLDSTART_SCOPING.md docs/COOKBOOK_DELIVERY_SCOPE.md` → both resolve.
+- `ls docs/*( *).md` → none (no suffixed artifacts remain).
+- canonical anchor version line: `**Version:** v0.3.3 · … · 2026-06-10`.
+- `.env` never staged; the gated CP6a-2 files left uncommitted; unrelated out-of-scope untracked items untouched.
+
+**Open questions:** none — no STOP triggered (both content sets were present in-repo).
+
+**Recommended doc updates:**
+- **`FRIGO_ARCHITECTURE.md`** — none.
+- **`DEFERRED_WORK.md`** — none.
+- **`PROJECT_CONTEXT.md`** — none.
+- **`FF_LAUNCH_MASTER_PLAN.md`** — none.
+- (Anchor §7 itself already records the canonical-doc-set landing in its v0.3.3 changelog — no external living-doc edit needed.)
+
+**Recommended next steps for Tom:** with the doc set citable, CP6b can be drafted (delivery / copy-on-verify) citing the anchor + scope doc by name. CP6a-2's gated push + closeout remain outstanding.
+
+---
+
 ## 2026-06-10 — CP6a-1: ownership-verification capture + private storage + submit (ADDITIVE half; pushed + verified; COMMITTED as isolated feat(verification) slice)
 
 **Closeout (2026-06-10):** committed as the isolated `feat(verification)` per-CP slice (6 files: the migration + 2 new code files + `imageStorageService.ts` + `PK_CODE_SNAPSHOTS.md` Rule-E row + this entry). No push (CC does not push unless Tom asks); the prod migration was already applied this session and stands. Tree clean for CP6a-2 (gated). The canonical anchor file is flagged below (Open questions) — deliberately NOT committed in this slice.
