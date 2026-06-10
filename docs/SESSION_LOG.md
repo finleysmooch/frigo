@@ -7,6 +7,12 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — Anchor v0.3.6 → v0.3.7 (mechanical doc catch-up to ratified CP6b behavior)
+
+Five verbatim anchor edits + DEFERRED_WORK OB-7, own docs slice (anchor + DEFERRED_WORK + this note); nothing pushed. Anchor read v0.3.6 pre-edit (STOP check passed). §4.3 library-linkage updated to the inlined shape-faithful `user_books` insert in `recipeDeliveryService` (F&F exception — isolation over reuse; neutral primitive DEFERRED as **OB-7**, rides OB-6); §4.3 EXCLUDE now names the **gold_standard_* family** (reset on copies); **deny-list standing rule** added (any new recipes/copied-child column must be classified in the same CP). Changelog 0.3.7. **Flag:** the changelog's "invocation-auth confirm added to the gated-RPC/function checklist" clause has no separate edit in this CP — the edge function's service-role-only constraint is already documented in `supabase/functions/deliver-book/index.ts` (CP6b); no living-doc checklist was edited (none instructed) — surfaced for oversight. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` / `DEFERRED_WORK.md` (OB-7 added) / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none beyond these edits.
+
+---
+
 ## 2026-06-10 — Anchor v0.3.5 → v0.3.6 (mechanical: user_ingredient_choices EXCLUDE + closure inventory + recipe_image_mapping typo + CP6b post-push smoke gate)
 
 Six verbatim anchor edits, committed as its own docs slice (NOT folded into the CP6b engine slice); nothing pushed. Anchor read v0.3.5 pre-edit (STOP check passed). §4.3: `user_ingredient_choices` added to EXCLUDE (user content — the grandchild the binding FK scan halted on); `recipe_image_mappings`→`recipe_image_mapping` typo fixed; transitive-closure inventory appended (instruction_steps COPY, user_ingredient_choices EXCLUDE; no deeper descendants). §7 CP6b row gains the **binding post-push real-service fixture smoke gate** (must PASS before CP4b promotion / any real delivery; the pre-push de-risk is a SQL-mirror logic proxy). Changelog 0.3.6 row. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` / `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none. **Next:** CP6b engine authoring resumes; the FK re-run now reconciles with zero unclassified tables.
