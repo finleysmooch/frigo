@@ -7,6 +7,57 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — CP6a-1: ownership-verification capture + private storage + submit (ADDITIVE half; pushed + verified; COMMITTED as isolated feat(verification) slice)
+
+**Closeout (2026-06-10):** committed as the isolated `feat(verification)` per-CP slice (6 files: the migration + 2 new code files + `imageStorageService.ts` + `PK_CODE_SNAPSHOTS.md` Rule-E row + this entry). No push (CC does not push unless Tom asks); the prod migration was already applied this session and stands. Tree clean for CP6a-2 (gated). The canonical anchor file is flagged below (Open questions) — deliberately NOT committed in this slice.
+
+**Tier: checkpoint (additive, no privileged paths) → CC authored AND pushed the migration.** This is the user-facing, additive half of O1 ownership verification (verify-first cookbook delivery). It AUTHORIZES NOTHING and DELIVERS NOTHING — a user submits proof (book + handwritten dated note) and reads their OWN status; the row sits in `pending` until CP6a-2's review machinery exists (intended inert seam). Approval/admin/allowlist (writing verified/rejected, `verified_at`, `reviewed_by`, `auto_granted`, `review_note`, `delivered_at`) is **CP6a-2** (gated). **SOURCE OF TRUTH:** the new table — the legacy `user_books.ownership_*` columns are NOT touched and NOT read as truth.
+
+**Anchor-doc note:** the prompt cited `COOKBOOK_DELIVERY_SCOPE.md` / a `v0.3.2` anchor by name; neither exists in the repo by those filenames. The equivalent CP6a model (verify-first, copy-on-verify, allowlist = CP6a-2, O1 proof) is carried by `docs/ONBOARDING_AND_COLDSTART_SCOPING (1).md` (untracked), which I used for context. The prompt itself was self-contained for the build (exact table DDL, RLS requirements, service + component spec) — no judgment call required, so no STOP.
+
+**Shipped:**
+- **Migration `20260610165737_cp6a1_book_ownership_verifications`** (pushed): table `public.book_ownership_verifications` (id, user_id→auth.users, book_id→books, status CHECK pending/verified/rejected default pending, proof_image_path, submitted_at, + privileged-by-CP6a-2 columns verified_at/reviewed_by/auto_granted/review_note/delivered_at, **UNIQUE(user_id, book_id)** so re-submit updates), a user_id index, RLS, and the private storage bucket + its object policies.
+- **RLS — self-verify is impossible by construction.** RLS can't restrict *which* columns are written, so each writable policy pins the resulting row to `status='pending'` with every privileged field at its empty default: `bov_insert_own_pending` (WITH CHECK), `bov_update_own_pending` (USING `status='pending'` so a reviewed row is immutable to the user + the same WITH CHECK), `bov_select_own` (own rows only). Privileged writes are CP6a-2 definer RPCs (owner bypasses RLS) — no user/anon path to set status or any privileged column.
+- **Private bucket `verification-images`** (`storage.buckets`, `public=false`) + two `storage.objects` policies (`verification_images_insert_own` / `_select_own`) path-scoped to `(storage.foldername(name))[1] = auth.uid()` — owner-read only, NO public read, never routed through recipe-images/post-images.
+- **`imageStorageService.uploadImage` extended:** bucket union → `StorageBucket = 'recipe-images' | 'post-images' | 'verification-images'`; private buckets return the storage **path** + a short-lived (1h) signed URL for display only (no dead public URL). Public-bucket behavior unchanged.
+- **`lib/services/ownershipVerificationService.ts` (new):** `submitVerification(bookId, localUri)` (upload to private bucket, folder=userId for the path-scoped RLS, then upsert a `pending` row, onConflict user_id,book_id), `getMyVerification(bookId)`, `getMyVerifications()`. NO admin/approve/allowlist methods (CP6a-2).
+- **`components/OwnershipVerificationCapture.tsx` (new):** standalone, theme-matched. Instructs the user to photograph the book **with a handwritten note showing today's date** (today's date rendered for them), take/pick via `imageStorageService.chooseImageSource`, submit, and reflect status (pending badge). Capture controls gated to fresh/pending rows (a reviewed row is RLS-immutable). **Not wired into any screen** (CP6b/CP9 place it). Separate from the legacy `BookOwnershipModal` (which writes `user_books.ownership_*`) — that path untouched.
+
+**Files modified:**
+- `supabase/migrations/20260610165737_cp6a1_book_ownership_verifications.sql` (new; **pushed to prod**)
+- `lib/services/ownershipVerificationService.ts` (new)
+- `components/OwnershipVerificationCapture.tsx` (new)
+- `lib/services/imageStorageService.ts` (edited — bucket union + private-bucket signed-url branch) ⚠️ PK snapshot now stale (was 2026-04-22)
+- `docs/PK_CODE_SNAPSHOTS.md` (Rule E — `imageStorageService.ts` row Staleness Risk Low→HIGH)
+- **Rule E:** the two NEW code files are not in PK snapshots → no flags; only `imageStorageService.ts` matched.
+
+**Verified (all green):**
+- **De-risk before push** (rollback-wrapped, non-persisting): full migration builds as the postgres role over the pooler — incl. `storage.buckets` INSERT + `storage.objects` `CREATE POLICY` (the privilege risk) — and rolls back clean. Then a built-in-txn RLS enforcement test as a simulated `authenticated` user: ✅ own pending INSERT allowed (so `authenticated` already has table grants via Supabase default privileges — no explicit GRANT needed), ✅ own-read sees only own row (other user's seeded row hidden), ✅ self-verify via INSERT blocked (RLS), ✅ self-verify via UPDATE blocked (RLS), ✅ `auto_granted=true` self-set blocked, ✅ re-submit proof-swap on a pending row works.
+- **`db push --dry-run` → `db push`** applied only `20260610165737`.
+- **Persisted checks:** table exists; UNIQUE(user,book); status CHECK `IN (pending/verified/rejected)`; RLS on; 3 table policies; bucket `public=f`; 2 storage policies; **live self-verify INSERT blocked** (re-confirmed against the persisted table); 0 leftover test rows.
+- **Private-bucket isolation:** the public route `…/object/public/verification-images/…` returns **HTTP 400** (private bucket rejects the public path entirely — no working public URL).
+- **`user_books.ownership_*` intact:** both `ownership_claimed` + `ownership_proof_image_url` still present, unmodified (the migration never references `user_books`); `createBook`/`createUserBookOwnership` unaffected.
+- **Tracking:** `migration list` local==remote (7 versions, CP6a-1 included); `db diff --linked --schema public` shows ONLY the known 3-CHECK noise (`has_metric_conversion`/`valid_unit_type`/`valid_scores`) — no `book_ownership_verifications` diff.
+- **`tsc`:** the 3 CP6a-1 files have zero errors. (The only app-code tsc errors are 2 pre-existing ones in untouched files — `CookSoonSection.tsx`, `DayMealsModal.tsx`; the 181 node_modules errors are a pre-existing corrupted `@react-navigation/core` `.d.ts`.) Capture component verified standalone via type-check only (wiring into a screen is out of scope by instruction).
+
+**Git state:** the migration is **live on prod**; the slice is **committed** as the isolated `feat(verification)` per-CP commit (migration + 2 new code files + `imageStorageService.ts` + `PK_CODE_SNAPSHOTS.md` + this SESSION_LOG entry). **Not pushed** (CC does not push unless asked). `.env` never staged. Out-of-scope untracked items left untouched.
+
+**Open questions:**
+- **Canonical anchor file location (oversight to resolve).** The CP6a model's canonical anchor is an **untracked** file with a duplicate-suffix filename: `docs/ONBOARDING_AND_COLDSTART_SCOPING (1).md` (note the trailing `" (1)"`). It was used for context this session but **deliberately NOT committed** into the CP6a-1 slice. Oversight should decide where the canonical anchor lives (e.g., rename to drop the `(1)` suffix, confirm vs the prompt-cited `COOKBOOK_DELIVERY_SCOPE.md` / `v0.3.2` names which don't exist in-repo) and land it as its own change, separate from this CP.
+- Approval / admin / allowlist / the copy-on-verify delivery seam are all CP6a-2 / CP6b (by design).
+
+**Recommended doc updates:**
+- **`FRIGO_ARCHITECTURE.md`** — add `ownershipVerificationService` (submit/getMy* half) + the `book_ownership_verifications` table (sole verification-status source; CP6a-1 = user submit/own-read, CP6a-2 = privileged approve/reject/allowlist via SECURITY DEFINER RPCs) + the private `verification-images` bucket + the `uploadImage` `StorageBucket`/private-bucket extension. Not edited (awaiting Claude.ai reconciliation).
+- **`DEFERRED_WORK.md`** — add: `user_books.ownership_*` consolidation onto `book_ownership_verifications` (legacy columns retained for now, not read as truth); note **CP6a-2 owns the approval half** (review portal + approve/reject RPCs + trusted-allowlist auto-grant + admin-read-all storage policy). Not edited (recommend).
+- **`PROJECT_CONTEXT.md`** — none.
+- **`FF_LAUNCH_MASTER_PLAN.md`** — recommend marking CP6a-1 (capture + private storage + submit) shipped; CP6a-2 still gated. Not edited (recommend).
+
+**Recommended next steps for Tom:**
+- A CP6a-1 closeout/commit prompt to slice this into an isolated commit + (optionally) push to origin.
+- CP6a-2 (gated): review portal + approve/reject SECURITY DEFINER RPCs + trusted-allowlist auto-grant + admin-read-all storage policy — the half that actually authorizes delivery.
+
+---
+
 ## 2026-06-10 — CP5 (S1) POST-PUSH: applied to prod by Tom + verified — the standard three all PASS → CP5 CLOSED
 
 **LOG ONLY** (no DB, no migration, no code from this session — Tom ran the push; this entry records the verified result). Follows the `feat(auth)` commit (`cdfa973`) below, which authored but did NOT apply CP5.

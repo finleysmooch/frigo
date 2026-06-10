@@ -14,6 +14,18 @@ export interface ImageUploadResult {
 }
 
 /**
+ * Storage buckets the app uploads to.
+ * - 'recipe-images' / 'post-images' are PUBLIC (uploadImage returns a public URL).
+ * - 'verification-images' is PRIVATE (ownership-proof images, CP6a). It is never publicly
+ *   readable; uploadImage returns the storage PATH (what callers persist) plus a short-lived
+ *   signed URL for immediate in-session preview only — never persist the signed URL.
+ */
+export type StorageBucket = 'recipe-images' | 'post-images' | 'verification-images';
+
+/** Buckets that are NOT public — their objects have no working public URL. */
+const PRIVATE_BUCKETS: readonly StorageBucket[] = ['verification-images'];
+
+/**
  * Request camera permissions
  */
 export async function requestCameraPermission(): Promise<boolean> {
@@ -203,12 +215,13 @@ async function processImage(uri: string): Promise<string> {
 /**
  * Upload image to Supabase Storage
  * @param imageUri - Local image URI
- * @param bucket - Storage bucket name ('recipe-images' or 'post-images')
- * @param folder - Optional folder within bucket (e.g., userId)
+ * @param bucket - Storage bucket name ('recipe-images' | 'post-images' | 'verification-images')
+ * @param folder - Optional folder within bucket (e.g., userId). REQUIRED for 'verification-images':
+ *                 its storage RLS path-scopes reads/writes to the first folder segment = the user id.
  */
 export async function uploadImage(
   imageUri: string,
-  bucket: 'recipe-images' | 'post-images',
+  bucket: StorageBucket,
   folder?: string
 ): Promise<ImageUploadResult> {
   try {
@@ -246,6 +259,18 @@ export async function uploadImage(
     if (error) {
       console.error('Upload error:', error);
       throw new Error(`Failed to upload image: ${error.message}`);
+    }
+
+    // Private buckets have NO public URL — return a short-lived signed URL for immediate preview
+    // only (callers persist `path`, never this URL). Public buckets return the public URL.
+    if (PRIVATE_BUCKETS.includes(bucket)) {
+      const { data: signed } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(storagePath, 60 * 60); // 1h, display-only
+      return {
+        url: signed?.signedUrl ?? '',
+        path: storagePath,
+      };
     }
 
     // Get public URL

@@ -37,7 +37,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/eaterRatingsService.ts` | 2026-05-19 | Phase 7I CP6 | Low | D43 private per-eater ratings |
 | `lib/services/feedGroupingService.ts` | 2026-05-19 | Phase 7I CP4 / 7G | Low | `buildFeedGroups`; sort key switched to cooked_at in 7G |
 | `lib/services/highlightsService.ts` | 2026-05-19 | Phase 7I | Low | |
-| `lib/services/imageStorageService.ts` | 2026-04-22 | | Low | |
+| `lib/services/imageStorageService.ts` | 2026-04-22 | | HIGH | 2026-06-10 (CP6a-1): uploadImage bucket union extended to 'verification-images' (private bucket → signed-url branch). |
 | `lib/services/ingredientService.ts` | 2026-04-22 | | Low | |
 | `lib/services/ingredientSuggestionService.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/instructionSectionsService.ts` | 2026-04-22 | | Low | |
