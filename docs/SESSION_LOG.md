@@ -7,6 +7,29 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-10 — Anchor v0.3.3 → v0.3.4 (content-swap: full-content copy scope + §3 photos-mechanism caveat + reversibility reqs)
+
+**Mechanical tier — CC committed + pushed.** Plain content UPDATE of the already-canonical anchor (`docs/ONBOARDING_AND_COLDSTART_SCOPING.md`, landed at v0.3.3 in `d595c8f`). NOT a re-canonicalization — the suffix / `(1)` / `(2)` were already removed in `d595c8f`, so no suffix-hunting. The v0.3.4 text was authored by oversight and dropped into the repo by Tom; CC committed it **without edits** (content-swap only).
+
+**Pre-check finding:** `docs/ONBOARDING_AND_COLDSTART_SCOPING.md` confirmed tracked; HEAD = v0.3.3; the working copy already held **v0.3.4** (Tom overwrote in place — `git status` showed it modified). No separate v0.3.4 file; no suffixed artifacts (`docs/*( *).md` glob empty). `COOKBOOK_DELIVERY_SCOPE.md` unchanged (left as-is). No STOP triggered.
+
+**Shipped:**
+- Anchor committed **v0.3.3 → v0.3.4** (per its changelog: full-content copy-scope decision + §3 photos-mechanism caveat + reversibility requirements).
+- `_pk_sync/ONBOARDING_AND_COLDSTART_SCOPING_2026-06-10.md` re-staged at v0.3.4 (overwrote the v0.3.3 dated copy; `_pk_sync/` is gitignored — staged on disk for PK upload, not committed).
+- Committed as an isolated `docs: anchor v0.3.3 → v0.3.4 …` slice (anchor + this SESSION_LOG entry only) and pushed to origin (mechanical tier).
+
+**Verified:**
+- anchor version line: `**Version:** v0.3.4 · 🟢 reconciled · 2026-06-10`.
+- `ls docs/ONBOARDING_AND_COLDSTART_SCOPING.md docs/COOKBOOK_DELIVERY_SCOPE.md` → both resolve; `ls docs/*( *).md` → none.
+- `git show --stat` = anchor + SESSION_LOG only; **CP6a-2 files NOT swept in** (gated, still uncommitted in the tree).
+- `.env` never staged.
+
+**Open questions:** none (mechanical content-swap).
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none. (`COOKBOOK_DELIVERY_SCOPE.md` left untouched per spec; whether its internal "Feeds: v0.3.x" line updates is oversight's call.)
+
+---
+
 ## 2026-06-10 — Anchor-landing: canonicalize the doc set (anchor v0.3.3 suffix-dropped; COOKBOOK_DELIVERY_SCOPE.md committed)
 
 **Mechanical tier — CC authored + committed + pushed.** Resolves the "unreachable-doc wall" that blocked citation on CP6a-1/CP6a-2: the canonical anchor had been living in-repo as an UNTRACKED, duplicate-suffixed file, and `COOKBOOK_DELIVERY_SCOPE.md` had been cited but not committed. This is the GATE before CP6b is drafted — future CP prompts can now cite both BY NAME and have them resolve. **Placement/canonicalization only — no anchor/scope CONTENT edited (text preserved exactly).**
