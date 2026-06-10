@@ -100,6 +100,64 @@ already-delivered copies.
 
 ---
 
+## CP6b delivery engine — `recipeDeliveryService` (AUTHORED 2026-06-10; gated on Tom's push)
+
+`lib/services/recipeDelivery/recipeDeliveryService.ts` — an **isolated, config-driven** row-level
+deep-copier (imports nothing from the extraction path). `deliverVerifiedBook(client, userId, catalogBookId)`:
+
+1. **Seam gate** — only a `status='verified'` + `delivered_at IS NULL` record proceeds.
+2. **Link first** — a shape-faithful `user_books` insert (idempotent check-then-insert; inlined rather
+   than importing `createUserBookOwnership`, to keep the delivery service isolated from the extraction
+   path — see anchor v0.3.7 / DEFERRED OB-7).
+3. **Copies** — for each canonical recipe (`book_id`=catalog, `parent_recipe_id IS NULL`), deep-copy the
+   recipe row + the **§4.3 ratified copy-set** children (`lib/services/recipeDelivery/copySet.ts`):
+   `recipe_ingredients`, `recipe_media`, `recipe_photos` (copy-if-present), `recipe_source_notes`,
+   `instruction_sections` + `instruction_steps` (two-level, re-parented). EXCLUDED children are never
+   copied (user content, `recipe_references`, user-activity, QA artifacts — see copySet). Per-recipe
+   idempotent (a copy already keyed by `parent_recipe_id` is skipped → resume-safe).
+   - **Images are (a) references** (§3): `recipes.image_url`, `recipe_media.url`, `recipe_photos.image_url`
+     are copied **verbatim** — the copy points at the SAME stored object; **no bytes are rehosted**.
+   - **Provenance inherited** (§4.5): `extraction_method`/`extraction_model` come from the canonical row
+     (columns → `raw_extraction_data` → `'unknown_legacy'`), **never** the current models.ts value;
+     `is_author_authenticated=false`; the `gold_standard_*` family is reset on copies.
+4. **`delivered_at` stamped LAST** — only after the full set completes (a crash mid-copy is repaired by a
+   re-run; an already-delivered book copies nothing).
+
+**Invocation:** the `deliver-book` edge function (`supabase/functions/deliver-book/`), **async** (not
+synchronous in `review_verification` — 100+-recipe books). **Internal-only:** a service-role bearer gate
+rejects any non-service-role caller (403); wire it via a DB webhook on `status→verified` or an
+admin-portal enqueue after `reviewVerification()`.
+
+### Purge identifiability (row-scoped, delivery-record-keyed)
+
+Every delivered set is identifiable and removable. The predicate keys on the **delivery records**
+(`user_id`, catalog `book_id`, lineage ∈ the book's canonical recipes) — **never** `parent_recipe_id IS
+NOT NULL` alone. Row-scoped per §3: a purge deletes the delivered **rows**; it **must NOT** delete the
+shared stored image objects (they are (a) references). The purge ACTION is a documented **future**
+operation — built identifiable, not run now (`recipeDeliveryService.identifyDeliveredSet` returns the set).
+
+```sql
+-- Full delivered tree for one delivered (user :U, catalog book :B). Delete children before recipes.
+WITH canon AS (SELECT id FROM recipes WHERE book_id = :B AND parent_recipe_id IS NULL),
+     delivered AS (SELECT id FROM recipes WHERE user_id = :U AND book_id = :B
+                   AND parent_recipe_id IN (SELECT id FROM canon)),
+     sections AS (SELECT id FROM instruction_sections WHERE recipe_id IN (SELECT id FROM delivered))
+SELECT 'recipes' AS tbl, id FROM delivered
+UNION ALL SELECT 'recipe_ingredients', id FROM recipe_ingredients WHERE recipe_id IN (SELECT id FROM delivered)
+UNION ALL SELECT 'recipe_media', id FROM recipe_media WHERE recipe_id IN (SELECT id FROM delivered)
+UNION ALL SELECT 'recipe_photos', id FROM recipe_photos WHERE recipe_id IN (SELECT id FROM delivered)
+UNION ALL SELECT 'recipe_source_notes', id FROM recipe_source_notes WHERE recipe_id IN (SELECT id FROM delivered)
+UNION ALL SELECT 'instruction_sections', id FROM sections
+UNION ALL SELECT 'instruction_steps', id FROM instruction_steps WHERE section_id IN (SELECT id FROM sections);
+```
+
+> **Binding post-push gate:** a fixture smoke through the **real** `recipeDeliveryService` (deliver →
+> verify per §4.3 → clean up; real-corpus counts before==after) must PASS **after** `supabase db push`
+> of `20260610192408`, **before** CP4b promotes any catalog book or any real-user delivery. The pre-push
+> de-risk was a SQL mirror (logic proxy), not the shipped path.
+
+---
+
 ## Caveats / deferred
 
 - **Partial OB-2 only.** This is a verification reviewer gate, **not** a general admin/roles system.

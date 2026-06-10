@@ -13,9 +13,78 @@ Five verbatim anchor edits + DEFERRED_WORK OB-7, own docs slice (anchor + DEFERR
 
 ---
 
+## 2026-06-10 — CP6b engine AUTHORED (post-v0.3.6) — recipeDeliveryService + edge invocation + purge query; SQL-mirror de-risk PASS; NOT pushed, NOT committed
+
+**TIER: gated. Outcome: engine authored + de-risked (SQL mirror) + dry-run only.** Resumes after the binding FK-scan STOP (below); v0.3.6 classified `user_ingredient_choices` EXCLUDE, so the FK re-run now reconciles with **zero unclassified tables** (23 tables: 21 direct + `instruction_steps` COPY + `user_ingredient_choices` EXCLUDE). Anchor read = **v0.3.6**. **CC did NOT push and did NOT commit** — Tom pushes at closeout. Working tree: the CP6b slice (provenance migration + new engine files + these entries) stays uncommitted.
+
+**⚠️ DE-RISK IS A LOGIC-VALIDATION PROXY, NOT THE SHIPPED PATH.** The pre-push de-risk is a rollback-wrapped **SQL mirror** of `recipeDeliveryService`'s copy walk (provenance columns applied in-txn, fixtures exercised, ROLLBACK) — it validates the copy LOGIC + schema, **not** the shipped TypeScript service. The TS service is validated by `tsc` + this mirror's faithfulness. **BINDING POST-PUSH GATE (anchor §7):** a fixture smoke through the **real `recipeDeliveryService`** (deliver → verify per §4.3 → clean up; real-corpus counts before==after) must PASS *after the push*, *before* CP4b promotes any catalog book or any real-user delivery occurs. tsc + mirror + post-push real-service smoke = the full chain; the last link is owed at push.
+
+**Shipped (authored, NOT pushed/committed):**
+- **`lib/services/recipeDelivery/copySet.ts`** — the §4.3 parameterized copy-set config (single source of truth): recipe engine-set columns (id/user_id/book_id/parent_recipe_id/timestamps/is_public/provenance), recipe excluded columns, ordered COPIED children with re-parent specs (two-level `instruction_sections`→`instruction_steps`), the EXCLUDED table set, and `CLASSIFIED_TABLES` for the completeness guard. A future narrowing is an edit HERE.
+- **`lib/services/recipeDelivery/recipeDeliveryService.ts`** — isolated deep-copier. `deliverVerifiedBook(client, userId, catalogBookId)`: seam-gated (verified+undelivered), link FIRST → per-recipe idempotent copies → `delivered_at` LAST; provenance INHERITED (canonical columns → `raw_extraction_data` → `'unknown_legacy'`, never models.ts); `parent_recipe_id` lineage; images copied as **reference strings** only. `identifyDeliveredSet(...)` = the delivery-record-keyed, row-scoped purge enumeration. Imports ONLY `@supabase/supabase-js` (type) + `./copySet`.
+- **`supabase/functions/deliver-book/index.ts`** — async invocation (edge function, service-role). **Flagged choice:** async over sync-in-`review_verification` (100+-recipe books would block approval); idempotent on `delivered_at`; deploy-time wiring = DB webhook on status→verified OR admin-portal enqueue.
+
+**Verified (SQL-mirror de-risk, rollback-wrapped — nothing persisted; real corpus 823==823):**
+- **N copies = 2** (= fixture canonical count) under the test user, `book_id`=catalog, `parent_recipe_id` set; visible by the library predicate (`user_books` + recipes by user+book).
+- **Full content copied:** `description` + `recipe_notes` present; **`image_url` copy == canonical (image-by-reference, no rehost)**; `is_public=false`.
+- **Provenance INHERITED (Amendment B), NOT models.ts:** recipe1 → `book_photo`/`claude-sonnet-4-x` (from `raw_extraction_data`); recipe2 → `manual`/`human-v1` (from columns); `is_author_authenticated=false`. `gold_standard_notes` EXCLUDED; `is_gold_standard` reset false.
+- **Children copied + re-parented:** ingredients 3, instruction_sections 1, instruction_steps 2 (re-parented to new section), recipe_media 1 (url reference), recipe_source_notes 1. **EXCLUDED absent:** `recipe_step_notes` 0, `user_ingredient_choices` 0.
+- **Canonical fixtures UNCHANGED** (image_url + gold note intact, no parent set). **Real corpus before==after: 823==823.**
+- **Idempotency:** re-run → 0 new copies (delivered_at guard). **Half-complete:** delete one copy + clear `delivered_at` → re-run repairs to N, no duplication.
+- **Purge (delivery-record-keyed):** delivered_recipes 2 + children (3/1/2/1/1) — coverage == copy coverage; row-scoped (leaves shared image objects).
+- **FK re-run reconciles clean** (0 unclassified); **`db push --dry-run`** = only `20260610192408`; **isolation grep:** recipeDelivery imports nothing from recipeExtraction (only `@supabase/supabase-js` + `./copySet`), no extraction file imports recipeDelivery; **`tsc`** clean on the new files (only the 2 pre-existing unrelated app-code errors remain).
+- **[Amendment A] `delivered_at` EXISTS** on `book_ownership_verifications` → no extra migration; dry-run shows only the provenance migration.
+
+**Flags (field/structure decisions surfaced for oversight):**
+- **createUserBookOwnership reuse vs isolation:** the anchor says "reuse createUserBookOwnership"; the Task grep says "import nothing from recipeExtraction/*". `createUserBookOwnership` lives under `recipeExtraction/`, so importing it fails the isolation grep. Resolved by an **inline, shape-faithful `user_books` insert** (identical columns) — same operation, not a divergent second path; isolation grep stays clean. Confirm.
+- **gold_standard_* reset:** §4.3 names only `gold_standard_notes`. The engine also resets `is_gold_standard=false` + leaves `gold_standard_verified_by/at` null on copies (canonical QA-verification state must not transfer). Config-reversible; confirm.
+- **De-risk column coverage:** the SQL mirror copies a representative recipe-field subset (prose, image, provenance, gold-standard); the shipped TS service copies all-but-excluded via SELECT *. The post-push real-service smoke closes this gap.
+
+**Invocation-auth confirm (binding pre-push gate, 2026-06-10) — corrective applied → PASS.** The edge function originally had NO caller check (only a comment); with Supabase's default `verify_jwt`, an arbitrary authenticated client (anon/user JWT) could POST `{user_id, book_id}` and trigger delivery. **Corrective added in THIS slice** (CP2 pattern) — a real service-role bearer gate at the top of the handler, before any work:
+```ts
+const presented = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+if (!serviceKey || presented !== serviceKey) {
+  return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 });
+}
+```
+**Verdict: PASS — an arbitrary authenticated client is REJECTED (403).** Only an internal caller presenting the service-role key (the approval DB-webhook / server enqueue) passes; the function does privileged cross-user writes via the service role and is now closed to anon/user callers. (`tsc` still clean; the edge function is out of RN tsc scope.)
+
+**Files touched (CP6b closeout slice — git only, NOT pushed):** `lib/services/recipeDelivery/copySet.ts` (new), `lib/services/recipeDelivery/recipeDeliveryService.ts` (new), `supabase/functions/deliver-book/index.ts` (new, **+ invocation-auth corrective**), `supabase/migrations/20260610192408_cp6b_recipe_provenance_columns.sql` (committed-but-unpushed), `docs/COOKBOOK_VERIFICATION.md` (delivery + purge ops section), `docs/SESSION_LOG.md` (the three CP6b entries). **Rule E:** new files; none in PK snapshots → no staleness flags.
+
+**Open questions:** invocation deploy-wiring (webhook vs portal-enqueue); `recipe_references` config hook (excluded; overrule = config edit); the stale extraction child-savers (separate pre-existing bug); legacy provenance backfill (§4.5, separate); the two field-level flags above.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — add `recipeDeliveryService` (config-driven deep-copier, inherited provenance, delivery-record-keyed row-scoped purge) + the `deliver-book` edge function; `DEFERRED_WORK.md` — `recipe_references` resolution, legacy provenance backfill, stale extraction child-savers; anchor §7 CP6b → engine authored (not shipped; post-push smoke owed); `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — CP6b authored, gated on Tom's push + the binding post-push real-service smoke. (Not edited — recommend.)
+
+---
+
 ## 2026-06-10 — Anchor v0.3.5 → v0.3.6 (mechanical: user_ingredient_choices EXCLUDE + closure inventory + recipe_image_mapping typo + CP6b post-push smoke gate)
 
 Six verbatim anchor edits, committed as its own docs slice (NOT folded into the CP6b engine slice); nothing pushed. Anchor read v0.3.5 pre-edit (STOP check passed). §4.3: `user_ingredient_choices` added to EXCLUDE (user content — the grandchild the binding FK scan halted on); `recipe_image_mappings`→`recipe_image_mapping` typo fixed; transitive-closure inventory appended (instruction_steps COPY, user_ingredient_choices EXCLUDE; no deeper descendants). §7 CP6b row gains the **binding post-push real-service fixture smoke gate** (must PASS before CP4b promotion / any real delivery; the pre-push de-risk is a SQL-mirror logic proxy). Changelog 0.3.6 row. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` / `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none. **Next:** CP6b engine authoring resumes; the FK re-run now reconciles with zero unclassified tables.
+
+---
+
+## 2026-06-10 — CP6b engine (cleared, v0.3.5) — confirm-from-code done; **HALTED at the binding FK-scan STOP** (unclassified grandchild `user_ingredient_choices`)
+
+**TIER: gated. Outcome: confirm-from-code complete → BINDING FK-SCAN STOP (a real halt, per §4.3 completeness guard).** No engine authored; nothing committed, nothing pushed; working tree unchanged (only the pre-existing uncommitted CP6b provenance-migration slice). Anchor read = **v0.3.5** (`**Version:** v0.3.5 · 🟢 reconciled · 2026-06-10`).
+
+**STOP — `user_ingredient_choices` is an unclassified grandchild in the copy path.** The live FK transitive closure over §4.3's COPIED children surfaced a table §4.3 does not classify:
+- COPIED `recipe_ingredients` → child **`user_ingredient_choices`** (`user_ingredient_choices_recipe_ingredient_id_fkey`). Columns: `id, user_id, recipe_ingredient_id, presented_options[], user_choice, chosen_ingredient_id, cooking_session_id, created_at` (0 rows today). It records which ingredient a USER chose for an "or"-option during a cooking session — **evidently user content** (`user_id` + `cooking_session_id`), so it almost certainly belongs in §4.3's EXCLUDE set alongside `recipe_step_notes`/`user_recipe_*`. **But the guard forbids deciding** — reported for oversight to ratify the classification before the deep-copier is authored. No copy authored, no warn-and-continue.
+
+**FK scan (live DB, not the stale CSV) — full classification:**
+- **Direct children of `recipes` (21 tables) — all classified by §4.3:** COPY = `instruction_sections`, `recipe_ingredients`, `recipe_media`, `recipe_photos`, `recipe_source_notes`. EXCLUDE = `recipe_annotations`, `user_recipe_tags`, `user_recipe_preferences`, `recipe_step_notes`, `recipe_references` (both FKs: source + referenced), user-activity (`cooking_sessions`, `posts`, `meal_dish_plans`, `needs_recipes`), QA/extraction (`extraction_corrections`, `extraction_logs`, `recipe_extraction_comparison`, `recipe_extraction_queue`, `recipe_image_mapping`, `or_pattern_decisions`). Self-FK `recipes.parent_recipe_id` = lineage pointer (not a copy target).
+- **Transitive closure of COPIED children:** `instruction_sections → instruction_steps` (COPIED, the "+ steps"; two-level re-parent on `section_id`; no further children); `recipe_ingredients → user_ingredient_choices` (**UNCLASSIFIED → STOP**, no further children). `recipe_media`/`recipe_photos`/`recipe_source_notes` have no children. Closure complete.
+- **Naming flag (not a halt):** §4.3's EXCLUDE list names `recipe_image_mappings` (plural); the live table is `recipe_image_mapping` (singular) — same QA artifact, EXCLUDE stands; §4.3 has a typo.
+
+**Other confirm-from-code findings:**
+- **[Amendment A] `delivered_at` EXISTS** on `book_ownership_verifications` (timestamptz, nullable) — **no additional migration needed**; the engine stamps the existing column. The dry-run will show only the already-authored `20260610192408`.
+- **[Amendment C] `parent_recipe_id` non-null count = 0** of 823 recipes today — confirms the purge must be **delivery-record-keyed** (U,B,parent∈canonical-of-book), never `parent_recipe_id IS NOT NULL` alone (the column is a shared lineage column reserved for the variant/subs concept).
+- **`recipe_source_notes`** (15 cols, live) — copyable: re-parent `recipe_id`, new `id`; `source_note_id`/`parent_source_note_id` are source-derived TEXT keys (not DB FKs) → copy verbatim.
+- **`instruction_steps`** (8 cols) — two-level copy under `instruction_sections` (re-parent `section_id`).
+- **§3 image mechanism = (a) reference** (re-confirmed): `recipes.image_url` + `recipe_media.url` are text; copy strings verbatim (same stored object); `recipe_photos` zero writers (copy-if-present, empty expected). No rehost path.
+
+**Decision needed (oversight):** classify `user_ingredient_choices` (recommend **EXCLUDE** — user content). On that ruling I author the engine — `recipeDeliveryService` (config-driven, isolated), the §4.3 copy-set config, two-level copy, inherited provenance, `delivered_at` ordering + idempotency, delivery-keyed row-scoped purge query, async invocation — then rollback-wrapped SQL-mirror de-risk (provenance columns applied in-txn) + `db push --dry-run`, no push/commit.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none yet (engine not authored); `DEFERRED_WORK.md` — recommend logging the `recipe_image_mappings`→`recipe_image_mapping` §4.3 typo + the stale extraction child-savers (separate bug, from the prior CP6b session); `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — recommend CP6b BLOCKED on the `user_ingredient_choices` classification. (Not edited — recommend.)
 
 ---
 
@@ -121,6 +190,44 @@ Six verbatim anchor edits, committed as its own docs slice (NOT folded into the 
 **Method:** `_scratch/cp6a_rls_verify.cjs` (gitignored; removed after the run). No schema changes; nothing committed.
 
 **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
+## 2026-06-10 — CP6b: copy-on-verify delivery engine (GATED) — Task 1 (provenance migration) AUTHORED + de-risked; ENGINE (Tasks 2–6) STOPPED on a broken core premise (confirm-from-code)
+
+**TIER: gated. Outcome: PARTIAL + STOP-and-report.** Anchor confirmed **v0.3.4** (`**Version:** v0.3.4 · 🟢 reconciled · 2026-06-10`) — the full-content copy-scope era, correct for this CP. The confirm-from-code gate invalidated the task's load-bearing mechanism (`saveRecipeToDatabase` as the "SOLE child-saver" for a faithful copy-all), so per the gated tier + Rule D I authored only the unblocked, premise-independent piece (Task 1 provenance columns) and **STOPPED the delivery engine (Tasks 2–6) pending an oversight decision on the deep-copy mechanism.** Nothing pushed, nothing committed. CP6a-2's uncommitted tree was NOT touched.
+
+**Shipped (authored, NOT pushed, NOT committed):**
+- **Migration `20260610192408_cp6b_recipe_provenance_columns`** (additive): `recipes.extraction_method text`, `extraction_model text`, `is_author_authenticated boolean NOT NULL DEFAULT false`. De-risked rollback-wrapped: 3 columns present/typed; `recipes` count (823) + `max(updated_at)` unchanged (no existing-row writes); all 823 rows read `is_author_authenticated=false`, 0 NULLs. `db push --dry-run` → only this migration. Legacy backfill (§4.5) left OUT.
+
+**Confirm-from-code findings (the heart of this session):**
+- **`saveRecipeToDatabase` is an EXTRACTION-path saver, not a row deep-copier — it cannot faithfully copy-all.** (i) It takes a `ProcessedRecipe` (extraction-pipeline shape: `ExtractedRecipeData`), not a `recipes` row — deep-copying a canonical recipe would need a lossy row→ProcessedRecipe adapter. (ii) `saveRecipe`'s insert OMITS `recipe_notes` (copy-all REQUIRES it) and many fields (it's a curated extraction subset). (iii) Its child-savers are STALE against the live schema and would THROW: `saveCrossReferences` inserts `recipe_id/page_number/notes` into `recipe_references` (whose real key is `source_recipe_id`, col `referenced_page_number`, no `notes`); `saveMediaReferences` inserts `image_url/caption/sequence_order` into `recipe_media` (whose real cols are `url/description/location_on_page`). (iv) It writes `recipe_references` (EXCLUDED by the copy-set) and `recipe_source_notes` (community comments, not in the set). (v) It does NOT write `recipe_photos` or `recipe_step_notes`.
+- **[FIX #2 — PHOTOS MECHANISM = (a) REFERENCE, NOT (b) rehost].** `recipe_photos` has **ZERO writers** anywhere in the codebase — canonical recipes carry their image as `recipes.image_url` (a single text URL/path) and `recipe_media.url` (link text). A deep-copy copies those **reference strings verbatim**, so the user's copy points at the SAME stored image as the canonical — **no new bytes, no per-user storage object, no rehosting.** §3 IP exposure therefore does NOT increase per delivery (one stored image, N references = the canonical's existing exposure). Consequence for Fix #3: the purge story only needs to reach delivered ROWS; the shared underlying file is left (no per-user storage objects to enumerate). **If the copy mechanism were ever changed to rehost bytes, this flips to (b) and must return to §3.**
+- **`recipe_step_notes` is USER CONTENT, not book-recipe content** — written only by `cookingService` (per-user cooking-mode notes, `user_id NOT NULL`). It is in the prompt's COPIED-children list but should be **EXCLUDED** (copying it would duplicate one user's cooking notes onto another user). Flagged for the copy-set.
+- **`parent_recipe_id` is lineage-only — confirmed safe** (sweep): 7–9 occurrences, all SQL (column, backup tables, FK, the unused `recipes_with_subs` view); **zero TypeScript references; no detail/cook/search/feed/library read resolves through it.** A future delivered copy with `parent_recipe_id` set will not leak the canonical's data into any read path.
+- **Library surfacing confirmed:** `createUserBookOwnership` writes `user_books`; `getUserBooks` reads `user_books` then `getRecipesByBook(book.id, userId)` (recipes by user+book). A delivered copy (`user_id`=user, `book_id`=catalog id) surfaces correctly — the plan's library path is sound.
+- **Provenance values source:** `models.ts` (`RECIPE_PARSE_MODEL='claude-haiku-4-5-20251001'`, `VISION_MODEL='claude-sonnet-4-6'`) + per-recipe `raw_extraction_data`. `extraction_method` ∈ {book_photo, url, manual, copy_on_verify}.
+- **Provenance columns confirmed ABSENT** pre-migration (recipes had only `raw_extraction_data` + `extraction_confidence`) → Task 1 adds them.
+
+**Why STOPPED (the decision oversight must make):** the engine's mandated mechanism — `saveRecipeToDatabase` as the SOLE child-saver, copying allow-listed fields+children — is not viable (lossy field subset, drops `recipe_notes`, writes EXCLUDED `recipe_references`, child-savers throw against the live schema, requires a ProcessedRecipe adapter). **Recommended resolution:** a dedicated **row-level deep-copier** in `recipeService` (or a new `recipeDeliveryService`) that reads the canonical `recipes` row + the allow-listed children straight from the DB and re-inserts them under the new `user_id`, driven by the config allow-list — faithful, schema-accurate, honors the exclusions exactly. This is a "second child-save path," which the prompt forbade ("SOLE child-saver / no second path"), so it is a structural call for oversight, not something CC should improvise on a gated/IP-sensitive CP. (Alternative: refactor `saveRecipeToDatabase` + fix its stale child-savers + build a row→ProcessedRecipe adapter — more invasive, touches the live extraction path.)
+
+**Verified:** anchor v0.3.4 read; provenance migration additive + de-risked (no existing-row writes) + dry-run only; photos = (a) reference determined; `parent_recipe_id` not read-resolved; library surfacing path confirmed. Engine deep-copy / exclusions / idempotency / purge-query / invocation NOT built (STOPPED).
+
+**Git/DB state:** Task 1 migration authored on disk; **NOT pushed, NOT committed.** CP6a-2's uncommitted work untouched (no sweep). `.env` never staged.
+
+**Open questions (for oversight):**
+- **DECISION NEEDED — deep-copy mechanism:** dedicated row-level deep-copier (recommended) vs. adapt `saveRecipeToDatabase` (lossy + needs adapter + fix its stale child-savers). The rest of CP6b (Tasks 2–6) is blocked on this.
+- `recipe_step_notes` — confirm it's EXCLUDED (user content), overriding the prompt's COPIED list.
+- `saveRecipeToDatabase`'s stale child-savers (`saveCrossReferences`/`saveMediaReferences` write non-existent columns) are a pre-existing latent bug surfaced here — fix separately?
+- §3 IP: photos are (a) reference (no new exposure per delivery) — the §3 counsel gate before public launch stands regardless; full-content copy is Tom's accepted F&F risk.
+- `recipe_references` exclusion + invocation mechanism (enqueue/RPC) + legacy backfill (§4.5, separate) — all still open, downstream of the mechanism decision.
+
+**Recommended doc updates:**
+- **`FRIGO_ARCHITECTURE.md`** — none yet (delivery engine not built; add once the mechanism is decided + authored).
+- **`DEFERRED_WORK.md`** — recommend: `saveRecipeToDatabase` stale child-savers (`recipe_references`/`recipe_media` column drift); legacy provenance backfill (§4.5); `recipe_references` resolution. Not edited (recommend).
+- **`PROJECT_CONTEXT.md`** — none.
+- **`FF_LAUNCH_MASTER_PLAN.md`** — recommend marking CP6b BLOCKED on the deep-copy-mechanism decision; provenance columns authored. Not edited (recommend).
+- **§3 counsel gate before public launch — ELEVATED** (full-content copy is the F&F posture; photos are (a) reference).
 
 ---
 
