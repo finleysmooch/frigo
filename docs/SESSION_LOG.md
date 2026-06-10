@@ -7,6 +7,37 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-09 — CP4-seed (part 1): `is_catalog` column + searchBookCatalog filter + empirical isolation (real seed STILL deferred — CSV absent)
+
+**Scope:** completes the marker + search-filter correction oversight ruled for CP4; the net-new CSV seed remains blocked on the absent CSV. Data + search only. Mechanical tier → CC authored AND pushed the column migration.
+
+**Marker ruling applied:** oversight chose the explicit `is_catalog` column (waiving CP4's original "no books column change" constraint), over the no-marker option.
+
+**Shipped:**
+- **Migration `20260609234010_add_books_is_catalog`** (pushed): `ALTER TABLE books ADD COLUMN is_catalog boolean NOT NULL DEFAULT false` + a column COMMENT. Additive only — **no existing-row writes** (the DEFAULT handles all 16 current rows; nothing promoted — promotion is CP4b). `is_catalog` is orthogonal to `user_books` ownership and to `toc_extracted_at` transcription.
+- **`searchBookCatalog` filter edit** (`lib/services/recipeExtraction/bookService.ts`): added `.eq('is_catalog', true)` — the crux correction so dev junk + workstream books no longer surface to testers. Return shape + prefix ordering unchanged; stale "searches ALL books" doc comment updated. tsc clean.
+- **Real CSV seed NOT authored** — `docs/seed/cookbook_titles.csv` is still absent. Per the fallback I did column + filter + sample-fixture verification and STOPPED. The seed will be a SEPARATE tracked migration when the CSV lands (catalog updates = new migration; documented in the column comment).
+
+**Verified (sample fixture inserted as is_catalog=true, then cleaned up — DB left at 16 books / 0 catalog):**
+- Column: total=16, catalog_true=0, catalog_false=16; all existing `updated_at` predate the migration (no existing-row mutation).
+- **Search filter (anon path):** `ZZ Sample` → 2 samples; case-insensitive `zz sample` → same; **`Cooked Veg` (junk) → [], `Six Seasons` (workstream) → [], `Plenty` (transcribed) → []** (all is_catalog=false, excluded); author match `Sampleton` → 1 sample.
+- **Empirical isolation (the check CP4 deferred to seed time):** user A getUserBooks/getBooksForIndex/getChefsForIndex-equivalent counts before==after (0/0/0); **global absence — sample catalog rows in `user_books`=0 and in `recipes`=0**, so they leak into NO user's library functions; a real library user (47feb56f, 7 books) unaffected.
+- Migration tracked: `migration list` local==remote (5 versions); `db diff --linked --schema public` shows ONLY the known 3-CHECK noise — no `is_catalog` diff.
+
+**Files touched (committed together as the `feat(books): is_catalog column + catalog-scoped search filter` slice):**
+- `supabase/migrations/20260609234010_add_books_is_catalog.sql` (new)
+- `lib/services/recipeExtraction/bookService.ts` (searchBookCatalog `.eq('is_catalog', true)` + doc comment)
+
+**Open questions:**
+- Owned-vs-catalog dedup on the dev account — a catalog title a user also owns may appear in both; deferred to CP6/post-F&F (accepted limitation).
+- The real seed awaits `docs/seed/cookbook_titles.csv` (net-new untranscribed titles only, excluding promotion/workstream/junk).
+
+**Recommended doc updates:**
+- `FRIGO_ARCHITECTURE.md` — **recommend:** add the `searchBookCatalog` entry (now `is_catalog`-filtered) + `books.is_catalog` semantics (true = curated global catalog for T8; orthogonal to `user_books` ownership and `toc_extracted_at`; catalog update = new migration). Not edited (awaiting Claude.ai + the seed landing).
+- `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — **none.**
+
+---
+
 ## 2026-06-09 — CP2 closeout: working tree sliced into per-CP commits + anon-EXECUTE rule banked
 
 **Scope:** mechanical tree-cleaning (commits only — no DB, migrations, or push). The clean-tree precondition for the sensitive row-touching CPs (CP4b/CP5/CP6). Also banked the two CP2-owed doc items.

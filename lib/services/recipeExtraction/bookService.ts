@@ -478,9 +478,11 @@ export interface CatalogBookResult {
  * case-insensitive. Title-prefix matches are returned first, then other title matches, then
  * author-only matches (alphabetical within each group).
  *
- * Searches ALL of `books` (the catalog rows are global books) — it does NOT filter to a catalog
- * marker, so a book a user has already added may also appear here. Dedup/merge of catalog-vs-owned
- * is deferred to CP6/post-F&F (known limitation).
+ * Filtered to `is_catalog = true` rows only — the curated global catalog seeded for onboarding T8.
+ * `is_catalog` is orthogonal to ownership (`user_books`) and to transcription (`toc_extracted_at`):
+ * existing owned/workstream books stay `is_catalog = false` and never surface here. A catalog title
+ * that a user has also added as their own book may still appear (catalog-vs-owned dedup is deferred
+ * to CP6/post-F&F — known limitation).
  *
  * Mirrors the ilike pattern of `bookViewService.searchBooks`, but returns the catalog-specific
  * shape (incl. toc state) and prefix-first ordering that the T8 onboarding flow needs.
@@ -493,6 +495,7 @@ export async function searchBookCatalog(query: string): Promise<CatalogBookResul
     const { data, error } = await supabase
       .from('books')
       .select('id, title, author, cover_image_url, toc_extracted_at')
+      .eq('is_catalog', true)
       .or(`title.ilike.%${q}%,author.ilike.%${q}%`)
       .order('title', { ascending: true })
       .limit(50);
