@@ -305,12 +305,17 @@ async function saveCrossReferences(
   recipeId: string,
   crossReferences: any[]
 ): Promise<void> {
+  // Map the extraction's CrossReference output → live `recipe_references` columns. Prior code wrote
+  // recipe_id / page_number / notes (no such columns) AND read ref.type / ref.text / ref.notes — but the
+  // parser emits reference_text / reference_type / recipe_name / page_number — so any non-empty
+  // cross_references threw and failed the WHOLE recipe save. `notes` is a phantom (never emitted, no
+  // column) → dropped; `recipe_name` (previously ignored) now lands in `referenced_recipe_name`.
   const referenceInserts = crossReferences.map((ref) => ({
-    recipe_id: recipeId,
-    reference_type: ref.type,
-    reference_text: ref.text,
-    page_number: ref.page_number || null,
-    notes: ref.notes || null,
+    source_recipe_id: recipeId,
+    reference_text: ref.reference_text,
+    reference_type: ref.reference_type ?? null,
+    referenced_page_number: ref.page_number ?? null,
+    referenced_recipe_name: ref.recipe_name ?? null,
   }));
 
   const { error } = await supabase
@@ -332,12 +337,17 @@ async function saveMediaReferences(
   recipeId: string,
   mediaReferences: any[]
 ): Promise<void> {
+  // Map the extraction's MediaReference output → live `recipe_media` columns. Prior code wrote
+  // image_url / caption / sequence_order (no such columns) AND read media.media_type / image_url /
+  // caption — but the parser emits type / visible_url / description / location — so any non-empty
+  // media_references threw. The numeric `sequence_order` is a phantom (never emitted, no column) →
+  // dropped; `location` (previously ignored) now lands in `location_on_page`.
   const mediaInserts = mediaReferences.map((media) => ({
-    recipe_id: media.recipe_id || recipeId,
-    media_type: media.media_type,
-    image_url: media.image_url,
-    caption: media.caption || null,
-    sequence_order: media.sequence_order || 0,
+    recipe_id: recipeId,
+    media_type: media.type ?? null,
+    url: media.visible_url ?? null,
+    description: media.description ?? null,
+    location_on_page: media.location ?? null,
   }));
 
   const { error } = await supabase

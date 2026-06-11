@@ -1,6 +1,6 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 10, 2026  
+**Last Updated:** June 11, 2026  
 **Version:** 5.33  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
@@ -15,6 +15,12 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## RESOLVED — Stale extraction child-savers (CP6b finding → fixed 2026-06-11)
+
+🐛 🔴 → ✅ `recipeService.saveCrossReferences` / `saveMediaReferences` inserted against non-existent columns AND read the wrong parser-output keys, so any extraction emitting non-empty `cross_references` / `media_references` **threw and failed the whole recipe save** (the outer catch rethrows). Surfaced during CP6b confirm-from-code; kept out of CP6b for isolation. **Fixed 2026-06-11** — both mappings now map the real parser output → live columns: cross-refs `recipe_id`→`source_recipe_id`, `page_number`→`referenced_page_number`, **recovered** `recipe_name`→`referenced_recipe_name`, dropped phantom `notes`; media `image_url`→`url`, `caption`→`description`, **recovered** `location`→`location_on_page`, dropped phantom `sequence_order`. No schema change. Live-verified (corrected mapping lands correct rows; old mapping throws `PGRST204`). Frequency unmeasurable from persisted data (arrays not stored in `raw_extraction_data`; 0 child rows ever) → 🔴 by severity (total save failure when triggered). _(Recommended in prior SESSION_LOGs but never formally banked here; recorded directly as resolved.)_
 
 ---
 

@@ -7,6 +7,34 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-11 — Stale-child-saver fix: recipeService cross-ref/media inserts aligned to live schema (checkpoint, LIVE extraction path; push HELD for Tom)
+
+**Tier: checkpoint, LIVE extraction path. Code-only — no schema/migration/RLS.** Fixes the pre-existing prod bug CP6b surfaced: `recipeService.saveCrossReferences` / `saveMediaReferences` insert against columns that no longer exist (and read the wrong parser-output keys), so any extraction emitting non-empty `cross_references` / `media_references` threw → the outer catch rethrew → the **entire recipe save failed**. NOT introduced by CP6b (kept out for isolation). **CC authored + live-tested; push HELD for Tom.** Precondition met (main==origin `…3e8c898`; tree clean except the known out-of-scope untracked items).
+
+**Confirm-from-code — the bug was worse than a column rename (the savers read the WRONG OUTPUT keys too):**
+- **Old `saveCrossReferences`:** `{recipe_id, reference_type: ref.type, reference_text: ref.text, page_number, notes}`. **Live `recipe_references`:** `source_recipe_id, reference_text (NOT NULL), referenced_page_number, referenced_recipe_name, referenced_recipe_id, reference_type, is_fulfilled` — no `recipe_id`/`page_number`/`notes`. No generated/identity columns.
+- **Old `saveMediaReferences`:** `{recipe_id, media_type: media.media_type, image_url, caption, sequence_order}`. **Live `recipe_media`:** `recipe_id, media_type, url, description, location_on_page` — no `image_url`/`caption`/`sequence_order`. No generated/identity columns.
+- **Extraction OUTPUT shape (decisive):** `CrossReference = {reference_text, page_number, recipe_name, reference_type}`; `MediaReference = {type, location, visible_url, description}` (`lib/types/recipeExtraction.ts` + the `claudeVisionAPI` prompt). The old savers read `ref.type`/`ref.text`/`ref.notes` + `media.media_type`/`image_url`/`caption` — **all undefined** — and **ignored** the real `recipe_name` + `location`. `notes` and `sequence_order` are **phantoms** (never emitted, no column).
+- **Frequency: 🔴 (severity-driven; unmeasurable).** 0/823 recipes carry the arrays in `raw_extraction_data` (the keys aren't stored — 0/398 with raw data have them); `recipe_references`/`recipe_media` = 0 rows ever. **Selection-bias caveat:** failed child-saves leave no trace, so absence can't be confirmed; the *impact* when triggered is total recipe-save failure → 🔴 regardless.
+
+**Fix (the two `.map()` insert mappings only — output→live-column):**
+- `saveCrossReferences`: `source_recipe_id`←recipeId, `reference_text`←`ref.reference_text`, `reference_type`←`ref.reference_type`, `referenced_page_number`←`ref.page_number`, **`referenced_recipe_name`←`ref.recipe_name`** (recovered); dropped phantom `notes`.
+- `saveMediaReferences`: `recipe_id`←recipeId, `media_type`←`media.type`, `url`←`media.visible_url`, `description`←`media.description`, **`location_on_page`←`media.location`** (recovered); dropped phantom `sequence_order`.
+- Nothing else in `recipeService` touched; no schema change; `recipeDeliveryService` untouched/unimported.
+
+**Verified (real test against prod via fixture extraction objects through the EXACT shipped mappings; cleaned up):**
+- Corrected cross-ref insert **succeeds** → `reference_type=technique`, `referenced_page_number=45`, `referenced_recipe_name='Master Stock'`. Corrected media insert **succeeds** → `media_type=youtube`, `url=…`, `location_on_page='top-right of page'`.
+- **OLD mappings FAIL** (proving the bug + fix): `PGRST204 Could not find the 'notes' column` / `'caption' column`.
+- Empty arrays no-op (caller guards on `length>0`). `recipe_references`/`recipe_media` **0==0** (before==after; fixtures cleaned). `tsc` clean.
+
+**Files modified:** `lib/services/recipeExtraction/recipeService.ts` (the two insert mappings only) ⚠️ PK snapshot now stale (was 2026-05-19); `docs/DEFERRED_WORK.md` (stale-child-saver banked RESOLVED; Last Updated → June 11); `docs/PK_CODE_SNAPSHOTS.md` (Rule E — row noted, stays HIGH); `docs/SESSION_LOG.md` (this entry). **Push HELD for Tom** (live extraction path); own slice, git only.
+
+**Open questions:** none — recovered `recipe_name`/`location` now persist; phantom `notes`/`sequence_order` were never emitted (no data loss).
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — banked (resolved); `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
 ## 2026-06-10 — CP6b POST-PUSH real-service smoke (binding gate) — caught a generated-column bug → fixed → PASS
 
 **The binding post-push gate (anchor §7) is SATISFIED.** After Tom's `git push` + `supabase db push` of `20260610192408` (provenance columns now LIVE — verified: 3 columns, additive, 823 rows all default, no existing-row writes; `migration list` local==remote across 9 versions), I ran the **real (compiled) `recipeDeliveryService`** against prod via a service-role harness: fixture (catalog book + 2 canonical recipes spanning the §4.3 copy-set + EXCLUDED children + a verified verification row) → **`deliverVerifiedBook`** → verify per §4.3 → full cleanup.

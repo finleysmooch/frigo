@@ -63,7 +63,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/recipeExtraction/imageProcessor.ts` | 2026-04-22 | | Low | |
 | `lib/services/recipeExtraction/index.ts` | 2026-04-22 | | HIGH | Barrel export |
 | `lib/services/recipeExtraction/ingredientMatcher.ts` | 2026-04-22 | | Low | Instruction text highlighting |
-| `lib/services/recipeExtraction/recipeService.ts` | 2026-05-19 | Phase 3A | HIGH | saveRecipe (distinct from top-level) |
+| `lib/services/recipeExtraction/recipeService.ts` | 2026-05-19 | Phase 3A / stale-saver-fix | HIGH | saveRecipe (distinct from top-level). 2026-06-11: saveCrossReferences/saveMediaReferences insert mappings aligned to live recipe_references/recipe_media columns (was failing the whole save on non-empty cross/media refs). |
 | `lib/services/recipeExtraction/unifiedParser.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/recipeExtraction/webExtractor.ts` | 2026-04-22 | | HIGH | |
 | `lib/utils/mealTypeHelpers.ts` | 2026-05-19 | Phase 7E Fix Pass 1 | Low | Extracted from postService |
