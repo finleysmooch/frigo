@@ -7,6 +7,20 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-11 — WORKSTREAM_PLAN.md updated to spec-of-record (D-ON-9..15 folded in + recovered-spec harvest) (CC-owned doc; committed, NOT pushed)
+
+Follow-up slice to the v0.3.9 decision batch (below), per its item 8 — `docs/onboarding/WORKSTREAM_PLAN.md` is CC's own doc (not a living doc; no `_pk_sync` copy). **Provisional banner removed** (D-ON-9 ratifies the slicing); header now reads BUILD SPEC OF RECORD with the recovered `ONBOARDING_BUILD_SPEC.md` noted as reference-only. **Folded in:** CP-persist / CP4-ext / CP7-minimal / CP-O2 as first-class CPs with per-CP detail + status rows; CP3 → 🟢 draftable (D-ON-13 21-item config constant inlined); CP9a → email-only (D-ON-15) + binary-gate verification (no mid-spine resume per D-ON-10); CP9b rescoped to the D-ON-11 cohort model (same-code suggestions, suggest-and-confirm, never auto-follow; ships without contacts; claim-by-email dependency superseded); CP9d → T8b removed (OB-8) + `has_recipes` badges (D-ON-12) + the T9b degraded-vs-flags-migration report-back owed at draft; CP9e carries the completion stamp. Sequence updated: CP-persist + CP4-ext + CP3 parallel-now → spine → CP7-minimal → CP9b; CP-O2 gated/additive. §5 converted from open DECISIONS to a ruled register mapping D1–D7 → D-ON-9..15.
+
+**Recovered-spec harvest (item 8's named set, from `ONBOARDING_BUILD_SPEC.md` as reference input):** T7 branch map confirmed into CP9d (Cookbooks → T8 · web/social → T9a · in-my-head/Other → personalization only; "in my head" alone does NOT bounce to shelved freehand); T13a/b variant leads + the no-nudge-flash-during-refresh rule into CP9f; T15 "start a grocery list" exit (→ `ViewsScreen`/create-view, 8R model) + live-WCIC-count iterate note into CP9f; T9b post-backdating flags dependency (spec §5.5) into CP9d with the ruled either/or. **Recovered-spec divergences recorded in plan §6** (OAuth, toc_extracted_at-derived tiers, T8b, claim-by-email seeding, stale build-order rows) — anchor wins on all.
+
+**Files modified:** `docs/onboarding/WORKSTREAM_PLAN.md`, `docs/SESSION_LOG.md` (this entry). **Rule E:** no code files edited → no action. Own commit per the prompt ("separately after this commit").
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none (OB-8/OB-9 landed in the previous slice); `PROJECT_CONTEXT.md` — none beyond the previous slice's note; `FF_LAUNCH_MASTER_PLAN.md` — none beyond the previous slice's note.
+
+**Recommended next steps for Tom:** green-light in any order: CP-persist + CP4-ext (mechanical, runnable now) and CP3 (draftable now) — the three are independent and unblock the spine.
+
+---
+
 ## 2026-06-11 — Anchor v0.3.8 → v0.3.9 (onboarding decision batch D-ON-9..15) + spec recovery banner + wireframes committed + DEFERRED_WORK 5.34 (mechanical; committed, NOT pushed)
 
 Verbatim oversight-authored edits, own docs slice; nothing pushed. **Anchor read v0.3.8 pre-edit (STOP check passed).** Applied: header → v0.3.9; companion-docs line → WORKSTREAM_PLAN.md is the build spec of record, recovered ONBOARDING_BUILD_SPEC.md demoted to REFERENCE INPUT (superseded on OAuth/T3, T8b, tier-badge sourcing, claim-by-email placement); §2 decision register gains **D-ON-9..15** (plan ratified + T8b out; completion = `user_profiles.onboarding_completed_at` + binary App.tsx gate; cluster codes + CP7-minimal per-user pass-on codes promoted into F&F; `searchBookCatalog.has_recipes`; 21-item staples config constant; contacts sync = own GATED CP, decoupled; email+password only); §7 rows — CP3 → 🟢 draftable, new CP-persist / CP4-ext / CP7-minimal / CP-O2 rows, T9b backdating flag appended; changelog 0.3.9 row.
