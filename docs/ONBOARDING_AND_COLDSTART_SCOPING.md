@@ -1,6 +1,6 @@
 # Onboarding & Cold Start — Scoping (Anchor)
 
-**Version:** v0.3.7 · **Status:** 🟢 reconciled to the live build model · 2026-06-10
+**Version:** v0.3.8 · **Status:** 🟢 reconciled to the live build model · 2026-06-11
 **Canonical location:** repo `docs/ONBOARDING_AND_COLDSTART_SCOPING.md` (no suffix), committed; dated copy in `_pk_sync/` for PK upload.
 **Owner:** oversight/spec (canonical). Executing instance proposes changes via SESSION_LOG; oversight merges.
 **Companion docs:** `ONBOARDING_BUILD_SPEC.md` (build-actionable) · `COOKBOOK_DELIVERY_SCOPE.md` (cookbook workstream) · `docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html` (15 screens).
@@ -128,11 +128,11 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 | CP3 | Staples checklist (D-ON-2) | checkpoint | ⏳ **must ensure space exists before supply write (§6)** |
 | CP4 | `is_catalog` column + `searchBookCatalog` | mechanical | ✅ shipped |
 | CP4-seed | Net-new catalog CSV seed | mechanical | ⏳ part-1 committed; **waits on Tom's `docs/seed/cookbook_titles.csv`** |
-| CP4b | Promote transcribed books into catalog | **gated** | ⛔ waits on assembly-owner per-book list |
+| CP4b | Promote transcribed books into catalog | **gated** | ⛔ waits ONLY on the assembly-owner per-book list (CP6b smoke-gate met) |
 | CP5 | Auth trigger (no-username + metadata-ready) | **gated** | ✅ **shipped — pushed + live-verified** (real signup: username NULL, display_name from metadata, defaults) |
 | CP6a-1 | Verification table + private bucket + capture/submit | checkpoint | ✅ **shipped + verified** |
-| CP6a-2 | Admin gate + review RPCs + allowlist + in-app portal + CP6b seam | **gated** | 🟢 in oversight pre-review → CC authors |
-| CP6b | Copy-on-verify delivery + provenance (full-recipe copy per §4.3; recipeDeliveryService) | **gated** | 🟡 provenance migration authored (held — pushes with the engine); engine cleared to author on v0.3.5 landing; **post-push gate:** a fixture smoke through the real recipeDeliveryService (deliver → verify per §4.3 → clean up; real-corpus counts before==after) must PASS before CP4b promotes any catalog book or any real-user delivery occurs (the pre-push de-risk is a SQL mirror, ratified 2026-06-10 — it validates logic, not the shipped path) |
+| CP6a-2 | Admin gate + review RPCs + allowlist + in-app portal + CP6b seam | **gated** | ✅ shipped + prod-verified (RLS backstop PASS 2026-06-10) |
+| CP6b | Copy-on-verify delivery + provenance (full-recipe copy per §4.3; recipeDeliveryService) | **gated** | ✅ shipped + prod-verified (post-push real-service fixture smoke PASS 17/17, 2026-06-11); CP4b smoke-gate SATISFIED |
 | CP8 | Claim-by-email | **gated, high-risk** | ⛔ isolated, own verified CP |
 | CP9 | Spine + router + recipe value steps + empty states | checkpoint | ⏳ **§6 constraint applies** |
 
@@ -167,6 +167,7 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 ## Changelog
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-06-11 | 0.3.8 | §7 status reconcile: CP6a-2 + CP6b **shipped + prod-verified** (RLS backstop PASS + post-push real-service fixture smoke PASS 17/17); CP4b now waits ONLY on the assembly-owner per-book list (CP6b smoke-gate met). MIGRATIONS.md: **invocation-auth** standing rule banked (+ the `SELECT *`/generated-column caveat from CP6b). |
 | 2026-06-10 | 0.3.7 | Doc catch-up to ratified CP6b behavior: user_books link inlined in recipeDeliveryService (F&F exception — isolation over reuse; neutral primitive DEFERRED w/ OB-6). gold_standard_* family excluded/reset as a set. Deny-list standing rule for future columns. Invocation-auth confirm added to the gated-RPC/function checklist. |
 | 2026-06-10 | 0.3.6 | Completeness guard fired on first run: user_ingredient_choices classified EXCLUDE (user content). recipe_image_mapping typo fixed. Closure inventory recorded (scan now reconciles cleanly). De-risk model ratified: pre-push SQL mirror + binding post-push real-service fixture smoke as a gate before CP4b promotion / first real delivery. |
 | 2026-06-10 | 0.3.5 | Photos mechanism confirmed (a) reference (purge row-scoped). Copy mechanism ruled: dedicated recipeDeliveryService (supersedes saveRecipeToDatabase mandate — extraction path cannot faithfully copy). Copy-set ratified: recipe_step_notes EXCLUDED (user content), recipe_source_notes COPIED (source content), live-FK-scan completeness guard added. §7/§9 v0.3.3 carve-out leftovers corrected. CP6a RLS backstop verified post-push (PASS, 2026-06-10). |

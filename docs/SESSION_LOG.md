@@ -7,6 +7,12 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-11 — Anchor v0.3.7 → v0.3.8 (§7 status reconcile) + MIGRATIONS.md invocation-auth rule (mechanical; committed, NOT pushed)
+
+Verbatim edits, own docs slice (anchor + MIGRATIONS.md + this note); nothing pushed. Anchor read v0.3.7 pre-edit (STOP check passed). **§7 reconciled:** CP6a-2 + CP6b → ✅ **shipped + prod-verified** (RLS backstop PASS 2026-06-10 + post-push real-service fixture smoke PASS 17/17, 2026-06-11); CP4b → ⛔ waits **ONLY** on the assembly-owner per-book list (CP6b smoke-gate met). Anchor changelog 0.3.8. **MIGRATIONS.md:** banked the **invocation-auth** standing rule (a privileged edge-function/RPC must restrict its invocation surface — service-role/internal for functions, anon-EXECUTE + GRANT + definer self-checks for RPCs — and the CP must paste the actual auth-denial check; an authenticated JWT alone is not authorization; worked example = CP6b `deliver-book` 403 service-role gate) + the `SELECT *`/GENERATED-column caveat (CP6b `recipe_ingredients.total_time_min`; prefer a real-service smoke over a SQL mirror as the final gate). MIGRATIONS Last Updated → 2026-06-11. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` / `DEFERRED_WORK.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none beyond these edits.
+
+---
+
 ## 2026-06-11 — Stale-child-saver fix: recipeService cross-ref/media inserts aligned to live schema (checkpoint, LIVE extraction path; push HELD for Tom)
 
 **Tier: checkpoint, LIVE extraction path. Code-only — no schema/migration/RLS.** Fixes the pre-existing prod bug CP6b surfaced: `recipeService.saveCrossReferences` / `saveMediaReferences` insert against columns that no longer exist (and read the wrong parser-output keys), so any extraction emitting non-empty `cross_references` / `media_references` threw → the outer catch rethrew → the **entire recipe save failed**. NOT introduced by CP6b (kept out for isolation). **CC authored + live-tested; push HELD for Tom.** Precondition met (main==origin `…3e8c898`; tree clean except the known out-of-scope untracked items).

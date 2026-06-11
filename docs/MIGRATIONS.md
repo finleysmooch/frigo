@@ -1,6 +1,6 @@
 # Frigo — Database Migrations Workflow
 **Created:** 2026-06-09
-**Last Updated:** 2026-06-09
+**Last Updated:** 2026-06-11
 **Owner topic:** Supabase schema change management (resolves P7-23)
 
 This doc is the single source of truth for how Frigo's Postgres schema is
@@ -88,6 +88,23 @@ Always verify after pushing: `SELECT has_function_privilege('anon','public.my_fn
 **Worked example:** CP2's `redeem_invite_code` shipped *still callable by `anon`* even though the base migration did `REVOKE … FROM PUBLIC` + `GRANT … TO authenticated` — because the **explicit** `anon` grant from Supabase's default privileges survived (source #2). Fixed forward-only by `supabase/migrations/20260609184359_invite_codes_restrict_redeem_to_authenticated.sql` (`REVOKE EXECUTE … FROM anon`). `validate_invite_code` *intentionally* stays anon-callable (pre-account gate).
 
 This rule protects CP5's auth-trigger function and every future RPC migration.
+
+---
+
+## Standing rule — invocation-auth (privileged edge functions / RPCs)
+
+**Any new edge function or RPC that performs privileged writes must restrict its invocation surface** — service-role/internal auth for edge functions, anon-EXECUTE lockdown + role-appropriate `GRANT` + definer self-checks for RPCs — **and the CP's verification must paste the actual auth-denial check.** An authenticated JWT alone is **not** authorization for a privileged path.
+
+**Worked example — CP6b's `deliver-book` edge function.** It does privileged cross-user writes via the service role. Supabase's default `verify_jwt` admits *any* signed-in user, so a comment asserting "service-role-only" is not a control — the real gate compares the `Authorization` bearer to the service-role key and 403s otherwise:
+```ts
+const presented = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+if (!serviceKey || presented !== serviceKey) {
+  return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 });
+}
+```
+The CP6b closeout pasted that check + the PASS verdict (an arbitrary authenticated client → 403).
+
+**Worked-example caveat — `SELECT *` re-insert hits GENERATED columns.** A row-copier that reads a canonical row with `SELECT *` and re-inserts it will FAIL on `GENERATED ALWAYS` / identity columns (Postgres rejects writing a non-DEFAULT value into them). CP6b's `recipeDeliveryService` hit this on `recipe_ingredients.total_time_min` — the SQL-mirror de-risk missed it (it listed columns explicitly); the **real-service post-push smoke** caught it. Fix: drop GENERATED/identity columns from the copy (live-scanned via `information_schema` `is_generated`/`is_identity`; config-driven). When copying rows, exclude computed columns — and prefer a real-service smoke over a SQL mirror as the final gate.
 
 ---
 
