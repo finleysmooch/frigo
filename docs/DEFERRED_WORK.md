@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** June 11, 2026  
-**Version:** 5.33  
+**Version:** 5.34  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -21,6 +21,17 @@ This is the master backlog — the accumulated deferred work from all completed 
 ## RESOLVED — Stale extraction child-savers (CP6b finding → fixed 2026-06-11)
 
 🐛 🔴 → ✅ `recipeService.saveCrossReferences` / `saveMediaReferences` inserted against non-existent columns AND read the wrong parser-output keys, so any extraction emitting non-empty `cross_references` / `media_references` **threw and failed the whole recipe save** (the outer catch rethrows). Surfaced during CP6b confirm-from-code; kept out of CP6b for isolation. **Fixed 2026-06-11** — both mappings now map the real parser output → live columns: cross-refs `recipe_id`→`source_recipe_id`, `page_number`→`referenced_page_number`, **recovered** `recipe_name`→`referenced_recipe_name`, dropped phantom `notes`; media `image_url`→`url`, `caption`→`description`, **recovered** `location`→`location_on_page`, dropped phantom `sequence_order`. No schema change. Live-verified (corrected mapping lands correct rows; old mapping throws `PGRST204`). Frequency unmeasurable from persisted data (arrays not stored in `raw_extraction_data`; 0 child rows ever) → 🔴 by severity (total save failure when triggered). _(Recommended in prior SESSION_LOGs but never formally banked here; recorded directly as resolved.)_
+
+---
+
+## From: Onboarding decision batch — anchor v0.3.9 (June 11, 2026)
+
+Deferred by the 2026-06-11 onboarding rulings (anchor §2, D-ON-9..15). Per-user pass-on codes are NOT here — promoted into F&F scope as CP7-minimal (D-ON-11).
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| OB-8 | **T8b snap-shelf extraction (shelf-photo spine detection → catalog match).** Ruled OUT of F&F (D-ON-9). Vision feature with no existing service; wireframes call it an optional convenience shortcut, never the sole path — T8a title search is the F&F path. | 🚀 | 🟢 | Post-F&F. Wireframe T8b stands as the design reference. |
+| OB-9 | **Invite attribution-tree visualization/stats UI.** CP7-minimal ships the attribution *data* (owner → code → redemptions); the tree visualization / stats surface is deferred (D-ON-11). | 🚀 | 🟢 | Builds on CP7-minimal's `owner_user_id` + `invite_code_redemptions`. |
 
 ---
 

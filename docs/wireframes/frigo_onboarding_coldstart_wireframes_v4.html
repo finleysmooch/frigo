@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding &amp; Cold Start Wireframes — v2</title>
+<style>
+  :root {
+    --bg-page:#f5f4ef; --bg-surface:#fff; --bg-muted:#f1efe8; --border:#dedcd6; --border-strong:#c5c3bc;
+    --text-primary:#1a1a19; --text-secondary:#5f5e5a; --text-tertiary:#888780;
+    --teal:#0d9488; --teal-dark:#0f6e56; --teal-bg:#ccfbf1; --teal-bg-soft:#e1f5ee; --lime:#84cc16; --lime-bg:#ecfccb;
+    --amber-bg-soft:#FBF5E8; --amber-border:#EF9F27; --amber-dark:#854F0B;
+    --red-bg-soft:#FCF2F2; --red:#E24B4A; --red-dark:#A32D2D;
+    --blue-bg:#E6F1FB; --blue-dark:#0C447C; --purple-bg:#EEEDFE; --purple-dark:#3C3489; --accent:var(--teal);
+  }
+  *{box-sizing:border-box;} html,body{margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg-page);color:var(--text-primary);padding:28px 16px 60px;}
+  .container{max-width:1180px;margin:0 auto;}
+  header h1{font-size:22px;font-weight:500;margin:0 0 4px;}
+  header .sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+  .changelog{background:var(--bg-muted);padding:12px 14px;border-radius:6px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:var(--text-secondary);}
+  .changelog strong{color:var(--text-primary);}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-secondary);margin-bottom:18px;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;} .legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  .flowmap{background:var(--bg-muted);border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--text-secondary);line-height:1.9;}
+  .flowmap code{background:var(--bg-surface);border:0.5px solid var(--border);padding:1px 6px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-primary);}
+
+  .tabs{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding-bottom:12px;}
+  .tab{background:transparent;border:0.5px solid var(--border);border-radius:8px;padding:8px 13px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;font-family:inherit;}
+  .tab:hover{background:var(--bg-muted);}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tab.group-spine.active{background:var(--teal-dark);border-color:var(--teal-dark);}
+  .tab.group-empty{border-color:var(--amber-border);color:var(--amber-dark);}
+  .tab.group-empty.active{background:var(--amber-border);color:#fff;border-color:var(--amber-border);}
+  .tab-sep{width:100%;height:0;}
+
+  .panel{display:none;} .panel.active{display:grid;grid-template-columns:420px 1fr;gap:28px;align-items:start;}
+  @media (max-width:880px){.panel.active{grid-template-columns:1fr;}}
+  .phone{width:380px;background:var(--bg-muted);border-radius:20px;padding:16px;margin:0 auto;}
+  .phone-inner{background:var(--bg-surface);border-radius:12px;border:0.5px solid var(--border);overflow:hidden;font-size:13px;min-height:600px;position:relative;}
+  .phone-caption{text-align:center;font-size:11.5px;color:var(--text-tertiary);margin-top:10px;}
+
+  .notes h3{font-size:16px;font-weight:500;margin:0 0 4px;}
+  .notes .step-id{font-size:11.5px;color:var(--teal-dark);font-family:ui-monospace,Menlo,monospace;margin:0 0 12px;}
+  .notes h4{font-size:14px;font-weight:500;margin:18px 0 8px;}
+  .notes p,.notes li{font-size:13.5px;line-height:1.6;color:var(--text-secondary);} .notes p{margin:0 0 12px;}
+  .notes ul{padding-left:18px;margin:0 0 14px;} .notes li{margin-bottom:5px;} .notes strong{color:var(--text-primary);font-weight:500;}
+  .notes .try-this{background:var(--teal-bg-soft);padding:10px 12px;border-radius:6px;border-left:3px solid var(--teal);font-size:12.5px;color:var(--teal-dark);margin:12px 0;}
+  .notes .flag{background:var(--purple-bg);padding:10px 12px;border-radius:6px;border-left:3px solid var(--purple-dark);font-size:12.5px;color:var(--purple-dark);margin:12px 0;}
+  .notes .open-q{background:var(--amber-bg-soft);padding:10px 12px;border-radius:6px;border-left:3px solid var(--amber-border);font-size:12.5px;color:var(--amber-dark);margin:12px 0;}
+  .notes .schema-flag{background:#FFF1E0;padding:10px 12px;border-radius:6px;border-left:3px solid #BA7517;font-size:12.5px;color:#633806;margin:12px 0;}
+  .notes .dep{background:var(--red-bg-soft);padding:10px 12px;border-radius:6px;border-left:3px solid var(--red);font-size:12.5px;color:var(--red-dark);margin:12px 0;}
+  .notes .reuse{background:var(--blue-bg);padding:10px 12px;border-radius:6px;border-left:3px solid var(--blue-dark);font-size:12.5px;color:var(--blue-dark);margin:12px 0;}
+  .notes .new{background:var(--lime-bg);padding:10px 12px;border-radius:6px;border-left:3px solid var(--lime);font-size:12.5px;color:#3f6212;margin:12px 0;}
+  .notes code{background:var(--bg-muted);padding:1px 5px;border-radius:3px;font-family:ui-monospace,Menlo,monospace;font-size:12px;}
+
+  .subtoggle{display:flex;gap:4px;margin-bottom:14px;padding:4px;background:var(--bg-muted);border-radius:8px;}
+  .subtoggle-btn{flex:1;padding:6px 10px;border:none;background:transparent;font-size:12px;border-radius:6px;cursor:pointer;color:var(--text-secondary);font-family:inherit;}
+  .subtoggle-btn.active{background:#fff;color:var(--text-primary);font-weight:500;}
+  .subvariant{display:none;} .subvariant.active{display:block;}
+
+  /* Icons */
+  .ic{display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  .ic.fill{fill:currentColor;stroke:none;}
+  .ic12{width:12px;height:12px;} .ic16{width:16px;height:16px;} .ic18{width:18px;height:18px;} .ic20{width:20px;height:20px;} .ic22{width:22px;height:22px;} .ic26{width:26px;height:26px;} .ic40{width:40px;height:40px;}
+
+  /* Screen primitives */
+  .scr-statusbar{height:22px;padding:6px 16px 0;font-size:11px;color:var(--text-tertiary);display:flex;justify-content:space-between;}
+  .scr-title-row{padding:8px 16px 12px;display:flex;justify-content:space-between;align-items:center;}
+  .scr-title{font-size:19px;font-weight:600;} .scr-action{color:var(--teal);cursor:pointer;display:inline-flex;}
+  .scr-back-row{padding:14px 16px 6px;display:flex;align-items:center;gap:12px;} .scr-back{color:var(--text-secondary);cursor:pointer;display:inline-flex;} .scr-back-title{font-size:17px;font-weight:500;flex:1;}
+  .section-label{font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.7px;padding:8px 16px 6px;}
+  .skip-link{text-align:center;padding:14px;font-size:13px;color:var(--text-tertiary);text-decoration:underline;cursor:pointer;}
+  .progress{display:flex;gap:6px;justify-content:center;padding:12px 0 4px;} .progress .dot{width:6px;height:6px;border-radius:50%;background:var(--border-strong);} .progress .dot.on{background:var(--teal);} .progress .dot.done{background:var(--teal-dark);}
+
+  .btn{display:block;width:calc(100% - 32px);margin:12px 16px;padding:13px;border-radius:10px;font-size:14.5px;font-weight:600;text-align:center;cursor:pointer;border:none;font-family:inherit;}
+  .btn-primary{background:var(--teal);color:#fff;} .btn-primary.disabled{background:var(--bg-muted);color:var(--text-tertiary);}
+  .btn-secondary{background:var(--bg-surface);color:var(--teal-dark);border:1px solid var(--teal);} .btn-ghost{background:var(--bg-muted);color:var(--text-secondary);}
+  .btn-sm{display:inline-flex;align-items:center;gap:6px;width:auto;margin:0;padding:8px 14px;border-radius:8px;font-size:12.5px;}
+
+  .welcome-hero{text-align:center;padding:54px 24px 18px;}
+  .welcome-logo{display:inline-flex;align-items:center;gap:9px;font-size:25px;font-weight:700;color:var(--teal-dark);margin-bottom:18px;}
+  .welcome-logo .mark{width:42px;height:42px;border-radius:11px;background:var(--teal);color:#fff;display:inline-flex;align-items:center;justify-content:center;}
+  .welcome-vp{font-size:22px;font-weight:600;line-height:1.25;margin:0 0 10px;color:var(--text-primary);}
+  .welcome-sub{font-size:14px;color:var(--text-secondary);line-height:1.5;margin:0 18px;}
+  .welcome-foot{position:absolute;bottom:14px;left:0;right:0;}
+
+  .field-block{padding:14px 16px 4px;} .field-label{font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:7px;}
+  .field-input{background:var(--bg-muted);border:1px solid transparent;border-radius:8px;padding:11px 12px;font-size:14px;width:100%;color:var(--text-primary);}
+  .field-input.focus{border-color:var(--teal);background:var(--bg-surface);} .field-input.placeholder{color:var(--text-tertiary);}
+  .field-input.pw{display:flex;justify-content:space-between;align-items:center;}
+  .strong-pw{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--teal-dark);background:var(--teal-bg);padding:3px 8px;border-radius:6px;}
+  .field-hint{font-size:11.5px;color:var(--text-tertiary);margin-top:5px;padding:0 16px;} .field-hint.good{color:var(--teal-dark);}
+
+  .social-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:calc(100% - 32px);margin:8px 16px;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-surface);color:var(--text-primary);}
+  .social-btn.apple{background:#000;color:#fff;border-color:#000;}
+  .divider{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--text-tertiary);font-size:11.5px;} .divider::before,.divider::after{content:'';flex:1;height:0.5px;background:var(--border);}
+
+  .avatar-pick{display:flex;align-items:center;gap:14px;padding:6px 16px 4px;}
+  .avatar-circle{width:64px;height:64px;border-radius:50%;background:var(--teal-bg);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;flex-shrink:0;border:1px dashed var(--teal);}
+  .avatar-actions{display:flex;flex-direction:column;gap:9px;} .avatar-actions .a{font-size:13px;color:var(--teal-dark);cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+
+  .choice-card{margin:8px 16px;padding:15px 14px;border:1.4px solid var(--border);border-radius:12px;cursor:pointer;display:flex;gap:13px;align-items:flex-start;}
+  .choice-card.active{border-color:var(--teal);background:var(--teal-bg-soft);}
+  .choice-ic{color:var(--teal-dark);flex-shrink:0;margin-top:1px;}
+  .choice-title{font-size:15px;font-weight:600;margin:0 0 3px;} .choice-sub{font-size:12.5px;color:var(--text-secondary);line-height:1.4;}
+
+  /* Single-column checkbox list (L1 + staples) */
+  .ck-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid var(--border);cursor:pointer;}
+  .ck-box{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border-strong);flex-shrink:0;background:var(--bg-surface);position:relative;}
+  .ck-row.on .ck-box{background:var(--teal);border-color:var(--teal);}
+  .ck-row.on .ck-box::after{content:'✓';color:#fff;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:700;}
+  .ck-ic{color:var(--text-secondary);flex-shrink:0;} .ck-name{font-size:14.5px;flex:1;} .ck-row.on .ck-name{color:var(--text-primary);}
+  .check-cat{font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.6px;padding:13px 16px 5px;display:flex;align-items:center;gap:7px;}
+
+  /* Find friends */
+  .ff-hero{margin:12px 16px;padding:16px;border-radius:12px;background:linear-gradient(135deg,var(--teal-bg-soft),var(--lime-bg));border:1px solid var(--teal-bg);}
+  .ff-hero-title{font-size:14px;font-weight:600;color:var(--teal-dark);margin-bottom:4px;} .ff-hero-sub{font-size:12px;color:var(--text-secondary);margin-bottom:12px;}
+  .ff-actions{display:flex;gap:8px;}
+  .ff-pill{flex:1;padding:11px 6px;border-radius:10px;background:var(--bg-surface);border:1px solid var(--teal);color:var(--teal-dark);font-size:12px;font-weight:600;text-align:center;cursor:pointer;}
+  .ff-pill .ic{display:block;margin:0 auto 4px;}
+  .link-row{display:flex;align-items:center;gap:8px;margin:8px 16px;padding:10px 12px;background:var(--bg-muted);border-radius:8px;}
+  .link-row .lnk{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .link-row .cp{font-size:12px;color:var(--teal-dark);font-weight:600;cursor:pointer;}
+  .search-bar{margin:10px 16px;display:flex;align-items:center;gap:8px;background:var(--bg-muted);border-radius:10px;padding:10px 12px;} .search-bar .ph{font-size:13.5px;color:var(--text-tertiary);} .search-bar .ic{color:var(--text-tertiary);}
+  .person-row{display:flex;align-items:center;gap:11px;padding:10px 16px;border-bottom:0.5px solid var(--border);}
+  .pa{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;}
+  .person-body{flex:1;min-width:0;} .person-name{font-size:14px;font-weight:500;display:flex;align-items:center;} .person-meta{font-size:11px;color:var(--text-tertiary);margin-top:1px;}
+  .seeded-badge{font-size:9.5px;background:var(--blue-bg);color:var(--blue-dark);padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;}
+  .follow-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--teal);color:var(--teal-dark);font-size:12.5px;font-weight:600;background:var(--bg-surface);cursor:pointer;} .follow-btn.following{background:var(--teal);color:#fff;}
+
+  /* Post composer */
+  .sheet-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:0.5px solid var(--border);} .sheet-close{color:var(--text-secondary);cursor:pointer;display:inline-flex;} .sheet-title{font-size:14px;font-weight:600;} .sheet-cta{font-size:13px;color:var(--teal);font-weight:600;cursor:pointer;}
+  .photo-drop{margin:14px 16px;height:120px;border-radius:12px;background:var(--bg-muted);border:1px dashed var(--border-strong);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-tertiary);font-size:12.5px;}
+  .stars{display:flex;gap:5px;padding:4px 16px;color:var(--amber-border);} .stars .off{color:var(--border-strong);}
+  .ct-row{display:flex;flex-wrap:wrap;gap:7px;padding:4px 16px 10px;} .ct-chip{padding:8px 13px;border-radius:18px;border:1px solid var(--border);font-size:12.5px;cursor:pointer;} .ct-chip.on{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-dark);}
+
+  /* Book search + verify (L2) */
+  .book-row{display:flex;align-items:center;gap:11px;padding:11px 16px;border-bottom:0.5px solid var(--border);}
+  .book-cover{width:34px;height:46px;border-radius:3px;flex-shrink:0;background:linear-gradient(135deg,var(--purple-dark),var(--blue-dark));box-shadow:1px 1px 3px rgba(0,0,0,.12);}
+  .book-cover.alt{background:linear-gradient(135deg,var(--teal-dark),var(--teal));} .book-cover.alt2{background:linear-gradient(135deg,var(--amber-dark),var(--amber-border));}
+  .book-body{flex:1;min-width:0;} .book-title{font-size:13.5px;font-weight:500;} .book-author{font-size:11.5px;color:var(--text-tertiary);}
+  .pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:9px;} .pill.ready{background:var(--teal-bg);color:var(--teal-dark);} .pill.queued{background:var(--amber-bg-soft);color:var(--amber-dark);} .pill.verify{background:var(--blue-bg);color:var(--blue-dark);}
+  .book-add{width:26px;height:26px;border-radius:7px;border:1.4px solid var(--border-strong);display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);} .book-row.sel .book-add{background:var(--teal);border-color:var(--teal);color:#fff;}
+  .verify-card{margin:10px 16px;padding:13px;border-radius:12px;background:var(--bg-muted);border:1px solid var(--border);display:flex;gap:12px;align-items:center;}
+  .verify-thumb{width:42px;height:56px;border-radius:4px;flex-shrink:0;}
+
+  .ri-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:0.5px solid var(--border);} .ri-ic{color:var(--teal-dark);} .ri-body{flex:1;} .ri-title{font-size:13.5px;font-weight:500;} .ri-src{font-size:11.5px;color:var(--text-tertiary);}
+
+  .rail{display:flex;align-items:center;gap:13px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;margin:8px 16px;cursor:pointer;} .rail.primary{border-color:var(--teal);}
+  .rail-ic{width:38px;height:38px;border-radius:10px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;color:var(--teal-dark);} .rail-body{flex:1;} .rail-title{font-size:14px;font-weight:600;} .rail-sub{font-size:12px;color:var(--text-secondary);} .rail-arrow{color:var(--text-tertiary);}
+
+  .soft-card{margin:12px 16px;padding:14px;border-radius:12px;background:var(--bg-muted);border:1px solid var(--border);} .soft-card .sc-title{font-size:13.5px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:7px;} .soft-card .sc-sub{font-size:12px;color:var(--text-secondary);margin-bottom:10px;} .soft-card .sc-actions{display:flex;gap:8px;}
+
+  .empty-wrap{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:64px 30px 30px;min-height:430px;}
+  .empty-ic{color:var(--teal);margin-bottom:14px;} .empty-title{font-size:17px;font-weight:600;margin-bottom:7px;} .empty-text{font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:20px;}
+  .empty-ctas{display:flex;flex-direction:column;gap:10px;width:100%;} .empty-cta{padding:12px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;} .empty-cta.primary{background:var(--teal);color:#fff;} .empty-cta.secondary{background:var(--bg-surface);border:1px solid var(--teal);color:var(--teal-dark);} .empty-cta.tertiary{background:transparent;color:var(--text-tertiary);text-decoration:underline;}
+
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:54px;background:var(--bg-surface);border-top:0.5px solid var(--border);display:flex;}
+  .tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:9px;color:var(--text-tertiary);} .tabbar .tb.on{color:var(--teal);}
+</style>
+</head>
+<body>
+<!-- ===== ICON SPRITE (mirrors repo custom SVG icon set) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-5h5v5"/></symbol>
+  <symbol id="i-recipes" viewBox="0 0 24 24"><path d="M5 4h10a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M17 6h2v14H7"/><path d="M8 8h6M8 11h6"/></symbol>
+  <symbol id="i-meals" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pantry" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M6 10.5h12"/><path d="M9 6.5v2M9 13.5v3"/></symbol>
+  <symbol id="i-grocery" viewBox="0 0 24 24"><path d="M5 7h15l-1.5 9H7.5z"/><path d="M5 7L4 4H2"/><circle cx="9" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></symbol>
+  <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="13" cy="13" r="4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.8"/><path d="M21 17l-5-5-9 7"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 1 0-5.66-5.66L11 7"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 1 0 5.66 5.66L13 17"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6M17 20h3"/></symbol>
+  <symbol id="i-contacts" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M8 16c.7-1.8 2.2-2.6 4-2.6s3.3.8 4 2.6"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 5.5a3.4 3.4 0 0 1 0 6.5M17 15c2.6.3 4 2 4 5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3-2 4-2 7a2 2 0 0 0 4 0c2 1.5 3 3.5 3 5.5a5 5 0 0 1-10 0C5 16 8 12 9 10c1.5 1 2 2 2 2 .5-3-1-6 1-9z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h13"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4h4v4M4 20l16-16M4 4l5 5M14 14l6 6M20 16v4h-4"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></symbol>
+  <symbol id="i-fridge-brand" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3" fill="#fff" stroke="#fff"/><path d="M6 10.5h12" stroke="#0d9488" stroke-width="1.4"/><path d="M9 6v2.2M9 13v3.2" stroke="#0d9488" stroke-width="1.6"/></symbol>
+  <symbol id="i-google" viewBox="0 0 24 24"><path d="M21 12.2c0-.7-.06-1.4-.18-2H12v3.8h5.05c-.22 1.2-.88 2.2-1.87 2.9v2.4h3.02C19.96 17.6 21 15.1 21 12.2z" fill="#4285F4" stroke="none"/><path d="M12 21c2.43 0 4.47-.8 5.96-2.2l-3.02-2.3c-.84.56-1.9.9-2.94.9-2.26 0-4.18-1.52-4.86-3.58H4.02v2.38C5.5 19.1 8.5 21 12 21z" fill="#34A853" stroke="none"/><path d="M7.14 13.8a5.4 5.4 0 0 1 0-3.6V7.82H4.02a9 9 0 0 0 0 8.36z" fill="#FBBC05" stroke="none"/><path d="M12 6.6c1.32 0 2.5.46 3.44 1.34l2.58-2.58C16.46 3.9 14.42 3 12 3 8.5 3 5.5 4.9 4.02 7.82L7.14 10.2C7.82 8.14 9.74 6.6 12 6.6z" fill="#EA4335" stroke="none"/></symbol>
+  <symbol id="i-apple" viewBox="0 0 24 24"><path d="M16 3c.1 1.2-.4 2.3-1.1 3.1-.8.9-2 1.5-3.1 1.4-.1-1.2.5-2.4 1.2-3.1C13.7 3.5 15 3 16 3z" fill="currentColor" stroke="none"/><path d="M19 16.5c-.5 1.2-.8 1.8-1.5 2.8-1 1.5-2.4 3.3-4.1 3.3-1.5 0-1.9-1-3.9-1-2 0-2.5 1-4 1-1.7 0-3-1.6-4-3.1C-.5 15.5.6 9.5 4.5 9.5c1.6 0 2.6 1 3.9 1 1.2 0 2-1 3.9-1 1.5 0 3 .8 4 2.2-3.5 1.9-2.9 6.9.7 4.8z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-jar" viewBox="0 0 24 24"><path d="M8 3h8M7.5 6h9l-.5 4c1 .8 1.5 2 1.5 3.5V19a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-5.5c0-1.5.5-2.7 1.5-3.5z"/></symbol>
+</svg>
+
+<div class="container">
+  <header>
+    <h1>Onboarding &amp; Cold Start — Wireframes v4</h1>
+    <p class="sub">Anchor: <code>ONBOARDING_AND_COLDSTART_SCOPING.md</code> v0.3.1 · routed value-exchange model · v4 — final pre-build pass</p>
+  </header>
+  <div class="changelog">
+    <strong>v4 changes:</strong> Tab 7 — removed "Screenshots" and "Chefs I follow"; renamed "Mostly in my head" → "In my head". Chefs step (9c) decoupled from a source row (now offered to all recipe-path users). <br><br>
+    <strong>v3 changes:</strong> L1 (tab 7) gains social sources (Instagram/TikTok, YouTube, Reddit, Substack) + a free-text "Other". Cookbooks (tab 8) — <strong>shelf photo restored</strong> as a second method alongside title search; notes capture the title-catalog goal (search returns title-only books before transcription). <strong>Freehand path shelved</strong> (tab 10 placeholder); the staples seed (tab 11) reframed as the standalone D-ON-2 component. <br><br>
+    <strong>v2 changes:</strong> (1) Google + Apple sign-in + native strong-password on Account. (2) <strong>Username removed</strong> — display name = first+last (Strava-style); find-friends now leans on invite-link/QR/contacts/seeded over name search. (3) Emojis swapped for inline SVGs mirroring the repo icon set (<code>HomeFilled</code>, <code>Fridge</code>, pantry icons, etc.); tab bar corrected to the real 6 tabs. (4) L1 (tab 7) now a single-column checkbox list. (5) Tab 9 split into lean, L1-gated sub-steps (paste / signature / chefs) instead of one busy screen. (6) Verbiage pulled from the <code>cookfrigo.com</code> landing page ("A home for your home cooking", sous-chef framing). (7) Empty pantry gains a "Start a grocery list" link. (8) <strong>Cookbook step redesigned</strong> — search the catalog &amp; select titles you own, then verify with an image; no shelf photo required.</div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--teal)"></span>Locked (D-ON-x)</span>
+    <span><span class="sw" style="background:var(--amber-border)"></span>Open — iterate</span>
+    <span><span class="sw" style="background:var(--purple-dark)"></span>Build gap</span>
+    <span><span class="sw" style="background:#BA7517"></span>Backend/schema</span>
+    <span><span class="sw" style="background:var(--red)"></span>Held dependency</span>
+    <span><span class="sw" style="background:var(--blue-dark)"></span>Reuses component</span>
+    <span><span class="sw" style="background:var(--lime)"></span>New this pass</span>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab group-spine active" data-tab="t1">1 · Welcome</button>
+    <button class="tab group-spine" data-tab="t2">2 · Invite code</button>
+    <button class="tab group-spine" data-tab="t3">3 · Account</button>
+    <button class="tab group-spine" data-tab="t4">4 · Profile</button>
+    <button class="tab" data-tab="t5">5 · Find friends</button>
+    <button class="tab" data-tab="t6">6 · Router (Q0)</button>
+    <button class="tab" data-tab="t7">7 · Recipe · sources</button>
+    <button class="tab" data-tab="t8">8 · Recipe · cookbooks</button>
+    <button class="tab" data-tab="t9">9 · Recipe · value steps</button>
+    <button class="tab" data-tab="t10">10 · Freehand (shelved)</button>
+    <button class="tab" data-tab="t11">11 · Pantry staples</button>
+    <button class="tab" data-tab="t12">12 · Social hand-off</button>
+    <span class="tab-sep"></span>
+    <button class="tab group-empty" data-tab="t13">13 · Empty feed</button>
+    <button class="tab group-empty" data-tab="t14">14 · Empty recipes</button>
+    <button class="tab group-empty" data-tab="t15">15 · Empty pantry</button>
+  </div>
+  <!-- T1 WELCOME -->
+  <div class="panel active" id="t1"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="welcome-hero">
+        <div class="welcome-logo"><span class="mark"><svg class="ic ic26"><use href="#i-fridge-brand"/></svg></span> frigo</div>
+        <p class="welcome-vp">A home for your home cooking</p>
+        <p class="welcome-sub">Your recipes, your cooking, and the friends you cook with.</p>
+      </div>
+      <div class="welcome-foot">
+        <div class="btn btn-primary">Get started</div>
+        <div class="skip-link">I already have an account</div>
+      </div>
+    </div></div><div class="phone-caption">Spine 1 · verbiage from cookfrigo.com</div>
+  </div><div class="notes">
+    <h3>Welcome</h3><p class="step-id">spine · entry · D-ON-1</p>
+    <p>Hero verbiage now matches the landing page: <strong>"A home for your home cooking"</strong> / "Your recipes, your cooking, and the friends you cook with." Single primary action; nothing to configure yet.</p>
+    <div class="new"><strong>Icon pass:</strong> mark is the real <code>Fridge</code> branding icon (via <code>LogoConfigContext</code>), not an emoji. Wordmark lowercase "frigo" per the site nav.</div>
+    <div class="reuse"><strong>Reuse:</strong> <code>Logo</code> + theme. "I already have an account" → existing <code>LoginScreen</code>.</div>
+    <div class="try-this"><strong>Iterate:</strong> single screen (drawn) vs a 3-panel swipe selling the pillars — "recipes in one place" / "grow your cooking community" / "your personal sous chef" (all three are written on the landing page). Leaning single screen for F&amp;F speed.</div>
+  </div></div>
+
+  <!-- T2 INVITE -->
+  <div class="panel" id="t2"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Enter your access code</span></div>
+      <div class="progress"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+      <div style="padding:10px 16px 0;font-size:13px;color:var(--text-secondary);">Frigo is invite-only while we test with a small group of home cooks. Enter the code from your invite.</div>
+      <div class="field-block" style="margin-top:8px;"><div class="field-label">Access code</div><input class="field-input focus" value="FRIGO-7K2QX" /></div>
+      <div class="field-hint good"><svg class="ic ic12 fill"><use href="#i-check"/></svg> Valid — welcome in.</div>
+      <div class="btn btn-primary" style="margin-top:18px;">Continue</div>
+      <div class="skip-link">No code? Request access →</div>
+    </div></div><div class="phone-caption">Spine 2 · gates account creation</div>
+  </div><div class="notes">
+    <h3>Invite / access code</h3><p class="step-id">spine · D-ON-4 (resolved — owns #69)</p>
+    <p>Before account creation. The landing page already sends testers "an access code along with a link to download the app," so this screen is where that code is redeemed.</p>
+    <div class="new"><strong>Resolved from index:</strong> the earlier open question (is there a request-access fallback?) is answered — the site has a <strong>"Request access"</strong> flow. So the "No code?" link points there rather than hard-walling.</div>
+    <div class="schema-flag"><strong>Build #69:</strong> codes table + validation + admin generation (reuses admin panel). Error states to draw: invalid / expired / already-redeemed.</div>
+  </div></div>
+
+  <!-- T3 ACCOUNT -->
+  <div class="panel" id="t3"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Create your account</span></div>
+      <div class="progress"><span class="dot done"></span><span class="dot on"></span><span class="dot"></span></div>
+      <div class="social-btn"><svg class="ic ic18"><use href="#i-google"/></svg> Continue with Google</div>
+      <div class="social-btn apple"><svg class="ic ic18 fill"><use href="#i-apple"/></svg> Continue with Apple</div>
+      <div class="divider">or</div>
+      <div class="field-block" style="padding-top:0;"><input class="field-input placeholder" value="First name" /></div>
+      <div class="field-block"><input class="field-input placeholder" value="Last name" /></div>
+      <div class="field-block"><input class="field-input placeholder" value="Email" /></div>
+      <div class="field-block"><div class="field-input pw"><span class="placeholder">Password</span><span class="strong-pw"><svg class="ic ic12"><use href="#i-check"/></svg> Use strong password</span></div></div>
+      <div class="btn btn-primary" style="margin-top:14px;">Create account</div>
+    </div></div><div class="phone-caption">Spine 3 · social auth + strong password</div>
+  </div><div class="notes">
+    <h3>Account</h3><p class="step-id">spine · reuses <code>SignupScreen</code> + Supabase Auth · Tom: add Google + strong pw</p>
+    <div class="new"><strong>Google + Apple sign-in + strong password.</strong> Supabase Auth supports Google/Apple OAuth; the password field surfaces the OS's native strong-password suggestion (iOS Keychain / Google Password Manager) so a manual password isn't typed.</div>
+    <div class="dep"><strong>App Store flag (4.8):</strong> offering Google sign-in effectively <em>requires</em> also offering Sign in with Apple. Drawn both. If you'd rather ship email-only for F&amp;F and add social later, that avoids the Apple requirement until store submission (Phase 12). Your call — confirm "both."</div>
+    <div class="schema-flag"><strong>Build:</strong> OAuth providers route through the same <code>handle_new_user</code> trigger — Google/Apple return name + email, which become first/last + display name. Trigger must populate profile from the OAuth payload, not just the email form. Folds into the held auth-trigger checkpoint.</div>
+  </div></div>
+
+  <!-- T4 PROFILE -->
+  <div class="panel" id="t4"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Add a photo</span></div>
+      <div class="progress"><span class="dot done"></span><span class="dot done"></span><span class="dot on"></span></div>
+      <div style="padding:14px 16px 4px;text-align:center;">
+        <div class="avatar-circle" style="margin:0 auto 6px;width:84px;height:84px;font-size:30px;">MC</div>
+        <div style="font-size:16px;font-weight:600;">Mary Chen</div>
+        <div style="font-size:12.5px;color:var(--text-tertiary);">mary.chen@gmail.com</div>
+      </div>
+      <div class="avatar-actions" style="align-items:center;margin-top:10px;">
+        <span class="a"><svg class="ic ic18"><use href="#i-camera"/></svg> Take a photo</span>
+        <span class="a"><svg class="ic ic18"><use href="#i-image"/></svg> Choose from library</span>
+      </div>
+      <div class="btn btn-primary" style="margin-top:20px;">Continue</div>
+      <div class="skip-link">Skip — add later</div>
+    </div></div><div class="phone-caption">Spine 4 · photo only · no username</div>
+  </div><div class="notes">
+    <h3>Profile</h3><p class="step-id">spine · Tom: no username, name = first+last (Strava-style)</p>
+    <div class="new"><strong>Username removed.</strong> Display name is just the first+last from signup — no separate handle, no display-name field. The screen collapses to an <strong>optional avatar</strong> step (photo / library). If avatar is also skipped, this whole screen can auto-advance.</div>
+    <div class="flag"><strong>My one push-back (not relitigating):</strong> derive the name from signup, but keep it <strong>editable in Settings later</strong> — locking it permanently is more rigid than Strava. Drawn as: not editable in onboarding; assume editable in <code>EditProfileScreen</code>. Confirm if you truly want it permanent.</div>
+    <div class="dep"><strong>Simplifies the held fix:</strong> with no username, the <code>handle_new_user</code> "username = email" leak mostly dissolves. Build must verify nothing else reads the username column (search RPC, follow, RLS, invite). Stays part of the held auth checkpoint.</div>
+    <div class="flag"><strong>Knock-on (tab 5):</strong> no handle means name-collisions in search — find-friends now leans on invite-link/QR/contacts/seeded, with name search demoted.</div>
+  </div></div>
+
+  <!-- T5 FIND FRIENDS -->
+  <div class="panel" id="t5"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-title-row"><span class="scr-title">Find your friends</span></div>
+      <div class="ff-hero">
+        <div class="ff-hero-title">Invite the people you cook with</div>
+        <div class="ff-hero-sub">Frigo's better with friends — share your invite and they're in instantly.</div>
+        <div class="ff-actions">
+          <div class="ff-pill"><svg class="ic ic20"><use href="#i-link"/></svg>Share link</div>
+          <div class="ff-pill"><svg class="ic ic20"><use href="#i-qr"/></svg>QR code</div>
+          <div class="ff-pill"><svg class="ic ic20"><use href="#i-contacts"/></svg>Contacts</div>
+        </div>
+      </div>
+      <div class="link-row"><span class="lnk">cookfrigo.com/i/7k2qx9</span><span class="cp">Copy</span></div>
+      <div class="section-label">Suggested — people you may know</div>
+      <div class="person-row"><div class="pa" style="background:var(--teal)">TM</div><div class="person-body"><div class="person-name">Tom Miller<span class="seeded-badge">SUGGESTED</span></div><div class="person-meta">From your contacts</div></div><div class="follow-btn following">Following</div></div>
+      <div class="person-row"><div class="pa" style="background:var(--purple-dark)">JL</div><div class="person-body"><div class="person-name">Jess Lee<span class="seeded-badge">SUGGESTED</span></div><div class="person-meta">From your contacts</div></div><div class="follow-btn following">Following</div></div>
+      <div class="search-bar"><svg class="ic ic18"><use href="#i-search"/></svg><span class="ph">Search by name…</span></div>
+      <div class="btn btn-primary" style="margin-top:8px;">Continue</div>
+      <div class="skip-link">Skip for now</div>
+    </div></div><div class="phone-caption">Shared step · viral-first, name-search demoted</div>
+  </div><div class="notes">
+    <h3>Find friends</h3><p class="step-id">shared step · find-friends model · viral-first (Tom Q4)</p>
+    <p>Elevated early so the feed can fill. Hero is the share/QR/contacts row — the levers that let someone <strong>add friends immediately and spread the app from day one</strong>. Seeded suggestions below; name search is now the weakest, bottom option.</p>
+    <div class="flag"><strong>Knock-on from no-username:</strong> search is by <em>name</em>, which collides ("two John Smiths"). That's why contacts + invite-link + QR + seeded carry this screen and search is demoted. Avatars + "from your contacts" context help disambiguate.</div>
+    <div class="open-q"><strong>Q4 still open — contact sync in v1?</strong> Your steer (viral from the start) argues <strong>yes</strong>: contact-email matching is the single biggest spread lever and the strongest disambiguator now that there's no handle. But it's unbuilt (<code>expo-contacts</code>, +~1 session). Drawn as a first-class hero pill. Confirm: build contacts into v1, or ship link/QR/seeded + name-search and fast-follow contacts?</div>
+    <div class="dep"><strong>Seeded "Following" rows depend on claim-by-email</strong> (held) so a seeded profile becomes the real account on signup, not a duplicate.</div>
+    <div class="reuse"><strong>Reuse:</strong> <code>UserSearchScreen</code> (search now name-based), <code>InviteMemberModal</code>, follow services. <code>SearchIcon</code> is the real icon.</div>
+  </div></div>
+
+  <!-- T6 ROUTER -->
+  <div class="panel" id="t6"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div style="padding:40px 20px 6px;text-align:center;">
+        <div style="font-size:18px;font-weight:600;">How do you cook?</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);margin-top:6px;">Just helps us set you up — you can do it all either way.</div>
+      </div>
+      <div class="choice-card active"><svg class="ic ic22 choice-ic"><use href="#i-book"/></svg><div><div class="choice-title">I follow recipes</div><div class="choice-sub">Cookbooks, saved links, the NYT app — I cook from sources.</div></div></div>
+      <div class="choice-card"><svg class="ic ic22 choice-ic"><use href="#i-shuffle"/></svg><div><div class="choice-title">A bit of both</div><div class="choice-sub">Sometimes a recipe, sometimes I wing it.</div></div></div>
+      <div class="choice-card"><svg class="ic ic22 choice-ic"><use href="#i-flame"/></svg><div><div class="choice-title">I go by feel</div><div class="choice-sub">I rarely follow a recipe — I just cook.</div></div></div>
+      <div class="btn btn-primary" style="margin-top:12px;">Continue</div>
+    </div></div><div class="phone-caption">The fork · pure router</div>
+  </div><div class="notes">
+    <h3>Router (Q0)</h3><p class="step-id">D-ON-5 (resolved) — cook-style fork</p>
+    <p><strong>recipes</strong> &amp; <strong>both</strong> → Recipe path (tabs 7–9). <strong>by feel</strong> → Freehand path, currently <strong>shelved</strong> (tab 10 placeholder). The one deliberate question that only routes and returns no data.</p>
+    <div class="flag"><strong>To your tab-9 question:</strong> this router (Q0) picks the <em>path</em>; the finer gating of which recipe steps show is driven by <strong>tab 7 (L1 sources)</strong>, not here. So the busy-ness fix lives in 7→8→9 sequencing (see tab 9).</div>
+    <div class="new"><strong>Icons:</strong> book / shuffle / flame inline SVGs replace the prior emojis.</div>
+  </div></div>
+
+  <!-- T7 L1 SOURCES -->
+  <div class="panel" id="t7"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Where do your recipes live?</span></div>
+      <div style="padding:0 16px 6px;font-size:12.5px;color:var(--text-secondary);">Pick all that apply — we'll only ask about the ones you use.</div>
+      <div class="ck-row on"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-book"/></svg><span class="ck-name">Cookbooks</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-link"/></svg><span class="ck-name">NYT Cooking</span></div>
+      <div class="ck-row"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-link"/></svg><span class="ck-name">Saved web links</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-image"/></svg><span class="ck-name">Instagram / TikTok</span></div>
+      <div class="ck-row"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-image"/></svg><span class="ck-name">YouTube</span></div>
+      <div class="ck-row"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-link"/></svg><span class="ck-name">Reddit</span></div>
+      <div class="ck-row"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-link"/></svg><span class="ck-name">Substack</span></div>
+      <div class="ck-row"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-flame"/></svg><span class="ck-name">In my head</span></div>
+      <div class="ck-row on" style="border-bottom:none;"><div class="ck-box"></div><svg class="ic ic18 ck-ic"><use href="#i-plus"/></svg><span class="ck-name">Other</span></div>
+      <div style="padding:0 16px 8px 50px;"><input class="field-input focus" placeholder="e.g. recipe box, family cards, a friend's blog" value="My grandma's recipe box" /></div>
+      <div class="btn btn-primary" style="margin-top:14px;">Continue</div>
+      <div class="skip-link">I'll add recipes later</div>
+    </div></div><div class="phone-caption">L1 · single-column checkboxes (Tom)</div>
+  </div><div class="notes">
+    <h3>Recipe · L1 sources</h3><p class="step-id">routes (gates next steps) · Q2 gated-by-selection · Tom: single-column checkboxes</p>
+    <p>Redrawn as a tappable checkbox list (was wrap-chips). Its only job is to route — what's checked decides which of the next steps appear.</p>
+    <div class="flag"><strong>Branch map (proposed, confirm):</strong> Cookbooks → tab 8 · web/social sources (NYT, links, Instagram/TikTok, YouTube, Reddit, Substack) → tab 9 "paste". <strong>Other</strong> (free text) and <strong>"In my head"</strong> route to no import — just captured for personalization. ("In my head" alone → the by-feel beat, currently <em>shelved</em>, tab 10.) The chefs/cooks step (9c) is no longer a source row here — it's offered as an optional step to everyone on the recipe path.</div>
+    <div class="schema-flag"><strong>Build caveat — social/video sources.</strong> NYT/web/Substack URLs ride the existing extractor cleanly. <strong>Instagram Reels / TikTok / YouTube / Reddit are not clean recipe URLs</strong> — extraction quality is unproven and likely poor (recipe-in-caption or in-video). For v1 these mainly <em>route + personalize</em>; treat actual import from them as a separate test, not a promise. The free-text "Other" is stored as a profile signal, not parsed.</div>
+    <div class="new"><strong>Icons</strong> per row from the repo set (book/link/image/people/flame).</div>
+  </div></div>
+
+  <!-- T8 COOKBOOKS -->
+  <div class="panel" id="t8"><div>
+    <div class="subtoggle">
+      <button class="subtoggle-btn active" data-sub="t8a">a · Search</button>
+      <button class="subtoggle-btn" data-sub="t8b">b · Snap shelf</button>
+      <button class="subtoggle-btn" data-sub="t8c">c · Verify</button>
+    </div>
+    <div class="subvariant active" id="t8a"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Add cookbooks you own</span></div>
+      <div class="search-bar"><svg class="ic ic18"><use href="#i-search"/></svg><span class="ph">Search by title or author…</span></div>
+      <div style="padding:2px 16px 8px;"><span style="font-size:12px;color:var(--teal-dark);display:inline-flex;align-items:center;gap:6px;"><svg class="ic ic16"><use href="#i-camera"/></svg> or snap your shelf →</span></div>
+      <div class="book-row sel"><div class="book-cover"></div><div class="book-body"><div class="book-title">Six Seasons</div><div class="book-author">Joshua McFadden</div></div><div class="book-add"><svg class="ic ic16"><use href="#i-check"/></svg></div></div>
+      <div class="book-row sel"><div class="book-cover alt"></div><div class="book-body"><div class="book-title">Dinner Tonight</div><div class="book-author">Melissa Clark · <span style="color:var(--teal-dark);">recipes ready</span></div></div><div class="book-add"><svg class="ic ic16"><use href="#i-check"/></svg></div></div>
+      <div class="book-row"><div class="book-cover alt2"></div><div class="book-body"><div class="book-title">Tahini Baby</div><div class="book-author">Eden Grinshpan</div></div><div class="book-add"><svg class="ic ic16"><use href="#i-plus"/></svg></div></div>
+      <div class="book-row"><div class="book-cover"></div><div class="book-body"><div class="book-title">Something From Nothing</div><div class="book-author">Carla Lalli Music · <span class="pill" style="background:var(--bg-muted);color:var(--text-tertiary);">title only</span></div></div><div class="book-add"><svg class="ic ic16"><use href="#i-plus"/></svg></div></div>
+      <div class="btn btn-primary" style="margin-top:10px;">Add 2 books →</div>
+      <div class="skip-link">My book isn't here · request it</div>
+    </div></div><div class="phone-caption">8a · search the title DB, select what you own</div></div>
+    <div class="subvariant" id="t8b"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Snap your shelf</span></div>
+      <div class="photo-drop" style="height:150px;margin-top:8px;"><svg class="ic ic26"><use href="#i-camera"/></svg><div>Point at the spines on your shelf</div><div style="font-size:11px;">We'll match them against the catalog</div></div>
+      <div class="section-label">Found on your shelf</div>
+      <div class="book-row sel"><div class="book-cover"></div><div class="book-body"><div class="book-title">Six Seasons</div><div class="book-author">matched ✓</div></div><div class="book-add"><svg class="ic ic16"><use href="#i-check"/></svg></div></div>
+      <div class="book-row sel"><div class="book-cover alt2"></div><div class="book-body"><div class="book-title">Tahini Baby</div><div class="book-author">matched ✓</div></div><div class="book-add"><svg class="ic ic16"><use href="#i-check"/></svg></div></div>
+      <div class="book-row"><div class="book-cover unknown" style="background:var(--bg-muted);border:1px dashed var(--border-strong);"></div><div class="book-body"><div class="book-title">Spine unclear</div><div class="book-author">tap to search by title</div></div><div class="book-add"><svg class="ic ic16"><use href="#i-search"/></svg></div></div>
+      <div class="btn btn-primary" style="margin-top:10px;">Add 2 matched →</div>
+    </div></div><div class="phone-caption">8b · shelf photo (restored) → feeds the same select flow</div></div>
+    <div class="subvariant" id="t8c"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Verify your copy</span></div>
+      <div style="padding:2px 16px 10px;font-size:12.5px;color:var(--text-secondary);">A quick photo confirms you own it. Recipes land in your library once we've transcribed the book.</div>
+      <div class="verify-card"><div class="verify-thumb" style="background:linear-gradient(135deg,var(--purple-dark),var(--blue-dark));"></div><div style="flex:1;"><div class="book-title">Six Seasons</div><div class="book-author">Snap the cover or any page</div></div><span class="btn btn-secondary btn-sm"><svg class="ic ic16"><use href="#i-camera"/></svg> Photo</span></div>
+      <div class="verify-card"><div class="verify-thumb" style="background:linear-gradient(135deg,var(--teal-dark),var(--teal));"></div><div style="flex:1;"><div class="book-title">Dinner Tonight</div><div class="book-author" style="color:var(--teal-dark);">Verified ✓ — recipes ready</div></div><span class="pill ready">Ready</span></div>
+      <div class="btn btn-primary" style="margin-top:12px;">Add to my library</div>
+      <div class="skip-link">Verify later — keep on my shelf</div>
+    </div></div><div class="phone-caption">8c · ownership-verify image per book</div></div>
+  </div><div class="notes">
+    <h3>Recipe · cookbooks</h3><p class="step-id">returns HIGH value · gated on L1 = Cookbooks</p>
+    <div class="new"><strong>Shelf photo restored as a second method (Tom).</strong> Two ways in: <strong>search the title DB</strong> (8a, primary) <em>and</em> <strong>snap your shelf</strong> (8b) — the shelf photo detects spines and drops them into the same select list. It's a discovery shortcut, not the only path. Both converge on verify (8c).</div>
+    <div class="schema-flag"><strong>Title catalog goal (Tom).</strong> The <code>books</code> table already supports this: <code>title</code> required, but transcription (<code>toc_data</code>/<code>toc_extracted_at</code>) nullable — so a book can be <strong>title-only and still searchable</strong> before we've transcribed it. Search returns those with a <strong>"title only"</strong> tag (addable to your shelf now; recipes arrive when transcribed). This decouples catalog breadth from recipe availability — the DB can be wide. Build: a large title-catalog seed + a "recipes available" signal derived from <code>toc_extracted_at</code>.</div>
+    <div class="open-q"><strong>Confirm — what is the verification image?</strong> (i) cover (fast, weak proof), (ii) a <em>named page</em> (stronger, and feeds the page-scan/assembly pipeline), or (iii) both. Drawn "cover or any page." Bar = ownership proof, pipeline input, or both?</div>
+    <div class="flag"><strong>Status tiers:</strong> owned + transcribed → recipes ready · owned + title-only → on your shelf, recipes queued · not in catalog → "request it" (backlog).</div>
+    <div class="reuse"><strong>Reuse:</strong> <code>books</code> + <code>user_books</code> + <code>bookService</code> (title/ISBN/fuzzy) + the page-scan/assembly pipeline; <code>BookSelectionModal</code> / <code>BookOwnershipModal</code> likely re-skin into this.</div>
+  </div></div>
+
+  <!-- T9 VALUE STEPS (split) -->
+  <div class="panel" id="t9"><div>
+    <div class="subtoggle">
+      <button class="subtoggle-btn active" data-sub="t9a">a · Paste (L4)</button>
+      <button class="subtoggle-btn" data-sub="t9b">b · Signature (L3)</button>
+      <button class="subtoggle-btn" data-sub="t9c">c · Chefs (L5)</button>
+    </div>
+    <div class="subvariant active" id="t9a"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Bring in a few you love</span></div>
+      <div style="padding:0 16px 4px;font-size:12.5px;color:var(--text-secondary);">Paste a link — including NYT Cooking. They land in your library now.</div>
+      <div class="field-block" style="padding-top:8px;"><input class="field-input placeholder" value="Paste a recipe URL" /></div>
+      <div class="ri-row"><svg class="ic ic18 ri-ic"><use href="#i-link"/></svg><div class="ri-body"><div class="ri-title">Sheet-Pan Salmon Niçoise</div><div class="ri-src">cooking.nytimes.com</div></div><span class="pill ready">Imported</span></div>
+      <div class="btn btn-primary" style="margin-top:12px;">Continue</div>
+      <div class="skip-link">Skip</div>
+    </div></div><div class="phone-caption">9a · L4 paste — shown if web/NYT picked</div></div>
+    <div class="subvariant" id="t9b"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">A recipe you make on repeat?</span></div>
+      <div style="padding:0 16px 4px;font-size:12.5px;color:var(--text-secondary);">Your signature dish — we'll add it to your favorites and your profile.</div>
+      <div class="field-block" style="padding-top:8px;"><input class="field-input" value="My mom's chili" /></div>
+      <div class="field-block" style="display:flex;gap:8px;"><input class="field-input placeholder" style="flex:2;" value="Source (optional)" /><input class="field-input placeholder" style="flex:1;" value="~ times" /></div>
+      <div class="btn btn-primary" style="margin-top:14px;">Add it</div>
+      <div class="skip-link">Skip</div>
+    </div></div><div class="phone-caption">9b · L3 signature — own clean step</div></div>
+    <div class="subvariant" id="t9c"><div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">Cooks &amp; chefs you follow?</span></div>
+      <div style="padding:0 16px 4px;font-size:12.5px;color:var(--text-secondary);">We'll surface their books and recipes.</div>
+      <div class="ck-row on"><div class="ck-box"></div><div class="pa" style="width:30px;height:30px;background:var(--amber-border);font-size:12px;">JM</div><span class="ck-name">Joshua McFadden</span></div>
+      <div class="ck-row"><div class="ck-box"></div><div class="pa" style="width:30px;height:30px;background:var(--purple-dark);font-size:12px;">MC</div><span class="ck-name">Melissa Clark</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><div class="pa" style="width:30px;height:30px;background:var(--teal);font-size:12px;">YO</div><span class="ck-name">Yotam Ottolenghi</span></div>
+      <div class="btn btn-primary" style="margin-top:14px;">Continue</div>
+      <div class="skip-link">Skip</div>
+    </div></div><div class="phone-caption">9c · L5 chefs — optional, offered to all</div></div>
+  </div><div class="notes">
+    <h3>Recipe · value steps (split)</h3><p class="step-id">answers "9 feels busy" + your sequencing question</p>
+    <div class="new"><strong>De-densified.</strong> The old single busy screen is now three one-purpose steps. Each appears <em>only if L1 (tab 7) selected its source</em> — so a NYT-only user sees just 9a, a cookbook-only user skips all three (they got value at tab 8), etc. Nobody hits a wall of fields.</div>
+    <div class="open-q"><strong>Q3 (the walk):</strong> proposed order after tab 8 — 9a paste → 9b signature → 9c chefs, each gated/skippable. Open call: is <strong>9b signature</strong> always offered (cheap profile/feed backfill, even for "in my head" users) or also gated? Drawn always-offered.</div>
+    <div class="flag"><strong>Your sequencing Q answered:</strong> yes, 9 comes after 8; and yes, what shows is driven by the <strong>tab-7</strong> selections (not tab 6). The soft pantry-seed card (T1) now appears <em>once</em> at the end of the path / on the hand-off, not stacked here.</div>
+    <div class="schema-flag"><strong>Backend:</strong> 9b signature → backdated + estimated-flagged profile/Favorites entry (shared with F1, tab 10).</div>
+    <div class="reuse"><strong>Reuse:</strong> 9a = <code>AddRecipeFromUrl</code> rail + extraction pipeline; 9c = <code>chefs</code> table pick-list.</div>
+  </div></div>
+
+  <!-- T10 F1 -->
+  <div class="panel" id="t10"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="empty-wrap" style="min-height:560px;">
+        <svg class="ic ic40" style="color:var(--border-strong);"><use href="#i-flame"/></svg>
+        <div class="empty-title" style="color:var(--text-tertiary);">Freehand path — coming back to this</div>
+        <div class="empty-text">The "I go by feel" branch (capture a recent cook → first post + profile entry, then the pantry seed) needs more design work. Placeholder for now.</div>
+      </div>
+    </div></div><div class="phone-caption">Shelved — revisit before build of this branch</div>
+  </div><div class="notes">
+    <h3>Freehand path — shelved</h3><p class="step-id">router "I go by feel" branch · parked (Tom)</p>
+    <div class="flag"><strong>Shelved per Tom.</strong> The freehand onboarding beat (first-cook capture as the value moment for by-feel users) needs more thought — parked behind this placeholder, revisit later. The router (tab 6) "I go by feel" option points here for now.</div>
+    <p>What's <em>not</em> shelved: the <strong>pantry staples seed</strong> (next tab) is a locked, standalone component (D-ON-2) reused by the empty-pantry state and the Recipe-path soft card — it stands on its own regardless of the freehand path's design.</p>
+    <div class="open-q"><strong>To resolve when we come back:</strong> what's the by-feel user's first value beat — capture a recent cook (the old F1), seed the pantry first, or something else? And does "Mostly in my head" from L1 (tab 7) funnel here?</div>
+    <div class="reuse"><strong>When revisited:</strong> the production <code>PostCreationModal</code> + a backdated/estimated "when" field is the likely basis (was the prior F1 design) — held with the post-schema change.</div>
+  </div></div>
+
+  <!-- T11 STAPLES -->
+  <div class="panel" id="t11"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div class="scr-back-row"><span class="scr-back"><svg class="ic ic20"><use href="#i-back"/></svg></span><span class="scr-back-title">What do you keep on hand?</span></div>
+      <div style="padding:0 16px 4px;font-size:12.5px;color:var(--text-secondary);">Tap what you usually have — unlocks "what can I cook?". All marked in-stock; fix any later.</div>
+      <div class="check-cat"><svg class="ic ic16"><use href="#i-jar"/></svg> Basics</div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Onions</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Garlic</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Olive oil</span></div>
+      <div class="ck-row"><div class="ck-box"></div><span class="ck-name">Butter</span></div>
+      <div class="check-cat"><svg class="ic ic16"><use href="#i-flame"/></svg> Proteins</div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Eggs</span></div>
+      <div class="ck-row"><div class="ck-box"></div><span class="ck-name">Chicken</span></div>
+      <div class="check-cat"><svg class="ic ic16"><use href="#i-jar"/></svg> Pantry</div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Pasta</span></div>
+      <div class="ck-row on"><div class="ck-box"></div><span class="ck-name">Rice</span></div>
+      <div class="btn btn-primary">Add 6 staples →</div>
+    </div></div><div class="phone-caption">D-ON-2 · staples seed · single-column checklist</div>
+  </div><div class="notes">
+    <h3>Pantry staples (D-ON-2)</h3><p class="step-id">standalone seed component · default in-stock · reused across surfaces</p>
+    <p>The pantry seed — a curated ~20-item checklist by category, all default in-stock (tap to deselect). Seeding it unlocks <strong>What Can I Cook</strong>. Decluttered to plain checkbox rows.</p>
+    <div class="flag"><strong>Decoupled from the shelved freehand path.</strong> This was "freehand F2," but it's a locked, standalone component used by the <strong>empty-pantry state (tab 15)</strong> and the <strong>Recipe-path soft card</strong>. It stands on its own no matter how the freehand onboarding beat is redesigned later.</div>
+    <div class="reuse"><strong>Reuse:</strong> ingredient catalog + <code>createSupply</code>/<code>suppliesService</code>; <code>StockUpCard</code> concept; <code>WhatCanICookScreen</code> downstream.</div>
+    <div class="open-q"><strong>Iterate:</strong> which ~20 items / how many categories; default-on (drawn) vs default-off.</div>
+  </div></div>
+
+  <!-- T12 HAND-OFF -->
+  <div class="panel" id="t12"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-statusbar"><span>9:41</span><span></span></div>
+      <div style="padding:44px 24px 8px;text-align:center;">
+        <svg class="ic ic40" style="color:var(--teal);"><use href="#i-sparkle"/></svg>
+        <div style="font-size:19px;font-weight:600;margin-top:10px;">You're all set, Mary</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">Now the fun part — cook something and share it, or bring more friends in.</div>
+      </div>
+      <div class="choice-card"><svg class="ic ic22 choice-ic"><use href="#i-flame"/></svg><div><div class="choice-title">Cook &amp; post tonight</div><div class="choice-sub">Your friends see what you make.</div></div></div>
+      <div class="choice-card"><svg class="ic ic22 choice-ic"><use href="#i-people"/></svg><div><div class="choice-title">Find more friends</div><div class="choice-sub">The feed gets better with people you know.</div></div></div>
+      <div class="btn btn-primary" style="margin-top:14px;">Go to Frigo</div>
+    </div></div><div class="phone-caption">T2 · both paths converge</div>
+  </div><div class="notes">
+    <h3>Social hand-off (T2)</h3><p class="step-id">tail · common to both paths</p>
+    <p>End of onboarding: two forward nudges (cook &amp; post · find friends), then into the live app. The seam where the empty states take over if anything was skipped.</p>
+    <div class="flag"><strong>Definition-of-done check:</strong> by here a tester is in (code + account), has a real name (no email-as-handle — moot now, no handle at all), has ≥1 piece of their own data, ≥1 friend (seeded/found), and lands on populated-or-nudging surfaces.</div>
+    <div class="open-q"><strong>Soft pantry card (T1):</strong> for Recipe-path users who never seeded a pantry, surface the optional staples card here (or on first Pantry-tab visit). Drawn as the "find friends / cook" pair; pantry nudge handled by the empty-pantry state (tab 15).</div>
+  </div></div>
+
+  <!-- T13 EMPTY FEED -->
+  <div class="panel" id="t13"><div>
+    <div class="subtoggle">
+      <button class="subtoggle-btn active" data-sub="t13a">a · No follows yet</button>
+      <button class="subtoggle-btn" data-sub="t13b">b · Following, but quiet</button>
+    </div>
+    <div class="subvariant active" id="t13a"><div class="phone"><div class="phone-inner">
+      <div class="scr-title-row"><span class="scr-title">Home</span><span class="scr-action"><svg class="ic ic22"><use href="#i-plus"/></svg></span></div>
+      <div class="empty-wrap">
+        <svg class="ic ic40 empty-ic"><use href="#i-people"/></svg>
+        <div class="empty-title">Your feed fills up with friends</div>
+        <div class="empty-text">Find the people you cook with, then post your first cook so they've got something to see too.</div>
+        <div class="empty-ctas"><div class="empty-cta primary">Find your friends</div><div class="empty-cta secondary">Post a cook</div></div>
+      </div>
+      <div class="tabbar"><div class="tb on"><svg class="ic ic20"><use href="#i-home"/></svg>Home</div><div class="tb"><svg class="ic ic20"><use href="#i-recipes"/></svg>Recipes</div><div class="tb"><svg class="ic ic20"><use href="#i-meals"/></svg>Meals</div><div class="tb"><svg class="ic ic20"><use href="#i-pantry"/></svg>Pantry</div><div class="tb"><svg class="ic ic20"><use href="#i-grocery"/></svg>Grocery</div><div class="tb"><svg class="ic ic20"><use href="#i-profile"/></svg>You</div></div>
+    </div></div><div class="phone-caption">13a · skipped find-friends</div></div>
+    <div class="subvariant" id="t13b"><div class="phone"><div class="phone-inner">
+      <div class="scr-title-row"><span class="scr-title">Home</span><span class="scr-action"><svg class="ic ic22"><use href="#i-plus"/></svg></span></div>
+      <div class="empty-wrap">
+        <svg class="ic ic40 empty-ic"><use href="#i-flame"/></svg>
+        <div class="empty-title">Nothing cooking yet</div>
+        <div class="empty-text">You're following 4 people — they just haven't posted lately. Be the first: share something you made.</div>
+        <div class="empty-ctas"><div class="empty-cta primary">Post a cook</div><div class="empty-cta secondary">Find more friends</div><div class="empty-cta tertiary">Browse recipes instead</div></div>
+      </div>
+      <div class="tabbar"><div class="tb on"><svg class="ic ic20"><use href="#i-home"/></svg>Home</div><div class="tb"><svg class="ic ic20"><use href="#i-recipes"/></svg>Recipes</div><div class="tb"><svg class="ic ic20"><use href="#i-meals"/></svg>Meals</div><div class="tb"><svg class="ic ic20"><use href="#i-pantry"/></svg>Pantry</div><div class="tb"><svg class="ic ic20"><use href="#i-grocery"/></svg>Grocery</div><div class="tb"><svg class="ic ic20"><use href="#i-profile"/></svg>You</div></div>
+    </div></div><div class="phone-caption">13b · has follows, no fresh posts</div></div>
+  </div><div class="notes">
+    <h3>Empty feed</h3><p class="step-id">W2 · #1 drop-off risk · split copy (Q6)</p>
+    <p>Today it's a bare "No posts yet" with no action. Principle: every empty surface nudges the next action, never dead-ends.</p>
+    <ul><li><strong>13a no follows</strong> (skipped find-friends): lead "Find your friends."</li><li><strong>13b following-but-quiet</strong> (the common first-wave state): lead "Post a cook," then friends, then a soft "Browse" escape. Reads as "you're early," not broken.</li></ul>
+    <div class="flag"><strong>Build:</strong> <code>FeedScreen</code> must distinguish zero-follows from follows-but-no-recent-posts to pick copy, and not flash the nudge during the ~1–2s refresh window.</div>
+  </div></div>
+
+  <!-- T14 EMPTY RECIPES -->
+  <div class="panel" id="t14"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-title-row"><span class="scr-title">Recipes</span><span class="scr-action"><svg class="ic ic22"><use href="#i-plus"/></svg></span></div>
+      <div class="empty-wrap" style="padding-top:48px;">
+        <svg class="ic ic40 empty-ic"><use href="#i-recipes"/></svg>
+        <div class="empty-title">Your recipe box is empty</div>
+        <div class="empty-text">Save recipes from cookbooks, websites, screenshots, and texts from friends. Add your first to get going.</div>
+      </div>
+      <div class="rail primary"><div class="rail-ic"><svg class="ic ic20"><use href="#i-camera"/></svg></div><div class="rail-body"><div class="rail-title">Take a photo</div><div class="rail-sub">From a cookbook or recipe card</div></div><svg class="ic ic18 rail-arrow"><use href="#i-fwd"/></svg></div>
+      <div class="rail"><div class="rail-ic"><svg class="ic ic20"><use href="#i-image"/></svg></div><div class="rail-body"><div class="rail-title">Choose from library</div><div class="rail-sub">A screenshot or saved photo</div></div><svg class="ic ic18 rail-arrow"><use href="#i-fwd"/></svg></div>
+      <div class="rail"><div class="rail-ic"><svg class="ic ic20"><use href="#i-link"/></svg></div><div class="rail-body"><div class="rail-title">Paste a link</div><div class="rail-sub">Including NYT Cooking</div></div><svg class="ic ic18 rail-arrow"><use href="#i-fwd"/></svg></div>
+      <div class="tabbar"><div class="tb"><svg class="ic ic20"><use href="#i-home"/></svg>Home</div><div class="tb on"><svg class="ic ic20"><use href="#i-recipes"/></svg>Recipes</div><div class="tb"><svg class="ic ic20"><use href="#i-meals"/></svg>Meals</div><div class="tb"><svg class="ic ic20"><use href="#i-pantry"/></svg>Pantry</div><div class="tb"><svg class="ic ic20"><use href="#i-grocery"/></svg>Grocery</div><div class="tb"><svg class="ic ic20"><use href="#i-profile"/></svg>You</div></div>
+    </div></div><div class="phone-caption">14 · add-first, not browse</div>
+  </div><div class="notes">
+    <h3>Empty recipes</h3><p class="step-id">W2 · verbiage from landing pillar</p>
+    <p>Nudge is <strong>add your first recipe</strong> (scan / gallery / URL), <strong>not browse</strong> — browse has no cold content for a zero-data user. Copy borrows the site's "save from cookbooks, websites, screenshots, and texts."</p>
+    <div class="reuse"><strong>Reuse:</strong> the three <code>AddRecipeModal</code> rails verbatim, promoted inline. Icons are repo SVGs.</div>
+  </div></div>
+
+  <!-- T15 EMPTY PANTRY -->
+  <div class="panel" id="t15"><div>
+    <div class="phone"><div class="phone-inner">
+      <div class="scr-title-row"><span class="scr-title">Pantry</span><span class="scr-action"><svg class="ic ic22"><use href="#i-plus"/></svg></span></div>
+      <div class="empty-wrap" style="padding-top:52px;">
+        <svg class="ic ic40 empty-ic"><use href="#i-pantry"/></svg>
+        <div class="empty-title">Teach Frigo what's in your kitchen</div>
+        <div class="empty-text">Add a few staples and Frigo becomes your sous chef — telling you what you can cook right now.</div>
+        <div class="empty-ctas"><div class="empty-cta primary">Add staples</div><div class="empty-cta secondary">Add one item</div></div>
+        <div class="soft-card" style="margin-top:16px;width:100%;text-align:left;"><div class="sc-title"><svg class="ic ic16"><use href="#i-sparkle"/></svg> What can I cook?</div><div class="sc-sub">Add a few staples to unlock recipe matching from your pantry.</div></div>
+        <div style="margin-top:14px;"><span class="empty-cta tertiary" style="display:inline-flex;align-items:center;gap:6px;"><svg class="ic ic16"><use href="#i-grocery"/></svg> Or start a grocery list</span></div>
+      </div>
+      <div class="tabbar"><div class="tb"><svg class="ic ic20"><use href="#i-home"/></svg>Home</div><div class="tb"><svg class="ic ic20"><use href="#i-recipes"/></svg>Recipes</div><div class="tb"><svg class="ic ic20"><use href="#i-meals"/></svg>Meals</div><div class="tb on"><svg class="ic ic20"><use href="#i-pantry"/></svg>Pantry</div><div class="tb"><svg class="ic ic20"><use href="#i-grocery"/></svg>Grocery</div><div class="tb"><svg class="ic ic20"><use href="#i-profile"/></svg>You</div></div>
+    </div></div><div class="phone-caption">15 · staples + sous-chef teaser + grocery link</div>
+  </div><div class="notes">
+    <h3>Empty pantry</h3><p class="step-id">W2 · sous-chef verbiage · Tom: add grocery link</p>
+    <p>Nudge: add staples + a <strong>What-Can-I-Cook</strong> teaser, framed with the landing page's <strong>"your personal sous chef"</strong> voice ("works with what you've given it"). Untested at zero data today — the surface never run empty.</p>
+    <div class="new"><strong>Added (Tom):</strong> a <strong>"start a grocery list"</strong> link — a second productive exit for someone not ready to seed a pantry. Routes to the Grocery tab / view creation (the 8R lists/views model).</div>
+    <div class="reuse"><strong>Reuse:</strong> "Add staples" → same checklist as F2 (tab 11); teaser fronts <code>WhatCanICookScreen</code>; grocery link → <code>ViewsScreen</code> / create-view.</div>
+    <div class="open-q"><strong>Iterate:</strong> live What-Can-I-Cook count once any staples exist ("you can make 3 things") vs static prompt.</div>
+  </div></div>
+
+</div>
+<script>
+  const tabs=document.querySelectorAll('.tab'),panels=document.querySelectorAll('.panel');
+  tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>x.classList.remove('active'));panels.forEach(p=>p.classList.remove('active'));t.classList.add('active');document.getElementById(t.dataset.tab).classList.add('active');}));
+  document.querySelectorAll('.subtoggle').forEach(g=>{const b=g.querySelectorAll('.subtoggle-btn');b.forEach(x=>x.addEventListener('click',()=>{const p=g.parentElement;b.forEach(y=>y.classList.remove('active'));p.querySelectorAll('.subvariant').forEach(s=>s.classList.remove('active'));x.classList.add('active');document.getElementById(x.dataset.sub).classList.add('active');}));});
+</script>
+</body>
+</html>

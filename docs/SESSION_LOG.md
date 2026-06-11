@@ -7,6 +7,22 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-11 — Anchor v0.3.8 → v0.3.9 (onboarding decision batch D-ON-9..15) + spec recovery banner + wireframes committed + DEFERRED_WORK 5.34 (mechanical; committed, NOT pushed)
+
+Verbatim oversight-authored edits, own docs slice; nothing pushed. **Anchor read v0.3.8 pre-edit (STOP check passed).** Applied: header → v0.3.9; companion-docs line → WORKSTREAM_PLAN.md is the build spec of record, recovered ONBOARDING_BUILD_SPEC.md demoted to REFERENCE INPUT (superseded on OAuth/T3, T8b, tier-badge sourcing, claim-by-email placement); §2 decision register gains **D-ON-9..15** (plan ratified + T8b out; completion = `user_profiles.onboarding_completed_at` + binary App.tsx gate; cluster codes + CP7-minimal per-user pass-on codes promoted into F&F; `searchBookCatalog.has_recipes`; 21-item staples config constant; contacts sync = own GATED CP, decoupled; email+password only); §7 rows — CP3 → 🟢 draftable, new CP-persist / CP4-ext / CP7-minimal / CP-O2 rows, T9b backdating flag appended; changelog 0.3.9 row.
+
+**Recovered spec handled:** `docs/ONBOARDING_BUILD_SPEC.md` (Tom placed it untracked; v1.0, 2026-06-08, anchored to v0.3.2) — superseded-reference banner prepended verbatim, committed this slice. **Wireframes v4 HTML committed this slice** (item 5). **DEFERRED_WORK.md** 5.33 → 5.34: new "Onboarding decision batch" section with **OB-8** (T8b snap-shelf extraction) + **OB-9** (attribution-tree visualization/stats UI); per-user codes deliberately NOT added (promoted to scope per D-ON-11).
+
+**Formatting calls flagged (mechanical-minimal, no content authored):** (1) D-ON-9..15 appended as a dated `###` subsection at the end of §2, matching the register's existing subsection structure; (2) the prompt's "CP9d row, append" — anchor §7 has **no per-sub-CP rows** (single umbrella CP9 row); the ⚠️ T9b text was appended verbatim to the CP9 row and the structure mismatch is surfaced here rather than inventing sub-rows; (3) new §7 rows placed in numeric/logical order (CP-persist after CP3, CP4-ext after CP4b, CP7-minimal before CP8, CP-O2 after CP8); (4) DEFERRED_WORK items numbered OB-8/OB-9 continuing the existing series; version bumped per house style.
+
+**Rule A:** anchor + DEFERRED_WORK dated copies staged at `_pk_sync/ONBOARDING_AND_COLDSTART_SCOPING_2026-06-11.md` + `_pk_sync/DEFERRED_WORK_2026-06-11.md` — **Tom owes a PK upload.** **Rule E:** no code files edited → no action. **Files in this commit:** anchor, `docs/ONBOARDING_BUILD_SPEC.md` (new, banner), `docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html` (new), `docs/DEFERRED_WORK.md`, `docs/SESSION_LOG.md` (this entry). A separate follow-up commit updates `WORKSTREAM_PLAN.md` (CC-owned) to reflect D-ON-9..15 + the spec-reconcile harvest — logged in its own entry above when done.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — edited this slice (OB-8/OB-9); `PROJECT_CONTEXT.md` — reflect the D-ON-9..15 rulings + WORKSTREAM_PLAN.md as spec of record; `FF_LAUNCH_MASTER_PLAN.md` — onboarding decomposition now final (D-ON-9); CP-persist/CP4-ext runnable, CP7-minimal/CP-O2 scoped.
+
+**Recommended next steps for Tom:** (1) upload the two `_pk_sync` 2026-06-11 copies to PK; (2) green-light the runnable mechanicals (CP-persist, CP4-ext) and CP3 when ready — all three are unblocked.
+
+---
+
 ## 2026-06-11 — Onboarding workstream PLANNING session: WORKSTREAM_PLAN.md authored + handoff committed (planning only — no app code, no migrations, no DB writes)
 
 **Stood up the onboarding front-half (CP3 + CP9) as a CC-native workstream — planning slice only.** Read in order: the execution handoff, anchor v0.3.8 (**version gate passed** — prompt required ≥ v0.3.8), wireframes v4 (15 screens extracted in full), then confirm-from-code across all 8 named surfaces. Produced **`docs/onboarding/WORKSTREAM_PLAN.md`** — the workstream's state of record: provisional CP decomposition (CP3 + CP9a–CP9f per handoff §2 seams), per-CP scope/reuse/dependencies/space-ensure/verification, status table, and a 7-item DECISIONS-FOR-OVERSIGHT section.

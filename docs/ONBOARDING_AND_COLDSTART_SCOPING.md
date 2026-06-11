@@ -1,9 +1,9 @@
 # Onboarding & Cold Start — Scoping (Anchor)
 
-**Version:** v0.3.8 · **Status:** 🟢 reconciled to the live build model · 2026-06-11
+**Version:** v0.3.9 · **Status:** 🟢 reconciled to the live build model · 2026-06-11
 **Canonical location:** repo `docs/ONBOARDING_AND_COLDSTART_SCOPING.md` (no suffix), committed; dated copy in `_pk_sync/` for PK upload.
 **Owner:** oversight/spec (canonical). Executing instance proposes changes via SESSION_LOG; oversight merges.
-**Companion docs:** `ONBOARDING_BUILD_SPEC.md` (build-actionable) · `COOKBOOK_DELIVERY_SCOPE.md` (cookbook workstream) · `docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html` (15 screens).
+**Companion docs:** `docs/onboarding/WORKSTREAM_PLAN.md` — the build spec of record (ratified 2026-06-11). The original ONBOARDING_BUILD_SPEC.md (recovered 2026-06-11 after being found never-committed) is a REFERENCE INPUT only — it pre-dates v0.3.2 and is superseded on OAuth (T3), T8b, tier-badge sourcing (§4.1), and claim-by-email placement. · `COOKBOOK_DELIVERY_SCOPE.md` (cookbook workstream) · `docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html` (15 screens).
 **Relationship:** this anchor owns *scope + decisions of record*. The build spec owns *what to build, in what order, with which existing pieces*. Where this doc and a CP conflict, **this doc wins on scope**; where the schema/code contradicts this doc, the executing instance flags via SESSION_LOG and oversight reconciles.
 
 > **v0.3.1 → v0.3.2 changelog.** Folds S1–S8 (locked); locks O1 (ownership proof + approval); **rewrites the cookbook section** around the catalog + copy-on-verify recipe-delivery model (was shelf-builder-only); corrects the `toc_extracted_at` tier semantics; records S9 as a non-spine proposal; lands the **no-default-Space-at-signup dependency** (load-bearing for CP3/CP9); consolidates DEFERRED items. This is the first reconciliation since the build began — prior versions trailed the live decisions by several deltas.
@@ -54,6 +54,15 @@ Full screen-by-screen spec is in `ONBOARDING_BUILD_SPEC.md` §4, keyed to wirefr
 - **(c) Approval = manual review by Tom for F&F**, via a review portal (CP6a). **Immediacy lever = a trusted-user allowlist that auto-grants on submit** (skips the manual wait for known testers) — a *policy* lever, not an architectural inversion. Allowlisted users still get a verification record (audit), auto-approved.
 - **(d) AI review is deferred + phased** (§8), gated on the §3 IP conversation before any *auto*-grant goes live — automating the approver is the moment "a human judged this a legitimate owner" stops being true, so it follows counsel, not precedes it.
 - **Effect:** CP6a (capture-UI + review portal + approve-action + allowlist) is **fully unblocked**.
+
+### Onboarding workstream rulings (2026-06-11 decision batch)
+- **D-ON-9 (2026-06-11):** WORKSTREAM_PLAN.md ratified as build spec of record; 9a–9f slicing final (banners off). T8b snap-shelf OUT of F&F → DEFERRED.
+- **D-ON-10:** onboarding completion = user_profiles.onboarding_completed_at (timestamptz, nullable; migration backfills now() on existing profiles). Stamped at T12 completion. App.tsx gate: session ∧ completed → tabs; session ∧ ¬completed → onboarding stack. Binary — no mid-spine resume for F&F.
+- **D-ON-11:** F&F seeding = cluster invite codes (minted per friend group, note names the cluster); T5 suggestions = same-code cohort, suggest-and-confirm, never auto-follow. AMENDED same day: per-user pass-on codes promoted INTO F&F scope as CP7-minimal — authed generation RPC (owner_user_id on invite_codes, default redemption cap, deactivatable) + "your invite code" share surface in T5. Attribution tree = owner → code → redemptions. Tree visualization/stats UI → DEFERRED.
+- **D-ON-12:** searchBookCatalog extended with has_recipes boolean (EXISTS subquery); T8a tier badges key off has_recipes per §4.1 — never toc_extracted_at.
+- **D-ON-13 (provisional content):** CP3 staples = the 21-item list (Pantry: salt, black pepper, olive oil, neutral oil, AP flour, sugar, rice, pasta, canned tomatoes, chicken/veg stock; Fridge: butter, eggs, milk, garlic, onions, lemons; Condiments: soy sauce, vinegar, mustard, mayo, hot sauce); 3 categories; no second tier. Lives as a CONFIG CONSTANT — content iterates post-look without rebuild.
+- **D-ON-14 (O2 resolved):** contacts sync IN F&F scope as its own GATED CP, decoupled from T5's ship (T5 ships without it; it slots in additively). Build requirements: salted-hash ephemeral matching (no raw address-book upload or persistence); email-only match (no phone collection — modest match rates accepted); enumeration guard (authed-only, rate-limited, matched-profiles-only response); privacy-policy update + Apple purpose-string/privacy-label drafts ride the CP; zero-match UX folds back to cohort suggestions + share link.
+- **D-ON-15:** S2 confirmed — CP9a is email+password only; wireframe T3 OAuth buttons do not ship in F&F.
 
 ---
 
@@ -125,16 +134,20 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 |----|-------|------|--------|
 | CP1 | `supabase/migrations/` tracking | mechanical | ✅ shipped |
 | CP2 | Invite codes (#69) | mechanical | ✅ shipped + closeout committed |
-| CP3 | Staples checklist (D-ON-2) | checkpoint | ⏳ **must ensure space exists before supply write (§6)** |
+| CP3 | staples checklist | checkpoint | 🟢 draftable now (D-ON-13) |
+| CP-persist | onboarding_completed_at migration | mechanical | 🟢 ruled (D-ON-10), runnable now |
 | CP4 | `is_catalog` column + `searchBookCatalog` | mechanical | ✅ shipped |
 | CP4-seed | Net-new catalog CSV seed | mechanical | ⏳ part-1 committed; **waits on Tom's `docs/seed/cookbook_titles.csv`** |
 | CP4b | Promote transcribed books into catalog | **gated** | ⛔ waits ONLY on the assembly-owner per-book list (CP6b smoke-gate met) |
+| CP4-ext | searchBookCatalog has_recipes | mechanical | 🟢 ruled (D-ON-12), runnable now |
 | CP5 | Auth trigger (no-username + metadata-ready) | **gated** | ✅ **shipped — pushed + live-verified** (real signup: username NULL, display_name from metadata, defaults) |
 | CP6a-1 | Verification table + private bucket + capture/submit | checkpoint | ✅ **shipped + verified** |
 | CP6a-2 | Admin gate + review RPCs + allowlist + in-app portal + CP6b seam | **gated** | ✅ shipped + prod-verified (RLS backstop PASS 2026-06-10) |
 | CP6b | Copy-on-verify delivery + provenance (full-recipe copy per §4.3; recipeDeliveryService) | **gated** | ✅ shipped + prod-verified (post-push real-service fixture smoke PASS 17/17, 2026-06-11); CP4b smoke-gate SATISFIED |
+| CP7-minimal | per-user pass-on codes (RPC + T5 share surface) | checkpoint (RPC follows MIGRATIONS.md invocation-auth rule) | scoped (D-ON-11) |
 | CP8 | Claim-by-email | **gated, high-risk** | ⛔ isolated, own verified CP |
-| CP9 | Spine + router + recipe value steps + empty states | checkpoint | ⏳ **§6 constraint applies** |
+| CP-O2 | contacts sync | GATED | scoped (D-ON-14); decoupled from T5/F&F-spine ship |
+| CP9 | Spine + router + recipe value steps + empty states | checkpoint | ⏳ **§6 constraint applies** ⚠️ T9b depends on post-backdating flags (recovered spec §5.5) that do not exist — CP9d ships T9b degraded (favorites + times-made, no backdated post) OR picks up a small flags migration; CC reports which at draft. |
 
 **Clean-tree rule:** sensitive row-touching CPs (CP4b, CP6b, CP8) run against a clean tree, per-CP commits. (CP2 closeout + CP5 push + CP6a-1 already landed clean.)
 
@@ -167,6 +180,7 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 ## Changelog
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-06-11 | 0.3.9 | Onboarding decision batch: plan ratified spec-of-record (spec recovered → reference, banner added); completion persistence (D-ON-10); seeding + per-user codes promoted (D-ON-11); has_recipes (D-ON-12); staples provisional (D-ON-13); contacts sync in scope, gated, decoupled (D-ON-14); email-only auth confirmed (D-ON-15); T8b deferred; T9b backdating dependency flagged; wireframes committed. |
 | 2026-06-11 | 0.3.8 | §7 status reconcile: CP6a-2 + CP6b **shipped + prod-verified** (RLS backstop PASS + post-push real-service fixture smoke PASS 17/17); CP4b now waits ONLY on the assembly-owner per-book list (CP6b smoke-gate met). MIGRATIONS.md: **invocation-auth** standing rule banked (+ the `SELECT *`/generated-column caveat from CP6b). |
 | 2026-06-10 | 0.3.7 | Doc catch-up to ratified CP6b behavior: user_books link inlined in recipeDeliveryService (F&F exception — isolation over reuse; neutral primitive DEFERRED w/ OB-6). gold_standard_* family excluded/reset as a set. Deny-list standing rule for future columns. Invocation-auth confirm added to the gated-RPC/function checklist. |
 | 2026-06-10 | 0.3.6 | Completeness guard fired on first run: user_ingredient_choices classified EXCLUDE (user content). recipe_image_mapping typo fixed. Closure inventory recorded (scan now reconciles cleanly). De-risk model ratified: pre-push SQL mirror + binding post-push real-service fixture smoke as a gate before CP4b promotion / first real delivery. |
