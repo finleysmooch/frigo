@@ -15,7 +15,7 @@ export type SpaceMemberStatus = 'pending' | 'accepted' | 'declined';
 export type RecipeAccessType = 'sous_chef' | 'meal_plan';
 export type PurchaseType = 'recipe' | 'cookbook';
 
-export type SpaceAction = 
+export type SpaceAction =
   | 'view'
   | 'add_item'
   | 'delete_item'
@@ -23,7 +23,10 @@ export type SpaceAction =
   | 'invite_member'
   | 'invite_guest'
   | 'remove_member'
-  | 'delete_space';
+  | 'delete_space'
+  // CP-spaces (2026-06-12): server-side last-owner-can't-leave guard; mirrors
+  // the check_space_permission RPC's action set.
+  | 'leave';
 
 // ============================================
 // CORE SPACE TYPES

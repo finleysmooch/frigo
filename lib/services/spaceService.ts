@@ -837,18 +837,22 @@ export async function checkPermission(
   userId: string,
   action: SpaceAction
 ): Promise<boolean> {
-  try {
-    const { data } = await supabase.rpc('check_space_permission', {
-      p_space_id: spaceId,
-      p_user_id: userId,
-      p_action: action,
-    });
+  // CP-spaces (2026-06-12): the rpc error is now checked and THROWN. The old
+  // shape destructured only { data }, so a failing RPC (it didn't exist in
+  // prod — PGRST202) silently became "no permission" and the breakage was
+  // invisible. Fail loud; callers' try/catch turns it into a failed result.
+  const { data, error } = await supabase.rpc('check_space_permission', {
+    p_space_id: spaceId,
+    p_user_id: userId,
+    p_action: action,
+  });
 
-    return data === true;
-  } catch (error) {
-    console.error('❌ Error checking permission:', error);
-    return false;
+  if (error) {
+    console.error('❌ check_space_permission RPC failed:', error);
+    throw error;
   }
+
+  return data === true;
 }
 
 /**
