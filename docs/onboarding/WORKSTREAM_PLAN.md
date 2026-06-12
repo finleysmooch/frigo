@@ -138,7 +138,7 @@ Every CP closeout updates this table **in the same commit as its SESSION_LOG ent
 
 | CP | Screens/surface | Tier | Status | Blocked on |
 |----|-----------------|------|--------|------------|
-| CP3 | T11 | checkpoint | ✅ **authored + gate test PASS 9/9 (2026-06-12)** — incl. the ruled-in spaceService corrective (anchor v0.3.10 §6: `create_default_home_space` + loud failure); new-user-no-space → space auto-created → 21/21 staples (0 fallbacks) → idempotent re-run → skip no-op → cleanup to baseline. Awaiting Tom: commit (checkpoint tier) + the D-ON-13 look (Settings → Developer → Staples Playground) + screenshot | Tom commit + look |
+| CP3 | T11 | checkpoint | ✅ **CLOSED 2026-06-12** — committed + pushed (`fc7e240`); gate test PASS 9/9 (incl. the v0.3.10 §6 spaceService corrective); Tom's live look done ("staples playground functions"; Metro session clean, zero CP3 errors). D-ON-13 content stays open for config-only iteration. Component ready for T11 (CP9 wiring) + T15 (CP9f) reuse — D-ON-16 branch lands in those hosts | — |
 | CP-persist | migration + gate | mechanical | ✅ **shipped + prod-verified 2026-06-12** (migration `20260611235055` pushed; backfill 37/37, fresh-profile NULL check PASS; App.tsx gate ships with CP9a as ruled) | — |
 | CP4-ext | service | mechanical | ✅ **shipped + prod-verified 2026-06-12** (migration `20260611235555` pushed; fixture smoke PASS incl. anon-denial; SECURITY DEFINER grounding flagged in SESSION_LOG) | — |
 | CP7-minimal | RPC + T5 share surface | checkpoint (invocation-auth rule) | scoped (D-ON-11) | — |
