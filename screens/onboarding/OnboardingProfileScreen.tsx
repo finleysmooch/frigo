@@ -5,9 +5,8 @@
 // emoji picker). Shipping photo upload needs a bucket + policies + a renderer
 // audit — relayed to oversight; this screen ships initials + "add later".
 //
-// INTERIM COMPLETION STAMP (flagged): D-ON-10 stamps at T12, but T5–T12 don't
-// exist yet — until CP9e lands, BOTH exits here stamp completion so the binary
-// gate can't trap a new user in onboarding. CP9e moves the stamp to T12.
+// Completion stamp: NOT here — CP9e moved it to T12 (OnboardingHandoffScreen)
+// per D-ON-10. This screen just continues into the spine (T6 router).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -16,20 +15,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import {
   getOnboardingProfile,
-  markOnboardingComplete,
   OnboardingProfile,
 } from '../../lib/services/onboardingService';
 
 interface Props {
-  /** Fired after the completion stamp succeeds — App.tsx flips to the tabs. */
-  onComplete: () => void;
+  /** Continue into the spine (T6 router) — the host navigator routes. */
+  onContinue: () => void;
 }
 
 const initialsOf = (name: string | null | undefined) =>
@@ -40,14 +37,13 @@ const initialsOf = (name: string | null | undefined) =>
     .map((p) => p[0]!.toUpperCase())
     .join('') || '?';
 
-export default function OnboardingProfileScreen({ onComplete }: Props) {
+export default function OnboardingProfileScreen({ onContinue }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [profile, setProfile] = useState<OnboardingProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -62,19 +58,6 @@ export default function OnboardingProfileScreen({ onComplete }: Props) {
       }
     })();
   }, []);
-
-  const finish = async () => {
-    if (!userId || finishing) return;
-    setFinishing(true);
-    try {
-      await markOnboardingComplete(userId);
-      onComplete();
-    } catch (error) {
-      console.error('❌ Could not complete onboarding:', error);
-      Alert.alert('Hmm', 'Something went wrong — please try again.');
-      setFinishing(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -105,16 +88,8 @@ export default function OnboardingProfileScreen({ onComplete }: Props) {
       <Text style={styles.note}>You can add a profile photo later in Settings.</Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.primaryButton, finishing && styles.buttonDisabled]}
-          onPress={finish}
-          disabled={finishing}
-        >
-          {finishing ? (
-            <ActivityIndicator color={colors.background.card} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Continue</Text>
-          )}
+        <TouchableOpacity style={styles.primaryButton} onPress={onContinue} disabled={!userId}>
+          <Text style={styles.primaryButtonText}>Continue</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -49,6 +49,11 @@ import WelcomeScreen from './screens/onboarding/WelcomeScreen';
 import InviteCodeScreen from './screens/onboarding/InviteCodeScreen';
 import OnboardingAccountScreen from './screens/onboarding/OnboardingAccountScreen';
 import OnboardingProfileScreen from './screens/onboarding/OnboardingProfileScreen';
+// CP9c/CP9e — router + freehand placeholder + staples host + hand-off (stamp at T12)
+import OnboardingRouterScreen from './screens/onboarding/OnboardingRouterScreen';
+import FreehandPlaceholderScreen from './screens/onboarding/FreehandPlaceholderScreen';
+import OnboardingStaplesScreen from './screens/onboarding/OnboardingStaplesScreen';
+import OnboardingHandoffScreen from './screens/onboarding/OnboardingHandoffScreen';
 import { getOnboardingCompleted } from './lib/services/onboardingService';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
@@ -131,6 +136,16 @@ export type OnboardingStackParamList = {
   InviteCode: undefined;
   Account: { inviteCode: string };
   Login: undefined;
+};
+
+// CP9c/CP9e — post-session onboarding spine (T4 → T6 → [T10] → T11 → T12).
+// CP9d inserts the recipe path (T7–T9) between Router and Staples when it lands.
+export type PostAuthOnboardingParamList = {
+  ProfileSetup: undefined;
+  Router: undefined;
+  Freehand: undefined;
+  Staples: undefined;
+  Handoff: undefined;
 };
 
 // UPDATED: RecipesStackParamList with selection mode support
@@ -346,6 +361,37 @@ function OnboardingEntryNavigator() {
         )}
       </OnboardingStack.Screen>
     </OnboardingStack.Navigator>
+  );
+}
+
+// CP9c/CP9e — post-session onboarding navigator. Wrapped in SpaceProvider by
+// the App gate: the T11 host needs SpaceContext for the D-ON-16 pending-
+// invitation branch, and the StaplesChecklist's space-ensure rides it too.
+const PostAuthStack = createNativeStackNavigator<PostAuthOnboardingParamList>();
+
+function PostAuthOnboardingNavigator({
+  userId,
+  onComplete,
+}: {
+  userId: string;
+  onComplete: () => void;
+}) {
+  return (
+    <PostAuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <PostAuthStack.Screen name="ProfileSetup">
+        {(props: any) => (
+          <OnboardingProfileScreen onContinue={() => props.navigation.navigate('Router')} />
+        )}
+      </PostAuthStack.Screen>
+      <PostAuthStack.Screen name="Router" component={OnboardingRouterScreen} />
+      <PostAuthStack.Screen name="Freehand" component={FreehandPlaceholderScreen} />
+      <PostAuthStack.Screen name="Staples">
+        {(props: any) => <OnboardingStaplesScreen {...props} userId={userId} />}
+      </PostAuthStack.Screen>
+      <PostAuthStack.Screen name="Handoff">
+        {() => <OnboardingHandoffScreen onComplete={onComplete} />}
+      </PostAuthStack.Screen>
+    </PostAuthStack.Navigator>
   );
 }
 
@@ -1057,7 +1103,12 @@ export default function App() {
                 <ActivityIndicator size="large" color="#0d9488" style={{ marginTop: 24 }} />
               </View>
             ) : onboardingCompleted === false ? (
-              <OnboardingProfileScreen onComplete={() => setOnboardingCompleted(true)} />
+              <SpaceProvider>
+                <PostAuthOnboardingNavigator
+                  userId={session.user.id}
+                  onComplete={() => setOnboardingCompleted(true)}
+                />
+              </SpaceProvider>
             ) : (
               <SpaceProvider>
                 <CookDepletionBannerProvider>
