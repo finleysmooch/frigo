@@ -143,7 +143,7 @@ Every CP closeout updates this table **in the same commit as its SESSION_LOG ent
 | CP4-ext | service | mechanical | ✅ **shipped + prod-verified 2026-06-12** (migration `20260611235555` pushed; fixture smoke PASS incl. anon-denial; SECURITY DEFINER grounding flagged in SESSION_LOG) | — |
 | CP7-minimal | RPC + T5 share surface | checkpoint (invocation-auth rule) | scoped (D-ON-11) | — |
 | CP-O2 | contacts sync | **GATED** | scoped (D-ON-14); decoupled from T5/spine | oversight pre-review |
-| CP9a | T1–T4 | checkpoint | 🟢 unblocked (D-ON-10/15); CP-persist shipped — ready to draft | — |
+| CP9a | T1–T4 | checkpoint | ⏳ **authored + backend-verified 2026-06-12** (harness PASS 10/10: validate→metadata-signup→redeem→gate→stamp, all real services). Flags: INTERIM stamp at T4 until CP9e moves it to T12; T4 photo capture deferred (no avatars bucket + emoji-glyph avatar system — oversight ruling needed); gate fails OPEN on read error. Awaiting Tom: in-app walk (needs a minted code) + commit | Tom look + commit |
 | CP9b | T5 | checkpoint | scoped — cohort model (D-ON-11); ships without contacts | CP9a, CP7-minimal |
 | CP9c | T6 | checkpoint | 🟡 sequenced | CP9a |
 | CP9d | T7–T9 | checkpoint | 🟡 T8b out (OB-8); T9b degraded-or-flags call **reported at draft**; CP4-ext badge signal live | CP9c |

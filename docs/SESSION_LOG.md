@@ -7,6 +7,44 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-12 — CP9a AUTHORED + backend-verified (spine T1–T4 + D-ON-10 gate; harness PASS 10/10) — UNCOMMITTED, awaiting Tom's in-app walk
+
+**Tier: checkpoint (CC authors + reports; Tom commits). All code authored, tsc-clean, backend chain prod-verified through the REAL services.**
+
+**What shipped:** `lib/services/onboardingService.ts` (getOnboardingCompleted / markOnboardingComplete — idempotent, never overwrites an earlier stamp / getOnboardingProfile); `screens/onboarding/` — `WelcomeScreen` (T1, cookfrigo verbiage, Get started → T2, login link), `InviteCodeScreen` (T2 — anon validate, per-status error copy for invalid/expired/redeemed, request-access link), `OnboardingAccountScreen` (T3 — **email+password only per D-ON-15**; `signUp` passes `display_name` via `options.data` so the CP5 trigger sets it atomically — **retires SignupScreen's 500 ms post-update race**; post-signup best-effort idempotent `redeemCode`, never blocks/orphans the account), `OnboardingProfileScreen` (T4 — initials card + interim completion stamp); `App.tsx` — `OnboardingEntryNavigator` (T1→T2→T3 + Login) replaces the no-session branch; **three-state D-ON-10 gate** (no session → entry stack; session ∧ ¬completed → T4; session ∧ completed → tabs; loading splash between).
+
+**Verification (verbatim — harness `_scratch/scripts/cp3_harness/entry_cp9a.ts`, real inviteCodeService + onboardingService via the esbuild/shim pattern, fixture code + throwaway user, full cleanup):**
+```
+[PASS] 1. T2 validate (anon, case-insensitive) → valid — status=valid
+[PASS] 2. signUp returned a session (autoconfirm on — app flow assumption holds)
+[PASS] 3. trigger set display_name from metadata (no post-update race) — {"display_name":"Cp NineA","username":null,"onboarding_completed_at":null}
+[PASS] 4. username NULL (S1)
+[PASS] 5. fresh user onboarding_completed_at NULL → gate reads false
+[PASS] 5b. getOnboardingProfile returns the T4 card fields
+[PASS] 6. redeem → true; re-redeem → true with NO double burn (uses_count=1, 1 redemption row)
+[PASS] 7. validate after cap reached → redeemed — status=redeemed
+[PASS] 8. stamp → gate true; re-stamp keeps the original timestamp (idempotent)
+[PASS] 9. cleanup — profiles back to baseline, fixture code gone — profiles=37/37 codes=0
+VERDICT: PASS (all checks)
+```
+`tsc --noEmit` clean on all touched files (baseline noise only).
+
+**Flags for oversight (none block Tom's walk):**
+1. **INTERIM completion stamp at T4** — D-ON-10 stamps at T12, but T5–T12 don't exist; without a stamp the binary gate traps every new user. Both T4 exits stamp, marked `INTERIM` in code; **CP9e moves it to T12.** Deviation flagged, not silently decided.
+2. **T4 photo capture DEFERRED — needs a ruling.** No avatars bucket exists (live bucket list: recipe-images/post-images/extraction-queue/book-covers/seed-photos public + verification-images private), and the live avatar system stores **emoji glyphs** in `avatar_url` (EditProfileScreen emoji picker) while the CP5 trigger can write OAuth photo URLs into the same column. Photo avatars need: a bucket + policies + a renderer audit (every avatar surface must handle URL-vs-emoji). T4 ships initials + "add a photo later in Settings"; wireframe's photo/library buttons and the separate Skip CTA are held with it.
+3. **Gate fails OPEN** on a completion-read error (transient DB error must not lock an existing user into onboarding; a mis-routed NEW user just sees the tabs once — the W2 empty states catch them).
+4. `AuthStackNavigator` + `SignupScreen` kept but now **unreachable** from the entry flow (not removed — house rule); flagged as a future cleanup candidate.
+5. Request-access link points at `https://cookfrigo.com` — exact request-access path unconfirmed (S8 says the site flow exists; confirm URL with Tom).
+6. `SpaceProvider` does NOT wrap the post-auth onboarding branch — correct for T4 (no space-scoped writes); **CP9 wiring note:** when T11 mounts in this branch, either wrap it in SpaceProvider or rely on the StaplesChecklist's direct `ensureDefaultSpace` fallback (verified working post-corrective).
+
+**Tom's in-app walk — DONE (2026-06-12), full loop confirmed.** Fixture code `FRIGO-TOMWALK` minted (max_uses 3) → Tom walked Welcome → code → throwaway account → T4 → tabs. **Metro evidence:** sign-out ("Not logged in") → new-account sign-in → SpaceContext "Found 1 spaces" for the NEW user `8fe82baa…` — **the CP3 spaceService corrective's first real in-app exercise: a brand-new user's Home space was lazily created live**; zero errors. **DB evidence:** profile `{"display_name":"Tom Walk","username":null,"onboarding_completed_at":"2026-06-12T15:30:15.764+00:00"}` (trigger-set name, S1 null username, stamp written at T4); code `uses_count=1`, one redemption attributed to the throwaway. **Fixture code deleted post-walk; the throwaway account (`8fe82baa…`, "Tom Walk") was left in place** — say the word to delete it. CP9a is verification-complete; awaiting Tom's commit only.
+
+**Files authored/modified (UNCOMMITTED):** `lib/services/onboardingService.ts` (new), `screens/onboarding/WelcomeScreen.tsx` / `InviteCodeScreen.tsx` / `OnboardingAccountScreen.tsx` / `OnboardingProfileScreen.tsx` (new), `App.tsx` (entry navigator + gate). **Rule E:** checked `PK_CODE_SNAPSHOTS.md` fresh — App.tsx and the new files are not tier-listed; no matches → no action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — onboarding stack + gate + onboardingService once committed; `DEFERRED_WORK.md` — AuthStackNavigator/SignupScreen retirement candidate; `PROJECT_CONTEXT.md` — CP9a authored/verified state; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
 ## 2026-06-12 — CP3 CLOSED: committed + pushed (Tom-delegated) + Tom's live look done (Metro evidence clean)
 
 **Closeout.** On Tom's instruction ("push commit") the CP3 slice was committed as **`fc7e240`** (staples config/service/component + Staples Playground + the spaceService corrective + the approved prompt doc) and **all 8 pending commits pushed** (`ad71296..fc7e240` — includes the previously-unpushed v0.3.8 docs commit). **Tom's D-ON-13 look performed live** via Expo Go (LAN QR; dev server run by CC): verdict "staples playground functions." **Metro evidence (watched during the look per standing instruction):** session booted clean — SpaceContext loaded 1 space / 0 pending invitations for Tom's user, playground rendered, **zero errors or warnings from CP3 code**. No `📦 Creating supply` lines → no in-app submit occurred during the look (render/interaction confirmed live; the WRITE path stands on the harness 9/9 prod verification from the entry below). Amendment-1 deliverables: entry path documented (You → Settings → DEVELOPER → Staples Playground); screenshot superseded by the live look (flag if oversight still wants the artifact). **D-ON-13 content review outcome: no edits requested at look time** — list iteration stays open, config-only by design. **Pre-existing observation from Metro (not CP3):** `WARN Require cycle: suppliesService ↔ lotsService` — known-class tech debt, recommend banking in DEFERRED_WORK if not already tracked. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — staplesService/StaplesChecklist/config + the ensureDefaultSpace fail-loud corrective (now committed); `DEFERRED_WORK.md` — consider the suppliesService↔lotsService require-cycle; `PROJECT_CONTEXT.md` — CP3 closed; `FF_LAUNCH_MASTER_PLAN.md` — none. **Next:** CP9a draft (unblocked), CP7-minimal (D-ON-11 + D-ON-17).

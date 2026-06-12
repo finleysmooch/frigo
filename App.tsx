@@ -43,6 +43,13 @@ import AuthorViewScreen from './screens/AuthorViewScreen';
 import MyPostDetailsScreen from './screens/MyPostDetailsScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
+
+// CP9a — onboarding spine (T1–T4) + the D-ON-10 completion gate
+import WelcomeScreen from './screens/onboarding/WelcomeScreen';
+import InviteCodeScreen from './screens/onboarding/InviteCodeScreen';
+import OnboardingAccountScreen from './screens/onboarding/OnboardingAccountScreen';
+import OnboardingProfileScreen from './screens/onboarding/OnboardingProfileScreen';
+import { getOnboardingCompleted } from './lib/services/onboardingService';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import DietaryPreferencesScreen from './screens/DietaryPreferencesScreen';
@@ -116,6 +123,14 @@ export interface PostPhoto {
 export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
+};
+
+// CP9a — pre-session onboarding spine (T1 Welcome → T2 Invite → T3 Account; Login reachable from T1)
+export type OnboardingStackParamList = {
+  Welcome: undefined;
+  InviteCode: undefined;
+  Account: { inviteCode: string };
+  Login: undefined;
 };
 
 // UPDATED: RecipesStackParamList with selection mode support
@@ -310,6 +325,29 @@ const RecipesStack = createNativeStackNavigator<RecipesStackParamList>();
 const StatsStackNav = createNativeStackNavigator<StatsStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const MealsStack = createNativeStackNavigator<MealsStackParamList>();
+
+// CP9a — pre-session entry navigator (replaces AuthStackNavigator as the
+// no-session experience; AuthStackNavigator is kept below, unreferenced, in
+// case the invite gate ever needs a fast bypass).
+const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
+
+function OnboardingEntryNavigator() {
+  return (
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="Welcome" component={WelcomeScreen} />
+      <OnboardingStack.Screen name="InviteCode" component={InviteCodeScreen} />
+      <OnboardingStack.Screen name="Account" component={OnboardingAccountScreen} />
+      <OnboardingStack.Screen name="Login">
+        {(props: any) => (
+          <LoginScreen
+            onLoginSuccess={() => {}}
+            onNavigateToSignup={() => props.navigation.navigate('InviteCode')}
+          />
+        )}
+      </OnboardingStack.Screen>
+    </OnboardingStack.Navigator>
+  );
+}
 
 // Auth Stack Navigator (Login/Signup)
 function AuthStackNavigator() {
@@ -935,6 +973,32 @@ function MainTabNavigator() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // CP9a (D-ON-10): null = unknown/loading; false = session but onboarding
+  // incomplete → onboarding stack; true = main tabs. Binary, no mid-spine resume.
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) {
+      setOnboardingCompleted(null);
+      return;
+    }
+    let active = true;
+    getOnboardingCompleted(userId)
+      .then((completed) => {
+        if (active) setOnboardingCompleted(completed);
+      })
+      .catch((error) => {
+        // Fail OPEN to the tabs: a transient read error must not lock an
+        // existing user into onboarding (new users just see tabs once; the
+        // empty states catch them).
+        console.error('❌ onboarding gate read failed — failing open to tabs:', error);
+        if (active) setOnboardingCompleted(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
 
   // Load custom fonts
   // NOTE: Font files are in subdirectories:
@@ -982,7 +1046,19 @@ export default function App() {
           </View>
         ) : (
           <NavigationContainer>
-            {session ? (
+            {/* CP9a gate (D-ON-10): no session → onboarding entry (T1–T3 + Login);
+                session ∧ ¬completed → post-auth onboarding (T4 for now);
+                session ∧ completed → main tabs. */}
+            {!session ? (
+              <OnboardingEntryNavigator />
+            ) : onboardingCompleted === null ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
+                <Logo size="large" />
+                <ActivityIndicator size="large" color="#0d9488" style={{ marginTop: 24 }} />
+              </View>
+            ) : onboardingCompleted === false ? (
+              <OnboardingProfileScreen onComplete={() => setOnboardingCompleted(true)} />
+            ) : (
               <SpaceProvider>
                 <CookDepletionBannerProvider>
                   <SpawnOnOutToastProvider>
@@ -998,8 +1074,6 @@ export default function App() {
                   </SpawnOnOutToastProvider>
                 </CookDepletionBannerProvider>
               </SpaceProvider>
-            ) : (
-              <AuthStackNavigator />
             )}
           </NavigationContainer>
         )}
