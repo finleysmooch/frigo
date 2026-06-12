@@ -56,3 +56,34 @@ export async function redeemCode(code: string): Promise<boolean> {
 
   return data === true;
 }
+
+/**
+ * CP7-minimal (D-ON-11): the CURRENT user's pass-on code — returns the existing
+ * active one or mints FRIGO-XXXXX (cap 5). `sharePantry` sets the D-ON-17
+ * share-my-pantry intent (re-calling updates it on the existing code): a
+ * redeemer of a flagged code gets a pending invitation to the owner's pantry.
+ */
+export async function getMyPassOnCode(sharePantry: boolean): Promise<string> {
+  const { data, error } = await supabase.rpc('generate_pass_on_code', {
+    p_share_pantry: sharePantry,
+  });
+
+  if (error) {
+    console.error('❌ getMyPassOnCode error:', error);
+    throw error;
+  }
+
+  return data as string;
+}
+
+/** CP7-minimal: deactivate the current user's active pass-on code(s). */
+export async function deactivateMyPassOnCode(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('deactivate_my_pass_on_code');
+
+  if (error) {
+    console.error('❌ deactivateMyPassOnCode error:', error);
+    throw error;
+  }
+
+  return data === true;
+}
