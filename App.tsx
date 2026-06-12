@@ -54,6 +54,12 @@ import OnboardingRouterScreen from './screens/onboarding/OnboardingRouterScreen'
 import FreehandPlaceholderScreen from './screens/onboarding/FreehandPlaceholderScreen';
 import OnboardingStaplesScreen from './screens/onboarding/OnboardingStaplesScreen';
 import OnboardingHandoffScreen from './screens/onboarding/OnboardingHandoffScreen';
+// CP9d — recipe path T7–T9
+import OnboardingSourcesScreen from './screens/onboarding/OnboardingSourcesScreen';
+import OnboardingCookbooksScreen from './screens/onboarding/OnboardingCookbooksScreen';
+import OnboardingCookbookVerifyScreen from './screens/onboarding/OnboardingCookbookVerifyScreen';
+import OnboardingPasteScreen from './screens/onboarding/OnboardingPasteScreen';
+import OnboardingSignatureScreen from './screens/onboarding/OnboardingSignatureScreen';
 import { getOnboardingCompleted } from './lib/services/onboardingService';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
@@ -138,12 +144,18 @@ export type OnboardingStackParamList = {
   Login: undefined;
 };
 
-// CP9c/CP9e — post-session onboarding spine (T4 → T6 → [T10] → T11 → T12).
-// CP9d inserts the recipe path (T7–T9) between Router and Staples when it lands.
+// CP9c/CP9d/CP9e — post-session onboarding spine:
+// T4 → T6 router → recipe path (T7 sources → [T8 cookbooks → T8c verify] →
+// [T9a paste] → T9b signature) or freehand placeholder → T11 staples → T12.
 export type PostAuthOnboardingParamList = {
   ProfileSetup: undefined;
   Router: undefined;
   Freehand: undefined;
+  Sources: undefined;
+  Cookbooks: { sources: string[] };
+  CookbookVerify: { sources: string[]; books: { id: string; title: string; author: string | null }[] };
+  Paste: { sources: string[] };
+  Signature: undefined;
   Staples: undefined;
   Handoff: undefined;
 };
@@ -385,6 +397,11 @@ function PostAuthOnboardingNavigator({
       </PostAuthStack.Screen>
       <PostAuthStack.Screen name="Router" component={OnboardingRouterScreen} />
       <PostAuthStack.Screen name="Freehand" component={FreehandPlaceholderScreen} />
+      <PostAuthStack.Screen name="Sources" component={OnboardingSourcesScreen} />
+      <PostAuthStack.Screen name="Cookbooks" component={OnboardingCookbooksScreen} />
+      <PostAuthStack.Screen name="CookbookVerify" component={OnboardingCookbookVerifyScreen} />
+      <PostAuthStack.Screen name="Paste" component={OnboardingPasteScreen} />
+      <PostAuthStack.Screen name="Signature" component={OnboardingSignatureScreen} />
       <PostAuthStack.Screen name="Staples">
         {(props: any) => <OnboardingStaplesScreen {...props} userId={userId} />}
       </PostAuthStack.Screen>

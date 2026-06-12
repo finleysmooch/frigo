@@ -8,6 +8,7 @@
 // over when CP9e lands.
 
 import { supabase } from '../supabase';
+import { addRecipeTag } from './userRecipeTagsService';
 
 export interface OnboardingProfile {
   display_name: string | null;
@@ -43,6 +44,42 @@ export async function markOnboardingComplete(userId: string): Promise<void> {
     console.error('❌ markOnboardingComplete error:', error);
     throw error;
   }
+}
+
+/**
+ * CP9d T9b (DEGRADED per the anchor §7 flag — decided at draft): creates the
+ * signature-dish recipe + favorites it. The post-backdating flags (composer
+ * "when" + backdated + estimated) do NOT exist, so no backdated post/profile
+ * entry is created and times-made has no column — source and ~times are
+ * embedded in the description text. The flags migration can upgrade this later.
+ */
+export async function addSignatureRecipe(
+  userId: string,
+  input: { title: string; source?: string; timesMade?: string }
+): Promise<string> {
+  const bits = ['Signature dish — added during onboarding'];
+  if (input.source?.trim()) bits.push(`Source: ${input.source.trim()}`);
+  if (input.timesMade?.trim()) bits.push(`Made ~${input.timesMade.trim()} times`);
+
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({
+      user_id: userId,
+      title: input.title.trim(),
+      description: bits.join(' · '),
+      is_public: false,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('❌ addSignatureRecipe error:', error);
+    throw error;
+  }
+
+  const tag = await addRecipeTag(userId, data.id, 'favorite');
+  if (!tag.success) console.warn('⚠️ signature recipe saved but favorite tag failed (non-fatal)');
+  return data.id;
 }
 
 /** The little profile summary T4 renders (name + email + avatar state). */

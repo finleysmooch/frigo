@@ -1,7 +1,6 @@
 // CP9c — T6 Router Q0 "How do you cook?" (wireframes v4 screen 6; D-ON-5).
 // Pure route-only step (the one deliberate route-only exception):
-//   recipes / both → recipe path (T7–T9, CP9d — NOT BUILT YET: until it lands,
-//   both route to Staples; CP9d inserts itself between this screen and T11)
+//   recipes / both → recipe path (T7 sources → gated T8/T9 value steps, CP9d)
 //   by feel       → Freehand placeholder (T10, shelved per S6) → Staples
 // The Q0 answer is FLOW-LOCAL (not persisted) — persistence as a
 // personalization signal has no ruling; flagged in SESSION_LOG.
@@ -47,8 +46,8 @@ export default function OnboardingRouterScreen({ navigation }: Props) {
     if (selected === 'feel') {
       navigation.navigate('Freehand');
     } else {
-      // CP9d insertion point: recipes/both → T7 (L1 sources) once built.
-      navigation.navigate('Staples');
+      // CP9d: recipes/both → T7 (L1 sources) → gated value steps → staples.
+      navigation.navigate('Sources');
     }
   };
 
