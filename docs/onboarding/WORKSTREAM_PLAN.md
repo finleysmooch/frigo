@@ -127,7 +127,7 @@ CP-O2: gated, additive — schedules independently after oversight pre-review
 ## 3. The load-bearing constraint — space-ensure (anchor §6) — confirmed from live code
 
 - `handle_new_user` creates **no Space** (CP5 finding; `20260610003320` comments it).
-- **The one path:** `ensureDefaultSpace(userId): Promise<string>` — `lib/services/spaceService.ts:1004`; idempotent; falls back to the live `create_default_space_for_user(p_user_id)` RPC (pre-dates migrations tracking; client-confirmed + CP5 smoke).
+- **The one path:** `ensureDefaultSpace(userId): Promise<string>` — `lib/services/spaceService.ts:1004`; idempotent membership check, then the lazy-create RPC. **⚠️ FOUND BROKEN 2026-06-12 (CP3 gate test):** the service calls `create_default_space_for_user`, which **does not exist on prod** (PGRST202); the live function is **`create_default_home_space(p_user_id)`** (baseline-confirmed: Home space + owner membership + settings + active space). Worse, the service ignores the rpc `error` and silently returns null — so new users get NO space and space-scoped writes fail. Corrective (rename + error-throw) proposed, awaiting green-light; until it lands, every space-scoped CP is blocked at its gate test.
 - **Wiring:** `SpaceContext.loadSpaces()` calls it post-SIGNED_IN (`contexts/SpaceContext.tsx:128`) — async, so a fast post-signup flow can race it. Resolution: CP3's component awaits space readiness (§2). **Ordering: space-ensure BEFORE the first space-scoped write — in every CP prompt and test plan that touches `supplies` or any space-scoped table.**
 
 ---
@@ -138,7 +138,7 @@ Every CP closeout updates this table **in the same commit as its SESSION_LOG ent
 
 | CP | Screens/surface | Tier | Status | Blocked on |
 |----|-----------------|------|--------|------------|
-| CP3 | T11 | checkpoint | 🟢 **draftable now** (D-ON-13 list ruled) | — |
+| CP3 | T11 | checkpoint | ✅ **authored + gate test PASS 9/9 (2026-06-12)** — incl. the ruled-in spaceService corrective (anchor v0.3.10 §6: `create_default_home_space` + loud failure); new-user-no-space → space auto-created → 21/21 staples (0 fallbacks) → idempotent re-run → skip no-op → cleanup to baseline. Awaiting Tom: commit (checkpoint tier) + the D-ON-13 look (Settings → Developer → Staples Playground) + screenshot | Tom commit + look |
 | CP-persist | migration + gate | mechanical | ✅ **shipped + prod-verified 2026-06-12** (migration `20260611235055` pushed; backfill 37/37, fresh-profile NULL check PASS; App.tsx gate ships with CP9a as ruled) | — |
 | CP4-ext | service | mechanical | ✅ **shipped + prod-verified 2026-06-12** (migration `20260611235555` pushed; fixture smoke PASS incl. anon-denial; SECURITY DEFINER grounding flagged in SESSION_LOG) | — |
 | CP7-minimal | RPC + T5 share surface | checkpoint (invocation-auth rule) | scoped (D-ON-11) | — |
@@ -176,7 +176,7 @@ The planning session's D1–D7 oversight items are all ruled. Anchor §2 is cano
 
 | Surface | Confirmed |
 |---------|-----------|
-| `spaceService.ensureDefaultSpace` | `lib/services/spaceService.ts:1004` — `(userId) => Promise<string>`; idempotent; → `create_default_space_for_user(p_user_id)` RPC (live; definition pre-dates migrations tracking) |
+| `spaceService.ensureDefaultSpace` | `lib/services/spaceService.ts:1004` — `(userId) => Promise<string>`; idempotent; → **`create_default_home_space(p_user_id)`** RPC (name corrected 2026-06-12, anchor v0.3.10 §6 — the originally-recorded `create_default_space_for_user` never existed on prod) |
 | `SpaceContext` | `contexts/SpaceContext.tsx:90-149` — SIGNED_IN listener → `loadSpaces()` → `ensureDefaultSpace`; exposes `isInitialized`, `activeSpace`; mounts only in the session branch |
 | `App.tsx` | `App.tsx:919-993` — binary `session ?` gate; **no new-user/onboarding mechanism** (now addressed by D-ON-10/CP-persist); `AuthStackNavigator` local Login/Signup toggle (`App.tsx:312-340`) |
 | `SignupScreen` | `screens/SignupScreen.tsx` — first/last/email/password; no invite gate; `signUp()` without metadata + 500 ms sleep + `display_name` post-update (`:104-123`) |

@@ -51,7 +51,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/recipeHistoryService.ts` | 2026-05-19 | Phase 7I CP5 | Low | `getCookHistoryForUserRecipe` |
 | `lib/services/recipeService.ts` | 2026-05-19 | Phase 7B-Rev | Low | Top-level (distinct from extraction one); 20 lines, currently only `deleteRecipe` |
 | `lib/services/shareService.ts` | 2026-05-19 | Phase 7J | Low | `shareRecipe`, `sharePost` |
-| `lib/services/spaceService.ts` | 2026-04-22 | | Low | |
+| `lib/services/spaceService.ts` | 2026-04-22 | | HIGH | 2026-06-12: CP3 corrective — ensureDefaultSpace now calls `create_default_home_space` (was a nonexistent RPC) and throws on failure (was silent null). Snapshot stale. |
 | `lib/services/statsService.ts` | 2026-05-19 | Phase 4 | Low | 38 exports |
 | `lib/services/subscriptionService.ts` | 2026-04-22 | | Low | |
 | `lib/services/unitConverter.ts` | 2026-05-19 | Phase 8R-CP6e-Services-a | Low | CP6e-Services-a (2026-05-06): added `convertBetween(amount, fromUnit, toUnit)` — converts between specific units (vs convertUnit which targets metric/imperial systems). Used by lotsService for cross-lot deduction unit-compatibility checks. |

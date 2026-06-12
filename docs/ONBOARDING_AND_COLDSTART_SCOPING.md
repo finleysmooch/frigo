@@ -1,6 +1,6 @@
 # Onboarding & Cold Start — Scoping (Anchor)
 
-**Version:** v0.3.9 · **Status:** 🟢 reconciled to the live build model · 2026-06-11
+**Version:** v0.3.10 · **Status:** 🟢 reconciled to the live build model · 2026-06-12
 **Canonical location:** repo `docs/ONBOARDING_AND_COLDSTART_SCOPING.md` (no suffix), committed; dated copy in `_pk_sync/` for PK upload.
 **Owner:** oversight/spec (canonical). Executing instance proposes changes via SESSION_LOG; oversight merges.
 **Companion docs:** `docs/onboarding/WORKSTREAM_PLAN.md` — the build spec of record (ratified 2026-06-11). The original ONBOARDING_BUILD_SPEC.md (recovered 2026-06-11 after being found never-committed) is a REFERENCE INPUT only — it pre-dates v0.3.2 and is superseded on OAuth (T3), T8b, tier-badge sourcing (§4.1), and claim-by-email placement. · `COOKBOOK_DELIVERY_SCOPE.md` (cookbook workstream) · `docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html` (15 screens).
@@ -64,6 +64,10 @@ Full screen-by-screen spec is in `ONBOARDING_BUILD_SPEC.md` §4, keyed to wirefr
 - **D-ON-14 (O2 resolved):** contacts sync IN F&F scope as its own GATED CP, decoupled from T5's ship (T5 ships without it; it slots in additively). Build requirements: salted-hash ephemeral matching (no raw address-book upload or persistence); email-only match (no phone collection — modest match rates accepted); enumeration guard (authed-only, rate-limited, matched-profiles-only response); privacy-policy update + Apple purpose-string/privacy-label drafts ride the CP; zero-match UX folds back to cohort suggestions + share link.
 - **D-ON-15:** S2 confirmed — CP9a is email+password only; wireframe T3 OAuth buttons do not ship in F&F.
 
+### Shared-pantry onboarding rulings (2026-06-12)
+- **D-ON-16 (S9-lite, 2026-06-12):** staples hosts (T11 via CP9 wiring; T15 via CP9f) check SpaceContext.pendingInvitations; if non-empty, lead with "Join {inviter}'s pantry" (accept → setActiveSpace(shared) + SKIP the staples seed; decline → normal checklist). Reactive only — no shared-space question enters the spine (S9 upheld). Every new user still gets a default Home space; sharing changes which space is ACTIVE, never whether Home exists. Roommate/partial sharing stays DEFERRED (supplies.for_user_ids noted as the future home, §8 umbrella).
+- **D-ON-17 (amends D-ON-11):** per-user pass-on codes gain optional share-my-pantry intent: invite_codes.share_default_space boolean NOT NULL DEFAULT false (meaningful only with owner_user_id; cluster codes unaffected). On redemption of a flagged code, the redemption RPC additionally creates an idempotent pending space_members invitation (role: MEMBER) from the code owner — target space resolved AT REDEMPTION to the owner's active space IF the owner holds owner/admin role there, else the owner's default space; the DEFINER path re-validates that role at redemption time. Ships inside CP7-minimal (one column + one insert in the same RPC). T5 share surface gains the "invite them to your pantry too" toggle.
+
 ---
 
 ## 3. Open items
@@ -122,7 +126,9 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 
 **`handle_new_user` does NOT create a Space** (CP5 finding — closes the prior space-timing question). Spaces are created **lazily by app/RPC**, not at signup.
 
-**Therefore, a hard build constraint for the onboarding flow:** any step that writes space-scoped data — **CP3 staples → supplies, the T11 pantry seed, and any space-scoped write in the CP9 spine** — **must first ensure the user's space exists by calling the existing lazy space-create path.** Do not invent a second create path; find and call the one that exists. Ordering: **space-ensure before the first supply/space-scoped write.** Missed, this silently no-ops or errors. CP3/CP9 drafters: read this before drafting.
+**Therefore, a hard build constraint for the onboarding flow:** any step that writes space-scoped data — **CP3 staples → supplies, the T11 pantry seed, and any space-scoped write in the CP9 spine** — **must first ensure the user's space exists by calling the existing lazy space-create path.** Do not invent a second create path; find and call the one that exists (`ensureDefaultSpace` → the **`create_default_home_space(p_user_id)`** RPC). Ordering: **space-ensure before the first supply/space-scoped write.** Missed, this silently no-ops or errors. CP3/CP9 drafters: read this before drafting.
+
+**Correction (2026-06-12):** earlier versions named a nonexistent RPC (create_default_space_for_user); the live RPC is create_default_home_space(p_user_id). The error propagated through the handoff and workstream plan and was caught by CP3's new-user-no-space verification — which also exposed that ensureDefaultSpace swallowed the failure silently (corrective shipped with CP3: correct RPC + loud failure).
 
 ---
 
@@ -144,10 +150,10 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 | CP6a-1 | Verification table + private bucket + capture/submit | checkpoint | ✅ **shipped + verified** |
 | CP6a-2 | Admin gate + review RPCs + allowlist + in-app portal + CP6b seam | **gated** | ✅ shipped + prod-verified (RLS backstop PASS 2026-06-10) |
 | CP6b | Copy-on-verify delivery + provenance (full-recipe copy per §4.3; recipeDeliveryService) | **gated** | ✅ shipped + prod-verified (post-push real-service fixture smoke PASS 17/17, 2026-06-11); CP4b smoke-gate SATISFIED |
-| CP7-minimal | per-user pass-on codes (RPC + T5 share surface) | checkpoint (RPC follows MIGRATIONS.md invocation-auth rule) | scoped (D-ON-11) |
+| CP7-minimal | per-user pass-on codes (RPC + T5 share surface) + share-my-pantry intent (D-ON-17) | checkpoint (RPC follows MIGRATIONS.md invocation-auth rule) | scoped (D-ON-11) |
 | CP8 | Claim-by-email | **gated, high-risk** | ⛔ isolated, own verified CP |
 | CP-O2 | contacts sync | GATED | scoped (D-ON-14); decoupled from T5/F&F-spine ship |
-| CP9 | Spine + router + recipe value steps + empty states | checkpoint | ⏳ **§6 constraint applies** ⚠️ T9b depends on post-backdating flags (recovered spec §5.5) that do not exist — CP9d ships T9b degraded (favorites + times-made, no backdated post) OR picks up a small flags migration; CC reports which at draft. |
+| CP9 | Spine + router + recipe value steps + empty states | checkpoint | ⏳ **§6 constraint applies** ⚠️ T9b depends on post-backdating flags (recovered spec §5.5) that do not exist — CP9d ships T9b degraded (favorites + times-made, no backdated post) OR picks up a small flags migration; CC reports which at draft. + S9-lite pending-invitation branch (D-ON-16: T11 via CP9 wiring; T15 via CP9f) |
 
 **Clean-tree rule:** sensitive row-touching CPs (CP4b, CP6b, CP8) run against a clean tree, per-CP commits. (CP2 closeout + CP5 push + CP6a-1 already landed clean.)
 
@@ -180,6 +186,7 @@ Stated as an **open assumption on the record** (§3), never encoded silently by 
 ## Changelog
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-06-12 | 0.3.10 | S9-lite ruled (D-ON-16: reactive pending-invitation branch on the staples hosts; S9's out-of-spine stance upheld). D-ON-11 amended (D-ON-17: share-my-pantry intent on pass-on codes, role=MEMBER + at-redemption space-resolution guards; rides CP7-minimal). §6 RPC-name corrected (create_default_space_for_user → create_default_home_space) — nonexistent-RPC + silent-null failure caught by CP3's new-user-no-space verification; corrective ships with CP3. |
 | 2026-06-11 | 0.3.9 | Onboarding decision batch: plan ratified spec-of-record (spec recovered → reference, banner added); completion persistence (D-ON-10); seeding + per-user codes promoted (D-ON-11); has_recipes (D-ON-12); staples provisional (D-ON-13); contacts sync in scope, gated, decoupled (D-ON-14); email-only auth confirmed (D-ON-15); T8b deferred; T9b backdating dependency flagged; wireframes committed. |
 | 2026-06-11 | 0.3.8 | §7 status reconcile: CP6a-2 + CP6b **shipped + prod-verified** (RLS backstop PASS + post-push real-service fixture smoke PASS 17/17); CP4b now waits ONLY on the assembly-owner per-book list (CP6b smoke-gate met). MIGRATIONS.md: **invocation-auth** standing rule banked (+ the `SELECT *`/generated-column caveat from CP6b). |
 | 2026-06-10 | 0.3.7 | Doc catch-up to ratified CP6b behavior: user_books link inlined in recipeDeliveryService (F&F exception — isolation over reuse; neutral primitive DEFERRED w/ OB-6). gold_standard_* family excluded/reset as a set. Deny-list standing rule for future columns. Invocation-auth confirm added to the gated-RPC/function checklist. |

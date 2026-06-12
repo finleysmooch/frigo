@@ -69,7 +69,7 @@ The delivery *mechanism* is built; the user-facing onboarding *flow* is not. Tha
 `handle_new_user` does **NOT** create a Space at signup (CP5 finding). Spaces are lazy-created by app/RPC. **Any step that writes space-scoped data — CP3 staples → `supplies`, the pantry seed, and any space-scoped write in the CP9 spine — must first ensure the user's space exists.**
 
 **The existing path to call (do not invent a second one):**
-- **`ensureDefaultSpace(userId): Promise<string>`** in `lib/services/spaceService.ts`. Idempotent: checks `space_members` for an accepted `is_default` space and returns its id; otherwise calls the `create_default_space_for_user(p_user_id)` RPC and returns the new id.
+- **`ensureDefaultSpace(userId): Promise<string>`** in `lib/services/spaceService.ts`. Idempotent: checks `space_members` for an accepted `is_default` space and returns its id; otherwise calls the `create_default_home_space(p_user_id)` RPC and returns the new id. *(RPC name corrected 2026-06-12 — this doc originally said `create_default_space_for_user`, which never existed on prod; anchor v0.3.10 §6.)*
 - `SpaceContext` already calls `ensureDefaultSpace` — follow that wiring pattern rather than calling the service raw from a screen, if the context is mounted by the time onboarding writes.
 - **Ordering: space-ensure BEFORE the first space-scoped write.** Missed, the write silently no-ops or errors.
 
@@ -101,7 +101,7 @@ For F&F, this means: **the onboarding cookbook step must degrade gracefully when
 2. **`ONBOARDING_BUILD_SPEC.md` §4** — the authoritative screen-by-screen build order + which existing pieces to reuse. **Repo-only — read it from the repo (via CC or have Tom paste it).** This is the doc that turns the wireframes into a build plan.
 3. **`docs/wireframes/frigo_onboarding_coldstart_wireframes_v4.html`** — the 15 screens. *(In PK.)*
 4. **`COOKBOOK_DELIVERY_SCOPE.md`** — only relevant to the screen-8 seam (§5 above).
-5. **Live code, confirm-from-code:** `spaceService.ts` (`ensureDefaultSpace` + the `create_default_space_for_user` RPC), `SpaceContext.tsx`, `SignupScreen` / `LoginScreen`, `EditProfileScreen`, `UserSearchScreen`, `suppliesService`, `inviteCodeService`, `searchBookCatalog`, the CP6a-1 capture/submit component, and `App.tsx` navigation (how the onboarding stack mounts and how the app decides new-user vs returning).
+5. **Live code, confirm-from-code:** `spaceService.ts` (`ensureDefaultSpace` + the `create_default_home_space` RPC), `SpaceContext.tsx`, `SignupScreen` / `LoginScreen`, `EditProfileScreen`, `UserSearchScreen`, `suppliesService`, `inviteCodeService`, `searchBookCatalog`, the CP6a-1 capture/submit component, and `App.tsx` navigation (how the onboarding stack mounts and how the app decides new-user vs returning).
 
 ---
 
@@ -140,6 +140,6 @@ For F&F, this means: **the onboarding cookbook step must degrade gracefully when
 1. **Read `ONBOARDING_BUILD_SPEC.md §4` from the repo** and reconcile its slicing against the CP9 sub-CP seams proposed in §2. Its build order wins. (If a subproject is spun up, this doc must be in its PK — §2.)
 2. **[HIGH] New-user detection / onboarding-completion persistence — decide BEFORE CP9a drafts.** §6's "how the app decides new-user vs returning" almost certainly resolves to *no mechanism exists today*. How completion is persisted (e.g. a `profiles.onboarding_completed_at` column vs local-only) is a **decision of record, likely carrying a small migration** — it must go to **oversight as an explicit early relay**, not be improvised by CC mid-screen.
 3. **[HIGH] Seeded graph (CP7) — confirm + flag.** Once the build spec is read: confirm where seeded-graph work lives, whether T5 (find-friends) depends on it, and who owns it; **relay for an oversight ruling** (§8). The F&F bar is unmeetable without it.
-4. **Confirm `ensureDefaultSpace` live** (signature + the `create_default_space_for_user` RPC + how `SpaceContext` invokes it) — it gates CP3 and every space-scoped CP9 write.
+4. **Confirm `ensureDefaultSpace` live** (signature + the `create_default_home_space` RPC + how `SpaceContext` invokes it) — it gates CP3 and every space-scoped CP9 write.
 5. **Propose the CP sequence to Tom/oversight** — likely CP3 (smallest, self-contained, exercises the space-ensure path once) as the warm-up, then CP9 spine (9a), then the rest. Consider a focused subproject given the screen count.
 6. Draft the first checkpoint CP prompt (context, inputs-to-read, confirm-from-code, task, constraints, verification incl. the space-ensure test, SESSION_LOG format) and hand it to CC.
