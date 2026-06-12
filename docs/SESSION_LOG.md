@@ -7,6 +7,37 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-12 — Dup-Home fix SHIPPED + prod-verified (5/5 + spouse-harness regression PASS): ensureDefaultSpace/getActiveSpace own-Home filter + partial unique index
+
+**Green-lit ("go"); mechanical tier (additive index — CC pushes per MIGRATIONS.md after dry-run).** Code: both `spaceService` sites (`ensureDefaultSpace` check + `getActiveSpace` fallback) now filter `.eq('role','owner')` + `.limit(1).maybeSingle()` with the ensure-side error THROWN (multi-row can never again be masked into "create another Home"). Migration **`20260612171800_dup_home_partial_unique_index.sql`**: `CREATE UNIQUE INDEX uniq_default_space_per_creator ON spaces(created_by) WHERE is_default` — pre-scan was clean (zero creators >1), applied cleanly; spaces is not a copied table (deny-list n/a). `tsc` clean; dry-run listed exactly the one migration; pushed; local==remote.
+
+**Verification (verbatim):**
+```
+[PASS] H1 post-join ensureDefaultSpace x3 returns the SAME own-Home id — home=5fc1bbd3-… got=[same,same,same]
+[PASS] H2 B owns exactly 1 default space after the loop — count=1
+[PASS] H3 getActiveSpace fallback resolves to B's OWN Home (was null pre-fix) — active=5fc1bbd3-…
+[PASS] H4 second is_default insert for same creator REJECTED by unique index — duplicate key value violates unique constraint "uniq_default_space_per_creator"
+[PASS] H5 cleanup to baseline — {"spaces":3,"members":4,"profiles":38}
+VERDICT: PASS (all checks)
+```
+Full spouse-case harness regression re-run: **VERDICT: PASS (all checks).** The D-ON-16 spouse cohort is now safe end-to-end: join → no Home multiplication → correct active-space fallback → DB invariant enforced.
+
+**Files:** `lib/services/spaceService.ts` (already HIGH in PK_CODE_SNAPSHOTS — Rule E standing), `supabase/migrations/20260612171800_dup_home_partial_unique_index.sql` (new), `docs/SESSION_LOG.md`. **Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — one-default-space-per-creator invariant; `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — dup-Home fixed; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
+## 2026-06-12 — Tom's spouse-flow walk: PASS ("looks good!") — and the teardown caught a NEW spaceService bug: duplicate-Home multiplication for joiners of someone else's default space (diagnosed; fix proposed, NOT applied)
+
+**The walk (live, staged fixtures — owner "Alex Fixture" w/ 10-supply pantry + real pending member invitation to spouse account "Sam Spouse"):** Tom logged in as the spouse → gate routed to onboarding → profile card → router → **the D-ON-16 "Join Alex Fixture's pantry?" card led the staples step** → joined → "You're all set, Sam" → tabs → **Pantry showed Alex's 10 supplies** (Metro: `Switching to space e142bc06…` → `Loading supplies for space e142bc06…`). Verdict: "looks good!" Known cosmetic confirmed in the wild: OB-14 "Unknown Space" on the join card. Minor log cosmetic noted: switchSpace logs "Switched to: undefined" when the joined space isn't in the local list yet.
+
+**🔴 NEW BUG (teardown inspection — third spaceService defect this week, same never-exercised-path class):** Metro showed Sam with **"Found 3 spaces"**; DB confirmed Sam OWNED TWO default Home spaces (created 16s apart). **Root cause:** `ensureDefaultSpace`'s membership check (`spaces!inner(is_default=true)` + `.single()`) doesn't filter by `role='owner'` — after joining a partner's space, the partner's Home is ALSO `is_default=true`, so the check matches 2 rows, `.single()` errors (PGRST116), **the error is discarded** → "no space" → **a fresh Home is created on EVERY spaces load, forever, for exactly the D-ON-16 spouse cohort.** `getActiveSpace` has the same unfiltered `.single()` pattern (its no-active-row fallback) → returns null for the same cohort. **Live damage scan: zero real users affected** (3 default spaces, no creator with >1 — the fixture damage was torn down). **Proposed fix (NOT applied, awaiting go):** (a) both `spaceService` sites add `.eq('role','owner')` + `limit(1).maybeSingle()` (own-Home-only, multi-row-safe, error no longer maskable); (b) hardening migration: `CREATE UNIQUE INDEX ... ON spaces(created_by) WHERE is_default` (one default space per creator, DB-level backstop — pre-scan clean, safe to add); verification = spouse harness + a repeat-loadSpaces idempotence check.
+
+**Teardown:** both fixture users + all three spaces + supplies deleted (one retry — the email-lookup `find` silently missed Alex; deleted by id); **counts back to baseline `{"spaces":3,"members":4,"supplies":96,"profiles":38}`.**
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none yet; `DEFERRED_WORK.md` — none (the dup-Home fix should NOT be deferred — it breaks the just-shipped spouse flow on a timer); `PROJECT_CONTEXT.md` — walk validated; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
 ## 2026-06-12 — CP-spaces SHIPPED + prod-verified (gate PASS: spouse harness 9/9 + denial probes 5/5) → anchor v0.3.11 (D-ON-18; D-ON-16/17 UNGATED) + DEFERRED_WORK 5.35
 
 **Post-review applied + pushed + gated, per the oversight directive.** Anchor read v0.3.10 pre-edit (STOP check passed). **Post-review amendment applied BEFORE push:** the **D-ON-18 self-or-service guard** added to `check_space_permission` (authenticated callers may only check themselves — `auth.uid() <> p_user_id → false`; service/internal callers (no uid) check anyone; cross-user probes fail closed, no error). Dry-run listed exactly `20260612170500_…`; **pushed (Tom-directed sequence)**; migration list local==remote.

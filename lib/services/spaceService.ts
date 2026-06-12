@@ -360,15 +360,20 @@ export async function getActiveSpace(userId: string): Promise<SpaceWithRole | nu
 
     let activeSpaceId = activeData?.active_space_id;
 
-    // If no active space, get default
+    // If no active space, fall back to the user's OWN default space.
+    // Dup-Home fix (2026-06-12): role='owner' + maybeSingle — a joined
+    // partner's default space also matches is_default=true and the old
+    // .single() errored on 2 rows, nulling the fallback for spouses.
     if (!activeSpaceId) {
       const { data: defaultSpace } = await supabase
         .from('space_members')
         .select('space_id, spaces!inner(is_default)')
         .eq('user_id', userId)
         .eq('status', 'accepted')
+        .eq('role', 'owner')
         .eq('spaces.is_default', true)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       activeSpaceId = defaultSpace?.space_id;
     }
@@ -1007,14 +1012,27 @@ export async function searchUsersToInvite(
  */
 export async function ensureDefaultSpace(userId: string): Promise<string> {
   try {
-    // Check if user has a default space
-    const { data: existing } = await supabase
+    // Check if user has their OWN default space. Dup-Home fix (2026-06-12):
+    // role='owner' is load-bearing — a member who joined someone ELSE's
+    // default space (D-ON-16 spouse flow) also matches is_default=true, and
+    // the old .single() errored on 2 rows, the error was discarded, and a
+    // fresh Home got created on EVERY spaces load. maybeSingle + error check
+    // make multi-row impossible to mask; the partial unique index
+    // (migration 20260612) is the DB backstop.
+    const { data: existing, error: existingError } = await supabase
       .from('space_members')
       .select('space_id, spaces!inner(is_default)')
       .eq('user_id', userId)
       .eq('status', 'accepted')
+      .eq('role', 'owner')
       .eq('spaces.is_default', true)
-      .single();
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('❌ ensureDefaultSpace membership check failed:', existingError);
+      throw existingError;
+    }
 
     if (existing?.space_id) {
       return existing.space_id;
