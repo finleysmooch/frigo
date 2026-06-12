@@ -7,6 +7,90 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-12 — CP-spaces SHIPPED + prod-verified (gate PASS: spouse harness 9/9 + denial probes 5/5) → anchor v0.3.11 (D-ON-18; D-ON-16/17 UNGATED) + DEFERRED_WORK 5.35
+
+**Post-review applied + pushed + gated, per the oversight directive.** Anchor read v0.3.10 pre-edit (STOP check passed). **Post-review amendment applied BEFORE push:** the **D-ON-18 self-or-service guard** added to `check_space_permission` (authenticated callers may only check themselves — `auth.uid() <> p_user_id → false`; service/internal callers (no uid) check anyone; cross-user probes fail closed, no error). Dry-run listed exactly `20260612170500_…`; **pushed (Tom-directed sequence)**; migration list local==remote.
+
+**POST-PUSH GATE — PASS (verbatim):**
+Spouse-case harness re-run — the three blocked checks FLIPPED, 9/9:
+```
+[PASS] 2. A invites B to the shared pantry (owner permission path) — {"success":true}
+[PASS] 3. B sees exactly the pending invitation (T11 D-ON-16 lead fires) — [{…"space_id":"ea3c7131-…","role":"member",…}]
+[PASS] 4. B joined; shared pantry is B's ACTIVE space; own Home still exists — active=ea3c7131-… home=3fbbee14-…
+(1, 5–9 all PASS as before; cleanup to baseline {"spaces":3,"members":4,"supplies":96,"profiles":38})
+VERDICT: PASS (all checks)
+```
+Denial probes:
+```
+[PASS] D1 non-member self-check -> false
+[PASS] D2 cross-user probe (X checks owner Y) -> false (D-ON-18)
+[PASS] D3 anon EXECUTE denied — error="permission denied for function check_space_permission"
+[PASS] D4 owner self-check: view=true, invite_member=true, sole-owner leave=false
+[PASS] D5 service-role checks anyone (no-uid path) -> owner delete_space=true
+VERDICT: PASS (all probes)
+```
+**Effect: the Shared Pantries invite flow works in prod for the first time, and the D-ON-16 join-pantry branch is LIVE.**
+
+**Anchor v0.3.10 → v0.3.11 (verbatim oversight edits):** §7 CP-spaces row (✅ shipped + prod-verified, evidence = this entry); D-ON-16/17 appended "UNGATED 2026-06-12 — join-pantry branch live"; **D-ON-18** added; changelog row. **DEFERRED_WORK 5.34 → 5.35:** OB-10 members-invite-members product question; OB-11 definer-helper `p_user_id` exposure review; OB-12 `get_books_with_counts` orphan (rides OB-6); OB-13 UserSearchScreen fire-and-forget counts; **+ OB-14** (surfaced by the gate run, CC-added): pending invitee can't read the space row → join card shows "Unknown Space" (spaces SELECT is members-only) — pre-F&F polish for the join flow.
+
+**Rule A:** `_pk_sync/` refreshed: anchor + DEFERRED_WORK + SESSION_LOG (2026-06-12 dated copies) — **Tom owes a PK upload.** **Rule E:** spaceService already HIGH; no new flags. **Commits this slice:** (a) CP9c/9e screens, (b) CP-spaces (migration + spaceService + types), (c) docs (anchor/DEFERRED/SESSION_LOG/plan) — git only, nothing git-pushed unless Tom says.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — server-truth permission matrix + definer-helper policy pattern; `DEFERRED_WORK.md` — edited this slice; `PROJECT_CONTEXT.md` — CP-spaces shipped, Shared Pantries functional; `FF_LAUNCH_MASTER_PLAN.md` — Shared Pantries unblocked.
+
+**Recommended next steps for Tom:** (1) PK upload (three `_pk_sync` files); (2) walk the join-pantry branch in-app when you want (I can stage an invitation to a throwaway); (3) next CPs: CP9d (recipe path) or CP7-minimal — both unblocked.
+
+---
+
+## 2026-06-12 — CP-spaces AUTHORED (gated; pre-approved) + dry-run PASS — awaiting oversight text post-review, then Tom's push · CP-rpc-audit DONE (2 orphans of 19; the class is cleared)
+
+**CP-spaces (gated tier; pre-review approved with riders — all applied):** migration **`supabase/migrations/20260612170500_cp_spaces_permission_rpc_and_rls_fix.sql`** authored: (1) `get_user_owner_space_ids(p_user_id)` — SECURITY DEFINER, `SET search_path=public`, REVOKE PUBLIC/anon + GRANT authenticated/service_role (MIGRATIONS.md lockdown); (2) the two recursive policies dropped + recreated **same-intent** on the helper; (3) `check_space_permission(p_space_id, p_user_id, p_action)` — SECURITY DEFINER, **matrix ratified as-is** (owner → all; member → view/add_item/delete_item/invite_guest; guest → view/add_item; owner-only invite_member STANDS), **plus the ratified last-owner-can't-leave guard as action `'leave'`** (sole owner of a space → false; everyone else → true); unknown actions fail closed; full grant lockdown. **Policy sweep (rider 3):** space_members policies live ONLY in the baseline (no later migration touches them); of the 7, exactly the two named ones self-reference — the SELECT/INSERT policies already use the definer-helper pattern. **Same-slice code riders:** `spaceService.checkPermission` now destructures + **THROWS on rpc error** (the silent `{ data }`-only destructure is what hid the missing RPC); `lib/types/space.ts` `SpaceAction` gains `'leave'` (client mirror of the RPC's action set). `tsc` clean. **`supabase db push --dry-run`: exactly `20260612170500_…` pending.** ⏸️ **STOPPED per the pre-review protocol: oversight post-reviews the migration text BEFORE Tom pushes. Post-push gate = spouse-case harness re-run (checks 2–4 → PASS) + a non-member denial probe.** Commit grouping for Tom: the CP9c/9e screen slice and the CP-spaces slice (migration + spaceService + types) should land as separate commits.
+
+**CP-rpc-audit (mechanical; rider 4 — clear the class):** all client `.rpc('…')` calls inventoried (21 sites, 19 unique names across lib/screens/components/contexts; supabase/functions has none) and checked against the **authoritative** PostgREST schema-cache listing (OpenAPI root, 39 live rpc functions; note — an earlier hint-text heuristic produced garbage (15 false orphans) and was discarded; method matters with this audit). **Result: 2 orphans of 19.**
+```
+ORPHAN  check_space_permission   — spaceService.ts:841 (known; FIX = the CP-spaces migration awaiting push)
+ORPHAN  get_books_with_counts    — bookViewService.ts:23 (getAllBooks)
+EXISTS  the other 17 (search_ingredients, increments, get_related_posts, CP6a verification set, seed_default_views, invite codes, meal RPCs, search_supplies, create_default_home_space)
+```
+`get_books_with_counts` is an orphan **with an explicit fallback**: getAllBooks throws on the rpc error and runs `fallbackGetBooks` (working N+1 path) — not broken, but every call pays a dead RPC round-trip + a console.error, forever. Recommend: create the RPC or delete the dead primary path — rides the OB-6 bookViewService consolidation; **banked as a DEFERRED recommendation, not fixed here.** **Silent-result wrappers found:** `spaceService.checkPermission` (FIXED this slice) and `ensureDefaultSpace` (FIXED in the CP3 corrective) were the dangerous class (error-blind destructure); `UserSearchScreen.tsx:392/:398` fire-and-forget the two follower-count increments (functions exist; failures invisible — cleanup candidate, banked); `getAllBooks` checks errors properly. No other error-blind rpc destructures found in the sweep.
+
+**Files (UNCOMMITTED, CP-spaces slice):** the migration, `lib/services/spaceService.ts` (checkPermission throws) ⚠️ PK snapshot stale-flag already HIGH from the CP3 corrective, `lib/types/space.ts` ('leave') — not tier-listed. Audit artifacts in gitignored `_scratch/`. **Rule E:** no new flags beyond the standing spaceService HIGH.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — server-truth permission matrix once pushed; `DEFERRED_WORK.md` — add: get_books_with_counts create-or-remove (rides OB-6); UserSearchScreen fire-and-forget increments; "should members invite members?" product question (per the ruling); `PROJECT_CONTEXT.md` — CP-spaces authored/awaiting-review; `FF_LAUNCH_MASTER_PLAN.md` — none. **Anchor §7 CP-spaces row + D-ON-16/17 "gated on CP-spaces" status: oversight authors at post-review (per the pre-review, item 5).**
+
+---
+
+## 2026-06-12 — CP9c + CP9e + T11 hosting AUTHORED (spine closed T1→T12; stamp moved to T12) — harness 6/9; the 3 FAILs are TWO MORE pre-existing prod bugs in the shared-pantries machinery (diagnosed; corrective spec'd, NOT authored) — UNCOMMITTED
+
+**Tier: checkpoint. The spine-close slice (recommended + green-lit "begin working on the next steps"):** `OnboardingRouterScreen` (T6 — D-ON-5 three-card router; recipes/both → Staples with the CP9d insertion point commented; by-feel → T10; Q0 answer flow-local, persistence unruled — flagged), `FreehandPlaceholderScreen` (T10, S6 shelved pass-through), `OnboardingStaplesScreen` (T11 host — **D-ON-16 branch implemented:** pending invitation → "Join {inviter}'s pantry" lead; accept → `acceptInvitation` + `switchSpace` (shared becomes ACTIVE) + skip seed → T12; decline → normal `StaplesChecklist`), `OnboardingHandoffScreen` (T12 — "You're all set, {first}", two nudge cards + Go to Frigo; **THE D-ON-10 STAMP NOW LIVES HERE** — CP9a's interim-stamp flag is resolved; card deep-targeting (PostCreationModal / find-friends) deferred to CP9b/CP9f wiring — all exits stamp+enter for now, flagged). `OnboardingProfileScreen` stamp removed (pure continue → Router). App.tsx: `PostAuthOnboardingNavigator` (ProfileSetup → Router → [Freehand] → Staples → Handoff) **wrapped in SpaceProvider** (T11's D-ON-16 branch + StaplesChecklist's ensure need it). `tsc` clean (baseline noise only).
+
+**Harness (real spaceService/staplesService/onboardingService; owner-A-configures → invites B → B joins flow): 6/9 — and the 3 FAILs are NOT this slice's code, they are pre-existing prod bugs the spouse-case test exposed:**
+```
+[PASS] 1. owner A: space created + 3-staple pantry configured
+[FAIL] 2. A invites B to the shared pantry (owner permission path) — {"success":false,"error":"Only owners can invite members"}
+[FAIL] 3. B sees exactly the pending invitation (T11 D-ON-16 lead fires) — []   (downstream of 2)
+[FAIL] 4. B joined; … — respondToInvitation → 42P17 "infinite recursion detected in policy for relation \"space_members\""
+[PASS] 5./6. seed-skip semantics + B's own Home stayed empty
+[PASS] 7./8. pre-stamp gate false → T12 stamp → gate true   (CP9e stamp-at-T12 VERIFIED)
+[PASS] 9. cleanup — spaces/members/supplies/profiles back to baseline
+```
+
+**🔴 Diagnosis (confirm-from-baseline + live):**
+- **Bug A — `check_space_permission` RPC DOES NOT EXIST** (0 hits in the CP1 baseline's 46 functions; empirically: owner's invite fails closed). `spaceService.checkPermission` swallows the rpc error → false → **every permission-gated space operation is dead in prod**: inviteMember, removeMember, changeRole, updateSpace, updateSpaceSettings, deleteSpace. Same bug class as CP3's `create_default_space_for_user` finding — a service written against an RPC that was never created.
+- **Bug B — recursive RLS on `space_members`:** policies "Owners remove members" (DELETE) + "Owners update memberships" (UPDATE) inline a SELF-REFERENCING subquery on space_members → `42P17` on ANY authenticated UPDATE/DELETE of the table (so even "Update own membership" can't execute — accepting an invitation is impossible). The schema already demonstrates the correct pattern: `get_user_space_ids` is a SECURITY DEFINER helper used by the SELECT policies; these two policies just didn't use one.
+- **Implication:** the Shared Pantries invite flow (SpaceSettingsScreen → InviteMemberModal) has been **broken in prod** independent of onboarding; nobody had exercised it end-to-end with a non-service-role client until this harness.
+
+**Proposed corrective — "CP-spaces" (GATED: RLS rewrite + new RPC; NOT authored — awaiting oversight):** one migration: (1) `get_user_owner_space_ids(p_user_id) RETURNS SETOF uuid` SECURITY DEFINER (owner+accepted), locked grants; recreate the two recursive policies on top of it; (2) `check_space_permission(p_space_id, p_user_id, p_action) RETURNS boolean` SECURITY DEFINER mirroring the client-side matrix in `lib/types/space.ts getSpacePermissions` (owner → all; member → view/add_item/delete_item/invite_guest; guest → view/add_item; actions: view/add_item/delete_item/edit_settings/invite_member/invite_guest/remove_member/delete_space), EXECUTE → authenticated only per the MIGRATIONS.md lockdown rule; (3) verification = re-run this harness (checks 2–4 flip) + an explicit non-member denial probe. **D-ON-16's UI ships in this slice but its data path is BLOCKED until CP-spaces lands.**
+
+**What IS walkable now (Tom):** full new-user spine T1→T12 — Welcome → code → account → profile → router → (freehand) → staples → "You're all set" → tabs, with the stamp at T12. Only the join-a-pantry branch is inert pending the corrective.
+
+**Files authored/modified (UNCOMMITTED):** `screens/onboarding/OnboardingRouterScreen.tsx` / `FreehandPlaceholderScreen.tsx` / `OnboardingStaplesScreen.tsx` / `OnboardingHandoffScreen.tsx` (new), `OnboardingProfileScreen.tsx` (stamp removed), `App.tsx` (post-auth navigator + SpaceProvider wrap). **Rule E:** none tier-listed → no action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — post-auth onboarding stack once committed; `DEFERRED_WORK.md` — none (CP-spaces must NOT be deferred — live-app bug); `PROJECT_CONTEXT.md` — spine closed + the two shared-pantries prod bugs; `FF_LAUNCH_MASTER_PLAN.md` — shared-pantries invite flow broken-in-prod is launch-relevant.
+
+**Recommended next steps for Tom:** (1) relay the CP-spaces corrective for an oversight ruling (it gates D-ON-16, CP9b's cohort follows are unaffected, and it's a live bug in the existing Spaces feature); (2) walk the new spine end-to-end (sign out → new code-gated account — say the word for a fixture code); (3) commit this slice when satisfied.
+
+---
+
 ## 2026-06-12 — CP9a AUTHORED + backend-verified (spine T1–T4 + D-ON-10 gate; harness PASS 10/10) — UNCOMMITTED, awaiting Tom's in-app walk
 
 **Tier: checkpoint (CC authors + reports; Tom commits). All code authored, tsc-clean, backend chain prod-verified through the REAL services.**

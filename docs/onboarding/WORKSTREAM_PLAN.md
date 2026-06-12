@@ -145,9 +145,10 @@ Every CP closeout updates this table **in the same commit as its SESSION_LOG ent
 | CP-O2 | contacts sync | **GATED** | scoped (D-ON-14); decoupled from T5/spine | oversight pre-review |
 | CP9a | T1–T4 | checkpoint | ⏳ **authored + backend-verified 2026-06-12** (harness PASS 10/10: validate→metadata-signup→redeem→gate→stamp, all real services). Flags: INTERIM stamp at T4 until CP9e moves it to T12; T4 photo capture deferred (no avatars bucket + emoji-glyph avatar system — oversight ruling needed); gate fails OPEN on read error. Awaiting Tom: in-app walk (needs a minted code) + commit | Tom look + commit |
 | CP9b | T5 | checkpoint | scoped — cohort model (D-ON-11); ships without contacts | CP9a, CP7-minimal |
-| CP9c | T6 | checkpoint | 🟡 sequenced | CP9a |
-| CP9d | T7–T9 | checkpoint | 🟡 T8b out (OB-8); T9b degraded-or-flags call **reported at draft**; CP4-ext badge signal live | CP9c |
-| CP9e | T12 | checkpoint | 🟡 carries the completion stamp | CP9a |
+| CP9c | T6 (+T10 placeholder, +T11 hosting w/ D-ON-16 branch) | checkpoint | ⏳ **authored 2026-06-12** — spine walkable T1→T12; D-ON-16 join branch UI in, data path **blocked on CP-spaces** | Tom look + commit |
+| CP-spaces | — (corrective migration) | **GATED** | ✅ **SHIPPED + prod-verified 2026-06-12** (migration `20260612170500` pushed post-review with the D-ON-18 self-or-service guard; gate PASS: spouse harness 9/9 — checks 2–4 flipped — + denial probes 5/5). Shared Pantries invite flow live for the first time; **D-ON-16 join branch LIVE** | — |
+| CP9d | T7–T9 | checkpoint | 🟡 T8b out (OB-8); T9b degraded-or-flags call **reported at draft**; CP4-ext badge signal live; insertion point commented in Router | CP9c |
+| CP9e | T12 | checkpoint | ⏳ **authored 2026-06-12** — stamp moved T4→T12 (D-ON-10 satisfied; harness checks 7/8 PASS); card deep-targeting deferred to CP9b/CP9f | Tom look + commit |
 | CP9f | T13–T15 | checkpoint | 🟡 floatable | CP3 |
 
 Legend: 🟢 unblocked/runnable · 🟡 sequenced behind a predecessor · ⏳ in build · ✅ shipped per its tier's bar.

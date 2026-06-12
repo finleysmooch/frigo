@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 11, 2026  
-**Version:** 5.34  
+**Last Updated:** June 12, 2026  
+**Version:** 5.35  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -21,6 +21,20 @@ This is the master backlog — the accumulated deferred work from all completed 
 ## RESOLVED — Stale extraction child-savers (CP6b finding → fixed 2026-06-11)
 
 🐛 🔴 → ✅ `recipeService.saveCrossReferences` / `saveMediaReferences` inserted against non-existent columns AND read the wrong parser-output keys, so any extraction emitting non-empty `cross_references` / `media_references` **threw and failed the whole recipe save** (the outer catch rethrows). Surfaced during CP6b confirm-from-code; kept out of CP6b for isolation. **Fixed 2026-06-11** — both mappings now map the real parser output → live columns: cross-refs `recipe_id`→`source_recipe_id`, `page_number`→`referenced_page_number`, **recovered** `recipe_name`→`referenced_recipe_name`, dropped phantom `notes`; media `image_url`→`url`, `caption`→`description`, **recovered** `location`→`location_on_page`, dropped phantom `sequence_order`. No schema change. Live-verified (corrected mapping lands correct rows; old mapping throws `PGRST204`). Frequency unmeasurable from persisted data (arrays not stored in `raw_extraction_data`; 0 child rows ever) → 🔴 by severity (total save failure when triggered). _(Recommended in prior SESSION_LOGs but never formally banked here; recorded directly as resolved.)_
+
+---
+
+## From: CP-spaces corrective + rpc-audit — anchor v0.3.11 (June 12, 2026)
+
+Surfaced by the CP9 spouse-case harness (which exposed the two shared-pantries prod bugs CP-spaces fixed) and the rider-4 RPC orphan audit.
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| OB-10 | **"Should members invite members?" product question.** D-ON-18 ratified the matrix as-is (owner-only invite_member) — explicitly no permission loosening inside a bug fix. Revisit for the spouse/household context post-F&F (D-ON-17's owner-driven auto-invite covers the F&F case). | 💡 | 🟢 | Banked per the CP-spaces ruling. |
+| OB-11 | **Definer-helper `p_user_id` exposure review.** `get_user_space_ids` + new `get_user_owner_space_ids` are SECURITY DEFINER and take an arbitrary `p_user_id` with EXECUTE granted to authenticated — callable directly via PostgREST to enumerate ANOTHER user's space ids (uuid leak only, no row data; policies consume them server-side). Review: self-or-service guard like D-ON-18's, or revoke direct EXECUTE if policy-internal use doesn't need it. | 🔧 | 🟡 | CP-spaces post-review rider. |
+| OB-12 | **`get_books_with_counts` orphan RPC (rpc-audit).** `bookViewService.getAllBooks` calls a function that doesn't exist; explicit fallback (`fallbackGetBooks`, N+1) means it works but every call pays a dead RPC round-trip + console noise. Create the RPC or delete the dead primary path. | 🔧 | 🟡 | Rides OB-6 (bookViewService consolidation). Audit verdict: 2 orphans of 19; the other was check_space_permission (fixed by CP-spaces). |
+| OB-13 | **UserSearchScreen fire-and-forget follower-count increments.** `increment_followers_count` / `increment_following_count` calls ignore their results entirely (functions exist; failures invisible — counts can silently drift). Check errors or move into a service per convention. | 🔧 | 🟢 | Rpc-audit finding. |
+| OB-14 | **Pending-invitee can't read the space row → "Unknown Space" on the join card.** `getPendingInvitations`' `space:spaces(name, emoji)` join returns null pre-acceptance (spaces SELECT policy is members-only), so the T11 D-ON-16 join lead and the existing invitations UI show "Unknown Space". Fix: definer RPC for invitation display fields, or a narrow pending-invitee SELECT policy. | 🐛 | 🟡 | Surfaced by the spouse-case harness check 3 payload. Pre-F&F polish for the join-pantry flow. |
 
 ---
 
