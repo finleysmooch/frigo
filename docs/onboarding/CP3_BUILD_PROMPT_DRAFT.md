@@ -1,7 +1,12 @@
-# CP3 BUILD PROMPT — DRAFT for oversight sanity-check (do not run until approved)
+# CP3 BUILD PROMPT — APPROVED 2026-06-12 (oversight; 3 amendments below)
 
 **Drafted:** 2026-06-12 · first self-authored CP prompt under the CC-native workstream model.
-**Status:** ⏳ awaiting oversight sanity-check (Tom relays). Routine prompts after this one won't need the pre-check.
+**Status:** ✅ APPROVED with 3 amendments (applied below) — executed 2026-06-12.
+
+## Oversight amendments (2026-06-12)
+1. **Tom's look is a deliverable.** D-ON-13 is provisional pending Tom seeing the screen. SESSION_LOG/closeout must include: the exact dev-wrapper entry path (how Tom reaches it in Expo) + a screenshot of the rendered checklist. Closeout explicitly invites the D-ON-13 content review — list edits after that are config-only, by design.
+2. **storage_location mapping.** If `createSupply` accepts `storageLocation`, the config may carry a per-item value (Pantry → 'pantry', Fridge → 'fridge', Condiments → confirm the house convention from data rather than guessing); include the chosen mapping in the SESSION_LOG mapping table. If the service defaults it or doesn't accept it, do nothing and say so — do NOT extend the service.
+3. **Throwaway-user hygiene.** Cleanup must also remove the `auth.users` row (CP6b smoke pattern), and the before==after counts must cover `spaces`, `space_members`, and `supplies` — not supplies alone.
 
 ---
 

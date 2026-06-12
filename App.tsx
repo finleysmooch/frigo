@@ -48,6 +48,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import DietaryPreferencesScreen from './screens/DietaryPreferencesScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import LogoPlaygroundScreen from './screens/LogoPlaygroundScreen';
+import StaplesPlaygroundScreen from './screens/StaplesPlaygroundScreen';  // CP3 dev wrapper
 import UserPostsScreen from './screens/UserPostsScreen';
 
 // Logo component for branding
@@ -195,6 +196,7 @@ export type FeedStackParamList = {
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
   VerificationReview: undefined;  // CP6a-2 — admin-gated review portal; Settings → Developer (admins only)
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
+  StaplesPlayground: undefined;  // CP3 dev wrapper — Settings → Developer → Staples Playground
   RecipeDetail: { recipe: any; planItemId?: string; mealId?: string; mealTitle?: string };
   AuthorView: { chefName: string };
   /** Phase 7I Checkpoint 5: cook post detail screen (L6). The `photoIndex`
@@ -267,6 +269,7 @@ export type StatsStackParamList = {
   Admin: undefined;  // dev-only screen, reachable from Settings → Developer
   VerificationReview: undefined;  // CP6a-2 — admin-gated review portal; Settings → Developer (admins only)
   LogoPlayground: undefined;  // dev-only screen, reachable from Settings → Developer
+  StaplesPlayground: undefined;  // CP3 dev wrapper — Settings → Developer → Staples Playground
   /** Phase 7H: My Posts cards tap through to the 7I L6 detail screen.
    *  Same param shape as the FeedStack's CookDetail route. */
   CookDetail: { postId: string; photoIndex?: number };
@@ -454,6 +457,14 @@ function FeedStackNavigator() {
         options={{
           headerShown: true,
           title: 'Logo Playground',
+        }}
+      />
+      <FeedStack.Screen
+        name="StaplesPlayground"
+        component={StaplesPlaygroundScreen}
+        options={{
+          headerShown: true,
+          title: 'Staples Playground',
         }}
       />
       <FeedStack.Screen
@@ -694,6 +705,11 @@ function StatsStackNavigator() {
         name="LogoPlayground"
         component={LogoPlaygroundScreen}
         options={{ headerShown: true, title: 'Logo Playground' }}
+      />
+      <StatsStackNav.Screen
+        name="StaplesPlayground"
+        component={StaplesPlaygroundScreen}
+        options={{ headerShown: true, title: 'Staples Playground' }}
       />
       <StatsStackNav.Screen
         name="EditProfile"

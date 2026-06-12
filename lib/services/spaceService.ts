@@ -1016,10 +1016,20 @@ export async function ensureDefaultSpace(userId: string): Promise<string> {
       return existing.space_id;
     }
 
-    // Create default space using SQL function
-    const { data: newSpaceId } = await supabase.rpc('create_default_space_for_user', {
+    // Create default space using SQL function.
+    // CP3 corrective (2026-06-12, anchor v0.3.10 §6): the RPC is
+    // create_default_home_space — the previously-called
+    // create_default_space_for_user never existed on prod (PGRST202), and the
+    // missing error check made this silently return null. Space-ensure is
+    // load-bearing (anchor §6): fail LOUD, never return a non-id.
+    const { data: newSpaceId, error } = await supabase.rpc('create_default_home_space', {
       p_user_id: userId,
     });
+
+    if (error || !newSpaceId) {
+      console.error('❌ create_default_home_space failed:', error);
+      throw error ?? new Error('create_default_home_space returned no space id');
+    }
 
     return newSpaceId;
   } catch (error) {

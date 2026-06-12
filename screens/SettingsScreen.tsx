@@ -463,6 +463,18 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
 
+          {/* CP3 — dev wrapper for the onboarding staples checklist (D-ON-13 content review). */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => navigation.navigate('StaplesPlayground')}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>🧂</Text>
+              <Text style={styles.rowTitle}>Staples Playground</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.row}
             onPress={() => navigation.navigate('Admin')}
