@@ -57,7 +57,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/unitConverter.ts` | 2026-05-19 | Phase 8R-CP6e-Services-a | Low | CP6e-Services-a (2026-05-06): added `convertBetween(amount, fromUnit, toUnit)` — converts between specific units (vs convertUnit which targets metric/imperial systems). Used by lotsService for cross-lot deduction unit-compatibility checks. |
 | `lib/services/userRecipeTagsService.ts` | 2026-04-22 | | Low | |
 | `lib/services/vibeService.ts` | 2026-05-19 | Phase 7F | Low | `getRecipeVibe`, `computeMealVibe` |
-| `lib/services/recipeExtraction/bookService.ts` | 2026-04-22 | | Low | 10 exports; Phase 7K backfill callers |
+| `lib/services/recipeExtraction/bookService.ts` | 2026-04-22 | | HIGH | 10 exports; Phase 7K backfill callers. 2026-06-12: CP4-ext added `has_recipes` to `searchBookCatalog`/`CatalogBookResult` — snapshot stale. (Also predates the CP4 `searchBookCatalog` addition itself.) |
 | `lib/services/recipeExtraction/chefService.ts` | 2026-05-19 | Phase 7K | Low | `backfillChefIds` added 2026-04-17 |
 | `lib/services/recipeExtraction/claudeVisionAPI.ts` | 2026-04-22 | | HIGH | |
 | `lib/services/recipeExtraction/imageProcessor.ts` | 2026-04-22 | | Low | |

@@ -7,6 +7,53 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-12 — CP4-ext SHIPPED + prod-verified: searchBookCatalog has_recipes (D-ON-12) — migration pushed, smoke PASS
+
+**Tier: mechanical (green-lit with the Tom-pushes amendment; Tom authorized the push by command).** Migration `20260611235555_cp4ext_has_recipes_computed_field.sql` + the `bookService.ts` service extension. **No consumer/badge changes** (grep: zero references to `searchBookCatalog`/`CatalogBookResult` outside `bookService.ts`).
+
+**What shipped:** PostgREST computed field `public.has_recipes(b public.books) RETURNS boolean` — `EXISTS (SELECT 1 FROM recipes r WHERE r.book_id = b.id)` — selectable as a virtual column; `searchBookCatalog` selects it; `CatalogBookResult.has_recipes: boolean` added (mapped `=== true`). T8a tier badges key off this per anchor §4.1, never `toc_extracted_at`.
+
+**Grounding call flagged (spec-vs-reality, implements D-ON-12 correctly under live RLS):** the function is **SECURITY DEFINER** (locked `search_path=public`), not INVOKER — `recipes` SELECT RLS is `is_public=true OR auth.uid()=user_id` (baseline ~line 7333), so an INVOKER EXISTS would return false for another user's PRIVATE canonical recipes (exactly the canonical-book case). Disclosure = one boolean per catalog book, no row data. **Grants per the MIGRATIONS.md lockdown rule:** `REVOKE ALL FROM PUBLIC` + `REVOKE ALL FROM anon`; `GRANT EXECUTE TO authenticated, service_role` (catalog search runs post-signup; no anon surface).
+
+**Verification (verbatim — post-push harness `_scratch/scripts/cp_postpush_verify_2026-06-12.mjs`; catalog was empty → fixtures + full cleanup; authed checks issue the EXACT shipped select through a real signed-in throwaway user on the anon-key client):**
+```
+[PASS] F1 book A has_recipes === true (authed; private NULL-user recipe still counts) — {"id":"06b8ae13-…","title":"ZZZ CP4EXT FIXTURE A (has recipes)","author":null,"cover_image_url":null,"toc_extracted_at":null,"has_recipes":true}
+[PASS] F2 book B has_recipes === false (authed) — {"id":"9fefc081-…","title":"ZZZ CP4EXT FIXTURE B (no recipes)","author":null,"cover_image_url":null,"toc_extracted_at":null,"has_recipes":false}
+[PASS] F3 anon select of has_recipes denied — error="permission denied for function has_recipes"
+[PASS] F4 cleanup — counts back to baseline — {"profiles":37,"books":16,"recipes":1900,"catalog":0}
+VERDICT: PASS (all checks)
+```
+F1's fixture recipe was deliberately `user_id NULL` + `is_public=false` — invisible to any invoker under recipes RLS — proving the DEFINER choice is load-bearing, not cosmetic. F3 is the invocation-auth denial paste (MIGRATIONS.md rule). `tsc --noEmit` clean on `bookService.ts` (only the documented pre-existing CookSoonSection/DayMealsModal + node_modules baseline). `supabase db push --dry-run` pre-push listed exactly the two pending migrations; `migration list` post-push shows local==remote through `20260611235555`.
+
+**Files modified:** `supabase/migrations/20260611235555_cp4ext_has_recipes_computed_field.sql` (new), `lib/services/recipeExtraction/bookService.ts` ⚠️ PK snapshot now stale (was 2026-04-22), `docs/PK_CODE_SNAPSHOTS.md` (Rule E — row → HIGH), `docs/onboarding/WORKSTREAM_PLAN.md` (CP4-ext status row → ✅, same commit), `docs/SESSION_LOG.md` (this entry).
+
+**Open questions:** none. (Anon-denial note: if a pre-auth surface ever needs the catalog search, `has_recipes` needs a deliberate anon EXECUTE grant — by design today.)
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — note the `has_recipes` computed-field pattern (PostgREST virtual column via row-type function, SECURITY DEFINER for RLS-transparent EXISTS); `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — CP4-ext shipped; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
+## 2026-06-12 — CP-persist SHIPPED + prod-verified: user_profiles.onboarding_completed_at (D-ON-10) — migration pushed, all checks PASS
+
+**Tier: mechanical (green-lit with the Tom-pushes amendment; Tom authorized the push by command).** Migration `20260611235055_cp_persist_onboarding_completed_at.sql`: `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz` (nullable) + column comment + guarded backfill `SET onboarding_completed_at = now() WHERE … IS NULL`. **EXPLICITLY OUT (oversight ruling): the App.tsx gate change — ships with CP9a.** Deny-list note per anchor §4.3: `user_profiles` is not `recipes` nor a copied child table → no copy-set classification needed (stated, not skipped).
+
+**Verification (verbatim — pre-push baseline 37 profiles read-only; post-push harness `_scratch/scripts/cp_postpush_verify_2026-06-12.mjs`):**
+```
+[PASS] P1 profiles total == baseline — total=37, baseline=37
+[PASS] P2 zero NULL onboarding_completed_at — nulls=0
+[PASS] P3 stamped == total — stamped=37, total=37
+[PASS] P4 fresh post-migration profile has NULL onboarding_completed_at — {"onboarding_completed_at":null}
+```
+P4 = the D-ON-10 semantic check: a throwaway user created AFTER the migration (via `handle_new_user`) gets `NULL` — new users will route to onboarding; the backfill touched only pre-existing rows. **App.tsx untouched:** `git diff App.tsx` = 0 lines; not in `git status`. `db push --dry-run` pre-push listed exactly the two pending migrations; `migration list` post-push local==remote through `20260611235055`.
+
+**Files modified:** `supabase/migrations/20260611235055_cp_persist_onboarding_completed_at.sql` (new), `docs/onboarding/WORKSTREAM_PLAN.md` (CP-persist status row → ✅, same commit), `docs/SESSION_LOG.md` (this entry). **Rule E:** no tier-listed code file edited in THIS CP (the harness lives in gitignored `_scratch/`) → no action.
+
+**Open questions:** none. T12 stamping + the gate land in CP9e/CP9a per the plan.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none yet (column is inert until CP9a); `DEFERRED_WORK.md` — none; `PROJECT_CONTEXT.md` — CP-persist shipped; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+---
+
 ## 2026-06-11 — WORKSTREAM_PLAN.md updated to spec-of-record (D-ON-9..15 folded in + recovered-spec harvest) (CC-owned doc; committed, NOT pushed)
 
 Follow-up slice to the v0.3.9 decision batch (below), per its item 8 — `docs/onboarding/WORKSTREAM_PLAN.md` is CC's own doc (not a living doc; no `_pk_sync` copy). **Provisional banner removed** (D-ON-9 ratifies the slicing); header now reads BUILD SPEC OF RECORD with the recovered `ONBOARDING_BUILD_SPEC.md` noted as reference-only. **Folded in:** CP-persist / CP4-ext / CP7-minimal / CP-O2 as first-class CPs with per-CP detail + status rows; CP3 → 🟢 draftable (D-ON-13 21-item config constant inlined); CP9a → email-only (D-ON-15) + binary-gate verification (no mid-spine resume per D-ON-10); CP9b rescoped to the D-ON-11 cohort model (same-code suggestions, suggest-and-confirm, never auto-follow; ships without contacts; claim-by-email dependency superseded); CP9d → T8b removed (OB-8) + `has_recipes` badges (D-ON-12) + the T9b degraded-vs-flags-migration report-back owed at draft; CP9e carries the completion stamp. Sequence updated: CP-persist + CP4-ext + CP3 parallel-now → spine → CP7-minimal → CP9b; CP-O2 gated/additive. §5 converted from open DECISIONS to a ruled register mapping D1–D7 → D-ON-9..15.

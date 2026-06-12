@@ -460,9 +460,13 @@ export async function getBookRecipes(bookId: string, userId: string) {
  *
  * `toc_extracted_at` is returned RAW and `transcribed` is just `toc_extracted_at != null`.
  * Tier labeling is CP6's job — and the ONLY honest labels are "on shelf" (toc NULL) and
- * "transcribed/processed" (toc set). NEVER "recipes ready to cook": a set toc_extracted_at
- * means the TOC was processed, not that recipes exist in the recipes table (that importer is
- * a separate, unbuilt workstream).
+ * "transcribed/processed" (toc set). NEVER "recipes ready to cook" off toc_extracted_at: a set
+ * toc_extracted_at means the TOC was processed, not that recipes exist in the recipes table
+ * (that importer is a separate, unbuilt workstream).
+ *
+ * `has_recipes` (CP4-ext, D-ON-12) is the recipes-exist signal — a PostgREST computed field
+ * (`public.has_recipes(books)`, EXISTS over recipes by book_id). T8a tier badges
+ * ("recipes ready" / "title only") key off THIS per anchor §4.1, never toc_extracted_at.
  */
 export interface CatalogBookResult {
   id: string;
@@ -471,6 +475,7 @@ export interface CatalogBookResult {
   cover_image_url: string | null;
   toc_extracted_at: string | null;
   transcribed: boolean;
+  has_recipes: boolean;
 }
 
 /**
@@ -494,7 +499,7 @@ export async function searchBookCatalog(query: string): Promise<CatalogBookResul
   try {
     const { data, error } = await supabase
       .from('books')
-      .select('id, title, author, cover_image_url, toc_extracted_at')
+      .select('id, title, author, cover_image_url, toc_extracted_at, has_recipes')
       .eq('is_catalog', true)
       .or(`title.ilike.%${q}%,author.ilike.%${q}%`)
       .order('title', { ascending: true })
@@ -508,6 +513,7 @@ export async function searchBookCatalog(query: string): Promise<CatalogBookResul
       author: string | null;
       cover_image_url: string | null;
       toc_extracted_at: string | null;
+      has_recipes: boolean | null;
     };
     const rows = (data ?? []) as Row[];
     const needle = q.toLowerCase();
@@ -529,6 +535,7 @@ export async function searchBookCatalog(query: string): Promise<CatalogBookResul
         cover_image_url: r.cover_image_url ?? null,
         toc_extracted_at: r.toc_extracted_at ?? null,
         transcribed: r.toc_extracted_at != null,
+        has_recipes: r.has_recipes === true,
       }));
   } catch (error) {
     console.error('Error searching book catalog:', error);
