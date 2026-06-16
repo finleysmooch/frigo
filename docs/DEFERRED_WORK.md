@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** June 16, 2026  
-**Version:** 5.37  
+**Version:** 5.38  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,18 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: CP4 catalog seed (June 16, 2026) — shipped
+
+The 298-book curated cookbook catalog was seeded for onboarding T8 search (migration `20260616161000_cp4_seed_catalog.sql`; rows are `is_catalog=true`, `verification_source='catalog_seed'`, with OL/Google-Books cover URLs hotlinked). Follow-ups from that work:
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| CAT-1 | **Catalog cover self-host pass.** The 298 seeded catalog books carry hotlinked OL / Google-Books cover URLs in `cover_image_url`. Rehost into Frigo storage: re-run the Stage B export (now unblocked — the books have `book_id`s) → `resolve_covers.py` → `host_covers.mjs --apply` to download OL covers to `recipe-images/book-covers/{book_id}.jpg` and replace the Google-thumb hotlinks (terms-sensitive + low-res). Pipeline already proven on the 10 workstream books. | 🔧 | 🟡 | CC, 2026-06-16. Seed scripts in `docs/` (untracked). |
+| CAT-2 | **Re-resolve the 11 blank-ISBN catalog titles.** 11 of the 298 have a blank `isbn13` (no cover-by-ISBN → color-hash fallback): "How to Cook Everything: The Basics" + both "Cravings" books (distinct books that wrongly shared an ISBN — blanked rather than guess), plus 8 the matcher couldn't resolve. Re-resolve their correct distinct ISBNs (improved matcher or manual) so they get covers. | 📊 | 🟢 | CC, 2026-06-16. Safe blanks — never assigned a wrong ISBN. |
+| CAT-3 | **Milk Street annual editions collapsed to one entry.** The 7 "Milk Street Cookbook (2017-20XX)" annual editions all resolved to the same ISBN (the matcher's `main_title()` strips the parenthetical year), so they were collapsed to a single catalog entry ("…Fifth Anniversary Edition"). Revisit if distinct year editions should appear in the catalog (needs a matcher that parses the year, or a manual ISBN per edition). | 📊 | 🟢 | CC, 2026-06-16. Judgment call; by design for now. |
 
 ---
 
