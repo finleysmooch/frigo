@@ -7,6 +7,536 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Onboarding UX-iteration round CLOSEOUT (CP9 screens; display/UX only — no schema, no migrations) + fixture teardown
+
+**Closeout of a multi-day live-walk UX iteration on the onboarding flow (CP9a/c/d/e screens).** All changes are display/UX/dev-tooling — **no schema, no migrations, no DB writes** beyond fixture teardown. tsc clean throughout. Committed this session (see Files); **not pushed** (8 prior commits also unpushed — offered).
+
+**Router (T6) — copy + icon refresh (the oversight "CP9c T7 router copy refresh" prompt, applied display-only):** header → **"What happens in your kitchen most nights?"**; header subtitle removed; titles/subtitles → the playful set ("I like to follow recipes" / "A bit of both" / "I go by feel" with the rogue-seasoning / fridge-and-a-prayer / barely-know-her copy). Title enlarged (26) + teal. **Routing UNCHANGED** — branch keys (`'recipes'|'both'|'feel'`) + `handleContinue` untouched; STOP-clause checked (display strings are not the routing identifiers). Icon saga (Tom art-directed, several pivots): emoji → SVG icons → bookworm+chef combo → plain bookworm → juggle/scientist SVGs → **landed on emojis 🤓/🤹/😎**. The interim SVG icon components (`BookwormIcon`/`JuggleIcon`/`ScientistIcon`) are **deleted** (dead after the emoji decision); their noun-project SVG sources remain in `assets/svg-source/` (Tom's adds). **Assessment recorded for Tom:** the noun-bookworm asset is a solid filled glyph (no stroke data), which is why it read as a blob — not suited to a small line icon.
+
+**Cookbook flow (T8a/T8c) — continuity + usability pass:** search restyled to the recipes-page `topSearchBar` (real `SearchIcon`) with a typeahead dropdown; one-tap select (keyboard-persist-taps); selected books shown as RecipeCard-pattern blocks with covers (placeholder when no `cover_image_url`); `has_recipes` badges (CP4-ext). **Verify (T8c) reworked:** book cover left / capture box right; **batch submit** — attach a photo per book (✓ thumbnail), Continue submits all via `ownershipVerificationService` (no per-book submit); "Back to books"; instructions once at top. **New `CameraIcon`** (first SVG camera in the set; `components/icons/CameraIcon.tsx`). **`OwnershipVerificationCapture` reverted** to its self-contained shape after a brief compact-mode experiment.
+
+**⚠️ O1 amendment (decision of record — flag for oversight/anchor):** the ownership-proof copy now requires **a handwritten note showing today's date AND the user's signature** (was date only). Anchor §2 O1(a) says the proof definition is "subject to change" — this changes it. Wording updated in `OwnershipVerificationCapture` + the verify screen; **recommend oversight fold the signature requirement into anchor O1.**
+
+**Background recipe imports (T9a):** paste runs as **background jobs** (`lib/services/recipeImportQueue.ts`, module-level queue) — paste a link → progress row → field clears → paste more → Continue any time; extractions finish detached and land in the library. `ImportQueueStrip` (renders null when idle) added to `RecipeListScreen` so in-process imports show on the Recipes tab too.
+
+**T9b Signature page HIDDEN (Tom, 2026-06-15):** all 6 routes that fed `OnboardingSignatureScreen` now go straight to Staples; screen + `addSignatureRecipe` + registration retained, unreachable. Banked OB-16.
+
+**Dev fast-path:** `__DEV__`-only "instant test account → onboarding" on Welcome (mints `dev-tester-*@frigo-dev.test`, signs in, gate routes to onboarding); Settings → Developer → "Replay Onboarding" (`resetOnboarding` clears the D-ON-10 stamp). Production-stripped.
+
+**Fixture teardown (prod):** deleted the 3 `ZZZ … (walk fixture)` catalog books + the 1 ZZZ fixture recipe + 2 test invite codes (`FRIGO-TOMWALK2`, the dev-tester-owned `FRIGO-2D367`). **catalog `is_catalog=true` now = 0.** **⚠️ COORDINATION:** the parallel **CP4 catalog-seed** instance (entry below, PAUSED) had noted these same 3 ZZZ rows and planned to *flip* them `is_catalog=false` (keeping their walk `user_books` links). I **deleted** them instead — same net precondition (`catalog_true=0`), so the seed's flip-step is now a **no-op**; the walk `user_books` links cascaded away (they were fixtures). No seed migration was authored/pushed, so nothing of theirs broke. **6 test ACCOUNTS left in place (destructive — awaiting Tom's okay to sweep):** `dev-tester-mqffl367` / `dev-tester-mqb8mt5h` (@frigo-dev.test), `tommorley33+walk@` (Tom Walk), `dk@de.com` (To And), `tomealk@fun.com` + `tommorle33+walk2@` (Tom Walk2). NOT touched: `tommorley33+1@` (Tomantha, baseline-era) + the `@frigo-test.com` seed users.
+
+**Q for Tom answered (real books in onboarding):** **No, not yet** — the only `is_catalog=true` rows were the ZZZ fixtures (now deleted), so onboarding search shows the empty-catalog nudge. Real books arrive when the **CP4 catalog-seed** (312 books, PAUSED below on a corrected CSV) loads + is pushed; the T8a screen already queries `searchBookCatalog` correctly, so they'll appear automatically once seeded (badges "title only" until recipes are transcribed per CP4b/assembly).
+
+**Files modified (committed; UNCOMMITTED→committed this session):** NEW — `components/icons/CameraIcon.tsx`, `components/onboarding/ImportQueueStrip.tsx`, `lib/services/recipeImportQueue.ts`; EDITED — `App.tsx` ⚠️ PK snapshot now stale (was 2026-05-19), `screens/RecipeListScreen.tsx` ⚠️ PK snapshot now stale (was 2026-05-19), `screens/SettingsScreen.tsx` ⚠️ PK snapshot now stale (was 2026-05-19), `components/OwnershipVerificationCapture.tsx`, `lib/services/onboardingService.ts` (`resetOnboarding`), all `screens/onboarding/*` (Welcome/Router/Sources/Cookbooks/CookbookVerify/Paste/Signature unreachable/Staples host), `components/icons/recipe/index.ts`; DELETED — `components/icons/recipe/{BookwormIcon,JuggleIcon,ScientistIcon}.tsx`. **Rule E:** App.tsx / RecipeListScreen / SettingsScreen rows updated in `PK_CODE_SNAPSHOTS.md` (stay HIGH). Earlier-round new files (onboardingService, inviteCodeService edits, staplesService, the onboarding screens) are not tier-listed → no further flags.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — onboarding stack/gate + `recipeImportQueue` + `CameraIcon` once stable; `DEFERRED_WORK.md` — done (OB-15..21, v5.36); `PROJECT_CONTEXT.md` — onboarding flow walkable end-to-end (UX-polished); `FF_LAUNCH_MASTER_PLAN.md` — none. **Anchor:** recommend O1 signature amendment (above).
+
+**Recommended next steps for Tom:** (1) okay to sweep the 6 test accounts? (2) push (this round + 8 prior commits); (3) PK upload of the refreshed `_pk_sync` copies; (4) OB-17 — set up the admin verification-review test (add Tom to `app_admins` + stage a pending verification); (5) CP9b (T5 find-friends) is the last onboarding slice.
+
+---
+
+## 2026-06-16 — CP4 catalog seed (312) — PAUSED at Step 3 gate. ⚠️ The "312 deduped" CSV has 21 internal duplicate rows — ~13 are DISTINCT books wrongly sharing one isbn13 (enrichment matching error). No migration authored, no push. Seed blocked on a corrected CSV from Claude.ai.
+
+**Task:** "CP4 catalog seed (312)" — load the 312 deduped/enriched catalog books into `books` as `is_catalog=true`, net-new, idempotent, via a tracked migration. Sensitive (312 prod rows) → preview-and-gate before push. **Reached the Step 3 gate and stopped; nothing written to prod, no migration authored, no `db push`.**
+
+**Step 0 — existing catalog rows inspected (read-only, service-role harness).** All **3** `is_catalog=true` rows are dev/walk fixtures (titles literally prefixed `ZZZ … (walk fixture)`):
+- `00742e8f-b6bc-49b1-b43c-989081ccb4e4` — "ZZZ Six Seasons (walk fixture)" — Joshua McFadden — 3 user_books, 0 recipes
+- `02d55aea-eaec-42c9-b15f-edfcf2c38757` — "ZZZ Dinner Tonight (walk fixture)" — Melissa Clark — 0 user_books, 1 recipe
+- `d8dd7e8b-fa2c-4d8b-9183-2d226c68f870` — "ZZZ Tahini Baby (walk fixture)" — Eden Grinshpan — 4 user_books, 0 recipes
+
+Plan (deferred into the seed migration): flip all 3 `is_catalog=false` (non-destructive — they carry user_books/recipes links from walkthroughs, which we keep; only the flag changes). Goal `catalog_true=0` before seed.
+
+**Step 1 — input + schema.** Copied `enriched_deduped.csv` → `docs/seed/cookbook_titles.csv` (312 rows). Schema verified from `20260609155555_baseline_public.sql` (books CREATE TABLE): `title` NOT NULL, `author/isbn/isbn13/cover_image_url` nullable, **`publication_year integer` EXISTS → will map it**, `is_verified` default false, `verification_source` text, `is_catalog` (added 20260609234010), `toc_extracted_at`, `id` auto-uuid, timestamps default now(), `user_id` nullable. **🔴 Schema blocker found:** `CONSTRAINT books_verification_source_check CHECK (verification_source = ANY (ARRAY['isbn_api','manual_review','user_submitted']))` — **rejects `'catalog_seed'`**. Decision (confirmed): the migration will DROP+ADD the constraint to include `'catalog_seed'` (additive, safe) before inserting.
+
+**Step 3 — PREVIEW (read-only, service-role harness):** vs the 19 existing books (3 ZZZ catalog + 16 non-catalog), **would-insert 312 / would-skip 0** (net-new confirmed; no collision with existing). **🔴 BUT the CSV is not internally clean:** 304 rows carry an isbn → only **283 distinct isbn13** → **291 distinct identities; 21 internal duplicate rows.** The migration's `NOT EXISTS` checks only against *existing* books, not within the same INSERT batch, so all 21 would create duplicate catalog rows. Two categories:
+- **(A) True same-book dups (subtitle/region variant; ~8 groups):** Cravings, Dinner, Meathead, Zahav, 5 Ingredients, The Pasta Queen, Tartine, Forever Summer (UK/USA).
+- **(B) DISTINCT books wrongly sharing ONE isbn13 (enrichment error — blind isbn-dedup would DROP real titles):**
+  - `9780316387668` ×4 — *Milk Street: Cook What You Have / Cookish / The New Rules / The World in a Skillet* (four different books)
+  - `9780316572569` ×7 — *Milk Street Cookbook* annual editions 2017-2020 … 2017-2026
+  - `9781615649983` ×2 — *Joshua Weissman: An Unapologetic Cookbook* vs *Texture Over Taste* (two different books)
+  - `9780358305637` ×3 — *How to Cook Everything* / *…Twentieth Anniversary* / *…The Basics*
+  - (also `9781299905337` ×2 — HtCE Vegetarian / 10th Anniv.)
+
+**Decisions at the gate (confirmed with Tom):**
+1. **PAUSE the seed** — send the 21-dup breakdown back to Claude.ai to (a) collapse the ~8 true subtitle/region dups and (b) **re-resolve correct distinct ISBNs** for the wrongly-merged books (Milk Street ×4 + ×7, Weissman ×2, HtCE family). Then re-run the preview on the corrected CSV and seed clean. (Rejected: blind dedup-by-isbn drops real titles; seeding 312 as-is pollutes catalog isbn identity.)
+2. **Extend the `verification_source` CHECK** to allow `'catalog_seed'` in the seed migration.
+
+**State / no-writes:** no prod row written, no migration authored, no `db push`. The 3 ZZZ flips are queued for the seed migration (not yet applied). `before` counts (for the eventual apply): total books **19**, catalog_true **3**.
+
+**Files:** `docs/seed/cookbook_titles.csv` (new staged copy — MUST be refreshed from the corrected CSV before authoring the migration); read-only harness `_scratch/scripts/cp3_harness/{entry_catalog_preview.ts, bundle_catalog_preview.mjs}` (gitignored `_scratch/`). No app service/component or migration files written → **Rule E: no action.**
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — **flag**: CP4 catalog seed is blocked pending (a) a corrected `enriched_deduped.csv` (21 internal dups, ~13 distinct-books-share-an-isbn), (b) the `verification_source` CHECK extension to allow `'catalog_seed'`, (c) the 3 ZZZ walk-fixture catalog rows to be demoted in the seed migration; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) Relay the 21-dup breakdown to Claude.ai for a corrected `enriched_deduped.csv` (collapse true variants; assign correct distinct ISBNs to the Milk Street / Weissman / HtCE titles). (2) On the corrected CSV I'll re-copy → re-preview → author the seed migration (constraint extend + 3 ZZZ flips by id + idempotent net-new insert with `publication_year`, OL `cover_image_url`, `is_verified=false`, `verification_source='catalog_seed'`) → gate → push. (3) The pipeline + harness are ready; only the clean input is missing.
+
+---
+
+## 2026-06-16 — CP4 US-dedup + cover self-host — Stage A dedup (314→312, Shelf Love UK accepted) + Stage B/C cover hosting. ⚠️ KEY FINDING: catalog-seed migration NOT run (only 19 books in DB), so cover-hosting reached just the 10 existing workstream books → 2 covers hosted; the 312-book catalog cover pass is deferred until after the seed.
+
+**Task:** "CP4 US-dedup + cover self-host." Three stages with gates. All three Python/JS scripts (`dedup_us.py`, `resolve_covers.py`, `host_covers.mjs`) were authored by Claude.ai and run unmodified. Earlier-flagged Stage C blockers (RN-only upload path, no `covers/{isbn13}.jpg` bucket, anon-vs-service-role auth) were resolved by Tom/Claude.ai: bucket `recipe-images`, path `book-covers/{bookId}.jpg` (stable key, upsert), service-role REST via `host_covers.mjs`. **`.env` gitignored ✓; neither the anon nor service-role key was ever printed/logged** (scripts self-load `.env`; the only URLs emitted are public storage/Supabase URLs already in committed source).
+
+### Stage A — US-edition dedup (`dedup_us.py`)
+`python docs/dedup_us.py --enriched …/enriched.csv --scored docs/cookbook_candidates_scored.csv --outdir …/enrichment_out`
+```
+=== DEDUP COVERAGE ===
+input rows:            314
+survivors (deduped):   312
+rows collapsed:        2
+duplicate clusters:    4 books (4 editions)
+AMBIGUOUS clusters (need your review): 1
+```
+**Clusters collapsed: 2. Ambiguous: 1 → gate hit, stopped, reported full `dedup_report.csv`.** Extra Good Things resolved cleanly to its **US** Clarkson Potter edition (`9780593234396`); Shelf Love was ambiguous (neither row confidently US: Ebury Press UK `9781529109481` vs "Random House" UK?/isbn_weak `9781473591493`). **Tom's ruling (recorded explicitly):** accept the **UK Ebury edition `9781529109481`** for Shelf Love; the US Clarkson Potter ISBN is **not present in the data**; flagged for a verified US re-resolve later — **no guessed ISBN entered.** `enriched_deduped.csv` = 312 survivors; both OTK books appear once each.
+
+### Stage B — export + cover-source resolve
+**Step 5 export (read-only):** built a headless harness (`_scratch/scripts/cp3_harness/entry_covers_export.ts`, esbuild-aliased `lib/supabase`→Node anon shim) and read the `books` table via the shared service-layer Supabase client. *(Deviation noted: bookViewService exposes no bulk "catalog + transcribed" reader, so a direct `select` on the shared client was used — a server-side script, not an inline component query.)*
+
+**🔴 KEY FINDING — catalog-seed migration has NOT run.** Books in DB (anon-visible): **19 total — 3 `is_catalog=true`, 16 `is_catalog=false` (10 transcribed)**. **All 312 deduped catalog ISBNs/titles matched ZERO book rows** (0 by isbn, 0 by title). So `enriched_deduped.csv` is seed data for a *future* migration; those 312 books have no `book_id` yet and **cannot receive covers now**. `books_needing_covers.csv` therefore = **10 rows** = the existing transcribed `is_catalog=false` workstream books (the `EXCLUDED_DB_TITLES`: Plenty, Six Seasons, Tahini Baby, By Heart, etc.). *(Caveat: read reflects anon-visible rows; the app reads books openly so 19 is almost certainly complete, but a service-role read could confirm exhaustively.)*
+
+**Step 6 resolve (`resolve_covers.py`, OL-only):**
+```
+=== COVER SOURCE COVERAGE ===
+processed:                 10
+resolved to an OL cover:   2
+  ol_existing/by_isbn/search: 0/0/2
+GB thumbs being replaced:  0
+no OL cover (left blank):  8
+```
+2/10 = **20% OL coverage — below the 30% gate** (consistent with stopping to report before applying). 0 GB thumbs to replace (the 10 had blank covers, except Plenty which carried an Amazon/Goodreads URL).
+
+### Stage C — host covers (`host_covers.mjs`, service-role REST → `recipe-images/book-covers/{bookId}.jpg`)
+**Dry-run (twice, reproducible, no writes):** input 10 · would-host 2 · skipped 0 · blank 8 · failed 0. Reported; Tom confirmed "apply the 2."
+**Apply (committed):**
+```
+=== COVER HOST (APPLY — committed) ===
+input rows:                       10
+hosted:                       2
+skipped (already Frigo storage):  0
+left blank (no OL cover):         8
+failed:                           0
+```
+**Counts:** hosted **2** / skipped-already **0** / left-blank **8** / GB-thumbs replaced **0** / failed **0**. **No download or upload failures.**
+
+**The 2 hosted (verified live via the service-layer client):**
+- **Plenty** (`30adcbf1…`) → `…/storage/v1/object/public/recipe-images/book-covers/30adcbf1….jpg` (replaced its prior Amazon/Goodreads URL)
+- **Eating Out Loud** (`58d7d000…`) → `…/recipe-images/book-covers/58d7d000….jpg` (was blank)
+
+**Verification (all pass):** hosted+skipped+blank+failed = 2+0+8+0 = 10 = input ✓; both `cover_image_url` now point at `recipe-images/book-covers/` ✓; **no `books.google`/`googleusercontent` URL remains on either processed row** ✓. The 8 blank-OL books are left untouched (UI color-hash fallback).
+
+**Files:** generated/new — `docs/seed/enrichment_out/{enriched_deduped.csv (312), dedup_report.csv, cover_sources.csv (10), cover_sources_log.txt}`, `docs/seed/books_needing_covers.csv (10)`; harness `_scratch/scripts/cp3_harness/{entry_covers_export.ts, entry_verify_covers.ts, bundle_*.mjs}` (in gitignored `_scratch/`). **Production writes:** 2 storage objects uploaded + 2 `books.cover_image_url` updated (the only prod mutation). Scripts `docs/{dedup_us.py, resolve_covers.py, host_covers.mjs}` were added by Tom/Claude.ai, not CC. **No app service/component code edited → Rule E: no PK snapshot action.**
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none (one-off backfill; note the `recipe-images/book-covers/{bookId}.jpg` server-side hosting convention if a permanent cover-backfill is later formalized); `DEFERRED_WORK.md` — **flag**: (1) the catalog-seed migration must run before the 312-book catalog cover pass; (2) Shelf Love needs a verified US (Clarkson Potter) ISBN re-resolve; (3) 8 workstream books have no OL cover; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) **Run the catalog-seed migration** to insert the 312 deduped books, then re-run Stage B export + Stage C `--apply` to host the catalog covers — the pipeline is now proven end-to-end on the 10. (2) Re-resolve Shelf Love once a verified US Clarkson Potter ISBN is available. (3) Optional: source covers for the 8 OL-blank workstream books elsewhere.
+
+---
+
+## 2026-06-16 — CP4-prep matcher fixes + OTK re-fetch — SUCCESS: The Food Lab / The Wok / Jubilee recovered; OTK shared-ISBN bug fixed (two books now distinct, neither 9780525611608); enriched 308→314, dropped 51→47; GB 429s still 0
+
+**Task:** "CP4-prep matcher fixes + OTK re-fetch." Ran the Claude.ai-updated `enrich_cookbook_catalog.py` (compound-surname + tightened-title matcher fixes) unmodified, after authorized targeted adjudication of the two bad OTK rows.
+
+**Setup (all confirmed before running):**
+- **Updated script present** — `grep -c "raw_tokens"` = **3** (≥1; old version 0), mtime 09:38; `py_compile` clean; retained `.env` self-load + GB key injection (3 credential-handling matches). Not modified by CC.
+- **OTK rows removed** — deleted exactly the two `enriched.csv` rows starting "Ottolenghi Test Kitchen:" (both carrying the wrong shared ISBN `9780525611608`), byte-precise via Edit; all other rows untouched (verified: Milk Street 365 → Zahav now adjacent, no blank line). enriched 308 → **306**.
+- **`.gitignore`** — added a `# python` / `__pycache__/` block; `git check-ignore docs/__pycache__` → ignored ✓. Key still in `.env`.
+- Expected todo computed = **58** (= 51 dropped + 3 uncertain + 2 removed-colon-OTK + 2 previously-dedup-skipped-hyphen-OTK); the run reported `[1/58]` ✓. (Input has 4 OTK rows: colon/Noor-first tier-A lines 48–49, hyphen/Yotam-first tier-C lines 324–325.)
+
+**Re-run coverage (verbatim stdout):**
+```
+=== COVERAGE ===
+processed: 58
+enriched with real isbn13: 8
+enriched with blank isbn13: 0
+uncertain (needs adjudication): 3
+dropped: 47
+```
+8 + 3 + 47 = 58 ✓. **GB 429 count: 0 give-ups, 0 retries** (OL errors 0) — still clean.
+
+**Before → after counts (all three CSVs):**
+| CSV | before this task | after | note |
+|---|---|---|---|
+| enriched.csv | 308 (→306 after OTK removal) | **314** | up from 308 ✓ (+8 newly enriched − 2 removed) |
+| dropped.csv | 51 | **47** | down from 51 ✓ (4 recovered) |
+| uncertain.csv | 3 | **3** | rewritten; same 3 loose GB matches |
+
+ISBN-13 validity across enriched.csv: 314 rows, 306 non-blank, **0 malformed** (all 978/979), 8 blank (pre-existing).
+
+**✅ Three named famous titles recovered (compound-surname fix) — all in enriched.csv with valid ISBN-13:**
+- **The Food Lab** — J. Kenji Lopez-Alt → `9780393081084` (2015)
+- **The Wok** — J. Kenji Lopez-Alt → `9780393541229` (2022)
+- **Jubilee: Recipes from Two Centuries of African American Cooking** — Toni Tipton-Martin → `9781524761745` (2019)
+- (bonus recovery: **The Woks of Life** — the Leung family → `9780593233900` (2022); the 4th of the 8 newly enriched)
+
+**✅ OTK shared-ISBN bug FIXED — the two books now have distinct ISBNs, none is `9780525611608`:**
+| row (input variant) | isbn13 |
+|---|---|
+| Ottolenghi Test Kitchen: Extra Good Things (colon) | `9781529109474` |
+| Ottolenghi Test Kitchen - Extra Good Things (hyphen) | `9780593234396` |
+| Ottolenghi Test Kitchen: Shelf Love (colon) | `9781529109481` |
+| Ottolenghi Test Kitchen - Shelf Love (hyphen) | `9781473591493` |
+
+All four valid 978-prefix, all distinct, **Extra Good Things ≠ Shelf Love** (the cross-book collision is gone), and `9780525611608` is fully retired.
+
+**⚠️ Remaining dedup flag (NOT this task's bug; for the assembly workstream):** the input seed carries the same two OTK books **twice each** (colon/Noor-first tier-A + hyphen/Yotam-first tier-C). The tightened matcher fixed the cross-book collision but the same-book duplicates now resolve to **different editions** — Extra Good Things colon=`9781529109474` (UK/Ebury) vs hyphen=`9780593234396` (US/Penguin); Shelf Love colon=`9781529109481` vs hyphen=`9781473591493`. So enriched.csv holds **4 OTK rows for 2 books** (one UK + one US edition each). Correct data, but a dedup decision (which edition wins) is owed before the catalog-seed migration's ISBN dedup key.
+
+**New `dropped.csv` — FULL contents (47 rows; down from 51 — the 4 recoveries left this bucket):**
+```
+title,author,signal,reason
+Texture Over Taste,Joshua Weissman,,no_confident_match
+The World Central Kitchen Cookbook,Jose Andres,,no_confident_match
+Home Style Cookery,Matty Matheson,,no_confident_match
+Baking with Julia,Julia Child and Dorie Greenspan,,no_confident_match
+Barefoot Contessa Cookbook,Ina Garten,,no_confident_match
+Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+Best Recipes in the World,Mark Bittman,,no_confident_match
+"Betty Crocker's Cookbook, New and Revised Edition",Betty Crocker,,no_confident_match
+"Betty Crocker's Cooky Book, Facsimile Edition",Betty Crocker and Eric Murvany,,no_confident_match
+Classic Italian Cookbook,Marcella Hazan,,no_confident_match
+Dessert Bible,Christopher Kimball,,no_confident_match
+Essential Ottolenghi,Yotam Ottolenghi,,no_confident_match
+Essential Thomas Keller,Thomas Keller,,no_confident_match
+Feast - Food That Celebrates Life (UK),Nigella Lawson,,no_confident_match
+Feast - Food to Celebrate Life,Nigella Lawson,,no_confident_match
+Food Matters Cookbook,Mark Bittman,,no_confident_match
+Good Things - Recipes and Rituals to Share with the People You Love,Samin Nosrat,,no_confident_match
+Gordon Ramsay's Sunday Lunch / Family Fare,Gordon Ramsay,,no_confident_match
+How to Cook Everything Completely Revised Twentieth Anniversary Edition,Mark Bittman,,no_confident_match
+How to Cook Everything Gift Set (Exclusive Boxed Set),Mark Bittman,,no_confident_match
+Ina Garten's Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+"Joy of Cooking, Revised and Updated (2019)",Irma S. Rombauer and Marion Rombauer Becker and Ethan Becker and Megan Scott and John,,no_confident_match
+Last Course,Claudia Fleming and Melissa Clark (co-author),,no_confident_match
+"Magnolia Table, Volume 1",Joanna Gaines and Marah Stets,,no_confident_match
+"Mastering the Art of French Cooking, Volume One",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+"Mastering the Art of French Cooking, Volumes I & II",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+Milk Street - The New Home Cooking,Christopher Kimball,,no_confident_match
+Minimalist Cooks Dinner,Mark Bittman,,no_confident_match
+Modern Vegetarian Kitchen,Peter Berley and Melissa Clark (co-author),,no_confident_match
+"Moosewood Cookbook, 40th Anniversary Edition",Mollie Katzen,,no_confident_match
+"Moosewood Cookbook, New Revised Edition",Mollie Katzen,,no_confident_match
+Moosewood Restaurant Table,The Moosewood Collective,,no_confident_match
+Naked Chef,Jamie Oliver,,no_confident_match
+Naked Chef Takes Off,Jamie Oliver,,no_confident_match
+New Moosewood Cookbook,Mollie Katzen,,no_confident_match
+Ottolenghi Flavour / Flavor,Yotam Ottolenghi and Ixta Belfrage and Tara Wigley,,no_confident_match
+Pioneer Woman Cooks - Come and Get It!,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Dinnertime,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Food from My Frontier,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Recipes from an Accidental Country Girl,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - The Essential Recipes,Ree Drummond,,no_confident_match
+Skinnytaste Air Fryer Cookbook,Gina Homolka and Heather K. Jones,,no_confident_match
+Tartine Box Set,Chad Robertson,,no_confident_match
+Tucci Cookbook,Stanley Tucci,,no_confident_match
+Veg / Ultimate Veg,Jamie Oliver,,no_confident_match
+Way To Cook,Julia Child,,no_confident_match
+Wok - Recipes and Techniques,J. Kenji López-Alt,,no_confident_match
+```
+Note: the remaining drops are mostly box sets / multi-edition variants / re-issues. One residual matcher edge — `Wok - Recipes and Techniques, J. Kenji López-Alt` (accented "ó") is still dropped even though "The Wok" (no accent) recovered, suggesting the accent path, not the compound surname, is its blocker. Flagged for adjudication; matcher not modified by CC.
+
+**Files:** `docs/seed/enrichment_out/{enriched.csv (306→314 appended; 2 OTK rows removed by authorized adjudication), dropped.csv (51→47 rewritten), uncertain.csv (rewritten, 3), run_log.txt}`; `.gitignore` (+`__pycache__/`). Script `docs/enrich_cookbook_catalog.py` was replaced by Tom with Claude.ai's matcher-fix version before the run — **no CC code edits**. **Rule E:** only a one-off seed tool (not tier-listed), `.gitignore`, and generated output data were touched — no app service/component files → no PK snapshot staleness action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none (CP4-prep seed data; flag to oversight: the OTK colon/hyphen edition-duplicate dedup + the 47 remaining drops/3 uncertain still need adjudication before the catalog-seed migration); `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) Resolve the OTK edition-duplicate (4 rows / 2 books) — pick one edition per book before the dedup-keyed catalog-seed migration. (2) enriched.csv (314, clean ISBNs) is ready for the cover-self-hosting step. (3) Optional: a targeted accent-aware pass for the handful of residual drops (e.g. "Wok - Recipes and Techniques" with "López-Alt"), but that's a matcher change owned by Claude.ai, not CC.
+
+---
+
+## 2026-06-16 — CP4-prep GB re-pass + top-50 metadata — SUCCESS: Google Books authenticated (zero 429s), dropped 87→51, enriched 277→308; top_metadata.csv written for 50 titles; API key never printed/logged
+
+**Task:** "CP4-prep GB re-pass + top-50 metadata." Two-step run of the Claude.ai-authored scripts, executed unmodified (matching/integrity/credential logic untouched). Prerequisite resolution (the blocker from earlier today): the GB key lives in repo-root `.env`, but `.env` is denied to me (`Read(.env*)`) and the harness correctly blocked a `grep` workaround. Resolution chosen by Tom = path 1: Claude.ai supplied **updated scripts that self-load `.env`** (Tom saved both to `docs/`). I verified before running — both now have `_load_env_file()` (stdlib-only, docstring+code confirm it **never prints values**, real env vars win, no-ops if missing); catalog `gb_lookup` injects `key` into the GB params (lines 163–165), top50 injects at line 69; both `py_compile` clean; `.env` is gitignored (`.gitignore` L34–35). Ran from repo root so `.env` resolves.
+
+**🔒 Credential safety (confirmed, as the prompt required):** the API key was never printed, echoed, or logged. I never read `.env` (the one attempt was harness-denied and never executed). Post-run scan of the entire output dir: **0 `googleapis` URLs in `run_log.txt`, 0 `?key=`/`&key=` in any file** — and the script only logs request URLs on GB *errors*, of which there were none. `.env` gitignored ✓.
+
+### Step 1 — GB re-pass (`enrich_cookbook_catalog.py`, appends, skips the 277 already enriched)
+Command: `python docs/enrich_cookbook_catalog.py --input docs/cookbook_seed_ABC.csv --outdir docs/seed/enrichment_out`. Early throughput probe (since 429s aren't visible in live stdout — they only flush to run_log at the end): **12 titles/60s** (≈5s/title) → GB responding, no retry backoff → did not abort.
+
+**Re-pass coverage (verbatim stdout):**
+```
+=== COVERAGE ===
+processed: 85
+enriched with real isbn13: 30
+enriched with blank isbn13: 1
+uncertain (needs adjudication): 3
+dropped: 51
+```
+**✅ GB 429s GONE:** `run_log.txt` shows **0 GB give-ups, 0 GB retries** (vs 1,456 GB 429s last run); 0 OL errors.
+
+**New cumulative file counts (data rows):** `enriched.csv` **308** (was 277, **>277 ✓**) · `dropped.csv` **51** (was 87, **<87 ✓**) · `uncertain.csv` **3** (was 0). **ISBN-13 format:** 300 non-blank, **0 malformed**, all 978/979 ✓; 8 blank.
+
+**Recovery of the prior 87 dropped (fully reconciled):**
+- **31** newly **enriched** (real ISBN/year/cover recovered via authenticated GB)
+- **3** newly **uncertain** (GB matched on a loose/non-exact title → flagged for adjudication, not auto-accepted)
+- **51** still **dropped**
+- **2** not re-attempted — **dedup-skipped**: "Ottolenghi Test Kitchen - Extra Good Things" & "- Shelf Love" normalize identically to their colon-twins already in enriched.csv (L40–41 "Ottolenghi Test Kitchen: …"), since `norm()` strips both `:` and `-`. Benign (already covered), not data loss.
+- 31+3+51+2 = **87 ✓**. (Three output CSVs sum to 308+51+3 = **362** = 364 − the 2 dedup twins.)
+
+**Net catalog effect:** enriched 277→**308** (+31), dropped 87→**51** (−36), uncertain 0→**3**.
+
+**The 3 new `uncertain.csv` rows (loose single-source GB matches — Claude.ai adjudicates):**
+- `The Bean Book, Steve Sando` → isbn 9798897228294, 2024 (GB title "The Bean Book: 100 Recipes…", non-exact)
+- `The Korean Vegan, Joanne Lee Molinaro` → isbn 9780593541302, 2025 (GB title "The Korean Vegan: Homemade" — likely a *different/newer* edition; verify)
+- `The Mediterranean Dish: Simply Dinner, Suzy Karadsheh` → isbn 9780593234273, 2022 (GB matched bare "The Mediterranean Dish" — possible wrong book; verify)
+
+**New `dropped.csv` — FULL contents (51 rows; far more credible now GB was healthy, but a few look like strict-match artifacts — accented authors e.g. "López-Alt", box sets, "Volume/Volumes" editions — flagged for adjudication; matching logic NOT modified):**
+```
+title,author,signal,reason
+The Food Lab,J. Kenji Lopez-Alt,,no_confident_match
+Texture Over Taste,Joshua Weissman,,no_confident_match
+The Wok,J. Kenji Lopez-Alt,,no_confident_match
+Start Here,Sohla El-Waylly,,no_confident_match
+The World Central Kitchen Cookbook,Jose Andres,,no_confident_match
+Home Style Cookery,Matty Matheson,,no_confident_match
+Jubilee: Recipes from Two Centuries of African American Cooking,Toni Tipton-Martin,,no_confident_match
+Baking with Julia,Julia Child and Dorie Greenspan,,no_confident_match
+Barefoot Contessa Cookbook,Ina Garten,,no_confident_match
+Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+Best Recipes in the World,Mark Bittman,,no_confident_match
+"Betty Crocker's Cookbook, New and Revised Edition",Betty Crocker,,no_confident_match
+"Betty Crocker's Cooky Book, Facsimile Edition",Betty Crocker and Eric Murvany,,no_confident_match
+Classic Italian Cookbook,Marcella Hazan,,no_confident_match
+Dessert Bible,Christopher Kimball,,no_confident_match
+Essential Ottolenghi,Yotam Ottolenghi,,no_confident_match
+Essential Thomas Keller,Thomas Keller,,no_confident_match
+Feast - Food That Celebrates Life (UK),Nigella Lawson,,no_confident_match
+Feast - Food to Celebrate Life,Nigella Lawson,,no_confident_match
+Food Matters Cookbook,Mark Bittman,,no_confident_match
+Good Things - Recipes and Rituals to Share with the People You Love,Samin Nosrat,,no_confident_match
+Gordon Ramsay's Sunday Lunch / Family Fare,Gordon Ramsay,,no_confident_match
+How to Cook Everything Completely Revised Twentieth Anniversary Edition,Mark Bittman,,no_confident_match
+How to Cook Everything Gift Set (Exclusive Boxed Set),Mark Bittman,,no_confident_match
+Ina Garten's Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+"Joy of Cooking, Revised and Updated (2019)",Irma S. Rombauer and Marion Rombauer Becker and Ethan Becker and Megan Scott and John,,no_confident_match
+Last Course,Claudia Fleming and Melissa Clark (co-author),,no_confident_match
+"Magnolia Table, Volume 1",Joanna Gaines and Marah Stets,,no_confident_match
+"Mastering the Art of French Cooking, Volume One",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+"Mastering the Art of French Cooking, Volumes I & II",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+Milk Street - The New Home Cooking,Christopher Kimball,,no_confident_match
+Minimalist Cooks Dinner,Mark Bittman,,no_confident_match
+Modern Vegetarian Kitchen,Peter Berley and Melissa Clark (co-author),,no_confident_match
+"Moosewood Cookbook, 40th Anniversary Edition",Mollie Katzen,,no_confident_match
+"Moosewood Cookbook, New Revised Edition",Mollie Katzen,,no_confident_match
+Moosewood Restaurant Table,The Moosewood Collective,,no_confident_match
+Naked Chef,Jamie Oliver,,no_confident_match
+Naked Chef Takes Off,Jamie Oliver,,no_confident_match
+New Moosewood Cookbook,Mollie Katzen,,no_confident_match
+Ottolenghi Flavour / Flavor,Yotam Ottolenghi and Ixta Belfrage and Tara Wigley,,no_confident_match
+Pioneer Woman Cooks - Come and Get It!,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Dinnertime,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Food from My Frontier,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Recipes from an Accidental Country Girl,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - The Essential Recipes,Ree Drummond,,no_confident_match
+Skinnytaste Air Fryer Cookbook,Gina Homolka and Heather K. Jones,,no_confident_match
+Tartine Box Set,Chad Robertson,,no_confident_match
+Tucci Cookbook,Stanley Tucci,,no_confident_match
+Veg / Ultimate Veg,Jamie Oliver,,no_confident_match
+Way To Cook,Julia Child,,no_confident_match
+Wok - Recipes and Techniques,J. Kenji López-Alt,,no_confident_match
+```
+
+### Step 2 — top-50 factual metadata (`enrich_top50_metadata.py`, run after Step 1)
+Command: `python docs/enrich_top50_metadata.py --scored docs/cookbook_candidates_scored.csv --enriched docs/seed/enrichment_out/enriched.csv --outdir docs/seed/enrichment_out --top 50`.
+
+**Coverage (verbatim stdout):**
+```
+=== TOP METADATA COVERAGE ===
+processed:            50
+with recipe_count:    10  (blank elsewhere — only filled when stated)
+with description:     45
+with page_count:      35
+no GB match at all:   4
+```
+**Verification:** `top_metadata.csv` = **50 rows (≤50 ✓)**; `description_source` ∈ {`google_books`, blank} only ✓ (no other value); header = title,author,isbn13,recipe_count,page_count,categories,description_source,description. `recipe_count` correctly blank unless a number is literally in the API text (e.g. "125", "120").
+
+**First 10 rows of `top_metadata.csv`** (descriptions truncated to ~200 chars for the log; UTF-8 punctuation renders as `�` in the console but is clean in the file):
+```
+ 1. 5 Ingredients Mediterranean — Jamie Oliver | isbn=9780241431160 recipe_count=(blank) page_count=(blank) src=google_books cats=Cooking
+    desc: 5 Ingredients Mediterranean is everything people loved about the first book, but with the added va-va-voom of basing it on Jamie's lifelong travels around the Med. With over 125 utterly delicious, eas…
+ 2. Cook Like a Pro — Ina Garten | isbn=9780804187046 recipe_count=(blank) page_count=274 src=google_books cats=Cooking
+    desc: #1 NEW YORK TIMES BESTSELLER · Cook with confidence no matter how much experience you have in the kitchen with the help of the beloved Food Network star…
+ 3. Cravings: Hungry for More — Chrissy Teigen | isbn=9780718188146 recipe_count=(blank) page_count=240 src=google_books cats=(blank)
+    desc: Full of unforgettably delicious food, this is the incredible debut cookbook from supermodel and social media star Chrissy Teigen. RECIPES NOW UPDATED WITH UK MEASUREMENTS…
+ 4. Dessert Person — Claire Saffitz | isbn=9798897228171 recipe_count=(blank) page_count=(blank) src=(blank) cats=Cooking
+    desc: (blank)  ← one of the 4 "no GB match"; kept its ISBN from enriched.csv
+ 5. Dining In — Alison Roman | isbn=9780451496997 recipe_count=125 page_count=307 src=google_books cats=Cooking
+    desc: Discover the cookbook featuring "drool-worthy yet decidedly unfussy food" (Goop) that set today's trends and is fast becoming a modern classic…
+ 6. Essentials of Classic Italian Cooking — Marcella Hazan | isbn=9780593534328 recipe_count=(blank) page_count=(blank) src=google_books cats=Cooking
+    desc: A beautiful new edition of one of the most beloved cookbooks of all time, from "the Queen of Italian Cooking" (Chicago Tribune)…
+ 7. Go-To Dinners — Ina Garten | isbn=9781984822796 recipe_count=(blank) page_count=257 src=google_books cats=Cooking
+    desc: #1 NEW YORK TIMES BESTSELLER · America's favorite home cook presents delicious, crowd-pleasing, go-to recipes…
+ 8. Half Baked Harvest Cookbook — Tieghan Gerard | isbn=9780553496406 recipe_count=(blank) page_count=306 src=google_books cats=Cooking
+    desc: 125 of your new favorite recipes, featuring maximum flavor, minimum fuss, and the farm to table style that turned Half Baked Harvest from a beloved blog into the megahit cookbook series…
+ 9. Half Baked Harvest Every Day — Tieghan Gerard | isbn=9780593232569 recipe_count=(blank) page_count=289 src=google_books cats=Cooking
+    desc: #1 NEW YORK TIMES BESTSELLER · More than 120 all-new recipes that will leave everyone feeling good…
+10. Half Baked Harvest Quick and Cozy — Tieghan Gerard | isbn=9780593232583 recipe_count=120 page_count=289 src=google_books cats=Cooking
+    desc: NEW YORK TIMES BESTSELLER · 120+ recipes for delicious, soul-warming comfort food . . . and getting it ready in a hurry…
+```
+(Note row 8: GB stated "125 … recipes" in prose but recipe_count is blank — the parser only fills it from specific count patterns, conservative-by-design; not an error. Rows 5 & 10 show it firing correctly on "125"/"120".)
+
+**Surprises / flags for Claude.ai:**
+1. **OTK shared-ISBN (pre-existing, prior-run data):** both "Ottolenghi Test Kitchen: Extra Good Things" and ": Shelf Love" carry the **same** isbn `9780525611608` in enriched.csv (from the prior OL-only run) — two different books shouldn't share an ISBN. Out of scope to fix here (no hand-editing of outputs); flagging for the assembly workstream's dedup key.
+2. **Still-dropped strict-match artifacts:** several famous, real titles remain dropped under the script's strict title+author gate (The Food Lab, The Wok, Start Here, Jubilee, Mastering the Art of French Cooking vols, accented "López-Alt"). These are matching-rule misses, not API failures — candidates for a targeted adjudication pass, but the matching logic must not be changed by CC.
+3. **3 uncertain rows** are correctly single-source-GB loose matches (esp. "The Korean Vegan: Homemade" and bare "The Mediterranean Dish" — likely wrong edition/book).
+
+**Files:** generated/overwritten — `docs/seed/enrichment_out/{enriched.csv (appended 277→308), dropped.csv (rewritten 87→51), uncertain.csv (0→3), top_metadata.csv (new), run_log.txt}`. Scripts `docs/enrich_cookbook_catalog.py` & `docs/enrich_top50_metadata.py` were **replaced by Tom with Claude.ai's self-loading versions** before this run; my earlier same-day GB-key patch to the catalog script was superseded by that replacement, so **no CC code edits persist**. **Rule E:** the only scripts touched are one-off seed tools in `docs/` (not app services/components); none are tier-listed in `PK_CODE_SNAPSHOTS.md` → no staleness action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none (CP4-prep seed data, not a tracked backlog item; but flag to oversight: the 51 dropped + 3 uncertain need adjudication, and the OTK shared-ISBN should be resolved before the catalog-seed migration); `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) Hand the four output files back to Claude.ai for adjudication — enriched.csv (308, usable), uncertain.csv (3, verify editions), dropped.csv (51, several are strict-match false drops worth a manual ISBN), top_metadata.csv (50, descriptions are clean publisher blurbs). (2) Resolve the OTK duplicate ISBN before the dedup-keyed catalog-seed migration. (3) The `GOOGLE_BOOKS_API_KEY` is now wired end-to-end (`.env` self-load) — future passes just work from repo root; no re-setup needed.
+
+---
+
+## 2026-06-15 — CP4-prep cookbook enrichment FULL (364) — ran clean (exit 0) but ⚠️ GOOGLE BOOKS 100% RATE-LIMITED (HTTP 429 every title) → effectively an Open-Library-only run; dropped bucket is NOT a clean no-match set
+
+**Task:** Ran the Claude.ai-authored enrichment script unmodified (mechanical execution + verbatim reporting only — no edits to matching/validation/integrity logic). Two corrections to the prompt's literal command, confirmed with Tom before running: (a) `python3` → `python` (`python3` hits the MS-Store shim on this Win box; `python` = 3.12.6, matches the `Bash(python:*)` allow rule); (b) input paths — files are flat in `docs/`, not the prompt's `scripts/seed/` & `docs/seed/`. Final command:
+```
+python docs/enrich_cookbook_catalog.py --input docs/cookbook_seed_ABC.csv --outdir docs/seed/enrichment_out
+```
+Pre-run verify (read-only): script stdlib-only & matches description; CSV = 364 data rows + 1 header with `title`,`author`; no pre-existing `enriched.csv` (clean run, no append/skip).
+
+**=== COVERAGE === (verbatim from stdout):**
+```
+=== COVERAGE ===
+processed: 364
+enriched with real isbn13: 270
+enriched with blank isbn13: 7
+uncertain (needs adjudication): 0
+dropped: 87
+```
+
+**Output dir `docs/seed/enrichment_out/`** contains all 4 expected files (`enriched.csv`, `uncertain.csv`, `dropped.csv`, `run_log.txt`). **Row counts (data rows, excl. header):** enriched **277** · uncertain **0** · dropped **87** → **sum = 364 ✓**. **ISBN-13 format:** 270 non-blank, **all 13 digits / `978`|`979` / valid check digit / 0 malformed**, 7 blank. enriched extra coverage: publication_year **277/277**, cover_image_url **215/277**.
+
+**🔴 PRIMARY SURPRISE — Google Books was rate-limited for the ENTIRE run.** `run_log.txt`: **1,456 `[GB] HTTP 429` responses** = 364 final "giving up" (exactly one per title) + 1,092 retries. **Open Library: 0 errors.** So GB — which the script uses as the primary ISBN source (`isbn13 = gb["isbn13"] or ol_edition_isbn(...)`) AND the sole fallback matcher (`gb and not ol`) AND the only route to the `uncertain` bucket — **contributed nothing**. Consequences: all 270 ISBNs came from OL edition probes (`ol_edition_isbn`), not GB; `uncertain` is 0 *only because that path requires a live GB response*; and any title OL's stricter title+author match missed went straight to **dropped** with no GB fallback.
+
+**∴ The 87 dropped are "no confident OL match + GB unavailable," NOT "genuinely no match in either API."** Evidence it's contaminated by the GB outage, not real absence: **4 of the script's own `SAMPLE_TITLES` (hand-picked known-good) dropped** — *The Food Lab*, *The Wok*, *Start Here*, *Jubilee* — plus obviously-real titles (*Ottolenghi Flavor*, *Mastering the Art of French Cooking*, *The Love and Lemons Cookbook*, *The Korean Vegan*, *The Flavor Equation*…). dropped-reason tally: **87× `no_confident_match`, 0× `excluded_db_title`** (none of the 14 EXCLUDED_DB_TITLES appeared in this candidate list). **API-error vs genuine-no-match distinction the prompt asked for: there is effectively no "genuine no-match" signal in this run — every title's GB lookup errored, so the dropped set conflates true absences with GB-was-down. Do not treat dropped.csv as final.**
+
+**Integrity of what WAS produced: clean.** Every ISBN-13 verbatim from an OL edition response, check-digit-valid, `978`/`979`; nothing fabricated/recalled. The 277 enriched rows are trustworthy; it's the *coverage* (87 false-ish drops) that's compromised, not the *correctness*.
+
+**uncertain.csv — FULL contents (header only, 0 data rows):**
+```
+title,author,isbn13,publication_year,cover_image_url,api_evidence
+```
+
+**enriched.csv — first 15 rows (of 277 total):**
+```
+title,author,isbn13,publication_year,cover_image_url
+5 Ingredients Mediterranean,Jamie Oliver,9780241431160,2023,
+Cook Like a Pro,Ina Garten,9780804187046,2018,
+Cravings: Hungry for More,Chrissy Teigen,9780718188146,2017,
+Dessert Person,Claire Saffitz,9798897228171,2020,https://covers.openlibrary.org/b/id/10514302-L.jpg
+Dining In,Alison Roman,9780451496997,2017,
+Go-To Dinners,Ina Garten,9781984822796,2022,https://covers.openlibrary.org/b/id/12968825-L.jpg
+Half Baked Harvest Every Day,Tieghan Gerard,9780593232569,2022,
+Half Baked Harvest Quick and Cozy,Tieghan Gerard,9780593232583,2024,
+Half Baked Harvest Super Simple,Tieghan Gerard,9780525577072,2019,https://covers.openlibrary.org/b/id/9122640-L.jpg
+Jerusalem,Yotam Ottolenghi and Sami Tamimi,9781607743941,2012,https://covers.openlibrary.org/b/id/7265262-L.jpg
+Love and Lemons Every Day,Jeanine Donofrio,9780735234475,2019,https://covers.openlibrary.org/b/id/8805144-L.jpg
+Magnolia Table Volume 2,Joanna Gaines,9780062820198,2020,
+Modern Comfort Food,Ina Garten,9780804187060,2020,https://covers.openlibrary.org/b/id/10471407-L.jpg
+Momofuku,David Chang and Peter Meehan,9781472964113,2018,
+NOPI: The Cookbook,Yotam Ottolenghi and Ramael Scully,9781607746232,2015,https://covers.openlibrary.org/b/id/7993067-L.jpg
+```
+⚠️ Note: `Dessert Person` carries `9798897228171` — a **979**-prefix ISBN-13 (valid; check-digit-passed). Flagging only so the lone non-`978` in the head sample isn't mistaken for a typo.
+
+**dropped.csv — FULL contents (87 rows; all `no_confident_match`; re-adjudicate after a GB-healthy re-run — many are real):**
+```
+title,author,signal,reason
+Essentials of Classic Italian Cooking,Marcella Hazan,,no_confident_match
+Half Baked Harvest Cookbook,Tieghan Gerard,,no_confident_match
+Love and Lemons Simple Feel Good Food,Jeanine Donofrio,,no_confident_match
+Magnolia Table Volume 3,Joanna Gaines,,no_confident_match
+The Food Lab,J. Kenji Lopez-Alt,,no_confident_match
+The Love and Lemons Cookbook,Jeanine Donofrio,,no_confident_match
+Mastering the Art of French Cooking Volume 1,Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+Ottolenghi Flavor,Yotam Ottolenghi and Ixta Belfrage,,no_confident_match
+An Unapologetic Cookbook,Joshua Weissman,,no_confident_match
+Texture Over Taste,Joshua Weissman,,no_confident_match
+The Wok,J. Kenji Lopez-Alt,,no_confident_match
+Start Here,Sohla El-Waylly,,no_confident_match
+The Cake Bible 35th Anniversary Edition,Rose Levy Beranbaum,,no_confident_match
+The Flavor Equation,Nik Sharma,,no_confident_match
+The World Central Kitchen Cookbook,Jose Andres,,no_confident_match
+Persiana Easy,Sabrina Ghayour,,no_confident_match
+The Weekday Vegetarians Get Simple,Jenny Rosenstrach,,no_confident_match
+Home Style Cookery,Matty Matheson,,no_confident_match
+The Defined Dish,Alex Snodgrass,,no_confident_match
+A Very Chinese Cookbook,Kevin Pang and Jeffrey Pang,,no_confident_match
+The Bean Book,Steve Sando,,no_confident_match
+The Cook You Want to Be,Andy Baraghani,,no_confident_match
+The New York Times Cooking No-Recipe Recipes,Sam Sifton,,no_confident_match
+The Vegan Chinese Kitchen,Hannah Che,,no_confident_match
+The Well Plated Cookbook,Erin Clarke,,no_confident_match
+The Woks of Life,Bill Leung and Judy Leung and Sarah Leung and Kaitlin Leung,,no_confident_match
+Jubilee: Recipes from Two Centuries of African American Cooking,Toni Tipton-Martin,,no_confident_match
+The Korean Vegan,Joanne Lee Molinaro,,no_confident_match
+The Mediterranean Dish,Suzy Karadsheh,,no_confident_match
+The Mediterranean Dish: Simply Dinner,Suzy Karadsheh,,no_confident_match
+The SalviSoul Cookbook,Karla Tatiana Vasquez,,no_confident_match
+Baking with Julia,Julia Child and Dorie Greenspan,,no_confident_match
+Barefoot Contessa Cookbook,Ina Garten,,no_confident_match
+Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+Barefoot Contessa Parties!,Ina Garten,,no_confident_match
+Best Recipes in the World,Mark Bittman,,no_confident_match
+"Betty Crocker's Cookbook, New and Revised Edition",Betty Crocker,,no_confident_match
+"Betty Crocker's Cooky Book, Facsimile Edition",Betty Crocker and Eric Murvany,,no_confident_match
+Classic Italian Cookbook,Marcella Hazan,,no_confident_match
+Dessert Bible,Christopher Kimball,,no_confident_match
+Essential Ottolenghi,Yotam Ottolenghi,,no_confident_match
+Essential Thomas Keller,Thomas Keller,,no_confident_match
+Feast - Food That Celebrates Life (UK),Nigella Lawson,,no_confident_match
+Feast - Food to Celebrate Life,Nigella Lawson,,no_confident_match
+Food Matters Cookbook,Mark Bittman,,no_confident_match
+Good Things - Recipes and Rituals to Share with the People You Love,Samin Nosrat,,no_confident_match
+Gordon Ramsay's Sunday Lunch / Family Fare,Gordon Ramsay,,no_confident_match
+How to Cook Everything Completely Revised Twentieth Anniversary Edition,Mark Bittman,,no_confident_match
+How to Cook Everything Gift Set (Exclusive Boxed Set),Mark Bittman,,no_confident_match
+Ina Garten's Barefoot Contessa Cookbook Collection,Ina Garten,,no_confident_match
+Jamie's 15 Minute Meals,Jamie Oliver,,no_confident_match
+"Joy of Cooking, Revised and Updated (2019)",Irma S. Rombauer and Marion Rombauer Becker and Ethan Becker and Megan Scott and John,,no_confident_match
+Julia and Jacques Cooking at Home,Jacques Pépin and Julia Child,,no_confident_match
+Last Course,Claudia Fleming and Melissa Clark (co-author),,no_confident_match
+"Magnolia Table, Volume 1",Joanna Gaines and Marah Stets,,no_confident_match
+"Mastering the Art of French Cooking, Volume One",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+"Mastering the Art of French Cooking, Volumes I & II",Julia Child and Louisette Bertholle and Simone Beck,,no_confident_match
+Milk Street - The New Home Cooking,Christopher Kimball,,no_confident_match
+Minimalist Cooks Dinner,Mark Bittman,,no_confident_match
+Modern Vegetarian Kitchen,Peter Berley and Melissa Clark (co-author),,no_confident_match
+"Moosewood Cookbook, 40th Anniversary Edition",Mollie Katzen,,no_confident_match
+"Moosewood Cookbook, New Revised Edition",Mollie Katzen,,no_confident_match
+Moosewood Restaurant Table,The Moosewood Collective,,no_confident_match
+Naked Chef,Jamie Oliver,,no_confident_match
+Naked Chef Takes Off,Jamie Oliver,,no_confident_match
+New Moosewood Cookbook,Mollie Katzen,,no_confident_match
+One - Simple One-Pan Wonders,Jamie Oliver,,no_confident_match
+Ottolenghi Flavour / Flavor,Yotam Ottolenghi and Ixta Belfrage and Tara Wigley,,no_confident_match
+Ottolenghi Test Kitchen - Extra Good Things,Yotam Ottolenghi and Noor Murad,,no_confident_match
+Ottolenghi Test Kitchen - Shelf Love,Yotam Ottolenghi and Noor Murad,,no_confident_match
+Pioneer Woman Cooks - Come and Get It!,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Dinnertime,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Food from My Frontier,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - Recipes from an Accidental Country Girl,Ree Drummond,,no_confident_match
+Pioneer Woman Cooks - The Essential Recipes,Ree Drummond,,no_confident_match
+Simple to Spectacular,Jean-Georges Vongerichten and Mark Bittman,,no_confident_match
+Skinnytaste Air Fryer Cookbook,Gina Homolka and Heather K. Jones,,no_confident_match
+Skinnytaste High Protein,Gina Homolka and Heather K. Jones,,no_confident_match
+Tartine Box Set,Chad Robertson,,no_confident_match
+Thomas Keller Bouchon Collection,Thomas Keller,,no_confident_match
+Tucci Cookbook,Stanley Tucci,,no_confident_match
+Veg / Ultimate Veg,Jamie Oliver,,no_confident_match
+Way To Cook,Julia Child,,no_confident_match
+Wok - Recipes and Techniques,J. Kenji López-Alt,,no_confident_match
+Bethlehem,Fadi Kattan,,no_confident_match
+Mostly French,Makenna Held,,no_confident_match
+Pakistan,Maryam Jillani,,no_confident_match
+```
+
+**Why GB 429'd everything (diagnosis, not a code change):** anonymous Google Books `volumes` has a very low per-IP quota and the script hammers it ~1 call/sec for 364 titles with no API key → immediate sustained 429. A naive re-run will hit the same wall. Options for whoever owns the script (NOT decided/changed by me): supply a `GOOGLE_BOOKS_API_KEY`, throttle GB far harder / add a longer cool-down, or accept OL-only and run a GB-only second pass over just the 87 dropped once quota resets.
+
+**Files:** generated only — `docs/seed/enrichment_out/{enriched,uncertain,dropped}.csv` + `run_log.txt` (new). **No code files edited** (script run unmodified; the only config touched this session was `~/.claude/settings.json`, outside the repo). **Rule E:** no repo code files edited → no PK snapshot staleness action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — none (this is CP4-prep seed data, not a tracked backlog item — but flag to oversight that the enrichment needs a GB-healthy re-pass before the catalog-seed migration); `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) **Do not feed dropped.csv to Claude.ai as a final no-match set** — it's polluted by the GB outage (4 of the script's own sample titles are in it). (2) Relay to Claude.ai that the run was Open-Library-only; the 277 enriched rows are usable as-is, but the 87 drops need a GB-healthy re-pass (API key or much slower GB throttle) before adjudication. (3) If a re-run is wanted, note the script appends to existing `enriched.csv` on a non-sample full run, so the 277 already-enriched titles are skipped — a re-run will only re-attempt the 87 (good — keeps it short and protects the clean rows). Awaiting a ruling before any re-run (prompt says don't silently re-run).
+
+---
+
 ## 2026-06-12 — CP7-minimal SHIPPED + prod-verified (harness 10/10) · CP9d AUTHORED + backend-verified (5/5) — recipe path live in the spine; T9b ships DEGRADED + T9c held (report-at-draft calls)
 
 **CP7-minimal (checkpoint; green-lit "execute cp7"):** migration **`20260612180000_cp7min_pass_on_codes.sql`** pushed: `invite_codes.owner_user_id` (DISTINCT from created_by — minter vs whose-pass-on-code; documented) + `share_default_space` (D-ON-17) + owner index; **`generate_pass_on_code(p_share_pantry)`** (authenticated-only, definer, FRIGO-XXXXX, **cap 5 — flagged for content review**, one active code per owner, re-call returns it + updates the share intent); **`deactivate_my_pass_on_code()`**; **`redeem_invite_code` REPLACED** — exact CP2 body + the D-ON-17 hook (idempotent pending MEMBER invitation from the owner; target = owner's active space if owner-role there else owner's default, resolved at redemption; "owner/admin" in the ruling maps to role='owner' — the model has no admin role, flagged). Service: `getMyPassOnCode`/`deactivateMyPassOnCode`. **Interim share surface on T12** (card + "invite them to your pantry too" toggle) — relocates to T5 with CP9b, flagged. **Harness 10/10 (verbatim key lines):** format/owner/cap/intent ✓; same-code re-call + intent toggle ✓; anon validate=valid / generate=permission-denied ✓; **flagged-code redemption → exactly ONE pending member invitation from the owner** ✓ (`role:"member", invited_by:owner, space_id:owner's`); one use burned ✓; non-shared code → NO invitation ✓; deactivate → 'invalid' ✓; cleanup to baseline incl. codes=0 ✓.

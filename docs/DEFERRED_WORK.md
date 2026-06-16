@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 12, 2026  
-**Version:** 5.35  
+**Last Updated:** June 16, 2026  
+**Version:** 5.36  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -15,6 +15,22 @@ This is the master backlog — the accumulated deferred work from all completed 
 **Priority levels:** 🔴 High (affects accuracy/UX significantly), 🟡 Medium (would improve quality), 🟢 Low (nice to have), ⚪ By design (accepted tradeoff)
 
 **Types:** 🐛 Bug/Gap, 💡 Idea, 🔧 Technical debt, 📊 Data quality, 🚀 Feature, 🧪 Testing
+
+---
+
+## From: Onboarding UX iteration (June 15–16, 2026) — pre-launch
+
+Surfaced during Tom's live walk-throughs of the onboarding flow (CP9 screens).
+
+| # | Item | Type | Priority | Notes |
+|---|------|------|----------|-------|
+| OB-15 | **Readdress the T11 staples page ("What do you keep on hand?") before launch.** Tom flagged the staples checklist screen (`screens/onboarding/OnboardingStaplesScreen.tsx` + the `StaplesChecklist` component / D-ON-13 list) for a design/content rework before F&F launch — exact direction TBD. | 🚀 | 🟡 | Tom, 2026-06-15. Mechanism works; this is a UX/content pass, not a bug. |
+| OB-16 | **T9b Signature page ("A recipe you make on repeat?") hidden 2026-06-15.** `OnboardingSignatureScreen` is registered but unreachable — the recipe-path screens route past it straight to Staples. Revisit whether to bring it back (re-enable by repointing the `navigate('Staples')` calls in Sources/Cookbooks/CookbookVerify/Paste to `'Signature'`). `addSignatureRecipe` service retained. | 🚀 | 🟢 | Tom, 2026-06-15. Decision deferred, not removed. |
+| OB-17 | **PRE-F&F: end-to-end test the admin ownership-verification review + approval flow.** Tom wants to exercise, as an admin, viewing user-submitted book-ownership images and approving access. The machinery is **already shipped** (CP6a-2: `VerificationReviewScreen` via Settings → Developer, `is_admin` gate + `app_admins` allowlist, `list_pending_verifications`/`review_verification` RPCs; CP6b copy-on-verify delivery downstream), and onboarding **T8c now feeds it** (the capture component writes pending rows). To test: (a) add Tom to `app_admins`; (b) generate a pending verification from a test user's T8c submit; (c) approve in the portal → confirm CP6b delivers the book's recipes. Surface any gaps found. | 🧪 | 🔴 | Tom, 2026-06-16. Mostly a test/verify pass on shipped code, not a build. |
+| OB-18 | **Orphaned-session sign-out.** When a signed-in session's user no longer exists (e.g. account deleted server-side), the app spins on Home / blanks the You page instead of forcing a sign-out. Detect a session-for-deleted-user and sign out. | 🐛 | 🟡 | Surfaced by Tom's walk (deleted spouse account left him stuck). |
+| OB-19 | **Unified "books & sources" browse (Phase 11 design call).** Tom: imported NYT/web recipes should surface alongside cookbooks under a shared "where recipes come from" grouping on the Recipes page. Today books (catalog/`user_books`) and sources (`source_domain` + SourceView) are sibling concepts with parallel screens; presenting them together is a deliberate browse-redesign decision for the Phase 11 recipe-surface workstream. | 💡 | 🟡 | Tom, 2026-06-15. Design decision, not a quick graft. |
+| OB-20 | **Swap remaining 📷 emoji to `CameraIcon`.** `CameraIcon` (new SVG, 2026-06-12) is used in onboarding verify; `AddRecipeModal` (and any other camera-emoji spots) still use 📷 — swap for consistency. | 🔧 | 🟢 | Banked during onboarding UX round. |
+| OB-21 | **Verification status badges on the books/library page.** A user's shelved books (`user_books`) don't show their ownership-verification state ("pending" / "verified"). Add a small join to `book_ownership_verifications` so the library reflects status — pairs with the onboarding T8c flow. | 🚀 | 🟡 | Banked during onboarding UX round. |
 
 ---
 
