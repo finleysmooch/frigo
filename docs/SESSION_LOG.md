@@ -7,6 +7,34 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP4 pre-seed ISBN-collision fix — Milk Street subtitle ×4 + Weissman split FIXED (5 distinct ISBNs recovered); Milk Street annual ×7 + HtCE/The Basics STILL collide → GATE STOP (matcher gaps). No dedup/seed run.
+
+**Self-contained note** (the rest of this session's CP4 entries were reverted from SESSION_LOG externally; this entry stands alone). **Context:** CP4 catalog-seed prep. The enriched catalog file `docs/seed/enrichment_out/enriched_deduped.csv` (~312 books, the seed source) contained distinct books wrongly sharing one `isbn13` (early-run matcher error before the OTK-era title fix). This task removed those collision rows from `enriched.csv`, re-resolved them with the fixed matcher, and gated on whether different-title rows still share an ISBN. No production DB, migrations, or assembly-workstream tables touched — local seed-CSV + Open Library/Google Books only.
+
+**Step 1 — clusters classified (read-only, enriched.csv = 314 rows).** Bug clusters (distinct books sharing one ISBN): `9780316387668` ×4 (Milk Street subtitle titles), `9780316572569` ×7 (Milk Street Cookbook annual editions), `9780358305637` ×3 (How to Cook Everything family), `9781615649983` ×2 (Joshua Weissman) = **16 rows**. Legit same-book variants left for dedup (Title vs Title:subtitle): Meathead, Zahav, Dinner, Cravings, 5 Ingredients, HtCE Vegetarian, Tartine, The Pasta Queen (8). **Forever Summer (UK)/(USA)** ruled a same-book region variant (confirmed with Tom) → left for dedup, not re-fetched.
+
+**Step 2 — matcher gate (false-negative caught & dismissed).** Prompt's check `grep -c "ma != fa && mb != fb"` returned 0 ("stop if 0"), but that's **C/JS `&&`** against a **Python** file — the fix IS deployed at `docs/enrich_cookbook_catalog.py:108` (`… and not (ma != fa and mb != fb)`), confirmed by `grep -c "ma != fa and mb != fb"` = 1 (the same tightened-title fix that earlier split the OTK pair). Proceeded after confirming with Tom.
+
+**Step 3 — removed the 16 bug rows from enriched.csv** (line-level filter by the 4 bug ISBNs; kept rows preserved byte-exact, no field edits): 314 → **298**.
+
+**Step 4 — re-ran `enrich_cookbook_catalog.py`** (`--input docs/cookbook_seed_ABC.csv --outdir docs/seed/enrichment_out`; GB key self-loaded from .env): processed 66 (16 removed + 47 still-dropped + 3 uncertain), **GB HTTP 429s = 0**; all 16 re-enriched → enriched.csv back to 314, dropped 47, uncertain 3.
+
+**Step 5 — GATE (per-cluster before → after ISBN):**
+- ✅ **FIXED — distinct ISBNs recovered:** Milk Street: Cookish `387668→9780316540292`, The New Rules `→9780316423045`, The World in a Skillet `→9780316387460` (Cook What You Have kept `9780316387668`); Weissman: Texture Over Taste `649983→9780744063561` (An Unapologetic Cookbook kept `9781615649983`); How to Cook Everything: Twentieth Anniversary `305637→9780764570148`. **5 new distinct ISBNs, 0 blanked.**
+- 🔴 **STILL COLLIDING (different titles → GATE STOP, not collapsed):**
+  1. **Milk Street Cookbook annual ×7 → all `9780316572569`** (titles `(2017-2020)` … `(2017-2026)`). Root cause: `main_title()` strips the parenthetical `(2017-20XX)`, so all 7 query `intitle:"Milk Street Cookbook"` → same GB volume → same ISBN. Title matcher can't distinguish year editions.
+  2. **How to Cook Everything + How to Cook Everything: The Basics → both `9780544186965`.** `: The Basics` (distinct abridged book) query returns the main volume; the matcher allows a main-title match when the API result has no subtitle (`ma==fa`).
+
+**Per the gate, STOPPED — did NOT run dedup (step 6) or the seed preview (step 7), and did NOT collapse the collisions.** `enriched.csv` holds the partial re-resolve (the 9 colliding rows above still share ISBNs; everything else fixed). No prod writes, no migration.
+
+**Files:** `docs/seed/enrichment_out/{enriched.csv (314; 16 rows re-resolved, 9 still collide), dropped.csv (47, rewritten), uncertain.csv (3), run_log.txt}`. **Rule E:** no app service/component code edited → no PK snapshot action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — none; `DEFERRED_WORK.md` — CP4 catalog seed remains blocked: 2 of 4 ISBN-collision clusters fixed, but 2 matcher gaps remain (Milk Street annual ×7 year-edition indistinguishability; HtCE/The Basics subtitle main-title match) — need a matcher refinement or a data ruling before the seed; `PROJECT_CONTEXT.md` — none; `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** Relay the 2 remaining collisions to Claude.ai — either (a) refine the matcher (parse the parenthetical year for annual editions; tighten the `ma==fa` main-title allowance so `…: The Basics` doesn't match its parent), or (b) rule that the 7 Milk Street annual editions collapse to a single catalog entry and re-resolve "The Basics" to its own ISBN. Then re-run this correction → gate → dedup (step 6) → seed preview (step 7). Also still owed before the seed itself (from earlier this session): internal-duplicate cleanup of the seed CSV, a `verification_source` CHECK-constraint extension to allow `'catalog_seed'`, and demoting the 3 `ZZZ … (walk fixture)` `is_catalog=true` rows.
+
+---
+
 ## 2026-06-16 — Onboarding UX-iteration round CLOSEOUT (CP9 screens; display/UX only — no schema, no migrations) + fixture teardown
 
 **Closeout of a multi-day live-walk UX iteration on the onboarding flow (CP9a/c/d/e screens).** All changes are display/UX/dev-tooling — **no schema, no migrations, no DB writes** beyond fixture teardown. tsc clean throughout. Committed this session (see Files); **not pushed** (8 prior commits also unpushed — offered).
