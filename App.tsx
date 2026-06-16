@@ -49,6 +49,8 @@ import WelcomeScreen from './screens/onboarding/WelcomeScreen';
 import InviteCodeScreen from './screens/onboarding/InviteCodeScreen';
 import OnboardingAccountScreen from './screens/onboarding/OnboardingAccountScreen';
 import OnboardingProfileScreen from './screens/onboarding/OnboardingProfileScreen';
+// CP9b — find friends (T5)
+import OnboardingFindFriendsScreen from './screens/onboarding/OnboardingFindFriendsScreen';
 // CP9c/CP9e — router + freehand placeholder + staples host + hand-off (stamp at T12)
 import OnboardingRouterScreen from './screens/onboarding/OnboardingRouterScreen';
 import FreehandPlaceholderScreen from './screens/onboarding/FreehandPlaceholderScreen';
@@ -149,6 +151,7 @@ export type OnboardingStackParamList = {
 // [T9a paste] → T9b signature) or freehand placeholder → T11 staples → T12.
 export type PostAuthOnboardingParamList = {
   ProfileSetup: undefined;
+  FindFriends: undefined;
   Router: undefined;
   Freehand: undefined;
   Sources: undefined;
@@ -395,8 +398,11 @@ function PostAuthOnboardingNavigator({
     <PostAuthStack.Navigator screenOptions={{ headerShown: false }}>
       <PostAuthStack.Screen name="ProfileSetup">
         {(props: any) => (
-          <OnboardingProfileScreen onContinue={() => props.navigation.navigate('Router')} />
+          <OnboardingProfileScreen onContinue={() => props.navigation.navigate('FindFriends')} />
         )}
+      </PostAuthStack.Screen>
+      <PostAuthStack.Screen name="FindFriends">
+        {(props: any) => <OnboardingFindFriendsScreen {...props} userId={userId} />}
       </PostAuthStack.Screen>
       <PostAuthStack.Screen name="Router" component={OnboardingRouterScreen} />
       <PostAuthStack.Screen name="Freehand" component={FreehandPlaceholderScreen} />

@@ -1,17 +1,15 @@
 // CP9e — T12 Social hand-off (wireframes v4 screen 12). Both paths converge
 // here. THE D-ON-10 COMPLETION STAMP LIVES HERE (moved from T4's interim
 // placement — CP9a flag resolved). All exits stamp, then App.tsx flips to the
-// main tabs. The two nudge cards currently exit to the app like "Go to Frigo"
-// — deep-targeting (PostCreationModal / find-friends) arrives with CP9b/CP9f
-// wiring; flagged in SESSION_LOG.
+// main tabs. The invite-code share surface relocated to T5 (CP9b, 2026-06-16);
+// the two nudge cards exit to the app like "Go to Frigo".
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { getOnboardingProfile, markOnboardingComplete } from '../../lib/services/onboardingService';
-import { getMyPassOnCode } from '../../lib/services/inviteCodeService';
 
 interface Props {
   /** Fired after the completion stamp succeeds — App.tsx flips to the tabs. */
@@ -24,25 +22,6 @@ export default function OnboardingHandoffScreen({ onComplete }: Props) {
   const [firstName, setFirstName] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
-  // CP7-minimal interim share surface (D-ON-11/17) — moves to T5 with CP9b.
-  const [sharePantry, setSharePantry] = useState(false);
-  const [sharing, setSharing] = useState(false);
-
-  const handleShareCode = async () => {
-    if (sharing) return;
-    setSharing(true);
-    try {
-      const code = await getMyPassOnCode(sharePantry);
-      await Share.share({
-        message: `Join me on Frigo — a home for your home cooking. Your invite code: ${code} · cookfrigo.com`,
-      });
-    } catch (error) {
-      console.error('❌ Share code failed:', error);
-      Alert.alert('Hmm', 'Could not get your invite code — try again.');
-    } finally {
-      setSharing(false);
-    }
-  };
 
   useEffect(() => {
     (async () => {
@@ -90,19 +69,6 @@ export default function OnboardingHandoffScreen({ onComplete }: Props) {
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>Find more friends</Text>
             <Text style={styles.cardSubtitle}>The feed gets better with people you know.</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* CP7-minimal interim share surface — relocates to T5 with CP9b. */}
-        <TouchableOpacity style={styles.card} onPress={handleShareCode} disabled={sharing}>
-          <Text style={styles.cardIcon}>🔗</Text>
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>{sharing ? 'Getting your code…' : 'Share your invite code'}</Text>
-            <Text style={styles.cardSubtitle}>Bring someone in — they're in instantly.</Text>
-            <View style={styles.shareToggleRow}>
-              <Switch value={sharePantry} onValueChange={setSharePantry} />
-              <Text style={styles.shareToggleLabel}>Invite them to your pantry too</Text>
-            </View>
           </View>
         </TouchableOpacity>
       </View>
@@ -177,16 +143,6 @@ const createStyles = (colors: any) =>
     },
     cardSubtitle: {
       fontSize: 13,
-      color: colors.text.secondary,
-    },
-    shareToggleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginTop: 8,
-    },
-    shareToggleLabel: {
-      fontSize: 12,
       color: colors.text.secondary,
     },
     primaryButton: {
