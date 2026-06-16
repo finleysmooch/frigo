@@ -7,6 +7,33 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP4 pre-seed ISBN-collision fix CLOSED OUT (Tom delegated the call) — all different-title ISBN collisions resolved; clean **298-row** seed input ready (0 collisions, 0 internal dups, catalog_true=0). Seed migration NOT yet authored/pushed (gated on confirm + coordination).
+
+**Self-contained note** (continues the gate-stop entry below; the parallel onboarding instance manages other SESSION_LOG entries). **Context:** CP4 catalog-seed prep. The prior pass GATE-STOPPED on 2 distinct-book ISBN collisions; Tom then said "address the collisions how you see best, close this out," delegating the call to CC. Guiding rule kept: **never assign a wrong ISBN** — collapse genuine same-book variants, but for *distinct* books sharing an ISBN, blank rather than guess.
+
+**Also caught a 3rd collision the gate missed:** `9780718188146` — **"Cravings" (Teigen 2016) vs "Cravings: Hungry for More" (2018)** are two different books; the earlier prefix-rule mis-classified them as a same-book variant. Handled below.
+
+**Resolution (every action; `dedup_us.py` first → corrective collapse/blank script on `enriched_deduped.csv`):**
+- `dedup_us.py`: 314→312 (collapsed the 2 OTK same-title UK/US rows; ambiguous=1 = Shelf Love, already ruled "accept UK Ebury `9781529109481`").
+- **Collapse to one (keep fuller title + its ISBN — same book/edition):** Milk Street annual ×7 `…572569` → "…Fifth Anniversary Edition" (6 dropped); Meathead, Zahav, Dinner, 5 Ingredients, The Pasta Queen, How to Cook Everything Vegetarian, Tartine (keep the subtitled title); Forever Summer (UK)/(USA) → kept **(USA)**.
+- **Distinct books — blank ISBN, keep both titles (no wrong ISBN):** `…186965` How to Cook Everything (keeps ISBN) + How to Cook Everything: The Basics (ISBN blanked); `…188146` Cravings + Cravings: Hungry for More (**both** blanked — couldn't verify which owns the ISBN).
+- Net: `enriched_deduped.csv` **312 → 298 rows; 0 different-title ISBN collisions** (verified).
+
+**Seed preview (read-only, service-role harness) on the corrected 298-row input:**
+- `catalog_true before = 0` ✓ — the 3 `ZZZ … (walk fixture)` `is_catalog=true` rows were **deleted** by the parallel onboarding instance during its fixture teardown (not flipped). Same precondition; the seed migration's Step 0 flip is now a confirmed **no-op**.
+- total books before **16** (was 19); **would-insert 298 · would-skip 0 · internal duplicates 0** ✓.
+- `cookbook_titles.csv` refreshed = **298 rows** (clean seed input).
+
+**State:** No prod writes this pass (reads + local CSV edits only). **Seed migration NOT authored or pushed.** Remaining work = author the timestamped migration (extend `books_verification_source_check` to allow `'catalog_seed'` + idempotent net-new insert of the 298 with `is_catalog=true, is_verified=false, verification_source='catalog_seed'`, OL `cover_image_url`, `publication_year`, `isbn=null`; **no Step 0 flip needed**), read-only preview, then `supabase db push` — **gated on Tom's confirm + a heads-up to the parallel instance** (298 prod rows + a schema/constraint change).
+
+**Files:** `docs/seed/enrichment_out/{enriched_deduped.csv (298), dedup_report.csv, enriched.csv (314, raw re-resolve), …}`, `docs/seed/cookbook_titles.csv (298, seed input)`; read-only harness in gitignored `_scratch/`. **Rule E:** no app service/component code edited → no PK snapshot action.
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — CP4 catalog seed input is now CLEAN and ready (298 net-new, 0 collisions/dups); only the seed migration push remains (constraint extension + insert; Step 0 flip moot — fixtures deleted). `FRIGO_ARCHITECTURE.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** Say "go" to author + push the catalog-seed migration (298 rows); I'll preview-gate it and coordinate the push timing with the parallel CP9b instance first. Two judgment calls baked in that you may want to revisit later: (1) the Milk Street annual editions are now a single catalog entry; (2) "The Basics" and both "Cravings" entries carry blank ISBNs (distinct books whose correct ISBNs the matcher couldn't resolve) — they'll show color-hash covers until re-resolved.
+
+---
+
 ## 2026-06-16 — CP4 pre-seed ISBN-collision fix — Milk Street subtitle ×4 + Weissman split FIXED (5 distinct ISBNs recovered); Milk Street annual ×7 + HtCE/The Basics STILL collide → GATE STOP (matcher gaps). No dedup/seed run.
 
 **Self-contained note** (the rest of this session's CP4 entries were reverted from SESSION_LOG externally; this entry stands alone). **Context:** CP4 catalog-seed prep. The enriched catalog file `docs/seed/enrichment_out/enriched_deduped.csv` (~312 books, the seed source) contained distinct books wrongly sharing one `isbn13` (early-run matcher error before the OTK-era title fix). This task removed those collision rows from `enriched.csv`, re-resolved them with the fixed matcher, and gated on whether different-title rows still share an ISBN. No production DB, migrations, or assembly-workstream tables touched — local seed-CSV + Open Library/Google Books only.
