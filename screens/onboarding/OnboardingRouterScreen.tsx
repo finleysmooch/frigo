@@ -16,24 +16,24 @@ type Props = NativeStackScreenProps<PostAuthOnboardingParamList, 'Router'>;
 
 type CookStyle = 'recipes' | 'both' | 'feel';
 
-const CHOICES: { key: CookStyle; icon: string; title: string; subtitle: string }[] = [
+const CHOICES: { key: CookStyle; emoji: string; title: string; subtitle: string }[] = [
   {
     key: 'recipes',
-    icon: '📖',
-    title: 'I follow recipes',
-    subtitle: 'Cookbooks, saved links, the NYT app — I cook from sources.',
+    emoji: '🤓',
+    title: 'I like to follow recipes',
+    subtitle: 'Cookbooks, saved links, NYT Cooking — I cook from sources (and maybe go rogue on the seasoning).',
   },
   {
     key: 'both',
-    icon: '🔀',
+    emoji: '🤹',
     title: 'A bit of both',
-    subtitle: 'Sometimes a recipe, sometimes I wing it.',
+    subtitle: "Some nights it's a recipe, some nights it's whatever's in the fridge and a prayer.",
   },
   {
     key: 'feel',
-    icon: '🔥',
+    emoji: '😎',
     title: 'I go by feel',
-    subtitle: 'I rarely follow a recipe — I just cook.',
+    subtitle: 'Recipes? Barely know her. I just cook.',
   },
 ];
 
@@ -54,10 +54,7 @@ export default function OnboardingRouterScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>How do you cook?</Text>
-        <Text style={styles.subtitle}>
-          Just helps us set you up — you can do it all either way.
-        </Text>
+        <Text style={styles.title}>What happens in your kitchen most nights?</Text>
       </View>
 
       <View style={styles.choices}>
@@ -71,7 +68,7 @@ export default function OnboardingRouterScreen({ navigation }: Props) {
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected }}
             >
-              <Text style={styles.cardIcon}>{choice.icon}</Text>
+              <Text style={styles.cardEmoji}>{choice.emoji}</Text>
               <View style={styles.cardText}>
                 <Text style={styles.cardTitle}>{choice.title}</Text>
                 <Text style={styles.cardSubtitle}>{choice.subtitle}</Text>
@@ -102,14 +99,11 @@ const createStyles = (colors: any) =>
       gap: 6,
     },
     title: {
-      fontSize: 20,
+      fontSize: 26,
       fontWeight: '700',
-      color: colors.text.primary,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: colors.text.secondary,
+      color: colors.primary,
       textAlign: 'center',
+      lineHeight: 32,
     },
     choices: {
       flex: 1,
@@ -129,8 +123,10 @@ const createStyles = (colors: any) =>
       borderColor: colors.primary,
       backgroundColor: colors.background.secondary ?? colors.background.card,
     },
-    cardIcon: {
-      fontSize: 24,
+    cardEmoji: {
+      fontSize: 40,
+      width: 52,
+      textAlign: 'center',
     },
     cardText: {
       flex: 1,

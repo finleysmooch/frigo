@@ -2,6 +2,7 @@
 export { default as HomeOutline } from './HomeOutline';
 export { default as HomeFilled } from './HomeFilled';
 export { default as SearchIcon } from './SearchIcon';
+export { default as CameraIcon } from './CameraIcon';
 export { default as RecipesOutline } from './RecipesOutline';
 export { default as RecipesFilled } from './RecipesFilled';
 export { default as CalendarOutline } from './CalendarOutline';

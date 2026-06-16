@@ -148,8 +148,8 @@ export function OwnershipVerificationCapture({
         <Text style={styles.instructionBody}>
           Take one photo of the book together with a handwritten note showing today's date
           {' '}
-          (<Text style={styles.dateEmphasis}>{todayLabel}</Text>). The book cover and the dated note
-          must both be clearly visible in the same shot.
+          (<Text style={styles.dateEmphasis}>{todayLabel}</Text>) and your signature. The book cover
+          and the signed, dated note must both be clearly visible in the same shot.
         </Text>
       </View>
 

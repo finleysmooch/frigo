@@ -1,10 +1,11 @@
 // CP9a — T1 Welcome (wireframes v4 screen 1; D-ON-1 spine entry).
 // Verbiage source: cookfrigo.com landing page (S8).
 
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { Logo } from '../../components/branding';
 import type { OnboardingStackParamList } from '../../App';
@@ -14,6 +15,26 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 export default function WelcomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [devCreating, setDevCreating] = useState(false);
+
+  // DEV ONLY (stripped from production builds): one-tap throwaway tester —
+  // skips invite code + the account form. No code redemption, by design.
+  const handleDevQuickStart = async () => {
+    if (devCreating) return;
+    setDevCreating(true);
+    try {
+      const stamp = Date.now().toString(36);
+      const { error } = await supabase.auth.signUp({
+        email: `dev-tester-${stamp}@frigo-dev.test`,
+        password: `dev-pass-${stamp}!`,
+        options: { data: { display_name: `Dev Tester ${stamp.slice(-4).toUpperCase()}` } },
+      });
+      if (error) Alert.alert('Dev quick start failed', error.message);
+      // Session arrives via the auth listener; the gate routes to onboarding.
+    } finally {
+      setDevCreating(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -32,6 +53,15 @@ export default function WelcomeScreen({ navigation }: Props) {
         <TouchableOpacity style={styles.secondaryLink} onPress={() => navigation.navigate('Login')}>
           <Text style={styles.secondaryLinkText}>I already have an account</Text>
         </TouchableOpacity>
+        {__DEV__ && (
+          <TouchableOpacity style={styles.devButton} onPress={handleDevQuickStart} disabled={devCreating}>
+            {devCreating ? (
+              <ActivityIndicator size="small" color={colors.text.tertiary} />
+            ) : (
+              <Text style={styles.devButtonText}>🛠 Dev: instant test account → onboarding</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -86,5 +116,14 @@ const createStyles = (colors: any) =>
       fontSize: 14,
       color: colors.primary,
       textDecorationLine: 'underline',
+    },
+    devButton: {
+      alignItems: 'center',
+      padding: 8,
+      marginTop: 4,
+    },
+    devButtonText: {
+      fontSize: 12,
+      color: colors.text.tertiary,
     },
   });

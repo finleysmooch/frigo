@@ -78,6 +78,7 @@ import {
 import { useActiveSpaceId } from '../contexts/SpaceContext';
 import { useCollapsibleHeader } from '../hooks/useCollapsibleHeader';
 import Slider from '@react-native-community/slider';
+import { ImportQueueStrip } from '../components/onboarding/ImportQueueStrip';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeList'>;
 
@@ -3063,6 +3064,9 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {renderHeader()}
+      {/* In-process background recipe imports (onboarding T9a / paste rail);
+          renders null when the session queue is empty. */}
+      <ImportQueueStrip />
       {screenMode === 'list' && collapsed ? renderCollapsedBar() : renderTopSearch()}
       {screenMode === 'home' ? (
         <>

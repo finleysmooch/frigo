@@ -32,6 +32,22 @@ export async function getOnboardingCompleted(userId: string): Promise<boolean> {
   return data?.onboarding_completed_at != null;
 }
 
+/**
+ * DEV/testing: clear the completion stamp so the gate replays onboarding for
+ * this user on next sign-in. Surfaced only via Settings → Developer.
+ */
+export async function resetOnboarding(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ onboarding_completed_at: null })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('❌ resetOnboarding error:', error);
+    throw error;
+  }
+}
+
 /** Stamp onboarding completion (idempotent — never overwrites an earlier stamp). */
 export async function markOnboardingComplete(userId: string): Promise<void> {
   const { error } = await supabase

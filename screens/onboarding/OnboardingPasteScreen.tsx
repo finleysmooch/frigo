@@ -1,13 +1,13 @@
-// CP9d — T9a Paste (wireframes v4 screen 9a). "Paste a link — including NYT
-// Cooking. They land in your library now." Runs the REAL extraction chain
-// (extractRecipeFromUrl → parseStandardizedRecipe → matchIngredientsToDatabase
-// → saveRecipeToDatabase) DIRECT-SAVE — the review + missing-ingredient steps
-// of the full AddRecipeFromUrl flow are deliberately skipped in onboarding
-// (unmatched ingredients save unmatched; the user can refine later). Flagged.
-// Social/video URLs (S4): route + personalize only — extraction is attempted
-// but failure copy keeps it a no-promise.
+// CP9d — T9a Paste (wireframes v4 screen 9a), reworked per Tom's walk feedback
+// (2026-06-12): imports are BACKGROUND JOBS (lib/services/recipeImportQueue) —
+// paste a link, a progress row appears, the field clears immediately, paste
+// more, and Continue any time; extractions finish behind the flow and land in
+// the library. Review + missing-ingredient resolution stay deliberately
+// skipped in onboarding (unmatched ingredients save unmatched — flagged).
+// Social/video URLs (S4): route + personalize only — failure rows keep the
+// no-promise.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -19,113 +19,88 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/theme/ThemeContext';
-import { extractRecipeFromUrl, getDomainFromUrl } from '../../lib/services/recipeExtraction/webExtractor';
-import { parseStandardizedRecipe } from '../../lib/services/recipeExtraction/unifiedParser';
-import { matchIngredientsToDatabase } from '../../lib/services/recipeExtraction/ingredientMatcher';
-import { saveRecipeToDatabase } from '../../lib/services/recipeExtraction/recipeService';
+import {
+  startRecipeImport,
+  subscribeToImports,
+  getImportJobs,
+  ImportJob,
+} from '../../lib/services/recipeImportQueue';
 import type { PostAuthOnboardingParamList } from '../../App';
 
 type Props = NativeStackScreenProps<PostAuthOnboardingParamList, 'Paste'>;
-
-interface ImportedRow {
-  title: string;
-  domain: string;
-}
 
 export default function OnboardingPasteScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [url, setUrl] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [imported, setImported] = useState<ImportedRow[]>([]);
+  const [jobs, setJobs] = useState<ImportJob[]>(getImportJobs());
 
-  const handleImport = async () => {
-    const trimmed = url.trim();
-    if (!trimmed || status) return;
-    setErrorText(null);
-    try {
-      const fullUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
-      setStatus('Fetching recipe…');
-      const standardized = await extractRecipeFromUrl(fullUrl);
-      setStatus('Understanding the recipe…');
-      const extracted = await parseStandardizedRecipe(standardized);
-      setStatus('Matching ingredients…');
-      const matched = await matchIngredientsToDatabase(extracted);
-      setStatus('Saving to your library…');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('no session');
-      await saveRecipeToDatabase(user.id, matched);
-      setImported((prev) => [...prev, {
-        title: extracted.recipe.title,
-        domain: getDomainFromUrl(fullUrl),
-      }]);
-      setUrl('');
-    } catch (error) {
-      console.error('❌ Onboarding paste import failed:', error);
-      setErrorText(
-        "Couldn't pull a recipe from that link — some sources (Reels, TikTok, YouTube) don't share recipes cleanly. Try another link, or skip for now."
-      );
-    } finally {
-      setStatus(null);
-    }
+  useEffect(() => subscribeToImports(setJobs), []);
+
+  const handleImport = () => {
+    if (!url.trim()) return;
+    startRecipeImport(url);
+    setUrl('');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Bring in a few you love</Text>
       <Text style={styles.instruction}>
-        Paste a link — including NYT Cooking. They land in your library now.
+        Paste a link — including NYT Cooking. They import in the background; keep going whenever
+        you're ready.
       </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Paste a recipe URL"
-        placeholderTextColor={colors.text.tertiary}
-        value={url}
-        onChangeText={(t) => { setUrl(t); setErrorText(null); }}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-      />
-      {errorText && <Text style={styles.errorText}>{errorText}</Text>}
-
-      <TouchableOpacity
-        style={[styles.importButton, (status != null || !url.trim()) && styles.buttonDisabled]}
-        onPress={handleImport}
-        disabled={status != null || !url.trim()}
-      >
-        {status ? (
-          <View style={styles.statusRow}>
-            <ActivityIndicator color={colors.background.card} size="small" />
-            <Text style={styles.importButtonText}>{status}</Text>
-          </View>
-        ) : (
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="Paste a recipe URL"
+          placeholderTextColor={colors.text.tertiary}
+          value={url}
+          onChangeText={setUrl}
+          onSubmitEditing={handleImport}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          returnKeyType="go"
+        />
+        <TouchableOpacity
+          style={[styles.importButton, !url.trim() && styles.buttonDisabled]}
+          onPress={handleImport}
+          disabled={!url.trim()}
+        >
           <Text style={styles.importButtonText}>Import</Text>
-        )}
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.list}>
-        {imported.map((row, i) => (
-          <View key={i} style={styles.importedRow}>
-            <Text style={styles.importedIcon}>🔗</Text>
-            <View style={styles.importedText}>
-              <Text style={styles.importedTitle}>{row.title}</Text>
-              <Text style={styles.importedDomain}>{row.domain}</Text>
+        {jobs.map((job) => (
+          <View key={job.id} style={styles.jobRow}>
+            <Text style={styles.jobIcon}>🔗</Text>
+            <View style={styles.jobText}>
+              <Text style={styles.jobTitle} numberOfLines={1}>
+                {job.title ?? job.url}
+              </Text>
+              <Text style={styles.jobDomain}>
+                {job.status === 'failed' ? job.error : job.domain}
+              </Text>
             </View>
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>Imported</Text>
-            </View>
+            {job.status === 'working' && <ActivityIndicator size="small" color={colors.primary} />}
+            {job.status === 'done' && (
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>Imported</Text>
+              </View>
+            )}
+            {job.status === 'failed' && <Text style={styles.failMark}>✕</Text>}
           </View>
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('Signature')}>
+      <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('Staples')}>
         <Text style={styles.primaryButtonText}>Continue</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryLink} onPress={() => navigation.navigate('Signature')}>
+      <TouchableOpacity style={styles.secondaryLink} onPress={() => navigation.navigate('Staples')}>
         <Text style={styles.secondaryLinkText}>Skip</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -137,29 +112,29 @@ const createStyles = (colors: any) =>
     container: { flex: 1, backgroundColor: colors.background.card, padding: 24 },
     title: { fontSize: 20, fontWeight: '700', color: colors.text.primary, marginBottom: 6 },
     instruction: { fontSize: 14, color: colors.text.secondary, marginBottom: 16, lineHeight: 20 },
+    inputRow: { flexDirection: 'row', gap: 8 },
     input: {
-      borderWidth: 1, borderColor: colors.border.medium, borderRadius: 8,
+      flex: 1, borderWidth: 1, borderColor: colors.border.medium, borderRadius: 8,
       padding: 14, fontSize: 15, color: colors.text.primary,
     },
-    errorText: { marginTop: 8, fontSize: 13, color: '#cc3333', lineHeight: 18 },
     importButton: {
-      backgroundColor: colors.primary, padding: 14, borderRadius: 8,
-      alignItems: 'center', marginTop: 12,
+      backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 16,
+      alignItems: 'center', justifyContent: 'center',
     },
     buttonDisabled: { opacity: 0.6 },
-    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     importButtonText: { color: colors.background.card, fontSize: 15, fontWeight: '600' },
     list: { flex: 1, marginTop: 16 },
-    importedRow: {
+    jobRow: {
       flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.medium,
     },
-    importedIcon: { fontSize: 18 },
-    importedText: { flex: 1 },
-    importedTitle: { fontSize: 15, fontWeight: '600', color: colors.text.primary },
-    importedDomain: { fontSize: 12, color: colors.text.secondary },
+    jobIcon: { fontSize: 18 },
+    jobText: { flex: 1 },
+    jobTitle: { fontSize: 15, fontWeight: '600', color: colors.text.primary },
+    jobDomain: { fontSize: 12, color: colors.text.secondary },
     pill: { backgroundColor: colors.primary + '22', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
     pillText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
+    failMark: { fontSize: 16, color: '#cc3333', fontWeight: '700' },
     primaryButton: {
       backgroundColor: colors.primary, padding: 16, borderRadius: 8,
       alignItems: 'center', marginTop: 8,

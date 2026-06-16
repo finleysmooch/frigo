@@ -22,6 +22,7 @@ import {
   DietaryPreferences,
 } from '../lib/services/dietaryPreferencesService';
 import { isAdmin } from '../lib/services/ownershipVerificationService';
+import { resetOnboarding } from '../lib/services/onboardingService';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -459,6 +460,40 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <View style={styles.rowLeft}>
               <Text style={styles.rowIcon}>🎨</Text>
               <Text style={styles.rowTitle}>Logo Playground</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          {/* Dev: clear the D-ON-10 stamp so onboarding replays for THIS account
+              (sign out → back in). Faster test loop than fresh accounts. */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => {
+              Alert.alert(
+                'Replay onboarding',
+                'Clears your onboarding-completed stamp. Sign out and back in to walk onboarding again with this account.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear stamp',
+                    onPress: async () => {
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) return;
+                        await resetOnboarding(user.id);
+                        Alert.alert('Cleared', 'Sign out and back in to replay onboarding.');
+                      } catch (err) {
+                        Alert.alert('Failed', String(err));
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowIcon}>🔁</Text>
+              <Text style={styles.rowTitle}>Replay Onboarding</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>

@@ -59,7 +59,7 @@ export default function OnboardingSourcesScreen({ navigation }: Props) {
     } else if (hasWebSources(sources)) {
       navigation.navigate('Paste', { sources });
     } else {
-      navigation.navigate('Signature'); // signature offered to all (S5)
+      navigation.navigate('Staples'); // signature page (T9b) hidden 2026-06-15
     }
   };
 
@@ -70,7 +70,7 @@ export default function OnboardingSourcesScreen({ navigation }: Props) {
         Pick all that apply — we'll only ask about the ones you use.
       </Text>
 
-      <ScrollView style={styles.list}>
+      <ScrollView style={styles.list} keyboardShouldPersistTaps="always">
         {SOURCES.map((source) => {
           const isChecked = checked.has(source.key);
           return (
@@ -105,7 +105,7 @@ export default function OnboardingSourcesScreen({ navigation }: Props) {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.secondaryLink}
-        onPress={() => navigation.navigate('Signature')}
+        onPress={() => navigation.navigate('Staples')}
       >
         <Text style={styles.secondaryLinkText}>I'll add recipes later</Text>
       </TouchableOpacity>

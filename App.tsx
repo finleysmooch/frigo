@@ -153,7 +153,10 @@ export type PostAuthOnboardingParamList = {
   Freehand: undefined;
   Sources: undefined;
   Cookbooks: { sources: string[] };
-  CookbookVerify: { sources: string[]; books: { id: string; title: string; author: string | null }[] };
+  CookbookVerify: {
+    sources: string[];
+    books: { id: string; title: string; author: string | null; cover_image_url?: string | null }[];
+  };
   Paste: { sources: string[] };
   Signature: undefined;
   Staples: undefined;
@@ -401,6 +404,9 @@ function PostAuthOnboardingNavigator({
       <PostAuthStack.Screen name="Cookbooks" component={OnboardingCookbooksScreen} />
       <PostAuthStack.Screen name="CookbookVerify" component={OnboardingCookbookVerifyScreen} />
       <PostAuthStack.Screen name="Paste" component={OnboardingPasteScreen} />
+      {/* T9b Signature: HIDDEN 2026-06-15 (Tom) — registered but unreachable;
+          the recipe-path screens now route past it straight to Staples.
+          Re-enable by pointing those navigate('Staples') calls back here. */}
       <PostAuthStack.Screen name="Signature" component={OnboardingSignatureScreen} />
       <PostAuthStack.Screen name="Staples">
         {(props: any) => <OnboardingStaplesScreen {...props} userId={userId} />}
