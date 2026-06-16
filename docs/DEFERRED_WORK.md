@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
 **Last Updated:** June 16, 2026  
-**Version:** 5.36  
+**Version:** 5.37  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -31,6 +31,7 @@ Surfaced during Tom's live walk-throughs of the onboarding flow (CP9 screens).
 | OB-19 | **Unified "books & sources" browse (Phase 11 design call).** Tom: imported NYT/web recipes should surface alongside cookbooks under a shared "where recipes come from" grouping on the Recipes page. Today books (catalog/`user_books`) and sources (`source_domain` + SourceView) are sibling concepts with parallel screens; presenting them together is a deliberate browse-redesign decision for the Phase 11 recipe-surface workstream. | 💡 | 🟡 | Tom, 2026-06-15. Design decision, not a quick graft. |
 | OB-20 | **Swap remaining 📷 emoji to `CameraIcon`.** `CameraIcon` (new SVG, 2026-06-12) is used in onboarding verify; `AddRecipeModal` (and any other camera-emoji spots) still use 📷 — swap for consistency. | 🔧 | 🟢 | Banked during onboarding UX round. |
 | OB-21 | **Verification status badges on the books/library page.** A user's shelved books (`user_books`) don't show their ownership-verification state ("pending" / "verified"). Add a small join to `book_ownership_verifications` so the library reflects status — pairs with the onboarding T8c flow. | 🚀 | 🟡 | Banked during onboarding UX round. |
+| OB-22 | **`get_invite_cohort` RPC for T5 "Suggested" cohort (CP9b).** D-ON-11's same-invite-code suggestions read `invite_code_redemptions` (RLS-locked, CP2), so the T5 section needs a SECURITY DEFINER RPC returning co-redeemers of the caller's code(s), excluding already-followed, profile fields only. Small migration (deferred during the CP4 seed to avoid migrations-dir contention). `onboardingFriendsService.getInviteCohort` returns `[]` until then; the section is hidden. | 🚀 | 🟡 | CP9b, 2026-06-16. Lights up the suggestions section. |
 
 ---
 

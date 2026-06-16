@@ -7,6 +7,34 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP9b SHIPPED: T5 Find Friends (last of the 15 onboarding screens) — committed + pushed. Pure app code; cohort-suggestions RPC deferred (OB-22).
+
+**The onboarding screen build is COMPLETE** — T5 was the final unbuilt wireframe. CP9b is checkpoint tier, pure app code (no migration, no `books`, no shared-doc collision with the in-flight CP4 seed). Built on top of the now-converged CP4 work (298-book catalog live). tsc clean; harness 6/6.
+
+**Shipped:** `screens/onboarding/OnboardingFindFriendsScreen.tsx` (T5) — share hero (relocated CP7-minimal invite-code surface + system Share sheet + the D-ON-17 "invite them to your pantry too" toggle), a "Suggested — people you may know" cohort section (hidden until its RPC lands), demoted name search with Follow buttons, Continue/Skip; `lib/services/onboardingFriendsService.ts` (`searchPeople`/`followPerson`/`getInviteCohort`, reusing the `follows`-table + increment-RPC pattern from UserSearchScreen). **Navigator:** inserted T5 between Profile and Router (ProfileSetup → **FindFriends** → Router). **Relocated** the invite-code share card OFF T12 (`OnboardingHandoffScreen` — removed the card + its Share/Switch imports/state/styles) onto T5, per the plan.
+
+**Verification (harness `entry_cp9b.ts`, real services, authenticated session, throwaway users, cleaned to baseline):**
+```
+[PASS] 1. searchPeople finds B by display_name, not yet following
+[PASS] 2. search excludes self
+[PASS] 3. followPerson inserted a follows row (authed RLS allows it)
+[PASS] 4. search now reflects isFollowing=true
+[PASS] 5. getInviteCohort returns [] (stub until get_invite_cohort RPC)
+[PASS] 6. cleanup to baseline — {"profiles":37,"follows":364}
+VERDICT: PASS (all checks)
+```
+The authed `follows` insert succeeding under RLS was the one real unknown (UserSearchScreen guards a 42501 path) — confirmed it works.
+
+**DEFERRED — cohort suggestions RPC (OB-22):** the D-ON-11 same-invite-code cohort reads `invite_code_redemptions` (RLS-locked, CP2), so the "Suggested" section needs a `get_invite_cohort` SECURITY DEFINER RPC that doesn't exist yet — a small migration, **deliberately deferred** to avoid two sessions racing on `supabase/migrations/` during the CP4 seed. `getInviteCohort` returns `[]` (no orphan-RPC call); the section stays hidden until it lands. The screen is fully F&F-functional via search + share today. QR + Contacts also deferred (no QR lib; Contacts = gated CP-O2).
+
+**Files modified:** `screens/onboarding/OnboardingFindFriendsScreen.tsx` (new), `lib/services/onboardingFriendsService.ts` (new), `App.tsx` ⚠️ PK snapshot already flagged stale this session (FindFriends route + param), `screens/onboarding/OnboardingHandoffScreen.tsx` (share card removed), `docs/SESSION_LOG.md` / `docs/onboarding/WORKSTREAM_PLAN.md` / `docs/DEFERRED_WORK.md` (this closeout). **Did NOT touch** `CC_START_PROMPT.md` (shows modified by linter/other — left out of the commit) or any CP4 seed file. **Rule E:** App.tsx already HIGH-flagged; no new tier-listed files.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — onboarding T5 + `onboardingFriendsService` once stable; `DEFERRED_WORK.md` — done (OB-22); `PROJECT_CONTEXT.md` — all 15 onboarding screens built; `FF_LAUNCH_MASTER_PLAN.md` — onboarding screen build complete (remaining: cohort RPC, CP-O2 contacts, T9b/staples polish per OB items).
+
+**Recommended next steps for Tom:** (1) walk T5 (sign out → dev fast-path → Profile → "Find your friends"); the catalog is now seeded so T8a cookbook search shows real books too; (2) `get_invite_cohort` RPC when you want the Suggested section live; (3) OB-17 admin verification-review test setup.
+
+---
+
 ## 2026-06-16 — CP4 catalog seed SHIPPED + prod-verified — migration `20260616161000_cp4_seed_catalog.sql` pushed: **298 catalog books loaded** (is_catalog=true), books 16→314, 0 existing rows mutated. The onboarding catalog is now populated.
 
 **Green-lit ("goo" = go) after the pre-seed correction closed out clean.** Authored + pushed the part-2 seed migration (`is_catalog` column was part 1, 20260609234010).
