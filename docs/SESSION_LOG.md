@@ -7,6 +7,32 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP4 catalog seed SHIPPED + prod-verified — migration `20260616161000_cp4_seed_catalog.sql` pushed: **298 catalog books loaded** (is_catalog=true), books 16→314, 0 existing rows mutated. The onboarding catalog is now populated.
+
+**Green-lit ("goo" = go) after the pre-seed correction closed out clean.** Authored + pushed the part-2 seed migration (`is_catalog` column was part 1, 20260609234010).
+
+**Migration `20260616161000_cp4_seed_catalog.sql` (committed `63e1232`, pushed to remote — `supabase migration list` shows it on local+remote):**
+1. **Constraint extension** — `books_verification_source_check` DROP+ADD to permit `'catalog_seed'` (the existing CHECK only allowed isbn_api/manual_review/user_submitted; additive, safe).
+2. **Idempotent net-new insert** of the 298 corrected/deduped catalog titles: `is_catalog=true, is_verified=false, verification_source='catalog_seed'`, OL `cover_image_url` (hotlinked; cover-host pass rehosts later), `publication_year` mapped, `isbn=null`, `toc_extracted_at=null`. `NOT EXISTS` guard on isbn13 (or normalized title+author for blank-isbn rows) → re-run = no-op. **Step 0 flip was a no-op** (the 3 `ZZZ … (walk fixture)` is_catalog=true rows had already been *deleted* by the parallel onboarding instance's fixture teardown → catalog_true was 0 pre-seed).
+
+**Push flow:** dry-run listed exactly the one migration → `supabase db push` applied it → verified. **Verification (verbatim, read-only service-role harness):**
+```
+total books:                    314   (expect 314 = 16 + 298)
+is_catalog=true:                298   (expect 298)
+verification_source=catalog_seed: 298   (expect 298)
+is_catalog=true but NOT catalog_seed: 0   (expect 0)   <- no existing row mutated
+catalog non-blank isbn13: 287  malformed(not 978/979): 0   (11 intentional blanks: 8 + The Basics + 2 Cravings)
+```
+**Spot-check (data-layer, mirrors searchBookCatalog's is_catalog filter):** "Salt Fat Acid Heat" → is_catalog=true/vsrc=catalog_seed (catalog-searchable) ✓; workstream "Plenty" (exact) → is_catalog=false (stays OUT) ✓; "Plenty More" → seeded catalog ✓. **Note:** `searchBookCatalog` couldn't be exercised through the anon harness — `has_recipes` is `REVOKE`d from anon and `GRANT`ed only to authenticated/service_role *by design* (migration 20260611235555 comment: "catalog search runs authenticated; onboarding T8a is post-signup"). So the anon perm-denied is expected, not a bug; real (authenticated) T8 users hit the granted path.
+
+**Files:** `supabase/migrations/20260616161000_cp4_seed_catalog.sql` (new, committed `63e1232`, 326 lines). Seed-prep artifacts (`docs/seed/cookbook_titles.csv` = 298, `enriched_deduped.csv`, the enrichment/dedup/host scripts) remain **untracked** in `docs/`/`_scratch/` (the migration is the durable source of truth). **Rule E:** no app service/component code edited → no PK snapshot action.
+
+**Recommended doc updates:** `FRIGO_ARCHITECTURE.md` — note the catalog is now seeded (298 is_catalog=true books; `verification_source='catalog_seed'`); `DEFERRED_WORK.md` — CP4 catalog seed DONE; remaining CP4 tail = the **catalog cover-host pass** (now unblocked — the 298 books have book_ids; re-run the Stage B export → resolve_covers → host_covers --apply to rehost OL covers + replace GB-thumb hotlinks) and a later re-resolve of the 11 blank-ISBN titles (The Basics, both Cravings, + 8 originals); `PROJECT_CONTEXT.md` — catalog populated; `FF_LAUNCH_MASTER_PLAN.md` — onboarding T8 catalog search now has real data.
+
+**Recommended next steps for Tom:** (1) The catalog cover-host pass is the natural follow-up (the earlier blocker — "catalog not seeded, no book_ids" — is gone). (2) Heads-up to the parallel CP9b instance: `main` now has a new migration + the remote `books` table gained 298 rows (no schema conflict with app-code work). (3) `main` is committed locally — `63e1232` (migration) + the SESSION_LOG commits; push `main` to origin when ready (the parallel instance already pushed earlier).
+
+---
+
 ## 2026-06-16 — CP4 pre-seed ISBN-collision fix CLOSED OUT (Tom delegated the call) — all different-title ISBN collisions resolved; clean **298-row** seed input ready (0 collisions, 0 internal dups, catalog_true=0). Seed migration NOT yet authored/pushed (gated on confirm + coordination).
 
 **Self-contained note** (continues the gate-stop entry below; the parallel onboarding instance manages other SESSION_LOG entries). **Context:** CP4 catalog-seed prep. The prior pass GATE-STOPPED on 2 distinct-book ISBN collisions; Tom then said "address the collisions how you see best, close this out," delegating the call to CC. Guiding rule kept: **never assign a wrong ISBN** — collapse genuine same-book variants, but for *distinct* books sharing an ISBN, blank rather than guess.
