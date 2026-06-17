@@ -32,6 +32,8 @@ import { useTheme } from '../lib/theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { RecipeCard, type Recipe } from '../components/recipe/RecipeCard';
 import { BrowseLensChip } from '../components/recipe/BrowseLensChip';
+import BookmarkFilterRow from '../components/recipe/BookmarkFilterRow';
+import { getRecipesForBookmark } from '../lib/services/bookmarkService';
 import RefineSheet, { type FilterState } from '../components/RefineSheet';
 import {
   resolveBrowse,
@@ -94,6 +96,11 @@ export default function BookViewScreen({ route, navigation }: Props) {
   const [userDietaryPrefs, setUserDietaryPrefs] = useState<DietaryPreferences | null>(null);
   const [showRefineSheet, setShowRefineSheet] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  // Bookmark view-filter (single-select). When set, the list is intersected
+  // with the recipes filed under this bookmark key.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [activeBookmark, setActiveBookmark] = useState<string | null>(null);
+  const [bookmarkFilterIds, setBookmarkFilterIds] = useState<Set<string> | null>(null);
 
   // 11D: direction-aware collapsing filter chrome (filter line + search + status
   // collapse to a tappable pill on scroll-down; restore on scroll-up / at top).
@@ -121,6 +128,7 @@ export default function BookViewScreen({ route, navigation }: Props) {
           return;
         }
         const userId = user.id;
+        setCurrentUserId(userId);
 
         // Phase 1: book metadata + scope recipe rows + cross-recipe per-user maps.
         const [bookRes, scopeRecipesRes, history, friends, prefs] = await Promise.all([
@@ -264,7 +272,17 @@ export default function BookViewScreen({ route, navigation }: Props) {
     userDietaryFlags: userDietaryFlagsActive,
   }), [advancedFilters, userDietaryFlagsActive]);
 
-  // Resolve → section sort → search filter. Three steps, each a transform.
+  // Load the recipe-id set for the active bookmark filter (single-select).
+  useEffect(() => {
+    if (!currentUserId || !activeBookmark) { setBookmarkFilterIds(null); return; }
+    let alive = true;
+    getRecipesForBookmark(currentUserId, activeBookmark)
+      .then((rows) => { if (alive) setBookmarkFilterIds(new Set(rows.map((r) => r.id))); })
+      .catch(() => { if (alive) setBookmarkFilterIds(new Set()); });
+    return () => { alive = false; };
+  }, [currentUserId, activeBookmark]);
+
+  // Resolve → section sort → search filter → bookmark filter. Each a transform.
   const visibleRecipes = useMemo<Recipe[]>(() => {
     if (recipes.length === 0) return [];
     let out = resolveBrowse(recipes, new Map(), browseState);
@@ -292,8 +310,13 @@ export default function BookViewScreen({ route, navigation }: Props) {
       out = out.filter(r => searchedRecipeIds.has(r.id));
     }
 
+    // Bookmark view-filter intersection. null = no active bookmark filter.
+    if (bookmarkFilterIds !== null) {
+      out = out.filter(r => bookmarkFilterIds.has(r.id));
+    }
+
     return out;
-  }, [recipes, browseState, sectionId, searchedRecipeIds]);
+  }, [recipes, browseState, sectionId, searchedRecipeIds, bookmarkFilterIds]);
 
   // 11A-CP3 dismissible refinement chips — one chip per applied refinement.
   // Mirrors the activeRefinementChips list in RecipeListScreen so the user
@@ -488,6 +511,16 @@ export default function BookViewScreen({ route, navigation }: Props) {
             </View>
           </View>
 
+          {/* Bookmark view-filter chips (single-select, scoped to this book). */}
+          {currentUserId && (
+            <BookmarkFilterRow
+              userId={currentUserId}
+              activeKey={activeBookmark}
+              onChange={setActiveBookmark}
+              style={styles.bookmarkFilterRow}
+            />
+          )}
+
           {/* Status text */}
           <View style={styles.statusRow}>
             <Text style={styles.statusText}>
@@ -648,6 +681,11 @@ function makeStyles(colors: any) {
       padding: 0,
     },
 
+    bookmarkFilterRow: {
+      paddingLeft: 15,
+      paddingTop: 4,
+      paddingBottom: 2,
+    },
     statusRow: {
       paddingHorizontal: 18,
       paddingVertical: 6,

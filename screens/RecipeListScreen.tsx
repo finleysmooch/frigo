@@ -63,6 +63,8 @@ import { calculateRecipeSupplyMatchBulk, PantryMatchResult } from '../lib/servic
 import { filterReadyToCook, getRecipeIngredientNames } from '../lib/services/readyToCookService';
 import { RecipeCard, type Recipe } from '../components/recipe/RecipeCard';
 import { BrowseLensChip } from '../components/recipe/BrowseLensChip';
+import BookmarkFilterRow from '../components/recipe/BookmarkFilterRow';
+import { getRecipesForBookmark } from '../lib/services/bookmarkService';
 import {
   resolveBrowse,
   getCookAgainSections,
@@ -187,6 +189,9 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   // CP6d-SmokeFix-3 (D11): set when initialIngredient route param drives the
   // search; the next searchText change after this flag triggers handleSearch.
   const [userId, setUserId] = useState<string | null>(null);
+  // Bookmark view-filter (single-select). Applied to the list only in list mode.
+  const [activeBookmark, setActiveBookmark] = useState<string | null>(null);
+  const [bookmarkFilterIds, setBookmarkFilterIds] = useState<Set<string> | null>(null);
   const [nutritionMap, setNutritionMap] = useState<Map<string, RecipeNutrition>>(new Map());
   const [historyMap, setHistoryMap] = useState<Map<string, CookingHistory>>(new Map());
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -510,6 +515,11 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       paddingBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.border.medium,
+    },
+    bookmarkFilterRow: {
+      paddingLeft: 15,
+      paddingTop: 8,
+      paddingBottom: 8,
     },
     cuisineStripLabel: {
       fontSize: 13,
@@ -1522,9 +1532,33 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   ]);
 
   const filteredRecipes = useMemo(
-    () => resolveBrowse(recipesWithMatch, matchMap, browseState),
-    [recipesWithMatch, matchMap, browseState],
+    () => {
+      let out = resolveBrowse(recipesWithMatch, matchMap, browseState);
+      // Bookmark view-filter — applied in list mode only so the home tiles /
+      // counts (which also read filteredRecipes) stay unfiltered.
+      if (screenMode === 'list' && bookmarkFilterIds) {
+        out = out.filter(r => bookmarkFilterIds.has(r.id));
+      }
+      return out;
+    },
+    [recipesWithMatch, matchMap, browseState, screenMode, bookmarkFilterIds],
   );
+
+  // Load the recipe-id set for the active bookmark filter (single-select).
+  useEffect(() => {
+    if (!userId || !activeBookmark) { setBookmarkFilterIds(null); return; }
+    let alive = true;
+    getRecipesForBookmark(userId, activeBookmark)
+      .then((rows) => { if (alive) setBookmarkFilterIds(new Set(rows.map((r) => r.id))); })
+      .catch(() => { if (alive) setBookmarkFilterIds(new Set()); });
+    return () => { alive = false; };
+  }, [userId, activeBookmark]);
+
+  // Tapping a bookmark chip filters the list; from home it also enters list mode.
+  const handleBookmarkFilter = useCallback((key: string | null) => {
+    setActiveBookmark(key);
+    if (key) setScreenMode('list');
+  }, []);
 
   // Cook Again sectioning — gated on the your_classics tile (CP1 cook_again).
   // The pure grouping lives in recipeBrowseService.getCookAgainSections.
@@ -1619,6 +1653,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     setBrowseMode('all');
     setSelectedBook(null);
     setExpandedCardId(null);
+    setActiveBookmark(null);
     setScreenMode('home');
   }, [userDietaryPrefs, userDietaryFlagsActive]);
 
@@ -2372,6 +2407,21 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     );
   };
 
+  // Bookmark view-filter chip row. Shown on the home screen (under the tiles)
+  // and in list mode. Single-select; tapping from home enters list mode.
+  const renderBookmarkRow = (label?: string) => {
+    if (isSelectionMode || !userId) return null;
+    return (
+      <BookmarkFilterRow
+        userId={userId}
+        activeKey={activeBookmark}
+        onChange={handleBookmarkFilter}
+        label={label}
+        style={styles.bookmarkFilterRow}
+      />
+    );
+  };
+
   // 11A-CP5a: renderActiveLensChip removed — the lens chip is now part of
   // the Mode B filter line (see renderFilterLine).
 
@@ -3084,12 +3134,14 @@ export default function RecipeListScreen({ navigation, route }: Props) {
         <>
           {renderTilePrompt()}
           {renderTileGrid()}
+          {renderBookmarkRow('Bookmarks')}
           {renderBrowseByRow()}
           {renderBrowseAllLink()}
         </>
       ) : (
         <>
           {!collapsed && renderFilterLine()}
+          {!collapsed && renderBookmarkRow()}
           {!collapsed && renderCompactStatus()}
           {searching ? (
             <View style={styles.centerContainer}>
