@@ -7,6 +7,31 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-17 — Favorites filter bug: a favorited recipe missing from the Recipes page — root cause was non-deterministic pagination (+ created ENGINEERING_GOTCHAS.md)
+
+**Tom:** favorited "Steamed Kabocha Squash" (By Heart) — shows favorited **in the book view**, but **doesn't appear under the Favorites filter on the main Recipes page**; suspected book permissions.
+
+**Diagnosis arc (all read-only DB checks via `--env-file=.env` node scripts):**
+- **Data is correct** — the `favorite` tag exists for kabocha (user 47feb56f), and all 4 of Tom's favorites join + are present in both the favorite-tag set and the full recipe set. Not a data problem.
+- **Not permissions** — By Heart and Eating Out Loud are identical: both `is_catalog=true`, **all** recipes owned by Tom (103/103, 108/108), no duplicate/no-owner copies. By Heart isn't special.
+- **First hypotheses (staleness) were partial** — the Recipes page loads on mount only and caches its favorite-id set; but toggling the filter (a fresh fetch) still didn't surface kabocha, ruling staleness out as the sole cause.
+- **Root cause — non-deterministic pagination.** `loadRecipes` paginated ordered by `created_at` **with no unique tiebreaker**. ~200 cookbook recipes share one identical import timestamp (`2026-06-12T00:05:26`); kabocha sat ~row 1043 — right at the 1000-row page boundary inside that tied cluster — and PostgREST `.range()` returns tied rows in an unstable order across the separate page requests, so kabocha was **skipped between pages** and never entered the loaded list. The single-query book view was immune (hence "shows there, not here").
+
+**Fixes (Tom-confirmed "that worked!"):**
+- `screens/RecipeListScreen.tsx` ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH):
+  - **`4d896ff`** — added `id` as a unique tiebreaker to the recipe pagination (`.order('created_at',desc).order('id',desc)`) so the order is total and every row is fetched exactly once.
+  - **`e51aff4`** — `useFocusEffect` bumps `bmVersion` on focus, re-running the bookmark filter set + glyph map (cheap tag-scans) so a recipe favorited on another screen reflects without a remount.
+
+**New doc:** **`docs/ENGINEERING_GOTCHAS.md`** (created this session, Tom-requested) — durable non-obvious pitfalls: (1) Supabase pagination unique-tiebreaker + 1000-row cap, with the shared-timestamp data quirk; (2) recipe ingredients render-from-JSONB vs match-from-normalized-rows + the two-pointer overlay. Also saved as a CC cross-session memory (`~/.claude/.../memory/frigo-pagination-tiebreak-gotcha.md`).
+
+**Rule E:** `RecipeListScreen.tsx` tier-listed + already HIGH → flagged, no row change. **All commits local (`e51aff4`, `4d896ff`) — not pushed.**
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — **OB-23** (1000-row-cap watch list) should be broadened to "stable-pagination sweep": add a unique tiebreaker to every `.range()` paginator — `recipeHistoryService.getCookingHistory`, `bookmarkService.getBookmarksByRecipe` (no `.order()` at all), and the `fetchAllRows` callers (`getBooksForIndex`, `searchService` cuisine/metadata, `getTagCounts`). Latent same-class bug for >1000-row tied sets. `FRIGO_ARCHITECTURE.md` — point to the new `ENGINEERING_GOTCHAS.md`. `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) commit the pending doc work + **push the session's local commits to origin** (6+ commits sitting on local `main`). (2) tiebreak sweep across the remaining paginators. (3) lighter: section-styling polish, web/URL section capture (deploy-loop), `__smoke8d_*` cleanup.
+
+---
+
 ## 2026-06-17 — Ingredient display fix: render the list from the recipes.ingredients JSONB (verbatim text + sections) — fixes new cookbook books showing no quantities
 
 **Tom:** add ingredient **sections** ("For the Dough" / "From the Market") to the recipe screen, and fix **new cookbook recipes rendering with no quantities**. Deep DB audit (read-only, via `--env-file=.env` node scripts) established the root cause:

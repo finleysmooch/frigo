@@ -1,7 +1,7 @@
 # FRIGO — Deferred Work & Action Items
 
-**Last Updated:** June 16, 2026  
-**Version:** 5.38  
+**Last Updated:** June 17, 2026  
+**Version:** 5.39  
 **Canonical location:** Repo `docs/DEFERRED_WORK.md` (copy in Claude.ai project knowledge)
 
 ---
@@ -112,7 +112,7 @@ Integrated from `origin/nyt-source-metadata` (merge `35fef07`). Increment ③ (S
 
 | # | Item | Type | Priority | Notes |
 |---|------|------|----------|-------|
-| NYT-1 | **⚠️ TIME-CRITICAL — redeploy 4 migrated edge functions before 2026-06-15.** `scan-book-pages`, `process-recipe-queue`, `extract-book-toc`, `assemble-book-recipes` had their model migrated `claude-sonnet-4-20250514` → `claude-sonnet-4-6` **in code (committed)**, but were never deployed — they're **still running the retired model in prod** and will 404 on June 15. `supabase functions deploy <name>` × 4 against project `siaawxcgyghuphwgufkn`. Ops action (CLI auth), not code. | 🐛 | 🔴 | From the NYT handoff. |
+| NYT-1 | ✅ **RESOLVED 2026-06-17 (Tom-confirmed).** The 4 edge functions (`scan-book-pages`, `process-recipe-queue`, `extract-book-toc`, `assemble-book-recipes`) were redeployed on the migrated `claude-sonnet-4-6` model and are functioning properly in prod — the Sonnet-4 retirement (Jun 15) is no longer a risk to the book pipeline. (Was: ⚠️ TIME-CRITICAL redeploy before 2026-06-15; the model strings were migrated in committed code 2026-06-01 but the functions needed a `supabase functions deploy` × 4 against project `siaawxcgyghuphwgufkn`.) | 🐛 | ✅ | Done. |
 | NYT-2 | **Client-side `ANTHROPIC_API_KEY` exposure (security).** `unifiedParser` + `claudeVisionAPI` instantiate the Anthropic client with the key from `@env`, bundling it into the shipped app. Move extraction calls server-side (edge function), like the book-scan functions. | 🔧 | 🔴 | Security. |
 | NYT-3 | **Project-wide RLS / anon-readable data review (security).** `recipes`, `recipe_ingredients`, `instruction_sections`, and the new `recipe_source_notes` are anon-readable (no RLS) — same class as NYT-2. Pair with the non-owner gating design (also ties to the orphan-recipe `user_id` scoping work). | 🔧 | 🔴 | Security. |
 | NYT-4 | **All-notes pagination.** The embedded NYT page payload caps at ~15 most-helpful notes; pulling all helpful / all notes needs NYT notes-API paging (comments aren't separately fetchable without auth). | 🚀 | 🟢 | |
@@ -863,6 +863,7 @@ The following items were in or adjacent to pre-launch scope and were explicitly 
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-06-17 | 5.39 | **NYT-1 resolved (CC-authored status reconciliation, Tom-directed).** NYT-1 (the time-critical edge-function redeploy) marked ✅ RESOLVED — Tom confirmed the 4 book-pipeline functions are redeployed on `claude-sonnet-4-6` and functioning in prod, so the Jun-15 Sonnet-4 retirement is no longer a risk. Done alongside a parallel reconciliation of FF_LAUNCH_MASTER_PLAN (→ v6.9), PROJECT_CONTEXT (→ v10.9), and the status briefing HTML to current June state (onboarding spine complete, catalog seeded, custom bookmarks shipped). Flagged for Claude.ai verification on next planning pass. |
 | 2026-05-27 | 5.31 | **Phase 10 wrap-up reconciliation.** New umbrella section `## From: Phase 10B–F + Cross-Phase Follow-ups` with sub-sections for 10B (5 items P10B-1..5), 10C (2 items P10C-1..2), 10D (P10D-1), 10E (P10E-1), 10F (P10F-1..3), and Cross-Phase (P10-Followup-1 — RPC for batch services). New `## Phase 11 inputs` section with P11-input-1 (active dietary filter visibility on RecipeListScreen). Three new Cross-Cutting Technical Debt rows: T32 (pre-existing TS1382 in CookSoonSection/DayMealsModal), T33 (`lib/constants/` vs `constants/` drift from 10C), T34 (orphan placeholder styles in StatsNutrition from 10D). Existing P10A-1 left in place (no duplication). |
 | 2026-05-27 | 5.30 | Phase 10A reconciliation (database portion). Added new `## From: Phase 10A — Raw/Cooked Architecture Fix (May 27, 2026)` section with P10A-1 deferring trigger-vs-client-side decision for `ingredient_state` auto-population. DB side of 10A (column add, 81-row backfill, view rewrite to apply cooked_ratio conditionally, unique index fix for previously-broken concurrent refresh) shipped in-chat 2026-05-27. |
 | 2026-05-19 | 5.28 | **8E → Phase 11 merge (close-out reconciliation).** Phase 8E retired as a standalone sub-phase per Tom's 2026-05-19 close-out call. F&F-relevant CPs (8E-CP1 Browse rebuild, 8E-CP3 Locked filter chips pattern, 8E-CP4 Low stock indicators #31) merged into Phase 11 must-haves; 8E-CP2 Natural-language search stays post-launch. No standalone P# backlog items for 8E-CP1/CP3/CP4 to reclassify — that work is described directly in `FF_LAUNCH_MASTER_PLAN.md` Phase 11 + `PHASE_8_PANTRY_AND_GROCERY.md` 8E section (the latter now contains the merge note). P8-10's "Conversational search refinement" still correctly references 8E-CP2 as the post-launch natural-search baseline. |

@@ -1,7 +1,7 @@
 # Frigo - Project Context
-**Last Updated:** June 9, 2026
-**Version:** 10.8
-**Status:** Active Development — **Phase 10 (Nutrition Depth) shipped 2026-05-27 (single session, six sub-phases + hot fix).** Phase 8 complete pending cleanup pass; 8R closeout (CP1 → CP6e shipped 2026-04-29 → 2026-05-13; smoke clean 2026-05-15) + 8D (CP1 → CP4 shipped 2026-05-19, CP5 bundled into CP3). **8E retired** — F&F-relevant CPs merged into Phase 11 (2026-05-19). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **3 of 5 now done** (8, 10). Next: **Phase 11 (Recipe Polish, including RecipeListScreen redesign)** or Phase 9 (Meal & Planning UX). F&F launch target: **late August or early September 2026**.
+**Last Updated:** June 17, 2026
+**Version:** 10.9
+**Status:** Active Development — **Phases 8 + 10 shipped. Phase 11 (Recipe Polish) ACTIVE; Phase 12 (Distribution) UNDERWAY in parallel.** Phase 11: browse rebuild (11A·CP1–4), cookbook UX (11D), ingredient family-search, NYT Cooking import, and **custom bookmarks** (Jun 16) shipped; 11A-CP5 + 11B/C/E/F/G/H remain. Phase 12: the full **15-screen onboarding/cold-start spine** is built (CP9b last, Jun 16), plus per-user invite codes, live shared-pantry invite/join, a **311-book cookbook catalog**, and admin ownership-verification → copy-on-verify delivery; **Apple Developer org enrollment + TestFlight remain the gate.** Phase 9 (Meal & Planning UX) is the only un-started gate phase. Edge functions redeployed on Sonnet 4.6 (NYT-1 resolved). F&F readiness criterion = Phases 8, 9, 10, 11, 12 all complete; **2 fully done (8, 10), 11 active, 12 underway, 9 not started.** F&F launch target: **late August or early September 2026**. *(This header reconciled by CC 2026-06-17 per Tom's instruction; flagged for Claude.ai verification.)*
 
 ---
 
@@ -198,42 +198,44 @@ See `DEFERRED_WORK.md` for the full backlog.
 
 ### Active phase
 
-**Active phase:** Phase 8 — Pantry & Grocery (Household Needs). Document: `PHASE_8_PANTRY_AND_GROCERY.md` (merged from PHASE_8_PANTRY_INTELLIGENCE + PHASE_8R_UNIFIED_NEEDS on 2026-05-15).
+**Active phase:** **Phase 11 — Recipe Polish (active)** with **Phase 12 — Distribution (onboarding/cold-start) running in parallel.** Phase 8 + 10 are shipped. Docs: `PHASE_11_RECIPE_POLISH.md` and the onboarding `WORKSTREAM_PLAN.md` (anchor v0.3.11). *(Active-phase pointer corrected by CC 2026-06-17 — it had lagged at "Phase 8.")*
 
-**Status as of 2026-05-19:**
-- ✅ **8A** Schema foundation + pantry polish (shipped pre-refactor)
-- ✅ **8B** Staples & depletion (shipped pre-refactor; staples became supplies in 8R)
-- 🟡 **8C / 8C-Shared** Partially shipped (CP1-CP4a + CP4a) — superseded by 8R for CP4b/CP4c + CP5-CP8 + 8C-Shared CP3-CP4
-- 🟢 **8R Unified household needs refactor** — CP1 → CP6e shipped (2026-04-29 → 2026-05-13). SmokeFix-SF1/SF2/SF3 + catalog SF-5 shipped 2026-05-14. Smoke validation passed clean 2026-05-15.
-- 🟢 **8D** Recipe-pantry matching — **CP1 (matching primitive) + CP1.5 (catalog variant linkage backfill) shipped 2026-05-19.** CP1.5 drove the Pantry catalog orphan rate to 0 and built the soft-match scaffolding (`ingredient_subtype` + `form`; ~700 rows subtyped). **CP2 (matcher 4-level logic) is the next checkpoint; data scaffolding ready.** Catalog data is F&F-ready; matcher behavior is still binary pending the CP2 build (DEFERRED_WORK T20). F&F-blocker. See `PHASE_8D_PLANNING.md`.
-- 🔲 **8E** Recipe discovery polish + natural search — F&F-relevant subset deferred to after 8D.
+**Phase 11 (Recipe Polish) — status as of 2026-06-17:**
+- ✅ **11A·CP1–4** browse rebuild (unified model, tiles, cuisine strip, lens chip, RefineSheet) + **CP5a** mode split — shipped May 28–29
+- ✅ **11D·CP1–3b** cookbook UX (chef/book data layer, Books index, curated BookDetail, BookView) — shipped May 29
+- ✅ **Ingredient family-search + search UX overhaul** — shipped Jun 1
+- ✅ **NYT Cooking import** (provenance, community notes, multi-author attribution, SourceView) — shipped Jun 1 (pulled forward from post-launch)
+- ✅ **Custom bookmarks** — Favorite/Make Soon + user-created colored bookmarks, filter chips on recipes-home/book-list/book-landing, per-card glyphs + quick-add (migration `20260616200000`, harness 9/9) — shipped Jun 16
+- 🔲 **Remaining:** 11A-CP5 (card low-stock chips + WhatCanICook absorption), 11B/11C (extractors), 11E (Cook Soon UX), 11F/11G (concept cooking, substitutions v0), 11H (folders — stretch)
 
-**8R closeout — remaining work (in flight):**
-- 🟢 Doc reconciliation (this 2026-05-15 session — merged phase doc shipped, DEFERRED_WORK v5.20 shipped, FF_LAUNCH_MASTER_PLAN v6.4 shipped, PROJECT_CONTEXT v10.3 staged)
-- 🔲 CC repo cleanup pass (filename rename verification, dead-file deletions, 5 stale pantry_items site audit)
-- 🔲 FRIGO_ARCHITECTURE.md refresh (dedicated session — ~3 weeks stale)
-- 🔲 CP6e commit batch landing (CC git workflow)
-- 🔲 8R closeout marker
+**Phase 12 (Distribution) — onboarding/cold-start thrust, status as of 2026-06-17:**
+- ✅ **15-screen onboarding spine** (T1–T15) built + prod-verified — auth spine (CP9a), router (CP9c), recipe path T7–T9 (CP9d), Find Friends T5 (CP9b, last screen Jun 16), hand-off + completion stamp (CP9e), staples (CP3). Each behind a backend harness.
+- ✅ **Per-user invite codes** + share-my-pantry (CP7-minimal); **shared-pantry invite/join live in prod** for the first time (CP-spaces)
+- ✅ **311-book cookbook catalog** seeded (CP4/CP4b), 253 with hosted covers — backs onboarding "add your cookbooks" search
+- ✅ **Admin ownership-verification** + copy-on-verify delivery (CP6a-2/CP6b); T8c feeds it. End-to-end approve→deliver test pending (OB-17)
+- 🔲 **Remaining:** Apple Developer org enrollment (longest pole) + EAS/TestFlight; privacy/account-deletion; empty states (CP9f); contacts sync (CP-O2, gated)
 
-**F&F LAUNCH TARGET:** **Late August or early September 2026** (slipped from late July/August after CP6e-Lots scope addition 2026-05-06). ~100-200 testers via Expo Go. 14-18 weeks of remaining work per dashboard v2 arithmetic; 32-51 build sessions across Phases 8D–12.
+**1000-row PostgREST cap sweep (Jun 16):** shared `lib/utils/fetchAllRows.ts` helper; fixed recipe list / cook history / book-index counts / cuisine+metadata search / tag counts. Tom owns **1,896 recipes** (was capped at 1000).
 
-**Parallel admin track (status as of 2026-05-15):**
-- ✅ LLC formed
-- ✅ Frigo domain acquired
-- 🔲 D-U-N-S number — unknown state (resolves naturally when Apple Developer enrollment kicks off; Apple looks up D-U-N-S via D&B database)
-- 🔲 Minimal website at the domain (Apple requires publicly accessible site with matching-domain email)
+**F&F LAUNCH TARGET:** **Late August or early September 2026.** ~100-200 testers via Expo Go. ~10-14 weeks of remaining work; the non-code longest pole is now Apple Developer org enrollment.
+
+**Parallel admin track (status as of 2026-06-17):**
+- ✅ LLC formed (Oregon, Registry #256856791)
+- ✅ Frigo domain acquired + **marketing site live (cookfrigo.com, Vercel, Jun 2)**
+- 🔲 D-U-N-S number — resolves via Apple's D&B lookup when enrollment kicks off
+- 🔲 Domain mailboxes — site CTAs (join@/privacy@/support@) need an inbox + MX/forwarding
 - 🔲 Apple Developer Program enrollment as organization (not started — longest-pole non-code F&F risk; gates everything in Phase 12)
 
 **Next-session priorities:**
-1. Tom kicks off admin track this/next week: confirm D-U-N-S via Apple's lookup → stand up minimal one-pager → start Apple Developer org enrollment
-2. Claude.ai drafts `CC_PROMPT_8D_CP1.md` (matching primitive + pre-written cheese cleanup SQL + form comparison + 5 stale pantry_items site fixes)
-3. After CC repo cleanup pass: review audit reports for filename rename completion + stale pantry_items site disposition
+1. Tom kicks off Apple Developer org enrollment (D-U-N-S resolves via Apple lookup) — the gating long pole for Phase 12
+2. Exercise the admin ownership-verification approve→deliver flow end-to-end (OB-17)
+3. Phase 9 (Meal & Planning UX) — the only un-started gate phase — plus the Phase 11 tail (11A-CP5 etc.)
 
 ### After Phase 8 (F&F-blocking phases)
 - **Phase 9 — Meal & Planning UX** (pre-launch; includes flex meal planning v1 + cross-meal dedup)
 - ✅ **Phase 10 — Nutrition Depth** — **shipped 2026-05-27** (10A raw/cooked fix + 10B USDA micronutrient backfill + 10C recipe UI + 10D stats UI + 10E meal UI + 10F dietary preferences + URL-length chunking hot fix). See `FF_LAUNCH_MASTER_PLAN.md` Phase 10 section.
-- **Phase 11 (Recipe Polish) — Active.** 11A (Browse rebuild): CP1–CP4 shipped 2026-05-28 (foundational model, home tiles + cuisine, refine surface, refine sheet). CP5 (card low-stock chips + WhatCanICook absorption) outstanding. Remaining Phase 11 sub-phases (11B–11H: extractors, cookbook UX, cook soon UX, concept cooking, substitutions v0, folders stretch) outstanding, not yet scoped. See `docs/PHASE_11_RECIPE_POLISH.md`.
-- **Phase 12 — Distribution & Testing** — TestFlight build, Apple Developer org distribution, tester onboarding
+- **Phase 11 (Recipe Polish) — Active.** Browse rebuild (11A·CP1–4), cookbook UX (11D), family-search, NYT import, and custom bookmarks shipped; 11A-CP5 + 11B/C/E/F/G/H remain. See the Active-phase section above + `docs/PHASE_11_RECIPE_POLISH.md`.
+- **Phase 12 — Distribution & Testing — Underway.** Onboarding 15-screen spine, invite codes, shared-pantry join, cookbook catalog, admin verification all built/live; Apple Developer org enrollment + TestFlight remain. See the Active-phase section above + onboarding `WORKSTREAM_PLAN.md`.
 
 **Note:** Phase scope is adaptive. See `FF_LAUNCH_MASTER_PLAN.md` and individual phase docs for current scope.
 
@@ -252,11 +254,12 @@ See `DEFERRED_WORK.md` for the full backlog.
 
 ---
 
-## 📊 Data Metrics (as of April 6, 2026 — stale; refresh post-8D)
+## 📊 Data Metrics (recipe + catalog counts refreshed 2026-06-16; social counts still April-6 seeded)
 
 | Metric | Value |
 |--------|-------|
-| Recipes | 475 (Simple 132, Cook This Book 131, Plenty 120, That Sounds So Good 88, Other ~4) |
+| Recipes (Tom-owned) | **1,896** of 1,900 total (2026-06-16, DB-confirmed) · 1,543 book-attached · was 475 (Apr) / 822 (Jun 1) |
+| Cookbook catalog | **311** `is_catalog=true` books (298 seeded title-only + 13 transcribed w/ recipes) · 253 with Frigo-hosted covers |
 | Ingredients | ~480 (450 with USDA nutrition); +90 added in 8R-CP6e-Catalog-SF5 |
 | recipe_ingredient rows | 5,322 (90.8% matched to USDA) |
 | Nutrition quality | 43 high, 236 good, 183 rough, 21 incomplete |
@@ -285,10 +288,10 @@ See `DEFERRED_WORK.md` for the full backlog.
 | 6: Cooking mode v2 | ✅ Complete |
 | 7: Social & feed polish | ✅ Complete (2026-04-17 — 13 sub-phases shipped) |
 | 8: Pantry & Grocery (Household Needs) | ✅ Complete pending cleanup pass — 8R (CP1→CP6e) + 8D (CP1→CP4, CP5 bundled into CP3) shipped 2026-05-19. **8E retired → merged to Phase 11.** |
-| 9: Meal & planning UX | 🔲 Planned |
-| 10: Nutrition depth | 🔲 Planned |
-| 11: Recipe polish | 🔲 Planned |
-| 12: Distribution & testing | 🔲 Planned |
+| 9: Meal & planning UX | 🔲 Planned (only un-started gate phase) |
+| 10: Nutrition depth | ✅ Complete (2026-05-27) |
+| 11: Recipe polish | 🟡 Active — browse rebuild + cookbook UX + family search + NYT import + custom bookmarks shipped; 11A-CP5 + 11B/C/E/F/G/H remain |
+| 12: Distribution & testing | 🟡 Underway — onboarding spine + invite codes + shared-pantry join + catalog + admin verification built/live; Apple org enrollment + TestFlight remain |
 | F&F Launch | 🎯 Target: late August or early September 2026 |
 | Beyond: AI pantry vision, grocery integration, full micros, web, social depth | 💡 Post-F&F |
 
@@ -358,6 +361,7 @@ See `DEFERRED_WORK.md` for the full backlog.
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-06-17 | 10.9 | **June catch-up (CC-authored, Tom-directed; flagged for Claude.ai verification).** Corrected the **Active-phase pointer** (had lagged at "Phase 8") → **Phase 11 active + Phase 12 onboarding underway in parallel.** Header status rewritten; Active-phase section rebuilt with Phase 11 shipped CPs (browse rebuild, cookbook UX, family-search, NYT import, custom bookmarks) and the Phase 12 onboarding thrust (15-screen spine CP9a→CP9b, invite codes, shared-pantry join live, 311-book catalog, admin verification); admin track refreshed (marketing site live Jun 2). Project Vision table: 10 ✅, 11 🟡 Active, 12 🟡 Underway. Data Metrics: recipes 475→**1,896**, catalog **311** (social counts still April-seeded). 1000-row-cap sweep noted. NYT-1 edge-fn redeploy confirmed resolved. Companion to FF_LAUNCH_MASTER_PLAN v6.9 + DEFERRED_WORK v5.39. |
 | 2026-05-19 | 10.7 | **Phase 8 close-out + 8E→Phase 11 merge.** 8D end-of-phase reconciliation: 8E retired as a standalone sub-phase; F&F-relevant CPs (8E-CP1 Browse rebuild, 8E-CP3 Locked filter chips, 8E-CP4 Low stock indicators) merged into Phase 11 must-haves. 8E-CP2 Natural-language search stays post-launch. F&F readiness criterion = Phases 8, 9, 10, 11, 12 complete (made explicit). Phase 8 marked complete pending the 8D cleanup pass (console.warn removal, T29 smoke realignment, PHASE_8D_PLANNING refresh, PK_CODE_SNAPSHOTS). |
 | 2026-05-19 | 10.6 | **8D-CP4 ship — Phase 8D essentially complete.** 8D-CP4 (What-can-I-cook screen + RecipeList match wiring) shipped — `readyToCookService.ts`, `useReadyToCookRecipes` hook, `RecipeCard.tsx` (extracted), `WhatCanICookScreen.tsx` all new; RecipeList `pantry_match`/`canMakeCount` wired; PantryScreen CTA. Status lines + phase table + the stale "matching is still binary" feature note updated to reflect CP1→CP4 all shipped. |
 | 2026-05-19 | 10.5 | **8D-CP3 ship + 8D status catch-up.** 8D-CP3 (recipe ingredient tap-sheet + match % banner; CP5 bundled) shipped — `IngredientTapSheet.tsx` created, IngredientsSection rows tappable, `MatchedIngredient.supplyStatus` added. Status lines brought current: the doc still read "CP2 next" despite CP2 + CP2-patch having shipped earlier 2026-05-19 — header status, Recipe Detail feature note, and the phase table row updated to reflect CP1 → CP3 shipped. NOTE: this doc was 2+ checkpoints stale; a fuller 8D reconciliation is recommended for Claude.ai (the 10.4 version bump has no changelog row). |

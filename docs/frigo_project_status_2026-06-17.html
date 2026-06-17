@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frigo — Pre-F&F Status · June 17 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2ECE0;
+    --paper-2:#EAE2D2;
+    --card:#FBF7EF;
+    --ink:#1C1815;
+    --ink-soft:#534A41;
+    --ink-faint:#8A7F71;
+    --line:#D8CDB8;
+    --line-soft:#E4DBC9;
+    --ember:#C2562F;
+    --ember-deep:#9E3F20;
+    --slate:#33586A;
+    --ship:#4C7A52;
+    --ship-bg:#E4ECDF;
+    --active:#B47A22;
+    --active-bg:#F3E8CF;
+    --plan:#897F70;
+    --plan-bg:#E8E0D0;
+    --risk:#AC3A2C;
+    --risk-bg:#F2DED9;
+    --shadow:0 1px 0 rgba(28,24,21,.04), 0 18px 40px -28px rgba(28,24,21,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(120% 80% at 85% -10%, rgba(194,86,47,.10), transparent 55%),
+      radial-gradient(90% 70% at -10% 110%, rgba(51,88,106,.10), transparent 55%);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 28px 110px}
+
+  header{padding:54px 0 30px;border-bottom:2px solid var(--ink)}
+  .kicker{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--ember-deep);font-weight:600}
+  h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(40px,7vw,76px);line-height:.96;letter-spacing:-.02em;margin:10px 0 0}
+  h1 .frigo{font-style:italic;font-weight:400}
+  .lede{font-family:'Fraunces',Georgia,serif;font-size:clamp(17px,2.4vw,22px);font-weight:400;color:var(--ink-soft);max-width:58ch;margin-top:16px;line-height:1.4}
+  .dateline{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:24px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-faint)}
+  .dateline b{color:var(--ink);font-weight:600}
+
+  .launch{margin-top:30px;background:var(--ink);color:var(--paper);border-radius:14px;padding:22px 26px;display:flex;flex-wrap:wrap;align-items:center;gap:18px 34px;box-shadow:var(--shadow)}
+  .launch .big{font-family:'Fraunces',serif;font-size:clamp(22px,3.4vw,30px);font-weight:600;line-height:1.05}
+  .launch .big span{color:var(--ember)}
+  .launch .sub{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:#C9BFAE;text-transform:uppercase;margin-top:4px}
+  .gate{display:flex;gap:7px;margin-left:auto}
+  .gate .pip{width:42px;height:42px;border-radius:9px;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;border:1.5px solid rgba(255,255,255,.18);position:relative}
+  .gate .pip small{position:absolute;bottom:-17px;font-size:9px;color:#9d9384;letter-spacing:.04em}
+  .pip.done{background:var(--ship);border-color:transparent;color:#fff}
+  .pip.act{background:var(--active);border-color:transparent;color:#1C1815}
+  .pip.todo{background:transparent;color:#7a7062}
+
+  section{margin-top:56px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ember-deep);font-weight:600}
+  h2{font-family:'Fraunces',serif;font-size:clamp(22px,3vw,30px);font-weight:600;letter-spacing:-.01em}
+  .sec-note{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint)}
+
+  /* deadline strip */
+  .deadline{margin-top:26px;display:flex;align-items:center;gap:16px;background:var(--risk-bg);border:1px solid #E4B6AC;border-left:5px solid var(--risk);border-radius:12px;padding:16px 20px}
+  .deadline .tick{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--risk);background:#fff;border:1px solid #E4B6AC;border-radius:8px;padding:8px 12px;white-space:nowrap}
+  .deadline .txt{font-size:13.5px;color:#7A2A20;line-height:1.4}
+  .deadline .txt b{color:var(--risk)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:18px 18px 16px}
+  .kpi .v{font-family:'Fraunces',serif;font-size:34px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .kpi .v.sm{font-size:23px}
+  .kpi .l{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-top:9px}
+  .kpi .x{font-size:12.5px;color:var(--ink-soft);margin-top:5px;line-height:1.35}
+  .kpi.win{border-color:#BBD2BC;background:linear-gradient(180deg,var(--ship-bg),var(--card) 70%)}
+  .kpi.win .v.sm{color:var(--ship)}
+  .kpi.warn{border-color:#E4B6AC;background:linear-gradient(180deg,var(--risk-bg),var(--card) 70%)}
+  .kpi.warn .v.sm{color:var(--risk)}
+
+  .ledger{display:flex;flex-direction:column;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}
+  .row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:16px;background:var(--card);padding:13px 18px;transition:background .18s}
+  .row:hover{background:#fff}
+  .row .n{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;color:var(--ink-faint)}
+  .row .name{font-weight:600;font-size:15px}
+  .row .name .meta{display:block;font-weight:400;font-size:12.5px;color:var(--ink-soft);margin-top:2px;font-family:'IBM Plex Sans',sans-serif}
+  .badge{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .b-ship{background:var(--ship-bg);color:var(--ship)}
+  .b-act{background:var(--active-bg);color:var(--active)}
+  .b-plan{background:var(--plan-bg);color:var(--plan)}
+  .row.is-act{background:linear-gradient(90deg,rgba(180,122,34,.10),transparent 60%);border-left:3px solid var(--active)}
+  .row.is-act .n{color:var(--active)}
+
+  .gate-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .gcard{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:16px 14px;position:relative;overflow:hidden}
+  .gcard .ph{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);font-weight:600}
+  .gcard .nm{font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin:6px 0 10px;line-height:1.1}
+  .gcard .st{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+  .gcard .bar{position:absolute;left:0;bottom:0;height:4px;width:100%}
+  .gcard.done .st{color:var(--ship)} .gcard.done .bar{background:var(--ship)}
+  .gcard.act  .st{color:var(--active)} .gcard.act  .bar{background:var(--active)}
+  .gcard.todo .st{color:var(--plan)} .gcard.todo .bar{background:var(--line)}
+
+  .spine{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}
+  .spine .sr{display:grid;grid-template-columns:92px 1fr auto;gap:14px;align-items:center;padding:12px 18px;border-top:1px solid var(--line-soft)}
+  .spine .sr:first-child{border-top:0}
+  .spine .cp{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px}
+  .spine .ds{font-size:13.5px;color:var(--ink-soft);line-height:1.4}
+  .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .tag.s{background:var(--ship-bg);color:var(--ship)} .tag.o{background:var(--active-bg);color:var(--active)}
+
+  .domains{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .dcard{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:18px 18px 16px}
+  .dcard h3{font-family:'Fraunces',serif;font-size:18px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .dcard ul{list-style:none;margin-top:11px;display:flex;flex-direction:column;gap:7px}
+  .dcard li{font-size:13px;color:var(--ink-soft);line-height:1.4;padding-left:16px;position:relative}
+  .dcard li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--ember)}
+  .dcard li.flag::before{background:var(--active)}
+  .dcard li.new::before{background:var(--slate)}
+  .dcard li b{color:var(--ink);font-weight:600}
+
+  .two{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:6px 20px 16px}
+  .panel h3{font-family:'Fraunces',serif;font-size:18px;font-weight:600;padding:16px 0 4px;border-bottom:1px solid var(--line-soft);margin-bottom:6px}
+  .risk-item{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+  .risk-item:last-child{border-bottom:0}
+  .sev{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:5px 8px;border-radius:6px;height:fit-content;white-space:nowrap}
+  .sev.hi{background:var(--risk-bg);color:var(--risk)}
+  .sev.md{background:var(--active-bg);color:var(--active)}
+  .sev.lo{background:var(--plan-bg);color:var(--plan)}
+  .risk-item .rt{font-size:13.5px;font-weight:600}
+  .risk-item .rd{font-size:12.5px;color:var(--ink-soft);margin-top:3px;line-height:1.4}
+  .admin-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px}
+  .admin-row:last-child{border-bottom:0}
+  .mk{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0}
+  .mk.y{background:var(--ship-bg);color:var(--ship)}
+  .mk.n{background:var(--plan-bg);color:var(--plan)}
+  .mk.q{background:var(--active-bg);color:var(--active)}
+  .mk.r{background:var(--risk-bg);color:var(--risk)}
+  .admin-row .note{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-faint);text-align:right;max-width:46%}
+
+  .currency{margin-top:56px;background:var(--paper-2);border:1px dashed var(--ink-faint);border-radius:14px;padding:24px 26px}
+  .currency h2{font-size:22px;margin-bottom:6px}
+  .currency .intro{font-size:14px;color:var(--ink-soft);max-width:72ch;margin-bottom:16px}
+  .needs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.needs{grid-template-columns:1fr}}
+  .need{background:var(--card);border:1px solid var(--line-soft);border-radius:10px;padding:15px 16px}
+  .need .h{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+  .need .h .pill{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--active-bg);color:var(--active)}
+  .need p{font-size:12.5px;color:var(--ink-soft);margin-top:7px;line-height:1.45}
+
+  footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between}
+
+  .rv{opacity:0;transform:translateY(14px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media(max-width:720px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .gate-grid{grid-template-columns:repeat(2,1fr)}
+    .domains{grid-template-columns:1fr}
+    .gate{margin-left:0;width:100%;flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <header class="rv" style="animation-delay:.02s">
+    <div class="kicker">Frigo · Pre–Friends &amp; Family Status Briefing</div>
+    <h1><span class="frigo">Frigo</span> built the<br>front door this month.</h1>
+    <p class="lede">Nine of twelve phases are shipped and Recipe Polish (11) is active — but June's real thrust was distribution groundwork: the entire <b>15-screen onboarding / cold-start flow is built</b>, per-user invite codes and shared-pantry join are live in prod, a <b>311-book cookbook catalog</b> was seeded, and custom recipe bookmarks shipped. Phase 9 (Meal Planning) and <b>App Store distribution (Apple Developer org enrollment)</b> are the gate.</p>
+    <div class="dateline">
+      <span>STATUS THROUGH · <b>June 16, 2026</b> (session log)</span>
+      <span>BRIEFING WRITTEN · <b>June 17, 2026</b></span>
+      <span>ONBOARDING ANCHOR · <b>v0.3.11</b></span>
+      <span>DEFERRED_WORK · <b>v5.39</b></span>
+      <span>TESTERS · <b>~100–200 via Expo Go</b></span>
+    </div>
+
+    <div class="launch">
+      <div>
+        <div class="big">Launch target: <span>late Aug – early Sep 2026</span></div>
+        <div class="sub">gate = Phases 8·9·10·11·12 · onboarding (12) now underway in parallel</div>
+      </div>
+      <div class="gate">
+        <div class="pip done">8<small>done</small></div>
+        <div class="pip todo">9<small>not started</small></div>
+        <div class="pip done">10<small>done</small></div>
+        <div class="pip act">11<small>active</small></div>
+        <div class="pip act">12<small>underway</small></div>
+      </div>
+    </div>
+
+    <!-- resolved: edge-function model retirement -->
+    <div class="deadline" style="background:var(--ship-bg);border-color:#BBD2BC;border-left-color:var(--ship)">
+      <span class="tick" style="color:var(--ship);border-color:#BBD2BC">✓ Resolved · Jun 17</span>
+      <span class="txt" style="color:#2F5A38"><b>Edge-function model retirement handled.</b> The 4 book-pipeline edge functions (scan-book-pages, process-recipe-queue, extract-book-toc, assemble-book-recipes) have been <b>redeployed on Sonnet&nbsp;4.6</b> and are functioning in prod (Tom-confirmed) — the June&nbsp;15 Sonnet&nbsp;4 retirement is no longer a risk to the book pipeline. NYT-1 closed.</span>
+    </div>
+  </header>
+
+  <!-- ===================== AT A GLANCE ===================== -->
+  <section class="rv" style="animation-delay:.06s">
+    <div class="sec-head"><span class="sec-num">01</span><h2>At a glance</h2></div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">9<span style="font-size:18px;color:var(--ink-faint)">/12</span></div><div class="l">Phases shipped</div><div class="x">1–8 + 10 · Phase 11 active · 12 underway · 9 to go</div></div>
+      <div class="kpi"><div class="v">2<span style="font-size:18px;color:var(--ink-faint)">/5</span></div><div class="l">F&amp;F-gate phases done</div><div class="x">8 &amp; 10 done · 11 active · 12 underway · 9 not started</div></div>
+      <div class="kpi win"><div class="v sm">15&nbsp;/&nbsp;15</div><div class="l">Onboarding screens built</div><div class="x">T1–T15 spine complete (CP9b last, Jun 16)</div></div>
+      <div class="kpi warn"><div class="v sm">Apple org</div><div class="l">Longest pole</div><div class="x">Developer enrollment not started — gates Phase 12</div></div>
+    </div>
+  </section>
+
+  <!-- ===================== PHASE LEDGER ===================== -->
+  <section class="rv" style="animation-delay:.10s">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Phase ledger</h2><span class="sec-note">1 → 12 · build sequence</span></div>
+    <div class="ledger">
+      <div class="row"><span class="n">01</span><span class="name">Core recipes + AI extraction<span class="meta">3-pass photo + URL extraction, recipe store</span></span><span class="badge b-ship">Shipped</span></div>
+      <div class="row"><span class="n">02</span><span class="name">Social, meals, shared spaces<span class="meta">Posts, feed, household spaces</span></span><span class="badge b-ship">Shipped</span></div>
+      <div class="row"><span class="n">03</span><span class="name">Nutrition data + dietary + browse<span class="meta">Macros, dietary badges, recipe browse</span></span><span class="badge b-ship">Shipped</span></div>
+      <div class="row"><span class="n">04</span><span class="name">Cooking stats dashboard<span class="meta">"You" tab — trends, diversity, personality</span></span><span class="badge b-ship">Shipped · Mar ’26</span></div>
+      <div class="row"><span class="n">05</span><span class="name">Ingredient architecture + critical fixes<span class="meta">Catalog + matching foundation</span></span><span class="badge b-ship">Shipped</span></div>
+      <div class="row"><span class="n">06</span><span class="name">Cooking mode v2<span class="meta">Step nav, timers, in-step ingredients</span></span><span class="badge b-ship">Shipped</span></div>
+      <div class="row"><span class="n">07</span><span class="name">Social &amp; feed polish<span class="meta">13 sub-phases · cook-post-centric feed</span></span><span class="badge b-ship">Shipped · Apr 17</span></div>
+      <div class="row"><span class="n">08</span><span class="name">Pantry &amp; Grocery — Household Needs<span class="meta">8R unified model (CP1→CP6e) + 8D matching (CP1→CP4) · 8E retired → Phase 11 · migrations now CLI-tracked (P7-23 resolved Jun 9)</span></span><span class="badge b-ship">Shipped*</span></div>
+      <div class="row"><span class="n">09</span><span class="name">Meal &amp; Planning UX<span class="meta">Flex meal planning v1 + cross-meal dedup + calendar/invitation rebuild · est. 7–10 sessions · the only un-started gate phase</span></span><span class="badge b-plan">Not started</span></div>
+      <div class="row"><span class="n">10</span><span class="name">Nutrition Depth<span class="meta">Raw/cooked fix, 10 micros, per-meal nutrition, dietary prefs · 6 sub-phases + hotfix</span></span><span class="badge b-ship">Shipped · May 27</span></div>
+      <div class="row is-act"><span class="n">11</span><span class="name">Recipe Polish<span class="meta">Browse rebuild (11A·CP1–4) + cookbook UX (11D) + family search + NYT import + custom bookmarks all landed · 11A-CP5 + 11B/C/E/F/G/H remain · est. 9–15 sessions</span></span><span class="badge b-act">Active</span></div>
+      <div class="row is-act"><span class="n">12</span><span class="name">Distribution &amp; Testing<span class="meta">Onboarding spine (15 screens), invite codes, shared-pantry join, cookbook catalog, admin ownership-verification — all built/live · Apple Developer org + TestFlight still pending</span></span><span class="badge b-act">Underway</span></div>
+    </div>
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:10px">*Phase 8 shipped; the June onboarding/catalog/invite work is, by content, early <b>Phase 12 distribution</b> running in parallel with Phase 11 — but the master plan (v6.8, May 28) and PROJECT_CONTEXT (Jun 9) predate it and still show 12 "not started." Phase mapping is queued for a Claude.ai reconciliation pass; the live state of record is SESSION_LOG + DEFERRED_WORK v5.38 + onboarding WORKSTREAM_PLAN.</p>
+  </section>
+
+  <!-- ===================== F&F GATE ===================== -->
+  <section class="rv" style="animation-delay:.12s">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The F&amp;F readiness gate</h2><span class="sec-note">all five must close to launch</span></div>
+    <div class="gate-grid">
+      <div class="gcard done"><div class="ph">Phase 08</div><div class="nm">Pantry &amp; Grocery</div><div class="st">Done*</div><div class="bar"></div></div>
+      <div class="gcard todo"><div class="ph">Phase 09</div><div class="nm">Meal &amp; Planning UX</div><div class="st">Not started</div><div class="bar"></div></div>
+      <div class="gcard done"><div class="ph">Phase 10</div><div class="nm">Nutrition Depth</div><div class="st">Done</div><div class="bar"></div></div>
+      <div class="gcard act"><div class="ph">Phase 11</div><div class="nm">Recipe Polish</div><div class="st">In progress</div><div class="bar"></div></div>
+      <div class="gcard act"><div class="ph">Phase 12</div><div class="nm">Distribution</div><div class="st">Underway · Apple-blocked</div><div class="bar"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== ACTIVE PHASE ===================== -->
+  <section class="rv" style="animation-delay:.14s">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Active phase — 11 Recipe Polish</h2><span class="sec-note">est. 9–15 sessions</span></div>
+    <p style="font-size:14px;color:var(--ink-soft);margin-bottom:18px;max-width:76ch">Phase 11 absorbs the remaining pre-F&amp;F recipe-system polish. The browse rebuild (11A·CP1–4), cookbook screens (11D), ingredient family-search, the NYT Cooking import (a <i>post-launch</i> item pulled forward), and a full <b>custom-bookmarks</b> feature have all shipped to prod. <b>11A-CP5 and the un-scoped 11B/C/E/F/G/H remain.</b></p>
+    <div class="spine">
+      <div class="sr"><span class="cp">11A·CP1–4</span><span class="ds"><b>Browse rebuild</b> — unified model, 6 preset tiles, cuisine strip, lens chip, contextual facets, RefineSheet (range chips + live count)</span><span class="tag s">Shipped May 28</span></div>
+      <div class="sr"><span class="cp">11A·CP5a</span><span class="ds"><b>Mode split</b> — Recipes screen split into discovery (home) vs list; persistent facet row folded into a "Quick refine" sheet section</span><span class="tag s">Shipped May 29</span></div>
+      <div class="sr"><span class="cp">11A·CP5</span><span class="ds">Card low-stock chips + match-badge integration + WhatCanICook absorption + pantry-match threshold</span><span class="tag o">Outstanding</span></div>
+      <div class="sr"><span class="cp">11D·CP1–3b</span><span class="ds"><b>Cookbook UX</b> — chef/book data layer, Books index, curated BookDetail, BookView on the unified browse model</span><span class="tag s">Shipped May 29</span></div>
+      <div class="sr"><span class="cp">Search</span><span class="ds"><b>Ingredient family search + search UX overhaul</b> — Grains→Pasta/Noodles/Rice/Grains, Seafood→Fish/Shellfish, synonyms, typeahead, scoped pills, nutrition slider</span><span class="tag s">Shipped Jun 1</span></div>
+      <div class="sr"><span class="cp">+ NYT</span><span class="ds"><b>NYT Cooking import (roadmap #15) — pulled forward from post-launch.</b> Source provenance, community notes, multi-author attribution, SourceViewScreen + source filter/sort; merged to main Jun 1</span><span class="tag s">Shipped Jun 1</span></div>
+      <div class="sr"><span class="cp">Bookmarks</span><span class="ds"><b>Custom recipe bookmarks</b> — Favorite + Make Soon defaults + user-created colored bookmarks; single-select filter chips on recipes-home / book list / book landing (with counts); per-recipe card glyphs + quick-add (migration <code>20260616200000</code>, harness 9/9)</span><span class="tag s">Shipped Jun 16</span></div>
+      <div class="sr"><span class="cp">11B / 11C</span><span class="ds">Photo + URL extractor updates</span><span class="tag o">Not scoped</span></div>
+      <div class="sr"><span class="cp">11E</span><span class="ds">Cook Soon UX <span style="color:var(--ink-faint)">(now overlaps the bookmarks "Make Soon" relabel)</span></span><span class="tag o">Not scoped</span></div>
+      <div class="sr"><span class="cp">11F / 11G</span><span class="ds">Concept cooking first-stab · ingredient substitutions v0 <span style="color:var(--ink-faint)">(roadmap exists)</span></span><span class="tag o">Not scoped</span></div>
+      <div class="sr"><span class="cp">11H</span><span class="ds">Recipe folders <span style="color:var(--ink-faint)">(stretch — first to cut; bookmarks may partly cover the need)</span></span><span class="tag o">Stretch</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== ONBOARDING THRUST ===================== -->
+  <section class="rv" style="animation-delay:.15s">
+    <div class="sec-head"><span class="sec-num">05</span><h2>June thrust — Onboarding &amp; cold-start</h2><span class="sec-note">Phase-12 distribution work · anchor v0.3.11</span></div>
+    <p style="font-size:14px;color:var(--ink-soft);margin-bottom:18px;max-width:76ch">The dominant June workstream. The full 15-screen first-run flow was built and prod-verified, each checkpoint behind a backend harness. Per-user invite codes, the shared-pantry invite/join flow, and the admin ownership-verification → copy-on-verify delivery pipeline are <b>live in prod for the first time</b>. A 311-book cookbook catalog now backs onboarding's "add your cookbooks" search.</p>
+    <div class="spine">
+      <div class="sr"><span class="cp">CP-persist</span><span class="ds"><code>onboarding_completed_at</code> + 3-state completion gate (D-ON-10)</span><span class="tag s">Shipped Jun 12</span></div>
+      <div class="sr"><span class="cp">CP4-ext</span><span class="ds"><code>searchBookCatalog.has_recipes</code> — catalog books surface as addable</span><span class="tag s">Shipped Jun 12</span></div>
+      <div class="sr"><span class="cp">CP3</span><span class="ds">T11 staples checklist (gate 9/9; included a spaceService corrective)</span><span class="tag s">Closed Jun 12</span></div>
+      <div class="sr"><span class="cp">CP7-minimal</span><span class="ds">Per-user pass-on invite codes + share-my-pantry (D-ON-17, harness 10/10)</span><span class="tag s">Shipped Jun 12</span></div>
+      <div class="sr"><span class="cp">CP-spaces</span><span class="ds"><b>Gated corrective</b> — fixed two shared-pantry prod bugs + self-or-service guard; <b>Shared-Pantries invite/join live for the first time</b> (spouse harness 9/9 + 5/5 denial probes)</span><span class="tag s">Shipped Jun 12</span></div>
+      <div class="sr"><span class="cp">CP9a / c / e</span><span class="ds">Spine T1–T4 (email+password) · T6 router · T12 hand-off + completion stamp (harness 10/10)</span><span class="tag s">Shipped Jun 12–16</span></div>
+      <div class="sr"><span class="cp">CP9d</span><span class="ds">Recipe path T7–T9 — sources gating, cookbook search + ownership-verify, paste→background import (harness 5/5). T9b Signature hidden (OB-16); T9c chef-follow held</span><span class="tag s">Shipped Jun 16</span></div>
+      <div class="sr"><span class="cp">CP9b</span><span class="ds"><b>T5 Find Friends — the last of the 15 screens.</b> Onboarding screen build is complete (harness 6/6). "Suggested" cohort deferred pending <code>get_invite_cohort</code> RPC (OB-22)</span><span class="tag s">Shipped Jun 16</span></div>
+      <div class="sr"><span class="cp">UX round</span><span class="ds">Router copy/icons, cookbook-flow continuity, batch-submit verify, background recipe-import queue, dev fast-path, ownership-proof O1 (handwritten dated note + signature)</span><span class="tag s">Shipped Jun 15–16</span></div>
+      <div class="sr"><span class="cp">CP-O2</span><span class="ds">Contacts sync — scoped, decoupled, awaiting oversight pre-review</span><span class="tag o">Gated</span></div>
+      <div class="sr"><span class="cp">CP9f</span><span class="ds">Empty states T13–T15</span><span class="tag o">Floatable</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== WHAT WORKS ===================== -->
+  <section class="rv" style="animation-delay:.16s">
+    <div class="sec-head"><span class="sec-num">06</span><h2>What works today</h2><span class="sec-note">by domain · 🟠 flagged for rebuild · 🔵 new this stretch</span></div>
+    <div class="domains">
+      <div class="dcard"><h3>🍳 Recipe Management</h3><ul>
+        <li><b>AI photo extraction</b> — 3-pass pipeline on Sonnet 4.6 / Haiku 4.5 (model strings centralized)</li>
+        <li><b>URL extraction</b> — JSON-LD / Microdata / HTML scrapers</li>
+        <li class="new"><b>NYT Cooking import</b> — source provenance, community notes, multi-author attribution, SourceView browse</li>
+        <li class="new"><b>Custom bookmarks</b> — Favorite / Make Soon + user-created colored bookmarks, filter chips, per-card glyphs</li>
+        <li class="new"><b>311-book cookbook catalog</b> — seeded for onboarding search; 253 with Frigo-hosted covers</li>
+        <li><b>Browse rebuild + family search</b> — tiles, lens chips, typeahead, cookbook screens (11A/11D)</li>
+      </ul></div>
+      <div class="dcard"><h3>🚪 Onboarding &amp; Cold-start</h3><ul>
+        <li class="new"><b>15-screen first-run flow</b> — auth spine, router, recipe path, find-friends, staples, hand-off</li>
+        <li class="new"><b>Per-user invite codes</b> — pass-on codes + share-my-pantry</li>
+        <li class="new"><b>Shared-pantry invite/join</b> — live in prod (first time)</li>
+        <li class="new"><b>Admin ownership-verification</b> + copy-on-verify recipe delivery (CP6a/6b)</li>
+        <li class="flag"><b>Empty states + contacts sync</b> — CP9f floatable; CP-O2 gated</li>
+      </ul></div>
+      <div class="dcard"><h3>👩‍🍳 Cooking Experience</h3><ul>
+        <li><b>Cooking mode v2</b> — step nav, swipe, section dots</li>
+        <li>Auto-detected <b>timers</b>; screen-awake during cook</li>
+        <li>In-step ingredient sheets; classic + step-focused views</li>
+        <li>Post-cook reflection flow</li>
+      </ul></div>
+      <div class="dcard"><h3>👥 Social &amp; Cooking History</h3><ul>
+        <li><b>Cook logging</b> — unified LogCookSheet, slide-to-rate</li>
+        <li><b>Strava-style feed</b> — cook-post-centric; meal events as connective tissue</li>
+        <li>Multi-dish meal events, shared media, private eater ratings</li>
+        <li>Yas-chef reactions, threaded comments, photo carousels</li>
+      </ul></div>
+      <div class="dcard"><h3>🥫 🛒 Pantry &amp; Grocery</h3><ul>
+        <li><b>8R unified household-needs model</b> — Supplies + Needs + Views</li>
+        <li><b>Lots</b> — per-instance tracking, expiry; cook depletes oldest first</li>
+        <li>Server-side multi-dimension search (tsvector + GIN)</li>
+        <li><b>4-level recipe-pantry matching</b> + WhatCanICook</li>
+      </ul></div>
+      <div class="dcard"><h3>🔍 Discovery &amp; ⚙️ Platform</h3><ul>
+        <li><b>Search</b> — token + rules parser + family/typeahead/scoped pills; LLM NL search deferred post-launch</li>
+        <li><b>Nutrition</b> — per-recipe + per-meal macros, 10 micros w/ DV%, raw/cooked fix</li>
+        <li><b>Stats dashboard</b> — Overview / Recipes / Nutrition / Insights + micros</li>
+        <li class="new"><b>Migrations CLI-tracked</b> (baseline Jun 9) · auth, profile, shared spaces, admin dev tools</li>
+      </ul></div>
+      <div class="dcard"><h3>🗓️ Meal Planning <span style="font-size:12px;color:var(--ink-faint)">· Phase 9 rebuild</span></h3><ul>
+        <li class="flag"><b>Meal creation</b> — CreateMealModal + in-sheet path</li>
+        <li class="flag"><b>Meal calendar</b> + week picker</li>
+        <li class="flag"><b>Meal invitations</b> — pending-invite card (QA + rebuild)</li>
+        <li>Cooking partners + approval flow</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- ===================== RISKS + ADMIN ===================== -->
+  <section class="rv" style="animation-delay:.18s">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Risks, longest poles &amp; the admin track</h2></div>
+    <div class="two">
+      <div class="panel">
+        <h3>Risks &amp; tech debt</h3>
+        <div class="risk-item"><span class="sev hi">Blocker</span><div><div class="rt">Apple Developer Program — org enrollment not started</div><div class="rd">Longest-pole non-code risk; gates TestFlight + all of Phase 12 distribution. D-U-N-S resolves via Apple's D&amp;B lookup during enrollment.</div></div></div>
+        <div class="risk-item"><span class="sev hi">Pre-F&amp;F test</span><div><div class="rt">Admin verification flow un-exercised (OB-17)</div><div class="rd">Ownership-review + copy-on-verify delivery machinery is shipped and onboarding T8c feeds it, but the end-to-end admin approve→deliver path hasn't been run. Add Tom to <code>app_admins</code>, generate a pending row, approve, confirm delivery.</div></div></div>
+        <div class="risk-item"><span class="sev md">Security</span><div><div class="rt">Client-side Anthropic API key (NYT-2)</div><div class="rd">Extraction bundles the raw key into the shipped app where it's extractable. Should move server-side (edge function) like the book pipeline. Flagged, not scheduled.</div></div></div>
+        <div class="risk-item"><span class="sev md">Pre-F&amp;F</span><div><div class="rt">cookfrigo.com mailboxes</div><div class="rd">Site live since Jun 2, but the "Request access" CTAs (join@ / privacy@ / support@) need a domain-linked inbox + MX/forwarding or they bounce. No confirmation logged.</div></div></div>
+        <div class="risk-item"><span class="sev lo">Data</span><div><div class="rt">Recipe + catalog data-quality residuals</div><div class="rd">~347 image filenames to normalize · posts.photos shape · ~173 broken-URL recipes · sparse cook-time data · 58 of 311 catalog books still on hotlink/blank covers (CAT-1/2/3).</div></div></div>
+      </div>
+      <div class="panel">
+        <h3>Admin track</h3>
+        <div class="admin-row"><span class="mk y">✓</span><span>LLC formed (Oregon)</span><span class="note">Registry #256856791</span></div>
+        <div class="admin-row"><span class="mk y">✓</span><span>cookfrigo.com acquired</span><span class="note">Namecheap</span></div>
+        <div class="admin-row"><span class="mk y">✓</span><span>Marketing site live</span><span class="note">Vercel · Jun 2</span></div>
+        <div class="admin-row"><span class="mk y">✓</span><span>Migrations under version control</span><span class="note">P7-23 resolved · Jun 9</span></div>
+        <div class="admin-row"><span class="mk y">✓</span><span>Edge-fn redeploy (Sonnet 4.6)</span><span class="note">done · NYT-1 closed</span></div>
+        <div class="admin-row"><span class="mk r">!</span><span>Domain mailboxes</span><span class="note">CTAs may bounce</span></div>
+        <div class="admin-row"><span class="mk q">?</span><span>D-U-N-S number</span><span class="note">resolves via Apple lookup</span></div>
+        <div class="admin-row"><span class="mk n">○</span><span>Apple Developer org enrollment</span><span class="note">not started · longest pole</span></div>
+        <div class="admin-row"><span class="mk n">○</span><span>Privacy / Terms legal review</span><span class="note">stubs marked placeholder</span></div>
+        <p style="font-size:12px;color:var(--ink-faint);margin-top:14px;line-height:1.45;font-family:'IBM Plex Mono',monospace">Site + domain prerequisites are cleared and the edge-fn redeploy is done. The remaining time-sensitive admin action is starting <b>Apple Developer org enrollment</b> — the Phase-12 long pole gating TestFlight.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== METRICS ===================== -->
+  <section class="rv" style="animation-delay:.20s">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Data snapshot</h2><span class="sec-note">recipe + catalog counts refreshed Jun 16; social counts ≈ Apr 6</span></div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">1,896</div><div class="l">Recipes (Tom-owned)</div><div class="x">of 1,900 total · 1,543 book-attached · was 822 (Jun 1)</div></div>
+      <div class="kpi"><div class="v">311</div><div class="l">Catalog cookbooks</div><div class="x">298 seeded + 13 transcribed · 253 hosted covers</div></div>
+      <div class="kpi"><div class="v">15</div><div class="l">Onboarding screens live</div><div class="x">full T1–T15 spine, each harness-verified</div></div>
+      <div class="kpi"><div class="v sm">9/9 · 10/10</div><div class="l">Recent harness passes</div><div class="x">bookmarks · invite codes · spaces denial probes</div></div>
+    </div>
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:10px">Posts / meals / kisses / users counts are still the Apr-6 seeded-data figures (1,740 posts · 285 meals · 19 users — 2 real + 17 test) and predate Phase 7/8R/10/11 + the June work. A live pull would refresh them.</p>
+  </section>
+
+  <!-- ===================== CURRENCY / OPEN ===================== -->
+  <div class="currency rv" style="animation-delay:.22s">
+    <div class="sec-head" style="border:0;padding:0;margin-bottom:8px"><span class="sec-num">09</span><h2>Open threads &amp; caveats</h2></div>
+    <p class="intro">This reflects the session log through <b>June 16</b>, DEFERRED_WORK v5.39, and onboarding anchor v0.3.11, reconciled into the living docs on June 17. The notable open items are the Apple-enrollment long pole, a verification pass, and doc-reconciliation review — not unknowns:</p>
+    <div class="needs">
+      <div class="need"><div class="h"><span class="pill">blocker</span> Apple Developer enrollment</div><p>The Phase-12 long pole. Org enrollment hasn't started; it gates EAS/TestFlight and all distribution. D-U-N-S resolves via Apple's D&amp;B lookup during enrollment. Site + domain prerequisites are already cleared, so the path is open — it just needs kicking off.</p></div>
+      <div class="need"><div class="h"><span class="pill">verify</span> Doc reconciliation done — review</div><p>FF_LAUNCH_MASTER_PLAN (→ v6.9), PROJECT_CONTEXT (→ v10.9), and DEFERRED_WORK (→ v5.39) were reconciled to current June state on Jun 17 (active phase corrected to 11 active / 12 underway; onboarding treated as Phase-12 work per the plan's own definition). This was a CC-authored pass per Tom's instruction — <b>Claude.ai should verify</b>, and decide whether onboarding warrants its own numbered phase. Dated copies staged in <code>_pk_sync/</code>.</p></div>
+      <div class="need"><div class="h"><span class="pill">scope</span> Onboarding tail + rulings</div><p>CP9f empty states (floatable) and CP-O2 contacts sync (gated) remain; T9c chef-follow needs a product ruling (no follow mechanism yet); <code>get_invite_cohort</code> RPC (OB-22) lights up the T5 "Suggested" cohort; T11 staples redesign (OB-15) before launch.</p></div>
+      <div class="need"><div class="h"><span class="pill">refresh</span> Social metrics still seeded</div><p>Recipe (1,896) and catalog (311) counts are current; posts/meals/users are still April seeded figures (2 real users + 17 test). A live Supabase pull would make the whole snapshot trustworthy.</p></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>FRIGO · github.com/finleysmooch/frigo · cookfrigo.com</span>
+    <span>Status briefing · June 17, 2026 · sources: SESSION_LOG (≤Jun 16) + DEFERRED_WORK v5.39 + master plan v6.9 + PROJECT_CONTEXT v10.9 + onboarding WORKSTREAM_PLAN v0.3.11</span>
+  </footer>
+
+</div>
+</body>
+</html>

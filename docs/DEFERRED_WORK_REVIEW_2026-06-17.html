@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frigo — Deferred Work Review · Pre/Post F&F · June 17 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2ECE0; --paper-2:#EAE2D2; --card:#FBF7EF;
+    --ink:#1C1815; --ink-soft:#534A41; --ink-faint:#8A7F71;
+    --line:#D8CDB8; --line-soft:#E4DBC9;
+    --ember:#C2562F; --ember-deep:#9E3F20; --slate:#33586A;
+    --ship:#4C7A52; --ship-bg:#E4ECDF;
+    --active:#B47A22; --active-bg:#F3E8CF;
+    --plan:#897F70; --plan-bg:#E8E0D0;
+    --risk:#AC3A2C; --risk-bg:#F2DED9;
+    --shadow:0 1px 0 rgba(28,24,21,.04), 0 18px 40px -28px rgba(28,24,21,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(120% 80% at 85% -10%, rgba(194,86,47,.10), transparent 55%),radial-gradient(90% 70% at -10% 110%, rgba(51,88,106,.10), transparent 55%)}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E")}
+  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 28px 110px}
+
+  header{padding:54px 0 26px;border-bottom:2px solid var(--ink)}
+  .kicker{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--ember-deep);font-weight:600}
+  h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(34px,6vw,60px);line-height:.98;letter-spacing:-.02em;margin:10px 0 0}
+  h1 .frigo{font-style:italic;font-weight:400}
+  .lede{font-family:'Fraunces',Georgia,serif;font-size:clamp(16px,2.2vw,20px);font-weight:400;color:var(--ink-soft);max-width:64ch;margin-top:14px;line-height:1.4}
+  .dateline{display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-faint)}
+  .dateline b{color:var(--ink);font-weight:600}
+
+  .note{margin-top:22px;background:var(--paper-2);border:1px dashed var(--ink-faint);border-radius:12px;padding:16px 20px;font-size:13px;color:var(--ink-soft);line-height:1.5}
+  .note b{color:var(--ink)}
+  .note .leg{display:inline-flex;align-items:center;gap:5px;margin-right:14px;white-space:nowrap}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+  .kpi{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:16px 16px 14px}
+  .kpi .v{font-family:'Fraunces',serif;font-size:30px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .kpi .l{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);margin-top:8px}
+  .kpi.warn{border-color:#E4B6AC;background:linear-gradient(180deg,var(--risk-bg),var(--card) 70%)}
+  .kpi.warn .v{color:var(--risk);font-size:21px}
+  .kpi.win{border-color:#BBD2BC;background:linear-gradient(180deg,var(--ship-bg),var(--card) 70%)}
+  .kpi.win .v{color:var(--ship)}
+
+  section{margin-top:48px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ember-deep);font-weight:600}
+  h2{font-family:'Fraunces',serif;font-size:clamp(21px,2.8vw,28px);font-weight:600;letter-spacing:-.01em}
+  .sec-note{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint)}
+  .sec-intro{font-size:13.5px;color:var(--ink-soft);margin:14px 0 4px;max-width:80ch;line-height:1.5}
+
+  .wf{font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin:22px 0 9px;display:flex;align-items:center;gap:9px}
+  .wf .ct{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--ink-faint)}
+
+  .items{display:flex;flex-direction:column;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:10px;overflow:hidden}
+  .it{display:grid;grid-template-columns:84px 56px 1fr;gap:12px;align-items:start;background:var(--card);padding:10px 15px}
+  .it:hover{background:#fff}
+  .it .id{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;color:var(--slate);padding-top:1px}
+  .it .d{font-size:13px;color:var(--ink-soft);line-height:1.42}
+  .it .d b{color:var(--ink);font-weight:600}
+  .pill{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 6px;border-radius:5px;text-align:center;height:fit-content;white-space:nowrap}
+  .p-hi{background:var(--risk-bg);color:var(--risk)}
+  .p-md{background:var(--active-bg);color:var(--active)}
+  .p-lo{background:var(--plan-bg);color:var(--plan)}
+  .p-by{background:#E7E0D2;color:var(--ink-faint)}
+  .p-done{background:var(--ship-bg);color:var(--ship)}
+
+  /* cluster row for grouped low-priority tails */
+  .it.cluster{grid-template-columns:84px 1fr}
+  .it.cluster .grp{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;padding-top:2px}
+
+  .gate{margin-top:18px;background:var(--ink);color:var(--paper);border-radius:12px;padding:18px 22px}
+  .gate .t{font-family:'Fraunces',serif;font-size:18px;font-weight:600}
+  .gate p{font-size:13px;color:#C9BFAE;margin-top:6px;line-height:1.5}
+  .gate b{color:#fff}
+
+  .partband{margin-top:54px;border-radius:14px;padding:20px 24px;box-shadow:var(--shadow)}
+  .partband.pre{background:linear-gradient(180deg,#F4ECDC,var(--card) 80%);border:1px solid var(--active)}
+  .partband.post{background:linear-gradient(180deg,#EAE6DC,var(--card) 80%);border:1px solid var(--line)}
+  .partband .pk{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.3em;text-transform:uppercase;font-weight:600}
+  .partband.pre .pk{color:var(--ember-deep)} .partband.post .pk{color:var(--plan)}
+  .partband h2{margin-top:4px}
+  .partband p{font-size:13.5px;color:var(--ink-soft);margin-top:8px;max-width:82ch;line-height:1.5}
+
+  .sub{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ember-deep);margin:26px 0 4px}
+  .sub.b{color:var(--active)}
+  .subnote{font-size:13px;color:var(--ink-soft);margin-bottom:10px;max-width:80ch}
+
+  .appendix{margin-top:48px;background:var(--paper-2);border:1px dashed var(--ink-faint);border-radius:12px;padding:20px 24px}
+  .appendix h2{font-size:20px} .appendix p{font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin-top:8px}
+  .appendix code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink)}
+
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between}
+
+  @media(max-width:720px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .it{grid-template-columns:72px 50px 1fr;gap:9px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Frigo · Deferred-Work Review Cut</div>
+    <h1><span class="frigo">Deferred work</span>, re-cut by F&amp;F &amp; workflow.</h1>
+    <p class="lede">The same backlog as <code>DEFERRED_WORK.md</code>, reorganized into the two questions you actually triage on: <b>does it need to happen before Friends &amp; Family</b>, and <b>which workflow does it touch</b>. A review lens — not canonical. Move items freely; ratified calls fold back into the master backlog on a planning pass.</p>
+    <div class="dateline">
+      <span>CREATED · <b>June 17, 2026</b></span>
+      <span>SOURCE · <b>DEFERRED_WORK.md v5.39</b></span>
+      <span>SCOPE · <b>~300 items</b></span>
+      <span>COHORT · <b>~100–200 testers · Expo Go</b></span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi warn"><div class="v">~12</div><div class="l">Pre-F&amp;F · flagged</div></div>
+      <div class="kpi warn"><div class="v">~10</div><div class="l">Pre-F&amp;F · your call</div></div>
+      <div class="kpi"><div class="v">~250</div><div class="l">Post-F&amp;F (default)</div></div>
+      <div class="kpi win"><div class="v">~25</div><div class="l">Resolved this era</div></div>
+    </div>
+
+    <div class="note">
+      <b>How items were classified.</b>
+      <span style="display:block;margin-top:8px">
+        <span class="leg"><span class="pill p-hi">High</span></span>
+        <span class="leg"><span class="pill p-md">Med</span></span>
+        <span class="leg"><span class="pill p-lo">Low</span></span>
+        <span class="leg"><span class="pill p-by">By&nbsp;design</span></span>
+        <span class="leg"><span class="pill p-done">Resolved</span></span>
+      </span>
+      <span style="display:block;margin-top:10px"><b>Pre-F&amp;F §A (flagged)</b> — the item's own text says pre-F&amp;F / F&amp;F-blocker / before launch. <b>Pre-F&amp;F §B (your call)</b> — I judged it launch-relevant (security, tester-stranding bugs, onboarding completeness) though the backlog didn't flag it; these are the ones to rule on. <b>Post-F&amp;F</b> — the default: anything the backlog calls post-launch/stretch, plus everything with no urgency signal (an unmarked item defaults to post-launch). Polish / scale / new-feature items skew post; data-integrity &amp; first-run items skew pre.</span>
+    </div>
+
+    <div class="gate">
+      <div class="t">The umbrella gate (tracked in the master plan, not here)</div>
+      <p><b>Apple Developer org enrollment + EAS/TestFlight</b> gate all of Phase 12. Site, domain, and the edge-fn redeploy (NYT-1) are cleared; enrollment is the remaining long pole. Also pre-launch but master-plan scope, not backlog: <b>privacy policy + account deletion</b>, <b>Phase 9 (Meal &amp; Planning UX)</b>, and the <b>Phase 11 tail</b> (11A-CP5 etc.).</p>
+    </div>
+  </header>
+
+  <!-- ============ PART I — PRE-F&F ============ -->
+  <div class="partband pre">
+    <div class="pk">Part I</div>
+    <h2>Pre-F&amp;F</h2>
+    <p>Should close before Friends &amp; Family. §A is what the backlog already flags; §B is what I recommend you decide on.</p>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">I·A</span><h2>Already flagged pre-F&amp;F</h2><span class="sec-note">backlog's own wording</span></div>
+
+    <div class="wf">🚪 Onboarding &amp; Distribution</div>
+    <div class="items">
+      <div class="it"><span class="id">OB-17</span><span class="pill p-hi">High</span><span class="d"><b>End-to-end test the admin ownership-verification → copy-on-verify approve→deliver flow.</b> Machinery shipped (CP6a-2/CP6b) + T8c feeds it; never exercised. Add Tom to <code>app_admins</code>, generate a pending row, approve, confirm delivery.</span></div>
+      <div class="it"><span class="id">OB-15</span><span class="pill p-md">Med</span><span class="d">Rework the T11 staples page ("What do you keep on hand?") design/content before launch.</span></div>
+      <div class="it"><span class="id">OB-21</span><span class="pill p-md">Med</span><span class="d">Verification-status badges ("pending"/"verified") on the books/library page; pairs with T8c.</span></div>
+    </div>
+
+    <div class="wf">🥫 Pantry &amp; Grocery</div>
+    <div class="items">
+      <div class="it"><span class="id">OB-14</span><span class="pill p-md">Med</span><span class="d">Pending-invitee can't read the space row → join card shows "Unknown Space." First-run shared-pantry blemish.</span></div>
+      <div class="it"><span class="id">P8R-D20</span><span class="pill p-hi">High</span><span class="d">Pantry <b>catalog data audit</b> (pluralization + ~30-50 missing common items). F&amp;F-prereq for supplies/matching to feel complete. <i>Distinct from the cookbook catalog, which is seeded.</i></span></div>
+    </div>
+
+    <div class="wf">⚙️ Platform &amp; Infra</div>
+    <div class="items">
+      <div class="it"><span class="id">T8</span><span class="pill p-md">Med</span><span class="d">5 stale <code>pantry_items</code> query sites in spaceService/statsService read a dropped table &amp; silently return empty. Fix before testers hit them.</span></div>
+      <div class="it"><span class="id">T7</span><span class="pill p-md">Med</span><span class="d">Resolve the <code>@ts-nocheck</code> pragma on <code>QuickAddSection.tsx</code>.</span></div>
+      <div class="it"><span class="id">OB-3</span><span class="pill p-md">Med</span><span class="d">Bare-"@" renders for NULL-username users; show <code>display_name</code> instead. Visible to every username-less tester.</span></div>
+    </div>
+
+    <div class="wf">🍳 Recipe &nbsp;·&nbsp; 🧰 Process</div>
+    <div class="items">
+      <div class="it"><span class="id">T10</span><span class="pill p-md">Med</span><span class="d"><code>missingCount</code> divergence on RecipeDetailScreen (match banner vs tap-sheet count).</span></div>
+      <div class="it"><span class="id">P8D-CP4-3</span><span class="pill p-md">Med</span><span class="d">Add an audit step for Claude.ai-extracted recipes — <i>pre-F&amp;F only if you do more cookbook imports before launch.</i></span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">I·B</span><h2>Recommended for pre-F&amp;F — your call</h2><span class="sec-note">decisions to make</span></div>
+
+    <div class="wf">🔐 Security / Platform <span class="ct">F&amp;F is trusted, but these are real exposures</span></div>
+    <div class="items">
+      <div class="it"><span class="id">NYT-2</span><span class="pill p-hi">High</span><span class="d">Client-side <code>ANTHROPIC_API_KEY</code> is bundled into the shipped app (extractable). Move extraction server-side like the book pipeline. <b>Real key-leak risk even with a trusted cohort.</b></span></div>
+      <div class="it"><span class="id">NYT-3</span><span class="pill p-hi">High</span><span class="d"><code>recipes</code> / <code>recipe_ingredients</code> / <code>instruction_sections</code> / <code>recipe_source_notes</code> are anon-readable (no RLS). Project-wide review.</span></div>
+      <div class="it"><span class="id">OB-2</span><span class="pill p-md">Med</span><span class="d">No admin-auth primitive; <code>AdminScreen</code> is effectively unguarded. Gate it before more people have the build.</span></div>
+      <div class="it"><span class="id">OB-18</span><span class="pill p-md">Med</span><span class="d">Orphaned-session sign-out: a signed-in user whose account no longer exists gets stranded (this stranded you when a spouse account was deleted).</span></div>
+    </div>
+
+    <div class="wf">🚪 Onboarding &amp; Distribution <span class="ct">completeness / decisions</span></div>
+    <div class="items">
+      <div class="it"><span class="id">OB-16</span><span class="pill p-lo">Low</span><span class="d"><i>Decision, not build:</i> keep T9b "Signature recipe" hidden, or re-enable it? Resolve before launch.</span></div>
+      <div class="it"><span class="id">OB-22</span><span class="pill p-md">Med</span><span class="d"><code>get_invite_cohort</code> RPC to light up the T5 "Suggested" friends section (today empty). Makes Find Friends feel finished.</span></div>
+      <div class="it"><span class="id">P10F-2</span><span class="pill p-md">Med</span><span class="d">Wire dietary-preferences capture into onboarding (parked for "when the flow exists" — it now exists).</span></div>
+      <div class="it"><span class="id">NYT-9</span><span class="pill p-md">Med</span><span class="d">One photo-import smoke test of the Sonnet-4.6 vision path (migrated, never tested end-to-end). Cheap confidence check on core extraction.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ PART II — POST-F&F ============ -->
+  <div class="partband post">
+    <div class="pk">Part II</div>
+    <h2>Post-F&amp;F</h2>
+    <p>The default bucket (~250) — items the backlog calls post-launch/stretch, plus everything with no urgency signal. Grouped by workflow; promote anything that feels mis-binned. Dense low-priority tails are clustered to stay scannable.</p>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">II</span><h2>By workflow</h2></div>
+
+    <div class="wf">🍳 Recipe</div>
+    <div class="items">
+      <div class="it"><span class="id">DEF-4/22-2</span><span class="pill p-hi">High</span><span class="d">NYT Cooking integration (broad roadmap item; provenance/notes/SourceView shipped — remaining depth is post-launch top-of-queue).</span></div>
+      <div class="it"><span class="id">OB-19</span><span class="pill p-md">Med</span><span class="d">Unified "books &amp; sources" browse grouping (Phase 11 design call).</span></div>
+      <div class="it"><span class="id">NYT-5</span><span class="pill p-md">Med</span><span class="d">Multi-chef per-co-author pages via a <code>recipe_chefs</code> join (today single <code>chef_id</code>).</span></div>
+      <div class="it"><span class="id">P8D-CP4-1</span><span class="pill p-md">Med</span><span class="d">Recipe-extraction quality CP (Vision misreads, scored matching).</span></div>
+      <div class="it"><span class="id">P8D-CP4-2</span><span class="pill p-md">Med</span><span class="d">RecipeReviewScreen review-and-fix UI for flagged ingredient mappings.</span></div>
+      <div class="it"><span class="id">P11-FS-5</span><span class="pill p-md">Med</span><span class="d">Dead <code>recipes_with_books</code> view references in bookViewService; rewrite or drop.</span></div>
+      <div class="it"><span class="id">DEF-4/22-1</span><span class="pill p-md">Med</span><span class="d">Edit Mode full redesign (notebook aesthetic, structural editing).</span></div>
+      <div class="it"><span class="id">B13</span><span class="pill p-md">Med</span><span class="d">Recipe rating UX (smart sections sit empty without ratings).</span></div>
+      <div class="it"><span class="id">D3</span><span class="pill p-md">Med</span><span class="d">Cooking method / occasion / technique architecture.</span></div>
+      <div class="it"><span class="id">E1</span><span class="pill p-md">Med</span><span class="d">Extraction pipeline upgrade to v10+.</span></div>
+      <div class="it"><span class="id">N5</span><span class="pill p-md">Med</span><span class="d">Extraction outputs <code>ingredient_role</code>.</span></div>
+      <div class="it"><span class="id">P5-3</span><span class="pill p-md">Med</span><span class="d">Recipe markup/editing review (still clunky).</span></div>
+      <div class="it cluster"><span class="grp">NYT polish</span><span class="d"><b>NYT-4</b> all-notes pagination · <b>NYT-6</b> source-staleness monitor · <b>NYT-7</b> edge-fn model consistency (three-pass on 4.5) · <b>NYT-8</b> upstream image-URL normalize · <b>NYT-10</b> SourceView parity. <span class="pill p-lo" style="margin-left:6px">mixed</span></span></div>
+      <div class="it cluster"><span class="grp">Low / housekeeping</span><span class="d"><b>OB-6/OB-7/OB-12</b> dedup getUserBooks + link-create primitive + orphan RPC · <b>DEF-4/22-4</b> recipe comments KB · <b>E2</b> gold-standard beyond Ottolenghi · <b>R2</b> ingredient source · <b>R5</b> cost/serving · <b>P5-6</b> technique tagging · <b>P6-30</b> ingredients/prep tab · <b>P6-T2</b> 8 table-only recipes · <b>P6-T5</b> instruction_sections redundancy · <b>P7-53</b> page deep-link.</span></div>
+    </div>
+
+    <div class="wf">🍳 Cooking (Cooking Mode)</div>
+    <div class="items">
+      <div class="it"><span class="id">P6-2</span><span class="pill p-md">Med</span><span class="d">CookingScreen simplification (ClassicView default).</span></div>
+      <div class="it"><span class="id">P6-3</span><span class="pill p-md">Med</span><span class="d">Multi-recipe simultaneous cooking (protein + side + salad).</span></div>
+      <div class="it"><span class="id">P6-T1</span><span class="pill p-md">Med</span><span class="d">PanResponder → gesture-handler upgrade (swipe conflict).</span></div>
+      <div class="it"><span class="id">P7-7 / P7-8</span><span class="pill p-md">Med</span><span class="d">Voice memo · photo upload on LogCookSheet.</span></div>
+      <div class="it cluster"><span class="grp">Cook-mode polish</span><span class="d"><b>P6-6/7/8/11/12/13/14</b> — pantry-fraction rethink, "add missing to grocery" treatment, step-focus timers, NYT-style note modal, Read-More fade, name bolding, native ActionSheet. <span class="pill p-md" style="margin-left:6px">Med/Low</span></span></div>
+      <div class="it cluster"><span class="grp">Moonshots</span><span class="d"><b>P6-9/15/16/17/18/19/20/21/22/23/24/25/26/27/28/29/31</b> — WatchOS, AI timeline, serving adjuster, voice commands, offline, ingredient alternatives, post-cook photo/voice, partner tagging, page refs, step scaling… <span class="pill p-lo" style="margin-left:6px">Low</span></span></div>
+      <div class="it"><span class="id">P7-3 / P7-4 / T5</span><span class="pill p-lo">Low</span><span class="d">Delete deprecated <code>PostCookFlow.tsx</code> · extract LogCookSheet inline SVGs.</span></div>
+    </div>
+
+    <div class="wf">🥫 Pantry &amp; Grocery <span class="ct">largest post-launch bucket — Phase 8/8R backlog</span></div>
+    <div class="items">
+      <div class="it cluster"><span class="grp">Matching/catalog</span><span class="d"><b>P8-6</b> category-level match · <b>P8-7</b> quantity-aware · <b>P8-13</b> cross-unit · <b>P8-14</b> soft-delete on zero · <b>P8R-D29</b> shelf-life · <b>P8R-D33</b> expiry in Attention · <b>T11/T26</b> bulk-match scale.</span></div>
+      <div class="it cluster"><span class="grp">Grocery/views</span><span class="d"><b>P8-2</b> brand UI · <b>P8-3</b> staleness UI · <b>P8-4/17/18</b> aisle/protein/cross-list · <b>P8R-D1/2/3/5/8/10/11/12/13/14/16/17/25/27/30/34/35/36</b> thresholds, OR-views, combine prompts, hierarchy, cold-start, pickers, idempotency, helpers.</span></div>
+      <div class="it cluster"><span class="grp">Lots/depletion</span><span class="d"><b>P8-5</b> silent depletion · <b>P8-8</b> thaw-time · <b>P8-21</b> undo cleanup · <b>P8R-D22</b> receipt→lots · <b>P8R-D23</b> fill level · <b>P8R-D31</b> auto-demote toggle · <b>P8R-D32</b> variant tooling · <b>P8R-UX6-1</b>.</span></div>
+      <div class="it cluster"><span class="grp">Tuning (post-data)</span><span class="d"><b>P8R-UX5-1/2/3</b> hero thresholds · <b>P8R-UX4-1/2/3</b> last_confirmed · <b>P8R-D15/18</b> search/count RPCs · <b>P8R-D19</b> blank-screen monitor · <b>P8-22</b> ManageStaples cycling (your call).</span></div>
+      <div class="it cluster"><span class="grp">Misc / verify</span><span class="d"><b>P8-25/26</b> create-list modal (likely superseded — verify, drop) · <b>P8-12</b> staples headers · <b>B20</b> counter SVG · <b>OB-10</b> members-invite-members Q · <b>P8-1</b> a11y audit · <b>DEF-4/22-3</b> receipt scanning.</span></div>
+    </div>
+
+    <div class="wf">🗓️ Meal Planning</div>
+    <div class="items">
+      <div class="it"><span class="id">P7-47</span><span class="pill p-md">Med</span><span class="d">Duplicate meal-event detection + merge.</span></div>
+      <div class="it"><span class="id">P7-48 / P7-50</span><span class="pill p-md">Med</span><span class="d">Planned-dish entry · RSVP redesign under the event model.</span></div>
+      <div class="it"><span class="id">R6</span><span class="pill p-md">Med</span><span class="d">Personal daily eating log / leftovers.</span></div>
+      <div class="it"><span class="id">P8-9 / P8R-D9</span><span class="pill p-lo">Low</span><span class="d">Auto-schedule thawed items · recipe-add urgency from the meal calendar.</span></div>
+    </div>
+
+    <div class="wf">👥 Social &amp; Feed</div>
+    <div class="items">
+      <div class="it"><span class="id">P7-44</span><span class="pill p-hi">High</span><span class="d">Feed infinite-scroll pagination — scheduled Phase 7P.</span></div>
+      <div class="it cluster"><span class="grp">Perf</span><span class="d"><b>P7-74</b> hydrateEngagement N+1 · <b>P7-75</b> batched meal-events · <b>PL-H1</b> highlights RPC · <b>DQ-1</b> orphaned parent_meal_id.</span></div>
+      <div class="it cluster"><span class="grp">Cleanup</span><span class="d"><b>P7-2/24/25/100/102</b> · <b>P7G-1/2</b> · <b>P7H-1/2</b> · <b>P7M-1/2</b> (StarRating gesture conflict) — legacy routes, dead code, audits.</span></div>
+      <div class="it cluster"><span class="grp">Detail polish</span><span class="d"><b>P7-80/81/82/83/84/86/89/91/93/94/95/96b/99</b> — stat grid, highlights, location, comment extraction, pending partners, media reorder, inline photos, half-star eater ratings… <span class="pill p-lo" style="margin-left:6px">Low/Med</span></span></div>
+      <div class="it cluster"><span class="grp">Future features</span><span class="d">eater-ratings stack (<b>P7-32/33/34/35</b>), @-mentions + notifications (<b>P7-36/37/38</b>), tag-accept draft (<b>P7-46</b>), retro claim (<b>P7-17/R8</b>), privacy rules (<b>P7-21</b>), host-recap (<b>P7-49</b>), related-cooks (<b>P7-51</b>), collage hero (<b>P7-54</b>), comments unify (<b>P7-55</b>), media notifs (<b>P7-56</b>), feed overflow (<b>P7-63</b>), dish tags (<b>P7-39</b>), flip-card (<b>P7-42</b>), aspect-ratio (<b>P7-57</b>), leave-cascade (<b>P7-61</b>).</span></div>
+      <div class="it"><span class="id">OB-13 / B8</span><span class="pill p-lo">Low</span><span class="d">Follower-count increment results ignored · click-to-see-friends-by-recipe modal.</span></div>
+    </div>
+
+    <div class="wf">🔍 Discovery &amp; Search</div>
+    <div class="items">
+      <div class="it"><span class="id">P11-FS-1</span><span class="pill p-md">Med</span><span class="d">Port the new recipe-search surface to BookView for parity.</span></div>
+      <div class="it"><span class="id">B1 / B10</span><span class="pill p-md">Med</span><span class="d">Flavor-profile system + radar display.</span></div>
+      <div class="it"><span class="id">D4-26</span><span class="pill p-md">Med</span><span class="d">Frontier suggestions v2 (partner-popular, seasonal, overlap).</span></div>
+      <div class="it"><span class="id">R7</span><span class="pill p-md">Med</span><span class="d">Recipe-discovery feature (PHASE_RECIPE_DISCOVERY.md).</span></div>
+      <div class="it cluster"><span class="grp">Low</span><span class="d"><b>P11A-CP5-deferred-1</b> lens label · <b>B2</b> learned tags · <b>B3</b> visual grid · <b>(chevron)</b> tap-target · <b>D4-14/15/16/17</b> stats drill filters · <b>P8-10/11</b> conversational/voice search · <b>P7-40/41/52</b> taste profile + chef lens · <b>R9</b> concept-cooking suggestions.</span></div>
+    </div>
+
+    <div class="wf">🍎 Nutrition &amp; Stats</div>
+    <div class="items">
+      <div class="it"><span class="id">P10F-1</span><span class="pill p-md">Med</span><span class="d">FDA Big-9 allergen flags (peanut/fish/sesame) + catalog backfill.</span></div>
+      <div class="it"><span class="id">P10-Followup-1</span><span class="pill p-md">Med</span><span class="d">RPC for batch nutrition services (URL-length risk).</span></div>
+      <div class="it"><span class="id">P10C-1</span><span class="pill p-md">Med</span><span class="d">Per-user Daily-Value personalization via demographics.</span></div>
+      <div class="it cluster"><span class="grp">Verify &amp; close</span><span class="d"><b>N2</b> vitamins/minerals &amp; <b>D4-1</b> micro levels — superseded by 10B, confirm + close · <b>NG2/I6</b> raw-vs-cooked — largely fixed by 10A, confirm · <b>R1</b> dietary-prefs table — mostly shipped 10F.</span></div>
+      <div class="it cluster"><span class="grp">Features/polish</span><span class="d"><b>P10C-2/P10D-1/P10F-3/P10E-1</b> · <b>D4-2/3/4/12/13/39 · DI-2/3/6</b> · tech-debt <b>D4-10/11/21/37 · DI-1/7</b> · polish <b>D4-25/27/28/29/30/33/35/36/38</b> · <b>T33/T34</b> dir-drift + orphan styles. <span class="pill p-lo" style="margin-left:6px">mostly Low</span></span></div>
+      <div class="it cluster"><span class="grp">Foundation</span><span class="d"><b>N4/N7</b> · gaps <b>NG1/NG4/NG5</b> · ideas <b>I1/I2/I3/I4/I7/I9</b>.</span></div>
+    </div>
+
+    <div class="wf">⚙️ Platform &amp; Infra</div>
+    <div class="items">
+      <div class="it cluster"><span class="grp">Onboarding infra</span><span class="d"><b>OB-1</b> validate_invite_code anon definer · <b>OB-11</b> definer p_user_id exposure · <b>OB-4</b> OAuth smoke (S2) · <b>OB-5</b> drop username col · <b>OB-20</b> 📷→CameraIcon · <b>OB-23</b> 1000-row-cap watch.</span></div>
+      <div class="it cluster"><span class="grp">Tech debt</span><span class="d"><b>P7-24</b> error-swallow audit · <b>P7-59</b> migration rollback (by design) · <b>P8R-D21</b> migration move · <b>T3</b> schema propagation · <b>T4</b> relocate services · <b>T6</b> oldTheme · <b>T9</b> schema CSVs · <b>T16/T19</b> base-id constraint/trigger · <b>T32</b> TS1382 · <b>B21</b> emoji constants · <b>P6-T3/T6</b> · <b>DI-7</b> avatar · <b>R4</b> wearable research.</span></div>
+    </div>
+
+    <div class="wf">📊 Data Quality</div>
+    <div class="items">
+      <div class="it cluster"><span class="grp">Recipe/media</span><span class="d"><b>P7-72</b> ~347 image filenames · <b>P7-73</b> posts.photos shape · <b>P7-79</b> ~173 broken URLs · <b>B16/17/18</b> cuisine/method · <b>P5-1/2/5</b> base-id/gardening/difficulty · <b>P8-T2</b> · <b>P6-1</b> cook-time backfill (60/475 — large, not blocking) · <b>P6-T4</b>.</span></div>
+      <div class="it cluster"><span class="grp">Cookbook covers</span><span class="d"><b>CAT-1</b> rehost 298 hotlinked covers (~253/311 already hosted) · <b>CAT-2</b> 11 blank-ISBN · <b>CAT-3</b> Milk Street editions.</span></div>
+      <div class="it cluster"><span class="grp">Pantry catalog</span><span class="d"><b>P8D-CP3.1-1 · P8D-CP3-1/2/3/4 · P8D-CP4-4/5/6/7/8 · T12/13/14/15/17/18/21/23/24/25/28/30/31</b> · <b>P11-FS-2/3/4/6</b> — substitution intelligence, subtype splits, hero_ingredients refactor, attribution/method backfill.</span></div>
+      <div class="it cluster"><span class="grp">Nutrition catalog</span><span class="d"><b>N3</b> 10 unmapped USDA · <b>I5</b> dual-source merge · <b>P10A-1</b> ingredient_state auto-populate · <b>P10B-1/2/4/5</b> traceability, legume states, FDC mis-maps, GRANT process.</span></div>
+    </div>
+
+    <div class="wf">🧰 Process &amp; Docs</div>
+    <div class="items">
+      <div class="it cluster"><span class="grp">Process</span><span class="d"><b>P8R-D37</b> Q54 wireframe divergence · <b>P8R-D38</b> CP6e PK artifacts · <b>P7-43</b> doc backfill · <b>P8-T1</b> CLAUDE.md theme path · <b>T27</b> smoke isolation · <b>PH-1</b> PROCESS_WATCHPOINTS review.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ APPENDIX ============ -->
+  <div class="appendix">
+    <div class="sec-head" style="border:0;padding:0;margin-bottom:6px"><span class="sec-num">A</span><h2>Resolved this era — prune from canonical</h2></div>
+    <p><code>NYT-1</code> edge-fn redeploy (Jun 17) · <code>P7-23</code> migrations under VC (Jun 9) · stale extraction child-savers (Jun 11) · <code>P11-input-1</code> dietary-filter visibility · <code>P6-10</code> ingredient tap-to-steps · <code>T20/T22</code> 4-level match / always-available skip · <code>T29</code> smoke expectations · <code>P10B-3</code> matview CONCURRENTLY · <code>N1</code> subproject services · <code>P8-15/16/19/20/23/24</code> · <code>P8R-D4/D6/D7/D24/D26/D28</code>.</p>
+  </div>
+
+  <footer>
+    <span>FRIGO · review cut · not canonical</span>
+    <span>Re-cut by CC · June 17, 2026 · source: DEFERRED_WORK.md v5.39 · ratified calls fold back on a Claude.ai pass</span>
+  </footer>
+
+</div>
+</body>
+</html>
