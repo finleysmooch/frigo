@@ -7,6 +7,42 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Custom recipe bookmarks (Favorite / Make Soon / user-created) — code complete, migration dry-run PASS, **DB push flagged for Tom**
+
+**Tom's request:** generalize the recipe header's `+ Cook Soon` / `+ Meal Plan` pills into custom bookmarks — users create their own ("Make for Anne", "Thanksgiving") each with a color, plus two built-in defaults: **Favorite** (bookmark glyph + star) and **Make Soon** (the existing `cook_soon`, relabeled). A recipe's selected bookmarks render as colored chips at the header top (star for Favorite); a bookmark/＋ button opens a sheet to toggle/create. **Decisions (Tom, via AskUserQuestion):** chips at header top, multiple allowed; **defaults LOCKED** (no rename/recolor/delete → code constants, not rows); Meal Plan kept as its own header button **for now** (tentative future move to overflow-only — flagged, not done); palette confirmed (teal/amber/red/blue/purple/green). Plan: `~/.claude/plans/sequential-plotting-pearl.md`.
+
+**Architecture (no change to the tag table):** per-recipe ASSIGNMENTS stay in `user_recipe_tags` (`tag` = a bookmark **key**); CUSTOM definitions (name+color) live in a new additive own-table `user_bookmarks`. Join by **stable `key`** (not name) → rename is a one-row `name` update that never rewrites assignments; delete removes the `user_recipe_tags` rows where `tag=key` then the definition row (no DB FK since `tag` is free-text). The two defaults (`favorite`, `cook_soon`) are locked code constants — no storage/seeding — so `CookSoonScreen` / `getRecipesWithTag('cook_soon')` keep working untouched, and the onboarding `favorite` tag surfaces under the Favorite default automatically.
+
+**Built (new):**
+- `supabase/migrations/20260616200000_user_bookmarks.sql` — `user_bookmarks (id, user_id→auth.users CASCADE, key, name, color CHECK ~'^#[0-9A-Fa-f]{6}$', sort_order, created_at)`, `UNIQUE(user_id,key)`, `UNIQUE(user_id,name)`, `(user_id,sort_order)` index, 4 own-rows RLS policies `TO authenticated`, grants. Mirrors cp6a1 conventions. **Additive own-table tier** (MIGRATIONS.md → CC pushes after dry-run).
+- `lib/services/bookmarkService.ts` — composes `userRecipeTagsService`. `BOOKMARK_PALETTE`, `DEFAULT_BOOKMARKS` (Favorite gold / Make Soon amber, `editable:false`), `listBookmarks`, `createBookmark` (slug+suffix key, rejects default names, maps 23505), `renameBookmark`/`recolorBookmark`/`deleteBookmark` (custom-only, default keys blocked), `getRecipeBookmarks`/`getAssignedBookmarks`, `toggleRecipeBookmark`, `getRecipesForBookmark`.
+- `components/recipe/BookmarkSheet.tsx` — RN Modal bottom-sheet (list/create/edit). Toggles assignment (optimistic), `BookmarkGlyph` (filled/outline + star for Favorite), create/edit with palette swatches, delete via Alert.
+
+**Edited:**
+- `components/recipe/RecipeHeader.tsx` — dropped `onToggleCookSoon`/`isCookSoon`; added `onOpenBookmarks`/`bookmarkChips` + exported `RecipeBookmarkChip`. Cook Soon pill → bookmark icon button (filled white when any bookmark, else outline teal); kept the Meal Plan pill; added the chips row (star for Favorite) below the meta row. Footprint ≤ the old two pills.
+- `screens/RecipeDetailScreen.tsx` ⚠️ **PK snapshot now stale (was 2026-05-19)** — replaced `isCookSoon` state with `bookmarkChips` + `showBookmarkSheet` (+ `hasAnyBookmark`); mount load now calls `refreshBookmarkChips` (via `getAssignedBookmarks`) instead of `isInCookSoon`; top-bar icon + overflow row now open the sheet (overflow label → "Bookmarks"); kept overflow "Add to Meal Plan"; mounted `<BookmarkSheet>` by the meal modal; swapped the `userRecipeTagsService` import for the bookmark service.
+
+**Verification:**
+- `tsc --noEmit`: **clean on all touched files** (181 pre-existing repo errors, none in `RecipeDetailScreen`/`RecipeHeader`/`BookmarkSheet`/`bookmarkService`/`SaveIcon`; `RecipeHeader`'s only consumer is `RecipeDetailScreen`). 
+- `supabase db push --dry-run`: **PASS** — "Would push these migrations: 20260616200000_user_bookmarks.sql" (the only pending migration; SQL validated, remote connect OK).
+- **Live backend harness (create→toggle→rename→delete; defaults locked; `cook_soon` intact) NOT yet run** — it needs the table, which is gated on the flagged push (below). In-app Expo test likewise pending the push.
+
+**FLAGGED — needs Tom's go-ahead (per the approved plan: "I'll dry-run and confirm the push," and the CP4 shared-tree coordination notice's flag-before-push rule):** apply `20260616200000_user_bookmarks.sql` to prod (`supabase db push`) + push the commit to `origin/main`. Once greenlit I'll run the live backend harness, confirm, and Tom can test in Expo. (The migration is low-risk additive own-table; the only reason it's held is the standing flag commitment, not the tier.)
+
+**Files modified (committed locally, NOT pushed):** `supabase/migrations/20260616200000_user_bookmarks.sql` (new), `lib/services/bookmarkService.ts` (new), `components/recipe/BookmarkSheet.tsx` (new), `components/recipe/RecipeHeader.tsx`, `screens/RecipeDetailScreen.tsx` ⚠️ PK snapshot now stale (was 2026-05-19), `docs/SESSION_LOG.md`. Staged own files only (no `git add -A`), per the shared-tree notice. `git status` pre-commit: ` M components/recipe/RecipeHeader.tsx`, ` M screens/RecipeDetailScreen.tsx`, ` M docs/CC_START_PROMPT.md` (not mine — left), `?? components/recipe/BookmarkSheet.tsx`, `?? lib/services/bookmarkService.ts`, `?? supabase/migrations/20260616200000_user_bookmarks.sql`, plus untracked CP4 `docs/` scripts + `_scratch/` (not mine — left).
+
+**Rule E:** `screens/RecipeDetailScreen.tsx` is Tier-listed (PK snapshot 2026-05-19); its `PK_CODE_SNAPSHOTS.md` Staleness Risk was **already HIGH** → no row edit needed (flag carried in this entry). `RecipeHeader.tsx`, `BookmarkSheet.tsx`, `bookmarkService.ts` are not Tier-listed → no action.
+
+**Recommended doc updates:**
+- `DEFERRED_WORK.md` — **add** three follow-ups (Claude.ai to reconcile; I did not edit the living doc): (1) **Meal Plan → overflow-menu-only move** (Tom: "could tentatively" — kept as header button for now); (2) **bookmark chips on recipe LIST cards** (`RecipeListScreen` / recipe card), today they show on detail only; (3) **relabel "Cook Soon" → "Make Soon"** in `CookSoonScreen` / `CookSoonSection` headers for consistency (key unchanged — purely cosmetic).
+- `FRIGO_ARCHITECTURE.md` — when reconciled, note the new `bookmarkService` (Recipe domain) + `user_bookmarks` table and that bookmark assignments ride on `user_recipe_tags` keyed by bookmark key.
+- `PROJECT_CONTEXT.md` — none.
+- `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) **Greenlight the migration push** — reply to proceed and I'll `supabase db push` + run the live backend harness + push to `origin/main`. (2) Then test in Expo: open a recipe → bookmark button opens the sheet → toggle Favorite/Make Soon + create a custom colored bookmark → chips appear at the header top (star on Favorite) → confirm Make Soon still shows in the Cook Soon screen and the Meal Plan button still opens the meal modal.
+
+---
+
 ## 2026-06-16 — Catalog cover-quality remediation — fixed wrong "Plenty" cover (was showing Plenty More's) + 11 transcribed books, then batch hi-res upgrade of **240/298** catalog covers. Prod DB+storage writes only; no git changes.
 
 **Self-contained note** (the parallel onboarding instance manages other entries). All work here is production `books.cover_image_url` + Supabase storage writes (no migrations, no app code). Fix scripts live in gitignored `_scratch/`.

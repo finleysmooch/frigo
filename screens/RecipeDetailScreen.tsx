@@ -60,7 +60,9 @@ import { wrapDishIntoNewMeal, addDishesToMeal } from '../lib/services/mealServic
 import MealPicker from '../components/MealPicker';
 import MadeOtherDishesSheet from '../components/MadeOtherDishesSheet';
 import { generateSmartTitle } from '../utils/titleGenerator';
-import { addToCookSoon, removeFromCookSoon, isInCookSoon } from '../lib/services/userRecipeTagsService';
+import { getAssignedBookmarks } from '../lib/services/bookmarkService';
+import BookmarkSheet from '../components/recipe/BookmarkSheet';
+import { RecipeBookmarkChip } from '../components/recipe/RecipeHeader';
 import { deleteRecipe } from '../lib/services/recipeService';
 import { shareRecipe } from '../lib/services/shareService';
 import {
@@ -237,8 +239,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   const hasSeenPreparation = useRef(false);
   const topBarHeight = 52;
 
-  // Cook Soon
-  const [isCookSoon, setIsCookSoon] = useState(false);
+  // Bookmarks (Favorite / Make Soon / custom) — chips + picker sheet
+  const [bookmarkChips, setBookmarkChips] = useState<RecipeBookmarkChip[]>([]);
+  const [showBookmarkSheet, setShowBookmarkSheet] = useState(false);
+  const hasAnyBookmark = bookmarkChips.length > 0;
+
+  const refreshBookmarkChips = async (uid: string, rid: string) => {
+    const assigned = await getAssignedBookmarks(uid, rid);
+    setBookmarkChips(
+      assigned.map((b) => ({ key: b.key, name: b.name, color: b.color, kind: b.kind })),
+    );
+  };
 
   // Step focus mode
   const [focusedStepKey, setFocusedStepKey] = useState<string | null>(null);
@@ -493,10 +504,9 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         setSupplies(data);
       }
 
-      // Check Cook Soon status
+      // Load assigned bookmarks (header chips)
       try {
-        const saved = await isInCookSoon(user.id, recipePreview.id);
-        setIsCookSoon(saved);
+        await refreshBookmarkChips(user.id, recipePreview.id);
       } catch (_) {}
     } catch (error) {
       console.error('Error loading supplies:', error);
@@ -766,20 +776,6 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
   // Top bar title visibility (show only when actual title scrolled offscreen)
   const showTopBarTitle = scrollY >= titleBottomY && titleBottomY > 0;
 
-  // Cook Soon toggle
-  const handleToggleCookSoon = async () => {
-    if (!currentUserId || !recipe) return;
-    try {
-      if (isCookSoon) {
-        await removeFromCookSoon(currentUserId, recipe.id);
-        setIsCookSoon(false);
-      } else {
-        await addToCookSoon(currentUserId, recipe.id);
-        setIsCookSoon(true);
-      }
-    } catch (_) {}
-  };
-
   // "I Made This" primary CTA — opens LogCookSheet compact mode
   const handleIMadeThisPrimary = () => {
     setShowLogCookSheet(true);
@@ -1039,10 +1035,10 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         <View style={styles.topRightButtons}>
           <TouchableOpacity
             style={styles.topBarIcon}
-            onPress={handleToggleCookSoon}
+            onPress={() => setShowBookmarkSheet(true)}
             activeOpacity={0.7}
           >
-            {isCookSoon ? <SaveFilledIcon size={23} /> : <SaveOutlineIcon size={23} />}
+            {hasAnyBookmark ? <SaveFilledIcon size={23} /> : <SaveOutlineIcon size={23} />}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.overflowButton}
@@ -1070,13 +1066,13 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             <TouchableOpacity
               style={styles.menuItemRow}
               onPress={() => {
-                handleToggleCookSoon();
                 setShowOverflowMenu(false);
+                setShowBookmarkSheet(true);
               }}
             >
-              {isCookSoon ? <SaveFilledIcon size={18} /> : <SaveOutlineIcon size={18} />}
-              <Text style={[styles.menuItemRowText, isCookSoon && { color: '#0d9488' }]}>
-                {isCookSoon ? 'Remove from Cook Soon' : 'Cook Soon'}
+              {hasAnyBookmark ? <SaveFilledIcon size={18} /> : <SaveOutlineIcon size={18} />}
+              <Text style={[styles.menuItemRowText, hasAnyBookmark && { color: '#0d9488' }]}>
+                Bookmarks
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1284,8 +1280,8 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           onBookPress={handleBookPress}
           onChefPress={handleChefPress}
           onShowMealModal={() => setShowMealModal(true)}
-          onToggleCookSoon={handleToggleCookSoon}
-          isCookSoon={isCookSoon}
+          onOpenBookmarks={() => setShowBookmarkSheet(true)}
+          bookmarkChips={bookmarkChips}
           onTitleLayout={(y) => setTitleBottomY(y)}
         />
 
@@ -1595,6 +1591,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           spaceId={activeSpaceId}
           userId={currentUserId}
           initialQuery={supplyCreateQuery ?? ''}
+        />
+      )}
+
+      {/* Bookmark picker / manager */}
+      {currentUserId && recipe && (
+        <BookmarkSheet
+          visible={showBookmarkSheet}
+          onClose={() => setShowBookmarkSheet(false)}
+          recipeId={recipe.id}
+          userId={currentUserId}
+          onChange={() => refreshBookmarkChips(currentUserId, recipe.id)}
         />
       )}
 

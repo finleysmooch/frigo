@@ -4,6 +4,16 @@ import { useTheme } from '../../lib/theme/ThemeContext';
 import { NoPhotoPlaceholder } from '../feedCard/sharedCardElements';
 import BookIcon from '../icons/recipe/BookIcon';
 import GlobeIcon from '../icons/recipe/GlobeIcon';
+import { SaveOutlineIcon, SaveFilledIcon } from './SaveIcon';
+import StarIcon from '../icons/recipe/StarIcon';
+
+// Lightweight shape of a bookmark assigned to this recipe (for the chips).
+export interface RecipeBookmarkChip {
+  key: string;
+  name: string;
+  color: string;
+  kind: 'favorite' | 'cook_soon' | 'custom';
+}
 
 const SOURCE_LINK_COLOR = '#0d9488';
 
@@ -43,8 +53,8 @@ interface RecipeHeaderProps {
   onBookPress: () => void;
   onChefPress: () => void;
   onShowMealModal: () => void;
-  onToggleCookSoon: () => void;
-  isCookSoon: boolean;
+  onOpenBookmarks: () => void;
+  bookmarkChips: RecipeBookmarkChip[];
   onTitleLayout?: (bottomY: number) => void;
 }
 
@@ -73,8 +83,9 @@ function sourceLabel(domain?: string): string | null {
 
 export default function RecipeHeader({
   recipe, totalTime, onBookPress, onChefPress,
-  onShowMealModal, onToggleCookSoon, isCookSoon, onTitleLayout,
+  onShowMealModal, onOpenBookmarks, bookmarkChips, onTitleLayout,
 }: RecipeHeaderProps) {
+  const hasAnyBookmark = bookmarkChips.length > 0;
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [fullLineCount, setFullLineCount] = useState(0);
   // Phase 7I Checkpoint 5 / 5.2 D50: track hero image load failures so we
@@ -160,16 +171,28 @@ export default function RecipeHeader({
               <Text style={styles.actionBtnText}>+ Meal Plan</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, isCookSoon && styles.actionBtnActive]}
-              onPress={onToggleCookSoon}
+              style={[styles.actionBtn, styles.bookmarkBtn, hasAnyBookmark && styles.actionBtnActive]}
+              onPress={onOpenBookmarks}
               activeOpacity={0.7}
             >
-              <Text style={[styles.actionBtnText, isCookSoon && styles.actionBtnTextActive]}>
-                {isCookSoon ? '✓ Saved' : '+ Cook Soon'}
-              </Text>
+              {hasAnyBookmark
+                ? <SaveFilledIcon size={16} color="#fff" />
+                : <SaveOutlineIcon size={16} color="#0d9488" />}
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Bookmark chips — the recipe's selected bookmarks (star for Favorite). */}
+        {bookmarkChips.length > 0 && (
+          <View style={styles.chipsRow}>
+            {bookmarkChips.map((c) => (
+              <View key={c.key} style={[styles.chip, { backgroundColor: c.color + '22', borderColor: c.color }]}>
+                {c.kind === 'favorite' && <StarIcon size={11} color={c.color} />}
+                <Text style={[styles.chipText, { color: c.color }]} numberOfLines={1}>{c.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Cooking time + servings — always visible when data exists */}
         {totalTime > 0 && (
@@ -289,6 +312,32 @@ const styles = StyleSheet.create({
   },
   actionBtnTextActive: {
     color: '#fff',
+  },
+  bookmarkBtn: {
+    paddingHorizontal: 10,
+    minWidth: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    maxWidth: 160,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   infoText: {
     fontSize: 14,
