@@ -7,6 +7,26 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Catalog cover-quality remediation — fixed wrong "Plenty" cover (was showing Plenty More's) + 11 transcribed books, then batch hi-res upgrade of **240/298** catalog covers. Prod DB+storage writes only; no git changes.
+
+**Self-contained note** (the parallel onboarding instance manages other entries). All work here is production `books.cover_image_url` + Supabase storage writes (no migrations, no app code). Fix scripts live in gitignored `_scratch/`.
+
+**Bug (Tom-reported):** "Plenty" (Ottolenghi) showed **Plenty More's** cover, and ~9 other transcribed cookbooks (By Heart, Dinner Tonight, Rachael's Good Eats, Six Seasons, Something from Nothing, Tahini Baby, The Comfortable Kitchen, The Ambitious Kitchen Cookbook, More is More) were blank. **Root cause:** these are the CP4b-promoted transcribed books (now `is_catalog=true`), which were excluded from the catalog enrichment so they had **no ISBNs**; the earlier cover-host pass used `resolve_covers.py`'s OL **title search with no title-match validation**, so "Plenty" grabbed the first OL doc with a cover (`8444119` = Plenty More) and the rest found nothing.
+
+**Fix — phase 1 (the 11 books):** built a validated resolver reusing `enrich_cookbook_catalog.py`'s `gb_lookup`/`ol_lookup` (require title+author match → "Plenty" can't match "Plenty More"). Found correct ISBN+cover for all 11; hosted to `recipe-images/book-covers/{book_id}.jpg` (upsert overwrote Plenty's wrong image) and set the real `isbn13`. Then **upgraded to hi-res**: Google Books hides a tiny `thumbnail` by default but exposes `extraLarge` (~1280–2400px) — pulled the largest image and stripped `&edge=curl` for a flat cover. Verified: Plenty 2304×3191, Six Seasons 2364×3189, etc. (Discovered the good reference covers — Simple / Cook This Book / That Sounds So Good — were **hand-curated** uploads in a separate `book-covers` bucket, not API-sourced.)
+
+**Fix — phase 2 (the rest of the catalog, on Tom's "do the same for the rest"):** exported the **298** `is_catalog=true` books not yet Frigo-hosted (62 blank + 236 hotlinked OL/GB). Resolved hi-res covers **by ISBN** for the 287 with one (GB volume-by-ISBN → `extraLarge`; zero wrong-book risk), validated title search for the 11 without; fallback OL-by-ISBN. **Hosted 240, 0 failed** (171 GB `extraLarge`/`large` 800–2400px + 69 OL ~500px), all with `?v=hires` cache-bust. **58 unchanged** (no regression — kept current cover): 32 keep decent OL hotlinks, 4 keep low-res GB thumbs, 22 are genuinely cover-less.
+
+**Net catalog cover state:** **253 of 311** `is_catalog=true` books now have hosted covers (240 newly hi-res + the 11 transcribed + the 3 hand-curated reference). 58 remain on hotlink/blank.
+
+**Files:** none committed — production DB + storage writes only. Tooling in gitignored `_scratch/scripts/` (`fix_covers_resolve.py`, `fix_catalog_covers_resolve.py`, harness host/audit entries). **Rule E:** no app service/component code edited → no PK snapshot action.
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — **CAT-1 (catalog cover self-host) is now ~done**: 253/311 hosted hi-res; remainder = re-host 32 OL-hotlinks (optional, ~500px) + hand-curate 26 (22 blank + 4 low-res GB) the way the reference covers were done. `FRIGO_ARCHITECTURE.md` / `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) Covers should appear immediately (cache-busted); if any look stale, hard-refresh. (2) The 26 cover-less/low-res books need hand-picked images (I can produce the exact list). (3) Optional: self-host the 32 OL-hotlinks for consistency.
+
+---
+
 ## 2026-06-16 — Systemic 1000-row-cap sweep: shared `fetchAllRows` helper + 4 more call sites fixed (books-page recipe count 67→120, recipe search, tag counts)
 
 **Tom: "address this issue across ALL affected pages."** After the recipes-page fix, an Explore-agent audit of `lib/services/**` + `screens/**` + `components/**` found the cap class in several more spots. Fixed the ones that **actually truncate in practice** (large/growing tables, real >1000 sets); banked the theoretically-bounded ones.
