@@ -464,26 +464,17 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
       // line, full original_text + group_name/group_number), uniform across both
       // extraction pipelines. The normalized `recipe_ingredients` rows stay the
       // matching layer: we overlay each line's 4-level pantry match by attaching
-      // its ingredient_id best-effort (sequence_order, then bare-name substring),
-      // since the new-pipeline books split compound lines / skip sub-recipe refs
-      // so rows don't always map 1:1 to display lines. Lines that can't be mapped
-      // still render correctly — they just don't carry a per-row match glyph.
+      // its ingredient_id. Both lists are ordered by sequence_order, but the
+      // new-pipeline books split a compound line ("salt and pepper") into several
+      // rows and skip sub-recipe-reference lines, so the row count drifts from the
+      // display-line count. We map with an ORDERED TWO-POINTER walk + text
+      // containment (NOT a sequence_order lookup, which shifts after the first
+      // split): for each display line, consume the consecutive rows whose text is
+      // contained in it (>=1 for a split line, 0 for a skipped sub-recipe line);
+      // the first consumed row drives the line's match glyph. Lines that consume
+      // no row still render correctly, just without a per-row glyph.
       const riRows: any[] = ingredientsData || [];
-      const riBySeq = new Map<number, any>();
-      for (const row of riRows) {
-        if (row.sequence_order != null && !riBySeq.has(row.sequence_order)) riBySeq.set(row.sequence_order, row);
-      }
-      const findRiByName = (line: string, used: Set<any>): any | null => {
-        const lc = (line || '').toLowerCase();
-        let best: any = null;
-        let bestLen = 0;
-        for (const row of riRows) {
-          if (used.has(row)) continue;
-          const name = (row.original_text || '').toLowerCase().trim();
-          if (name && name.length > bestLen && lc.includes(name)) { best = row; bestLen = name.length; }
-        }
-        return best;
-      };
+      const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
       const rawIngredients = recipeData.ingredients;
       const hasJsonbLines = Array.isArray(rawIngredients) && rawIngredients.length > 0
@@ -491,12 +482,15 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
       let formattedIngredients: any[];
       if (hasJsonbLines) {
-        const usedRi = new Set<any>();
+        let p = 0; // ordered pointer into riRows (both ordered by sequence_order)
         formattedIngredients = rawIngredients.map((el: any, i: number) => {
-          // best-effort map to a normalized row for the pantry-match overlay
-          let ri = el.sequence_order != null ? riBySeq.get(el.sequence_order) : undefined;
-          if (!ri || usedRi.has(ri)) ri = findRiByName(el.original_text || el.ingredient || '', usedRi) || ri;
-          if (ri) usedRi.add(ri);
+          const lineNorm = norm(el.original_text || el.ingredient || '');
+          let ri: any = null;
+          while (p < riRows.length) {
+            const t = norm(riRows[p].original_text || '');
+            if (t && lineNorm.includes(t)) { if (!ri) ri = riRows[p]; p++; }
+            else break;
+          }
           return {
             // ingredient_id drives the match map + available count; synthetic + unique when unmatched
             id: ri?.ingredient_id || `jsonb-${recipeData.id}-${i}`,
