@@ -459,18 +459,61 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
 
       if (ingredientsError) throw ingredientsError;
 
-      // Merge group_name from the recipes.ingredients JSONB
-      const rawIngredients = recipeData.ingredients || [];
+      // Render the ingredient LIST from the recipes.ingredients JSONB — it's the
+      // verbatim "as-extracted" display representation (one entry per displayed
+      // line, full original_text + group_name/group_number), uniform across both
+      // extraction pipelines. The normalized `recipe_ingredients` rows stay the
+      // matching layer: we overlay each line's 4-level pantry match by attaching
+      // its ingredient_id best-effort (sequence_order, then bare-name substring),
+      // since the new-pipeline books split compound lines / skip sub-recipe refs
+      // so rows don't always map 1:1 to display lines. Lines that can't be mapped
+      // still render correctly — they just don't carry a per-row match glyph.
+      const riRows: any[] = ingredientsData || [];
+      const riBySeq = new Map<number, any>();
+      for (const row of riRows) {
+        if (row.sequence_order != null && !riBySeq.has(row.sequence_order)) riBySeq.set(row.sequence_order, row);
+      }
+      const findRiByName = (line: string, used: Set<any>): any | null => {
+        const lc = (line || '').toLowerCase();
+        let best: any = null;
+        let bestLen = 0;
+        for (const row of riRows) {
+          if (used.has(row)) continue;
+          const name = (row.original_text || '').toLowerCase().trim();
+          if (name && name.length > bestLen && lc.includes(name)) { best = row; bestLen = name.length; }
+        }
+        return best;
+      };
 
-      const formattedIngredients = ingredientsData.map((item: any) => {
-        // Find matching ingredient in JSONB by original_text or sequence_order
-        const jsonbMatch = rawIngredients.find((raw: any) => {
-          if (typeof raw === 'string') return false;
-          return raw.original_text === item.original_text
-              || raw.sequence_order === item.sequence_order;
+      const rawIngredients = recipeData.ingredients;
+      const hasJsonbLines = Array.isArray(rawIngredients) && rawIngredients.length > 0
+        && typeof rawIngredients[0] === 'object' && rawIngredients[0] !== null;
+
+      let formattedIngredients: any[];
+      if (hasJsonbLines) {
+        const usedRi = new Set<any>();
+        formattedIngredients = rawIngredients.map((el: any, i: number) => {
+          // best-effort map to a normalized row for the pantry-match overlay
+          let ri = el.sequence_order != null ? riBySeq.get(el.sequence_order) : undefined;
+          if (!ri || usedRi.has(ri)) ri = findRiByName(el.original_text || el.ingredient || '', usedRi) || ri;
+          if (ri) usedRi.add(ri);
+          return {
+            // ingredient_id drives the match map + available count; synthetic + unique when unmatched
+            id: ri?.ingredient_id || `jsonb-${recipeData.id}-${i}`,
+            name: ri?.ingredient?.name || el.ingredient || 'Unknown',
+            displayText: el.original_text || el.ingredient || '',  // verbatim extracted line
+            family: ri?.ingredient?.family || 'Other',
+            quantity_amount: ri?.quantity_amount ?? undefined,
+            quantity_unit: ri?.quantity_unit ?? undefined,
+            preparation: el.preparation ?? ri?.preparation ?? undefined,
+            group_name: el.group_name ?? null,
+            group_number: el.group_number ?? null,
+          };
         });
-
-        return {
+      } else {
+        // Fallback (empty/absent JSONB — e.g. web imports before section capture):
+        // render from the normalized rows exactly as before.
+        formattedIngredients = riRows.map((item: any) => ({
           id: item.ingredient_id,
           name: item.ingredient?.name || 'Unknown',
           displayText: item.original_text,
@@ -478,10 +521,10 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
           quantity_amount: item.quantity_amount,
           quantity_unit: item.quantity_unit,
           preparation: item.preparation,
-          group_name: typeof jsonbMatch === 'object' ? (jsonbMatch.group_name || null) : null,
-          group_number: typeof jsonbMatch === 'object' ? (jsonbMatch.group_number ?? null) : null,
-        };
-      });
+          group_name: null,
+          group_number: null,
+        }));
+      }
 
       setIngredients(formattedIngredients);
 
