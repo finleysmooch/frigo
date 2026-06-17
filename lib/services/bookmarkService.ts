@@ -33,19 +33,23 @@ export interface BookmarkWithState extends Bookmark {
   isAssigned: boolean;
 }
 
-// Fixed palette for custom bookmarks (Tom-confirmed). Defaults use their own
-// fixed colors below. Must match the DB CHECK (^#[0-9A-Fa-f]{6}$).
+// Fixed palette for custom bookmarks. Deeper, cohesive jewel tones (the 600–800
+// range) chosen to harmonize with Frigo's teal-forward brand rather than the
+// generic bright Tailwind set — reads more professional. Must match the DB
+// CHECK (^#[0-9A-Fa-f]{6}$).
 export const BOOKMARK_PALETTE = [
-  '#0d9488', // teal
-  '#F59E0B', // amber
-  '#EF4444', // red
-  '#3B82F6', // blue
-  '#8B5CF6', // purple
-  '#10B981', // green
+  '#0d9488', // teal (brand primary)
+  '#0e7490', // deep cyan
+  '#65a30d', // olive / lime (brand accent, deepened)
+  '#ca8a04', // gold
+  '#c2410c', // terracotta
+  '#9f1239', // wine
+  '#6d28d9', // plum
+  '#475569', // slate
 ];
 
-const FAVORITE_COLOR = '#EAB308'; // gold
-const MAKE_SOON_COLOR = '#F59E0B'; // amber
+const FAVORITE_COLOR = '#ca8a04'; // gold (matches the palette's deepened gold)
+const MAKE_SOON_COLOR = '#0d9488'; // teal (brand primary)
 
 export const DEFAULT_BOOKMARKS: Bookmark[] = [
   { id: null, key: 'favorite', name: 'Favorite', color: FAVORITE_COLOR, kind: 'favorite', sort_order: -2, editable: false },
@@ -66,18 +70,29 @@ function rowToBookmark(r: CustomRow): Bookmark {
   return { id: r.id, key: r.key, name: r.name, color: r.color, kind: 'custom', sort_order: r.sort_order, editable: true };
 }
 
-/** All of the user's bookmarks: the two locked defaults + their custom ones. */
+/**
+ * All of the user's bookmarks: the two locked defaults + their custom ones.
+ * The defaults are always returned — if the custom-rows query fails (e.g. the
+ * user_bookmarks migration hasn't been applied yet), we still surface Favorite
+ * and Make Soon (those ride on user_recipe_tags, which always exists).
+ */
 export async function listBookmarks(userId: string): Promise<Bookmark[]> {
-  const rows = await fetchAllRows<CustomRow>((from, to) =>
-    supabase
-      .from('user_bookmarks')
-      .select('id, key, name, color, sort_order')
-      .eq('user_id', userId)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true })
-      .range(from, to)
-  );
-  return [...DEFAULT_BOOKMARKS, ...rows.map(rowToBookmark)];
+  let custom: Bookmark[] = [];
+  try {
+    const rows = await fetchAllRows<CustomRow>((from, to) =>
+      supabase
+        .from('user_bookmarks')
+        .select('id, key, name, color, sort_order')
+        .eq('user_id', userId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+        .range(from, to)
+    );
+    custom = rows.map(rowToBookmark);
+  } catch (error) {
+    console.warn('listBookmarks: could not load custom bookmarks (defaults still shown):', error);
+  }
+  return [...DEFAULT_BOOKMARKS, ...custom];
 }
 
 /** Create a custom bookmark. Key = lowercase slug + short suffix (stable). */

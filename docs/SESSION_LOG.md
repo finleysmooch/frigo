@@ -7,7 +7,23 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
-## 2026-06-16 — Custom recipe bookmarks (Favorite / Make Soon / user-created) — code complete, migration dry-run PASS, **DB push flagged for Tom**
+## 2026-06-16 — Custom recipe bookmarks (Favorite / Make Soon / user-created) — **SHIPPED to prod** (migration pushed + post-push harness ALL PASS) + UX iteration round
+
+**UX iteration round (Tom live-testing):**
+- **Picker is now a centered pop-up card**, not a full-width bottom sheet (Tom: "should be an inline modal that pops up") — fade-in, ~360px, auto-height, rounded + shadow; defaults always listed, ＋ New bookmark opens the name+color form in the same card.
+- **Defaults were vanishing** (Tom: "why aren't the default bookmarks there?") — `listBookmarks` loaded the custom rows first and that query threw on the not-yet-existing table, taking the hard-coded defaults down with it. Hardened: the custom-rows query is now wrapped in try/catch so Favorite + Make Soon **always render** (they ride on `user_recipe_tags`). Root fix was pushing the migration (below).
+- **Make Soon recolored to brand teal** `#0d9488` (was amber).
+- **Palette refreshed** to deeper, cohesive jewel tones matching Frigo's teal-forward scheme (teal, deep cyan `#0e7490`, olive/lime `#65a30d`, gold `#ca8a04`, terracotta `#c2410c`, wine `#9f1239`, plum `#6d28d9`, slate `#475569`) — replaced the generic bright Tailwind set (Tom: "doesn't feel very professional"). Favorite's gold nudged to the palette's `#ca8a04` for consistency.
+- **Sticky top-bar indicator now multi-colored** (Tom: "sleek way of presenting which banners are selected … multiple? multi-colored?") — the single filled/empty bookmark icon is now up to 3 **stacked colored glyphs** (each in its bookmark color, star on Favorite, slight overlap) with **+N** overflow; single outline icon when none. The named chips below the title remain as the detailed view.
+
+**Push + verification:**
+- `supabase db push` (Tom greenlit: "go ahead") — **applied** `20260616200000_user_bookmarks.sql` to prod.
+- Post-push harness `_scratch/scripts/user_bookmarks_postpush_2026-06-16.mjs` (throwaway authed users, full cleanup) — **ALL PASS (9/9):** B1 authed insert own row · B2 select own · B3 dup name→23505 · B4 dup key→23505 · B5 bad color→23514 (CHECK) · B6 rename keeps key · B7 anon→0 rows (RLS) · B8 user B can't see A's row (RLS) · B9 delete→0 remain.
+- `tsc --noEmit` clean on all touched files across both rounds.
+
+---
+
+## 2026-06-16 — Custom recipe bookmarks — original build entry (superseded by the SHIPPED entry above)
 
 **Tom's request:** generalize the recipe header's `+ Cook Soon` / `+ Meal Plan` pills into custom bookmarks — users create their own ("Make for Anne", "Thanksgiving") each with a color, plus two built-in defaults: **Favorite** (bookmark glyph + star) and **Make Soon** (the existing `cook_soon`, relabeled). A recipe's selected bookmarks render as colored chips at the header top (star for Favorite); a bookmark/＋ button opens a sheet to toggle/create. **Decisions (Tom, via AskUserQuestion):** chips at header top, multiple allowed; **defaults LOCKED** (no rename/recolor/delete → code constants, not rows); Meal Plan kept as its own header button **for now** (tentative future move to overflow-only — flagged, not done); palette confirmed (teal/amber/red/blue/purple/green). Plan: `~/.claude/plans/sequential-plotting-pearl.md`.
 

@@ -47,6 +47,7 @@ import { buildStepKeys } from '../components/recipe/PreparationSection';
 import { toTitleCase } from '../components/recipe/RecipeHeader';
 import Svg, { Path, Rect, Line } from 'react-native-svg';
 import { SaveOutlineIcon, SaveFilledIcon } from '../components/recipe/SaveIcon';
+import StarIcon from '../components/icons/recipe/StarIcon';
 import { AgainIcon, CalendarOutline, PencilIcon } from '../components/icons';
 import TimesMadeModal from '../components/TimesMadeModal';
 import LogCookSheet from '../components/LogCookSheet';
@@ -1038,7 +1039,25 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
             onPress={() => setShowBookmarkSheet(true)}
             activeOpacity={0.7}
           >
-            {hasAnyBookmark ? <SaveFilledIcon size={23} /> : <SaveOutlineIcon size={23} />}
+            {hasAnyBookmark ? (
+              <View style={styles.topBarBookmarks}>
+                {bookmarkChips.slice(0, 3).map((c, i) => (
+                  <View key={c.key} style={[styles.topBarGlyph, i > 0 && { marginLeft: -7 }]}>
+                    <SaveFilledIcon size={22} color={c.color} />
+                    {c.kind === 'favorite' && (
+                      <View style={styles.topBarStar}>
+                        <StarIcon size={9} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {bookmarkChips.length > 3 && (
+                  <Text style={styles.topBarPlus}>+{bookmarkChips.length - 3}</Text>
+                )}
+              </View>
+            ) : (
+              <SaveOutlineIcon size={23} />
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.overflowButton}
@@ -1777,6 +1796,24 @@ const styles = StyleSheet.create({
   topBarIcon: {
     paddingVertical: 6,
     paddingHorizontal: 4,
+  },
+  topBarBookmarks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topBarGlyph: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBarStar: {
+    position: 'absolute',
+    top: 4,
+  },
+  topBarPlus: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginLeft: 3,
   },
   overflowButton: {
     paddingHorizontal: 6,

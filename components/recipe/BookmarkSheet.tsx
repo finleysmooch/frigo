@@ -169,12 +169,12 @@ export default function BookmarkSheet({ visible, onClose, recipeId, userId, onCh
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop} />
-      </TouchableWithoutFeedback>
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+        <View style={styles.card}>
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ paddingVertical: 32 }} />
@@ -234,6 +234,7 @@ export default function BookmarkSheet({ visible, onClose, recipeId, userId, onCh
             </TouchableOpacity>
           </>
         )}
+        </View>
       </View>
     </Modal>
   );
@@ -241,22 +242,25 @@ export default function BookmarkSheet({ visible, onClose, recipeId, userId, onCh
 
 const createStyles = (colors: any) =>
   StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-    sheet: {
-      backgroundColor: colors.background.card,
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
-      padding: 20,
-      paddingBottom: 32,
-      maxHeight: '75%',
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
     },
-    handle: {
-      alignSelf: 'center',
-      width: 40,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border.medium,
-      marginBottom: 12,
+    card: {
+      width: '100%',
+      maxWidth: 360,
+      maxHeight: '78%',
+      backgroundColor: colors.background.card,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
     },
     title: { fontSize: 18, fontWeight: '700', color: colors.text.primary, marginBottom: 12 },
     list: { maxHeight: 320 },
