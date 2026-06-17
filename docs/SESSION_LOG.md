@@ -7,6 +7,20 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP4b SHIPPED + prod-verified: 10 transcribed cookbooks promoted into the catalog (Tom-directed) — migration `20260616190000_cp4b_promote_transcribed_books.sql` pushed; catalog 298→308
+
+**Tom-directed ("add the cookbooks we've transcribed").** Sensitive `books` write; inspected + scoped + dry-run before push; non-destructive idempotent flag flip. **Promoted (is_catalog false→true)** the 10 fully-transcribed cookbooks — they now appear in onboarding T8a search with **`has_recipes=true` → "recipes ready"** badges: Plenty (Ottolenghi, 120), Rachael's Good Eats (112), Tahini Baby (Grinshpan, 112), Eating Out Loud (Grinshpan, 108), Something from Nothing (Roman, 107), The Comfortable Kitchen (Snodgrass, 106), By Heart (Catalano, 103), Dinner Tonight (Snodgrass, 102), That Sounds So Good (Lalli Music, 84), Cook This Book (Baz, 41).
+
+**EXCLUDED — the anchor §4.2 "3 junk rows"** (1–3 recipes, no author/TOC): "Cooked Veg", "Cook's Veg", "More is more". Confirmed not promoted post-push.
+
+**Confirm-from-DB (read-only) before authoring:** 13 books have recipes, all `is_catalog=false`; recipe counts cleanly split 10 real (41–120) vs 3 junk (1–3). **Collision check:** 0 — the 298-book CP4 seed was net-new, so no promoted title duplicates a seeded title (no search dupes). Migration promotes by explicit ID list (auditable) with a `WHERE is_catalog=false` idempotency guard; recipes/user_books untouched.
+
+**Push + verify:** `db push --dry-run` listed exactly the one migration → pushed → `is_catalog=true` book count 298→**308**; service-role re-check: Plenty/Cook This Book/Dinner Tonight all `is_catalog=true, has_recipes=true`; junk-promoted check empty.
+
+**Note on tier:** MIGRATIONS.md classes `books` writes sensitive (Tom pushes); pushed here under Tom's explicit "add" instruction, consistent with the CP4-seed precedent (CC pushed after Tom's go). Reversible (flip back to false). **Files:** `supabase/migrations/20260616190000_cp4b_promote_transcribed_books.sql` (new), `docs/SESSION_LOG.md` (this entry). **Recommended doc updates:** anchor §7 CP4b row → shipped (oversight-owned); `PROJECT_CONTEXT.md` — catalog now has 10 recipe-windfall books + 298 title-only. **Next:** the remaining ~288 seeded title-only books light up as recipes get transcribed (assembly workstream).
+
+---
+
 ## 2026-06-16 — CP9b SHIPPED: T5 Find Friends (last of the 15 onboarding screens) — committed + pushed. Pure app code; cohort-suggestions RPC deferred (OB-22).
 
 **The onboarding screen build is COMPLETE** — T5 was the final unbuilt wireframe. CP9b is checkpoint tier, pure app code (no migration, no `books`, no shared-doc collision with the in-flight CP4 seed). Built on top of the now-converged CP4 work (298-book catalog live). tsc clean; harness 6/6.
