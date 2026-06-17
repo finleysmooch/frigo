@@ -1762,7 +1762,14 @@ export default function RecipeListScreen({ navigation, route }: Props) {
             chefs:chef_id (name)
           `)
           .eq('user_id', user.id)
+          // Stable, total ordering for pagination: created_at alone is NOT
+          // unique (e.g. ~200 cookbook recipes share one import timestamp), and
+          // PostgREST .range() paging over a non-unique key is non-deterministic
+          // across requests — rows in a tied cluster can shuffle between pages
+          // and get skipped entirely at a page boundary. Adding `id` as a unique
+          // tiebreaker makes the order total so every row is fetched exactly once.
           .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .range(pageFrom, pageFrom + RECIPE_PAGE - 1);
 
         if (error) throw error;
