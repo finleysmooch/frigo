@@ -64,7 +64,8 @@ import { filterReadyToCook, getRecipeIngredientNames } from '../lib/services/rea
 import { RecipeCard, type Recipe } from '../components/recipe/RecipeCard';
 import { BrowseLensChip } from '../components/recipe/BrowseLensChip';
 import BookmarkFilterRow from '../components/recipe/BookmarkFilterRow';
-import { getRecipesForBookmark } from '../lib/services/bookmarkService';
+import BookmarkSheet from '../components/recipe/BookmarkSheet';
+import { getRecipesForBookmark, getBookmarksByRecipe, type Bookmark } from '../lib/services/bookmarkService';
 import {
   resolveBrowse,
   getCookAgainSections,
@@ -192,6 +193,10 @@ export default function RecipeListScreen({ navigation, route }: Props) {
   // Bookmark view-filter (single-select). Applied to the list only in list mode.
   const [activeBookmark, setActiveBookmark] = useState<string | null>(null);
   const [bookmarkFilterIds, setBookmarkFilterIds] = useState<Set<string> | null>(null);
+  // Per-recipe bookmark assignments for the card glyphs + the picker sheet.
+  const [bookmarksByRecipe, setBookmarksByRecipe] = useState<Map<string, Bookmark[]>>(new Map());
+  const [bookmarkSheetRecipeId, setBookmarkSheetRecipeId] = useState<string | null>(null);
+  const [bmVersion, setBmVersion] = useState(0);
   const [nutritionMap, setNutritionMap] = useState<Map<string, RecipeNutrition>>(new Map());
   const [historyMap, setHistoryMap] = useState<Map<string, CookingHistory>>(new Map());
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -1552,7 +1557,17 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       .then((rows) => { if (alive) setBookmarkFilterIds(new Set(rows.map((r) => r.id))); })
       .catch(() => { if (alive) setBookmarkFilterIds(new Set()); });
     return () => { alive = false; };
-  }, [userId, activeBookmark]);
+  }, [userId, activeBookmark, bmVersion]);
+
+  // Per-recipe bookmark map for the card glyphs (one tag scan, reloaded on edits).
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    getBookmarksByRecipe(userId)
+      .then((m) => { if (alive) setBookmarksByRecipe(m); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [userId, bmVersion]);
 
   // Tapping a bookmark chip filters the list; from home it also enters list mode.
   const handleBookmarkFilter = useCallback((key: string | null) => {
@@ -2417,6 +2432,7 @@ export default function RecipeListScreen({ navigation, route }: Props) {
         activeKey={activeBookmark}
         onChange={handleBookmarkFilter}
         label={label}
+        reloadKey={bmVersion}
         style={styles.bookmarkFilterRow}
       />
     );
@@ -2840,6 +2856,8 @@ export default function RecipeListScreen({ navigation, route }: Props) {
       onPress={handleRecipePress}
       isSelectionMode={isSelectionMode}
       onSelectForMeal={handleSelectForMeal}
+      bookmarks={bookmarksByRecipe.get(item.id)}
+      onOpenBookmarks={(r) => setBookmarkSheetRecipeId(r.id)}
     />
   );
 
@@ -3153,6 +3171,15 @@ export default function RecipeListScreen({ navigation, route }: Props) {
         </>
       )}
       {renderModalsAndSheets()}
+      {bookmarkSheetRecipeId && userId && (
+        <BookmarkSheet
+          visible
+          onClose={() => setBookmarkSheetRecipeId(null)}
+          recipeId={bookmarkSheetRecipeId}
+          userId={userId}
+          onChange={() => setBmVersion((v) => v + 1)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }

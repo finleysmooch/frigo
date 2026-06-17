@@ -33,7 +33,8 @@ import { supabase } from '../lib/supabase';
 import { RecipeCard, type Recipe } from '../components/recipe/RecipeCard';
 import { BrowseLensChip } from '../components/recipe/BrowseLensChip';
 import BookmarkFilterRow from '../components/recipe/BookmarkFilterRow';
-import { getRecipesForBookmark } from '../lib/services/bookmarkService';
+import BookmarkSheet from '../components/recipe/BookmarkSheet';
+import { getRecipesForBookmark, getBookmarksByRecipe, type Bookmark } from '../lib/services/bookmarkService';
 import RefineSheet, { type FilterState } from '../components/RefineSheet';
 import {
   resolveBrowse,
@@ -77,7 +78,7 @@ const DIETARY_LABELS: Record<string, string> = {
 };
 
 export default function BookViewScreen({ route, navigation }: Props) {
-  const { bookId, sectionId } = route.params;
+  const { bookId, sectionId, bookmarkKey } = route.params;
   const { colors } = useTheme();
 
   const [book, setBook] = useState<Book | null>(null);
@@ -99,8 +100,12 @@ export default function BookViewScreen({ route, navigation }: Props) {
   // Bookmark view-filter (single-select). When set, the list is intersected
   // with the recipes filed under this bookmark key.
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [activeBookmark, setActiveBookmark] = useState<string | null>(null);
+  const [activeBookmark, setActiveBookmark] = useState<string | null>(bookmarkKey ?? null);
   const [bookmarkFilterIds, setBookmarkFilterIds] = useState<Set<string> | null>(null);
+  // Per-recipe bookmark assignments for the card glyphs + the picker sheet.
+  const [bookmarksByRecipe, setBookmarksByRecipe] = useState<Map<string, Bookmark[]>>(new Map());
+  const [bookmarkSheetRecipeId, setBookmarkSheetRecipeId] = useState<string | null>(null);
+  const [bmVersion, setBmVersion] = useState(0);
 
   // 11D: direction-aware collapsing filter chrome (filter line + search + status
   // collapse to a tappable pill on scroll-down; restore on scroll-up / at top).
@@ -280,7 +285,17 @@ export default function BookViewScreen({ route, navigation }: Props) {
       .then((rows) => { if (alive) setBookmarkFilterIds(new Set(rows.map((r) => r.id))); })
       .catch(() => { if (alive) setBookmarkFilterIds(new Set()); });
     return () => { alive = false; };
-  }, [currentUserId, activeBookmark]);
+  }, [currentUserId, activeBookmark, bmVersion]);
+
+  // Per-recipe bookmark map for the card glyphs (one tag scan, reloaded on edits).
+  useEffect(() => {
+    if (!currentUserId) return;
+    let alive = true;
+    getBookmarksByRecipe(currentUserId)
+      .then((m) => { if (alive) setBookmarksByRecipe(m); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [currentUserId, bmVersion]);
 
   // Resolve → section sort → search filter → bookmark filter. Each a transform.
   const visibleRecipes = useMemo<Recipe[]>(() => {
@@ -517,6 +532,7 @@ export default function BookViewScreen({ route, navigation }: Props) {
               userId={currentUserId}
               activeKey={activeBookmark}
               onChange={setActiveBookmark}
+              reloadKey={bmVersion}
               style={styles.bookmarkFilterRow}
             />
           )}
@@ -546,6 +562,8 @@ export default function BookViewScreen({ route, navigation }: Props) {
             }
             onPress={handleRecipePress}
             isSelectionMode={false}
+            bookmarks={bookmarksByRecipe.get(item.id)}
+            onOpenBookmarks={(r) => setBookmarkSheetRecipeId(r.id)}
           />
         )}
         contentContainerStyle={styles.listContainer}
@@ -580,6 +598,16 @@ export default function BookViewScreen({ route, navigation }: Props) {
         // callback never fires; pass a no-op so the prop type-checks.
         onOpenCookbookPicker={() => {}}
       />
+
+      {bookmarkSheetRecipeId && currentUserId && (
+        <BookmarkSheet
+          visible
+          onClose={() => setBookmarkSheetRecipeId(null)}
+          recipeId={bookmarkSheetRecipeId}
+          userId={currentUserId}
+          onChange={() => setBmVersion((v) => v + 1)}
+        />
+      )}
     </View>
   );
 }

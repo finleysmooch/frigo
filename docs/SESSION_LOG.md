@@ -7,6 +7,26 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Bookmarks round 3: book-screen filters + per-recipe card glyphs + quick-add
+
+Tom: add bookmark filters to the **individual book (landing) screen**, move its "Browse all recipes" CTA to the top with **bookmark pills (showing counts)**, and on recipe lists let you **see a recipe's bookmark(s) and add one** — all without clutter. (Continuation of the same-day bookmarks work below.)
+
+- **`components/recipe/BookmarkFilterRow.tsx`** — added optional `counts` + `showCounts`. In counts mode every pill (defaults included) is gated on count > 0 so a book screen never shows a pill that leads to an empty list; the count renders in the chip.
+- **`screens/BookDetailScreen.tsx`** ⚠️ PK snapshot now stale (was 2026-05-19) — lifted `currentUserId` to state; computes **per-book bookmark counts** with one chunked `user_recipe_tags.in(bookRecipeIds)` query (one row per recipe·tag → count = recipes per bookmark); **moved the "Browse all N recipes" CTA from the bottom to the top**; added a bookmark pills row (with counts) under it that deep-links into `BookView` filtered by that bookmark.
+- **`App.tsx`** ⚠️ PK snapshot now stale (was 2026-05-19) — `BookView` route gains optional `bookmarkKey`.
+- **`screens/BookViewScreen.tsx`** ⚠️ PK snapshot now stale (was 2026-04-22) — seeds `activeBookmark` from `route.params.bookmarkKey` (so the BookDetail pills land pre-filtered); loads the per-recipe bookmark map; passes glyphs to each card; mounts `BookmarkSheet` opened from a card; `bmVersion` bump re-loads the map + filter ids + filter row on edits.
+- **`screens/RecipeListScreen.tsx`** ⚠️ PK snapshot now stale (was 2026-05-19) — same per-recipe map + card glyphs + `BookmarkSheet` wiring.
+- **`components/recipe/RecipeCard.tsx`** (not tier-listed) — new optional `bookmarks` + `onOpenBookmarks` props. Compact cluster on the right of the stats line: up to 2 colored bookmark glyphs (star for Favorite, "+N" overflow) when assigned, else a subtle outline bookmark; tap opens the picker (nested touchable, doesn't toggle the card).
+- **`lib/services/bookmarkService.ts`** (not tier-listed) — new `getBookmarksByRecipe(userId)`: one tag scan → `Map<recipeId, Bookmark[]>` (skips non-bookmark tags like `saved`), so a whole list's glyphs load without per-card queries.
+
+`tsc --noEmit` clean on all touched files (baseline 181 repo errors unchanged). **Rule E:** BookDetailScreen / App.tsx / RecipeListScreen / BookViewScreen are tier-listed and already HIGH → flagged here, no row change.
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — (banked) wire `BookmarkFilterRow`'s `reloadKey` to a screen-focus listener so a bookmark created elsewhere appears without a manual reload; consider per-recipe glyphs on `SourceViewScreen` / `WhatCanICookScreen` (left unwired — optional props default off). `FRIGO_ARCHITECTURE.md` — note `getBookmarksByRecipe` + `BookmarkFilterRow` counts mode when reconciled. `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** test (1) book landing → "Browse all" at top + bookmark pills with counts → tap one → lands in the book's list pre-filtered; (2) recipe lists (home + book) show each recipe's bookmark glyphs and tapping the bookmark control opens the picker; new/removed bookmarks reflect after the sheet closes.
+
+---
+
 ## 2026-06-16 — Custom recipe bookmarks (Favorite / Make Soon / user-created) — **SHIPPED to prod** (migration pushed + post-push harness ALL PASS) + UX iteration round
 
 **UX iteration round (Tom live-testing):**

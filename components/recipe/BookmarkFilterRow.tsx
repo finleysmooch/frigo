@@ -21,23 +21,35 @@ interface Props {
   style?: StyleProp<ViewStyle>;
   /** Bump to force a reload of the bookmark list (e.g. after edits). */
   reloadKey?: number;
+  /**
+   * Per-scope counts keyed by bookmark key (e.g. how many recipes in THIS book
+   * carry each bookmark). When provided: only bookmarks with count > 0 render
+   * (defaults included), and the count is shown in the chip. Store it in parent
+   * state so the object reference stays stable across renders.
+   */
+  counts?: Record<string, number>;
+  showCounts?: boolean;
 }
 
-export default function BookmarkFilterRow({ userId, activeKey, onChange, label, style, reloadKey }: Props) {
+export default function BookmarkFilterRow({ userId, activeKey, onChange, label, style, reloadKey, counts, showCounts }: Props) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
 
   useEffect(() => {
     let alive = true;
-    Promise.all([listBookmarks(userId), getTagCounts(userId)])
-      .then(([all, counts]) => {
-        if (!alive) return;
-        // Defaults (editable === false) always render; custom bookmarks only
-        // when they actually file at least one recipe.
-        setBookmarks(all.filter((b) => !b.editable || (counts[b.key] ?? 0) > 0));
-      })
-      .catch(() => {});
+    if (counts) {
+      // Scoped mode — gate every bookmark (defaults too) on the supplied counts
+      // so we never show a pill that would navigate to an empty list.
+      listBookmarks(userId)
+        .then((all) => { if (alive) setBookmarks(all.filter((b) => (counts[b.key] ?? 0) > 0)); })
+        .catch(() => {});
+    } else {
+      // Global mode — defaults always render; customs only if they file ≥1 recipe.
+      Promise.all([listBookmarks(userId), getTagCounts(userId)])
+        .then(([all, c]) => { if (alive) setBookmarks(all.filter((b) => !b.editable || (c[b.key] ?? 0) > 0)); })
+        .catch(() => {});
+    }
     return () => { alive = false; };
-  }, [userId, reloadKey]);
+  }, [userId, reloadKey, counts]);
 
   if (bookmarks.length === 0) return null;
 
@@ -67,7 +79,9 @@ export default function BookmarkFilterRow({ userId, activeKey, onChange, label, 
               ) : (
                 <SaveOutlineIcon size={13} color={fg} />
               )}
-              <Text style={[styles.chipText, { color: fg }]}>{b.name}</Text>
+              <Text style={[styles.chipText, { color: fg }]}>
+                {b.name}{showCounts ? `  ${counts?.[b.key] ?? 0}` : ''}
+              </Text>
             </TouchableOpacity>
           );
         })}

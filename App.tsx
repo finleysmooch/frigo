@@ -212,7 +212,7 @@ export type RecipesStackParamList = {
   BookDetail: { bookId: string };
   // 11D-CP3a: optional `sectionId` is set by BookDetail's "See all →" links
   // so CP3b can preset BookView's sort (mostCooked → most_cooked, etc.).
-  BookView: { bookId: string; sectionId?: 'mostCooked' | 'recentlyCooked' | 'friendsFavorites' | 'bookmarked' };
+  BookView: { bookId: string; sectionId?: 'mostCooked' | 'recentlyCooked' | 'friendsFavorites' | 'bookmarked'; bookmarkKey?: string };
   SourceView: { domain: string };
   AuthorView: { chefName: string };
   AddRecipeFromPhoto: { userId: string; source: 'camera' | 'gallery' };

@@ -18,6 +18,8 @@ import {
   TimerIcon, FireIcon, BodybuilderIcon, PanIcon, FriendsIcon, ChefHat2,
 } from '../icons';
 import GlobeIcon from '../icons/recipe/GlobeIcon';
+import { SaveOutlineIcon, SaveFilledIcon } from './SaveIcon';
+import StarIcon from '../icons/recipe/StarIcon';
 import { VIBE_TAG_ICONS } from '../../constants/vibeIcons';
 import { useTheme } from '../../lib/theme/ThemeContext';
 import { sourceLabel } from '../../lib/utils/sourceLabel';
@@ -108,6 +110,14 @@ function buildDietaryBadges(recipe: Recipe): { key: string; label: string }[] {
   return badges;
 }
 
+// A bookmark assigned to this recipe (just what the card needs to draw a glyph).
+export interface CardBookmark {
+  key: string;
+  name: string;
+  color: string;
+  kind: 'favorite' | 'cook_soon' | 'custom';
+}
+
 interface RecipeCardProps {
   recipe: Recipe;
   isExpanded: boolean;
@@ -115,6 +125,10 @@ interface RecipeCardProps {
   onPress: (recipe: Recipe) => void;
   isSelectionMode?: boolean;
   onSelectForMeal?: (recipe: Recipe) => void;
+  /** Bookmarks currently on this recipe — rendered as small colored glyphs. */
+  bookmarks?: CardBookmark[];
+  /** When provided, a compact bookmark button shows; tap opens the picker. */
+  onOpenBookmarks?: (recipe: Recipe) => void;
 }
 
 export function RecipeCard({
@@ -124,6 +138,8 @@ export function RecipeCard({
   onPress,
   isSelectionMode = false,
   onSelectForMeal,
+  bookmarks,
+  onOpenBookmarks,
 }: RecipeCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -200,15 +216,46 @@ export function RecipeCard({
                 </View>
               )}
             </View>
-            {dietaryBadges.length > 0 && (
-              <View style={styles.dietaryBadgesGroup}>
-                {dietaryBadges.map(b => (
-                  <View key={b.key} style={styles.dietaryBadge}>
-                    <Text style={styles.dietaryBadgeText}>{b.label}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            <View style={styles.rightMetaGroup}>
+              {dietaryBadges.length > 0 && (
+                <View style={styles.dietaryBadgesGroup}>
+                  {dietaryBadges.map(b => (
+                    <View key={b.key} style={styles.dietaryBadge}>
+                      <Text style={styles.dietaryBadgeText}>{b.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {/* Bookmark glyphs (which bookmarks this recipe is on) + quick add.
+                  Nested touchable so the tap opens the picker instead of toggling
+                  the card. Shows an outline bookmark when none are set. */}
+              {onOpenBookmarks && (
+                <TouchableOpacity
+                  style={styles.bmButton}
+                  onPress={() => onOpenBookmarks(item)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  {bookmarks && bookmarks.length > 0 ? (
+                    <View style={styles.bmGlyphs}>
+                      {bookmarks.slice(0, 2).map((b, i) => (
+                        <View key={b.key} style={[styles.bmGlyph, i > 0 && { marginLeft: -6 }]}>
+                          <SaveFilledIcon size={17} color={b.color} />
+                          {b.kind === 'favorite' && (
+                            <View style={styles.bmStar}><StarIcon size={8} color="#fff" /></View>
+                          )}
+                        </View>
+                      ))}
+                      {bookmarks.length > 2 && (
+                        <Text style={styles.bmPlus}>+{bookmarks.length - 2}</Text>
+                      )}
+                    </View>
+                  ) : (
+                    <SaveOutlineIcon size={17} color={colors.text.tertiary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -441,9 +488,36 @@ function makeStyles(colors: ThemeColors) {
       fontSize: 12,
       color: colors.text.tertiary,
     },
+    rightMetaGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
     dietaryBadgesGroup: {
       flexDirection: 'row',
       gap: 3,
+    },
+    bmButton: {
+      paddingVertical: 2,
+      paddingLeft: 2,
+    },
+    bmGlyphs: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    bmGlyph: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bmStar: {
+      position: 'absolute',
+      top: 3,
+    },
+    bmPlus: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.text.tertiary,
+      marginLeft: 2,
     },
     dietaryBadge: {
       backgroundColor: colors.background.secondary,

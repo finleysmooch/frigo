@@ -241,3 +241,30 @@ export async function toggleRecipeBookmark(
 export async function getRecipesForBookmark(userId: string, bookmarkKey: string): Promise<TaggedRecipe[]> {
   return getRecipesWithTag(userId, bookmarkKey);
 }
+
+/**
+ * Map of recipeId → the bookmarks assigned to it, for the whole user, in a
+ * single tag scan (so recipe-list cards can show their bookmark glyphs without
+ * one query per card). Tags that aren't registered bookmark keys (e.g. the
+ * book-view 'saved' tag) are skipped. Each recipe's list is sorted by
+ * sort_order so the defaults lead.
+ */
+export async function getBookmarksByRecipe(userId: string): Promise<Map<string, Bookmark[]>> {
+  const [defs, tagRows] = await Promise.all([
+    listBookmarks(userId),
+    fetchAllRows<{ recipe_id: string; tag: string }>((from, to) =>
+      supabase.from('user_recipe_tags').select('recipe_id, tag').eq('user_id', userId).range(from, to)
+    ),
+  ]);
+  const byKey = new Map(defs.map((d) => [d.key, d]));
+  const map = new Map<string, Bookmark[]>();
+  for (const row of tagRows) {
+    const def = byKey.get(row.tag);
+    if (!def) continue; // not a registered bookmark (e.g. 'saved')
+    const arr = map.get(row.recipe_id);
+    if (arr) arr.push(def);
+    else map.set(row.recipe_id, [def]);
+  }
+  for (const arr of map.values()) arr.sort((a, b) => a.sort_order - b.sort_order);
+  return map;
+}

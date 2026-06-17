@@ -47,6 +47,7 @@ import {
 } from '../lib/services/bookViewService';
 import { getCookingHistory } from '../lib/services/recipeHistoryService';
 import { getRecipesWithTag } from '../lib/services/userRecipeTagsService';
+import BookmarkFilterRow from '../components/recipe/BookmarkFilterRow';
 import type { Book } from '../lib/types/recipeFeatures';
 
 // Typed against StatsStackParamList for the existing drill-down entry point;
@@ -96,6 +97,9 @@ export default function BookDetailScreen({ route, navigation }: Props) {
   }>({ recipe_count: 0, cooked_count: 0, bookmarked_count: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Per-book bookmark counts (key → # of this book's recipes carrying it).
+  const [bookmarkCounts, setBookmarkCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     (async () => {
@@ -109,6 +113,7 @@ export default function BookDetailScreen({ route, navigation }: Props) {
           return;
         }
         const userId = user.id;
+        setCurrentUserId(userId);
         // Parallel fetch — `getCuratedBookSections` internally calls history
         // + saved tags too, so we accept a small double-fetch here for the
         // header totals to keep CP1's contract pristine. The cost is two
@@ -132,6 +137,27 @@ export default function BookDetailScreen({ route, navigation }: Props) {
         ).length;
         const bookmarked_count = scopeRecipes.filter((r) => savedSet.has(r.id)).length;
         setHeaderStats({ recipe_count, cooked_count, bookmarked_count });
+
+        // Per-book bookmark counts — one tag row per (recipe, tag), so counting
+        // tag occurrences over this book's recipes = # of recipes per bookmark.
+        // Chunk the .in() list to stay comfortably under PostgREST limits.
+        const bookRecipeIds = scopeRecipes.map((r) => r.id);
+        const bmCounts: Record<string, number> = {};
+        if (bookRecipeIds.length) {
+          const chunks: string[][] = [];
+          for (let i = 0; i < bookRecipeIds.length; i += 200) chunks.push(bookRecipeIds.slice(i, i + 200));
+          const tagRowSets = await Promise.all(
+            chunks.map((ids) =>
+              supabase.from('user_recipe_tags').select('tag').eq('user_id', userId).in('recipe_id', ids),
+            ),
+          );
+          for (const res of tagRowSets) {
+            for (const row of (res.data ?? []) as { tag: string }[]) {
+              bmCounts[row.tag] = (bmCounts[row.tag] ?? 0) + 1;
+            }
+          }
+        }
+        setBookmarkCounts(bmCounts);
       } catch (e: any) {
         console.error('Error loading BookDetail data:', e);
         setError(e?.message || 'Failed to load');
@@ -146,7 +172,7 @@ export default function BookDetailScreen({ route, navigation }: Props) {
   // navigation into RecipesStack regardless of which stack opened this
   // screen. Tab switches to Recipes — fine, since the user wants to browse.
   const goToBookView = useCallback(
-    (sectionId?: BookSectionId) => {
+    (sectionId?: BookSectionId, bookmarkKey?: string) => {
       // Walk UP the navigator chain to find the one that can route to
       // RecipesStack (the bottom-tab navigator). BookDetail is registered in
       // both RecipesStack (Browse-by-Books path) and StatsStack (drill-down
@@ -162,7 +188,7 @@ export default function BookDetailScreen({ route, navigation }: Props) {
         if (routeNames?.includes('RecipesStack')) {
           nav.navigate('RecipesStack', {
             screen: 'BookView',
-            params: { bookId, sectionId },
+            params: { bookId, sectionId, bookmarkKey },
           });
           return;
         }
@@ -282,6 +308,29 @@ export default function BookDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
+      {/* Quick access at the top — browse-all CTA + bookmark filter pills. */}
+      {recipe_count > 0 && (
+        <TouchableOpacity
+          style={styles.browseAllTop}
+          activeOpacity={0.8}
+          onPress={() => goToBookView()}
+        >
+          <Text style={styles.browseAllButtonText}>
+            Browse all {recipe_count} recipe{recipe_count !== 1 ? 's' : ''} →
+          </Text>
+        </TouchableOpacity>
+      )}
+      {currentUserId && (
+        <BookmarkFilterRow
+          userId={currentUserId}
+          activeKey={null}
+          onChange={(key) => { if (key) goToBookView(undefined, key); }}
+          counts={bookmarkCounts}
+          showCounts
+          style={styles.bookmarkPills}
+        />
+      )}
+
       {/* Curated sections — order matches the prompt spec; empty hide. */}
       {sections && (
         <>
@@ -290,19 +339,6 @@ export default function BookDetailScreen({ route, navigation }: Props) {
           {renderSection('friendsFavorites', "Friends' favorites", sections.friendsFavorites)}
           {renderSection('bookmarked', 'Bookmarked', sections.bookmarked)}
         </>
-      )}
-
-      {/* Browse all CTA at the bottom — routes to BookView with no preset. */}
-      {recipe_count > 0 && (
-        <TouchableOpacity
-          style={styles.browseAllButton}
-          activeOpacity={0.8}
-          onPress={() => goToBookView()}
-        >
-          <Text style={styles.browseAllButtonText}>
-            Browse all {recipe_count} recipe{recipe_count !== 1 ? 's' : ''} →
-          </Text>
-        </TouchableOpacity>
       )}
 
       {/* Empty state — book has no recipes the user owns (rare edge case
@@ -491,13 +527,18 @@ function makeStyles(colors: any) {
       marginTop: 6,
     },
 
-    browseAllButton: {
-      marginTop: 24,
+    browseAllTop: {
+      marginTop: 4,
       marginHorizontal: 18,
       backgroundColor: colors.primary,
       borderRadius: 12,
-      paddingVertical: 14,
+      paddingVertical: 13,
       alignItems: 'center',
+    },
+    bookmarkPills: {
+      paddingLeft: 18,
+      paddingTop: 12,
+      paddingBottom: 2,
     },
     browseAllButtonText: {
       color: '#ffffff',
