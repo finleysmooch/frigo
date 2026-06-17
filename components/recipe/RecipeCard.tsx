@@ -216,62 +216,63 @@ export function RecipeCard({
                 </View>
               )}
             </View>
-            <View style={styles.rightMetaGroup}>
-              {dietaryBadges.length > 0 && (
-                <View style={styles.dietaryBadgesGroup}>
-                  {dietaryBadges.map(b => (
-                    <View key={b.key} style={styles.dietaryBadge}>
-                      <Text style={styles.dietaryBadgeText}>{b.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              {/* Bookmark glyphs (which bookmarks this recipe is on) + quick add.
-                  Nested touchable so the tap opens the picker instead of toggling
-                  the card. Shows an outline bookmark when none are set. */}
-              {onOpenBookmarks && (
-                <TouchableOpacity
-                  style={styles.bmButton}
-                  onPress={() => onOpenBookmarks(item)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                >
-                  {bookmarks && bookmarks.length > 0 ? (
-                    <View style={styles.bmGlyphs}>
-                      {bookmarks.slice(0, 2).map((b, i) => (
-                        <View key={b.key} style={[styles.bmGlyph, i > 0 && { marginLeft: -6 }]}>
-                          <SaveFilledIcon size={17} color={b.color} />
-                          {b.kind === 'favorite' && (
-                            <View style={styles.bmStar}><StarIcon size={8} color="#fff" /></View>
-                          )}
-                        </View>
-                      ))}
-                      {bookmarks.length > 2 && (
-                        <Text style={styles.bmPlus}>+{bookmarks.length - 2}</Text>
-                      )}
-                    </View>
-                  ) : (
-                    <SaveOutlineIcon size={17} color={colors.text.tertiary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+            {dietaryBadges.length > 0 && (
+              <View style={styles.dietaryBadgesGroup}>
+                {dietaryBadges.map(b => (
+                  <View key={b.key} style={styles.dietaryBadge}>
+                    <Text style={styles.dietaryBadgeText}>{b.label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
         {/* Right column — image navigates, card taps toggle expand */}
         <View style={styles.cardRight}>
-          <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.7}>
-            {item.image_url ? (
-              <Image
-                source={{ uri: item.image_url }}
-                style={styles.recipeImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.imagePlaceholder} />
+          <View style={styles.imageWrap}>
+            <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.7}>
+              {item.image_url ? (
+                <Image
+                  source={{ uri: item.image_url }}
+                  style={styles.recipeImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.imagePlaceholder} />
+              )}
+            </TouchableOpacity>
+
+            {/* Bookmark glyphs + quick-add, overlaid on the image top-left.
+                Nested touchable so the tap opens the picker, not the card.
+                Sits on a translucent chip so it stays legible over any photo. */}
+            {onOpenBookmarks && (
+              <TouchableOpacity
+                style={styles.bmOverlay}
+                onPress={() => onOpenBookmarks(item)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
+                {bookmarks && bookmarks.length > 0 ? (
+                  <View style={styles.bmGlyphs}>
+                    {bookmarks.slice(0, 2).map((b, i) => (
+                      <View key={b.key} style={[styles.bmGlyph, i > 0 && { marginLeft: -6 }]}>
+                        <SaveFilledIcon size={16} color={b.color} />
+                        {b.kind === 'favorite' && (
+                          <View style={styles.bmStar}><StarIcon size={7} color="#fff" /></View>
+                        )}
+                      </View>
+                    ))}
+                    {bookmarks.length > 2 && (
+                      <Text style={styles.bmPlus}>+{bookmarks.length - 2}</Text>
+                    )}
+                  </View>
+                ) : (
+                  <SaveOutlineIcon size={15} color={colors.text.secondary} />
+                )}
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -488,18 +489,25 @@ function makeStyles(colors: ThemeColors) {
       fontSize: 12,
       color: colors.text.tertiary,
     },
-    rightMetaGroup: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
     dietaryBadgesGroup: {
       flexDirection: 'row',
       gap: 3,
     },
-    bmButton: {
+    imageWrap: {
+      position: 'relative',
+      width: 62,
+      height: 62,
+    },
+    bmOverlay: {
+      position: 'absolute',
+      top: 3,
+      left: 3,
+      backgroundColor: 'rgba(255,255,255,0.88)',
+      borderRadius: 7,
+      paddingHorizontal: 3,
       paddingVertical: 2,
-      paddingLeft: 2,
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     bmGlyphs: {
       flexDirection: 'row',
