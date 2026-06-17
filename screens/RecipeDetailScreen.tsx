@@ -408,7 +408,7 @@ export default function RecipeDetailScreen({ navigation, route }: Props) {
         cook_time_min: recipeData.cook_time_min || 0,
         instructions: recipeData.instructions || [],
         ingredients: recipeData.ingredients || [],
-        chef_name: recipeData.chef?.name || recipeData.chef_name,  // Use chef relationship
+        chef_name: recipeData.chef?.name || recipeData.chef_name || recipeData.source_author,  // chef relationship, else book author
         chef_id: recipeData.chef_id,
         times_cooked: recipeData.times_cooked || 0,
         book_id: recipeData.book_id,

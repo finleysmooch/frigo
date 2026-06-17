@@ -1779,7 +1779,10 @@ export default function RecipeListScreen({ navigation, route }: Props) {
 
       const recipesWithChefs = (data || []).map((recipe: any) => ({
         ...recipe,
-        chef_name: recipe.chefs?.name || 'Unknown Chef',
+        // Fall back to source_author when there's no linked chef — the
+        // frigo-book-ingest pipeline didn't populate chef_id but saved the book
+        // author in source_author, so cookbook recipes still show their author.
+        chef_name: recipe.chefs?.name || recipe.source_author || undefined,
         // book_name: populated from recipes table if a book_name column exists
         book_name: recipe.book_name || undefined,
       }));

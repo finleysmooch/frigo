@@ -7,6 +7,27 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-17 — New-pipeline recipes missing chef/hero/etc.: full field audit, quick-win backfills, + COOKBOOK_EXTRACTION_GAPS_AND_ROADMAP.md
+
+**Tom:** new cookbook recipes don't show **chef name or hero ingredients**; do a thorough check of *everything* the new pipeline missed, address what's feasible, and write a roadmap report for the future extraction funnel.
+
+**Audit (read-only DB comparison, `frigo-book-ingest` `extraction_method='cookbook_ingest_stage1'` = 1,077 recipes vs old claude.ai = 468 book recipes).** New pipeline left at **0%** (old ~93–100%): `chef_id`, `hero_ingredients`, `vibe_tags`, `cuisine_types`, `cooking_methods`, `serving_temp`, `course_type`, `make_ahead_score`, `cooking_concept`, `recipes.instruction_sections`, `supplementary_content`, `image_url`, `dietary_tags`. The author IS saved in `source_author` (100%). Checked `book_recipe_assembly` (the ingest tool's own table): `cuisine_types`/`cooking_methods`/`dietary_tags` are **0% there too** (never extracted → need a classification pass, not a backfill); but `notes` 49% and `primary_photo_page` 88% are populated. `recipe_ingredients` is well-populated (98% catalog-matched, per-row `ingredient_classification`) — the new pipeline's strength.
+
+**Addressed now:**
+- **Chef name — render fallback (code).** `screens/RecipeListScreen.tsx` (loadRecipes) ⚠️ PK stale (HIGH) + `screens/RecipeDetailScreen.tsx` ⚠️ PK stale (HIGH): `chef_name = chefs.name ?? source_author`. New recipes show the book author without inventing `chefs` rows. `tsc` clean.
+- **`hero_ingredients` — backfilled (prod data write).** Derived from `recipe_ingredients.ingredient_classification='hero'`. **1,041 / 1,077** filled (kabocha → `["kabocha squash"]`). Idempotent (only empties).
+- **`recipe_notes` — backfilled (prod data write).** From `raw_extraction_data.notes`. **437** filled.
+
+**New doc:** **`docs/COOKBOOK_EXTRACTION_GAPS_AND_ROADMAP.md`** — the two pipelines, full field-by-field audit table, what's addressed, and the **field-level roadmap** for the updated extraction funnel (4a classification pass for cuisine/methods/vibe/concept/serving_temp/course/make_ahead/dietary; 4b dish-image extraction via `primary_photo_page`; 4c supplementary_content + instruction_sections; 4d metadata) + a canonical "complete extraction" checklist with all the target field names.
+
+**Rule E:** `RecipeListScreen.tsx` + `RecipeDetailScreen.tsx` tier-listed + already HIGH → flagged, no row change.
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — add the extraction-funnel roadmap as tracked items (classification backfill ~1,077 recipes; dish-image pipeline; supplementary/instruction-section recovery; the `source_line_index` stamp for 1:1 ingredient mapping). `FRIGO_ARCHITECTURE.md` — point to the new roadmap doc. `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** reload Expo → new cookbook recipes now show author + hero-ingredient pills. The classification pass / image pipeline / supplementary recovery are the "updated extraction funnel" build — spec'd in the roadmap doc.
+
+---
+
 ## 2026-06-17 — Favorites filter bug: a favorited recipe missing from the Recipes page — root cause was non-deterministic pagination (+ created ENGINEERING_GOTCHAS.md)
 
 **Tom:** favorited "Steamed Kabocha Squash" (By Heart) — shows favorited **in the book view**, but **doesn't appear under the Favorites filter on the main Recipes page**; suspected book permissions.
