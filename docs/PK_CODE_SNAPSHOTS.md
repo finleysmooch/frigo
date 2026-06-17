@@ -48,7 +48,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/postParticipantsService.ts` | 2026-05-19 | Phase 7I CP7 | Low | PostType union cleaned |
 | `lib/services/postService.ts` | 2026-05-19 | Phase 7M / 7L / 7G | Low | UpdatePostPatch extended; computeDefaultVisibility |
 | `lib/services/recipeAnnotationsService.ts` | 2026-04-22 | | Low | |
-| `lib/services/recipeHistoryService.ts` | 2026-05-19 | Phase 7I CP5 | Low | `getCookHistoryForUserRecipe` |
+| `lib/services/recipeHistoryService.ts` | 2026-05-19 | Phase 7I CP5 | Low | `getCookHistoryForUserRecipe`. 2026-06-16: `getCookingHistory` paginates the posts fetch (1000-row cap fix) — snapshot stale. |
 | `lib/services/recipeService.ts` | 2026-05-19 | Phase 7B-Rev | Low | Top-level (distinct from extraction one); 20 lines, currently only `deleteRecipe` |
 | `lib/services/shareService.ts` | 2026-05-19 | Phase 7J | Low | `shareRecipe`, `sharePost` |
 | `lib/services/spaceService.ts` | 2026-04-22 | | HIGH | 2026-06-12: CP3 corrective — ensureDefaultSpace now calls `create_default_home_space` (was a nonexistent RPC) and throws on failure (was silent null). Snapshot stale. |
@@ -129,7 +129,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `screens/ProfileScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/RecipeDetailScreen.tsx` | 2026-05-19 | Phase 7B-Rev / 7J / 8B-CP4 / 8D-CP1 | HIGH | 8B-CP4 wired runPostCookDepletion + showBanner into handleLogCookSubmit success path. 8D-CP1 (2026-05-18): wired `calculateRecipeSupplyMatch` → `matchResult` state feeding IngredientsSection ✓ marks + missing count. |
 | `screens/RecipeExtractionLoadingScreen.tsx` | 2026-04-22 | | Low | |
-| `screens/RecipeListScreen.tsx` | 2026-05-19 | Phase 3A / 8D-CP1 | HIGH | 8D-CP1 (2026-05-18): added 'pantry_match' sort option + bulk `pantryMatchingService` wiring + `matchMap` state. 2026-06-15: added `<ImportQueueStrip />` (in-process background recipe imports, renders null when idle) — snapshot stale. |
+| `screens/RecipeListScreen.tsx` | 2026-05-19 | Phase 3A / 8D-CP1 | HIGH | 8D-CP1 (2026-05-18): added 'pantry_match' sort option + bulk `pantryMatchingService` wiring + `matchMap` state. 2026-06-15: added `<ImportQueueStrip />` (in-process background recipe imports, renders null when idle). 2026-06-16: `loadRecipes` paginates the recipe fetch (was capped at PostgREST's 1000-row default) — snapshot stale. |
 | `screens/RecipeReviewScreen.tsx` | 2026-04-22 | | HIGH | |
 | `screens/RegularItemsScreen.tsx` | 2026-04-22 | | Low | |
 | `screens/SettingsScreen.tsx` | 2026-05-19 | Phase 7L / 7K / admin-nav / CP6a-2 | HIGH | visibility picker + chef backfill trigger. admin-nav (2026-05-18): added "🛠️ Admin Tools" row in the Developer section → `navigation.navigate('Admin')`. CP6a-2 (2026-06-10): added an `isAdmin()`-gated "✅ Verification Review" row → `navigate('VerificationReview')` (hidden for non-admins). 2026-06-15: added Developer rows "🔁 Replay Onboarding" (`resetOnboarding`) + "🧂 Staples Playground" — snapshot stale. |

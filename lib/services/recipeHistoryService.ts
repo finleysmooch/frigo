@@ -33,17 +33,26 @@ export interface FriendsCookingInfo {
 export async function getCookingHistory(
   userId: string
 ): Promise<Map<string, CookingHistory>> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('recipe_id, cooked_at, rating')
-    .eq('user_id', userId)
-    .eq('post_type', 'dish')
-    .not('recipe_id', 'is', null)
-    .order('cooked_at', { ascending: false });
+  // Paginate: a user with >1000 dish posts would otherwise have cook history
+  // truncated at PostgREST's 1000-row default (same cap as the recipes list).
+  const POSTS_PAGE = 1000;
+  const data: any[] = [];
+  for (let pageFrom = 0; ; pageFrom += POSTS_PAGE) {
+    const { data: page, error } = await supabase
+      .from('posts')
+      .select('recipe_id, cooked_at, rating')
+      .eq('user_id', userId)
+      .eq('post_type', 'dish')
+      .not('recipe_id', 'is', null)
+      .order('cooked_at', { ascending: false })
+      .range(pageFrom, pageFrom + POSTS_PAGE - 1);
 
-  if (error) {
-    console.error('Error fetching cooking history:', error);
-    return new Map();
+    if (error) {
+      console.error('Error fetching cooking history:', error);
+      return new Map();
+    }
+    if (page) data.push(...page);
+    if (!page || page.length < POSTS_PAGE) break;
   }
 
   // Group rows by recipe_id. Because rows are ordered cooked_at DESC,

@@ -7,6 +7,18 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Fix: recipes page silently capped at 1000 (PostgREST default) — paginate the recipe + cook-history fetches (Tom: owns 1896 recipes, saw 1000)
+
+**Same 1000-row cap, third instance** (after the two CP4b inspection misses). Tom saw only 1000 recipes on the Recipes page; confirmed-from-DB he owns **1896** (of 1900 total; 0 no-owner). Root cause: `RecipeListScreen.loadRecipes` did an unpaginated `.from('recipes').select('*').eq('user_id', …)` — PostgREST caps a single select at 1000 rows, so the latest 1000 showed and any count over the loaded set was wrong.
+
+**Fix (option 1, Tom-chosen — load the full set; client-side search/filter/sort need it all, so display-pagination would break search):** `loadRecipes` now **loops `.range()` in 1000-row pages until exhausted** → the full owned set loads, count is accurate. Also fixed the cascading cap in **`recipeHistoryService.getCookingHistory`** (unpaginated `posts` query → paginated the same way; a >1000-dish-post user would otherwise have truncated cook history). **`getRecipeNutritionBatch` already chunks** its `.in()` (100-id batches, prior hotfix) → no change. `tsc` clean. Logic: page1=1000 (continue) → page2=896 (<1000, break) = 1896.
+
+**Perf note (flagged to Tom):** loading all 1896 rows with `select('*')` (large jsonb: ingredients/instructions/raw_extraction_data) is a heavier initial load; acceptable for the dev account, instant for real F&F users (few recipes). Future optimization: trim the list `select` to display columns. **Not fixed here:** `getFriendsCookingInfo`'s posts query (same cap, secondary social enrichment) — banked mentally; low impact.
+
+**Files:** `screens/RecipeListScreen.tsx` ⚠️ PK snapshot stale (already flagged this round), `lib/services/recipeHistoryService.ts` ⚠️ PK snapshot now stale (was 2026-05-19), `docs/SESSION_LOG.md`. **Rule E:** both rows updated in `PK_CODE_SNAPSHOTS.md`.
+
+---
+
 ## 2026-06-16 — CP4b CORRECTION: 3 transcribed books MISSED by the first promotion (1000-row query cap) — `20260616193000_cp4b_promote_missed_books.sql` pushed; catalog 308→311
 
 **Bug in the first CP4b scoping, caught by Tom ("what about Simple from Ottolenghi?").** The inspection counted recipes via a single `recipes.select('book_id')`, which PostgREST silently caps at **1000 rows** (~1900 recipes exist) — so books whose recipe rows fell outside the first 1000 were dropped from the count. Ironically the **highest-recipe** books were missed. A **paginated** re-count (`.range()` in 1000s) found **16** recipe-bearing books, not 13. The 3 omissions — **Six Seasons (197), Simple — Ottolenghi (130), The Ambitious Kitchen Cookbook (130)** — promoted via the correction migration (same idempotent flag flip; 0 seed-title collisions confirmed). Post-push: catalog 308→**311**; all 3 `is_catalog=true, has_recipes=true`. **All 13 real transcribed books are now catalog** (10 + 3); the 3 junk rows (Cooked Veg, Cook's Veg, More is more) correctly stay out. **Lesson banked:** any per-group count over a large table via `.select()` must paginate or use head-count — the 1000-row default cap silently undercounts. **Files:** `supabase/migrations/20260616193000_cp4b_promote_missed_books.sql` (new), `docs/SESSION_LOG.md`.

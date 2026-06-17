@@ -1685,16 +1685,28 @@ export default function RecipeListScreen({ navigation, route }: Props) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(`
-          *,
-          chefs:chef_id (name)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Paginate the fetch: PostgREST caps a single select at 1000 rows, so a
+      // user with >1000 recipes would silently see only their latest 1000 (and
+      // any count derived from the loaded set would be wrong). Loop in
+      // 1000-row pages until exhausted so the full set is loaded — search /
+      // filter / sort here are client-side over this set, so they need it all.
+      const RECIPE_PAGE = 1000;
+      let data: any[] = [];
+      for (let pageFrom = 0; ; pageFrom += RECIPE_PAGE) {
+        const { data: page, error } = await supabase
+          .from('recipes')
+          .select(`
+            *,
+            chefs:chef_id (name)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(pageFrom, pageFrom + RECIPE_PAGE - 1);
 
-      if (error) throw error;
+        if (error) throw error;
+        data = data.concat(page || []);
+        if (!page || page.length < RECIPE_PAGE) break;
+      }
 
       const recipesWithChefs = (data || []).map((recipe: any) => ({
         ...recipe,
