@@ -1401,6 +1401,18 @@ export default function RecipeListScreen({ navigation, route }: Props) {
     }, [route.params?.selectionMode, route.params?.returnToMeals])
   );
 
+  // Refresh bookmark state on focus. The recipe list loads on mount, but the
+  // bookmark filter set + per-recipe glyph map are cached — so a recipe
+  // favorited/bookmarked on another screen (book view, recipe detail) wouldn't
+  // appear in the Favorites filter here until a remount. Bumping bmVersion on
+  // focus re-runs both bookmark effects (cheap tag-scan queries); the heavy
+  // recipe fetch is untouched.
+  useFocusEffect(
+    useCallback(() => {
+      setBmVersion(v => v + 1);
+    }, [])
+  );
+
   // 11A-CP5a — Recipes tab tap while focused → reset to Mode A. Acts as a
   // "go home" affordance: from any Mode B lens/filter state, tapping the tab
   // icon returns to the discovery tiles. Skipped on a different tab
