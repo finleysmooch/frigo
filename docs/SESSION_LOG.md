@@ -7,6 +7,12 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — CP4b CORRECTION: 3 transcribed books MISSED by the first promotion (1000-row query cap) — `20260616193000_cp4b_promote_missed_books.sql` pushed; catalog 308→311
+
+**Bug in the first CP4b scoping, caught by Tom ("what about Simple from Ottolenghi?").** The inspection counted recipes via a single `recipes.select('book_id')`, which PostgREST silently caps at **1000 rows** (~1900 recipes exist) — so books whose recipe rows fell outside the first 1000 were dropped from the count. Ironically the **highest-recipe** books were missed. A **paginated** re-count (`.range()` in 1000s) found **16** recipe-bearing books, not 13. The 3 omissions — **Six Seasons (197), Simple — Ottolenghi (130), The Ambitious Kitchen Cookbook (130)** — promoted via the correction migration (same idempotent flag flip; 0 seed-title collisions confirmed). Post-push: catalog 308→**311**; all 3 `is_catalog=true, has_recipes=true`. **All 13 real transcribed books are now catalog** (10 + 3); the 3 junk rows (Cooked Veg, Cook's Veg, More is more) correctly stay out. **Lesson banked:** any per-group count over a large table via `.select()` must paginate or use head-count — the 1000-row default cap silently undercounts. **Files:** `supabase/migrations/20260616193000_cp4b_promote_missed_books.sql` (new), `docs/SESSION_LOG.md`.
+
+---
+
 ## 2026-06-16 — CP4b SHIPPED + prod-verified: 10 transcribed cookbooks promoted into the catalog (Tom-directed) — migration `20260616190000_cp4b_promote_transcribed_books.sql` pushed; catalog 298→308
 
 **Tom-directed ("add the cookbooks we've transcribed").** Sensitive `books` write; inspected + scoped + dry-run before push; non-destructive idempotent flag flip. **Promoted (is_catalog false→true)** the 10 fully-transcribed cookbooks — they now appear in onboarding T8a search with **`has_recipes=true` → "recipes ready"** badges: Plenty (Ottolenghi, 120), Rachael's Good Eats (112), Tahini Baby (Grinshpan, 112), Eating Out Loud (Grinshpan, 108), Something from Nothing (Roman, 107), The Comfortable Kitchen (Snodgrass, 106), By Heart (Catalano, 103), Dinner Tonight (Snodgrass, 102), That Sounds So Good (Lalli Music, 84), Cook This Book (Baz, 41).
