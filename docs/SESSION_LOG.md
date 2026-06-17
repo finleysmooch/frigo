@@ -7,6 +7,69 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-17 — Ingredient display fix: render the list from the recipes.ingredients JSONB (verbatim text + sections) — fixes new cookbook books showing no quantities
+
+**Tom:** add ingredient **sections** ("For the Dough" / "From the Market") to the recipe screen, and fix **new cookbook recipes rendering with no quantities**. Deep DB audit (read-only, via `--env-file=.env` node scripts) established the root cause:
+
+**Root cause.** Two extraction pipelines store `recipe_ingredients.original_text` differently. OLD recipes (claude.ai subproject — Plenty/Simple/Cook This Book/That Sounds So Good/Cook's-Cooked Veg) store the **full line** (81-92% start with a quantity). NEW recipes (`frigo-book-ingest` Python tool — Six Seasons/By Heart/Dinner Tonight/Ambitious Kitchen/Tahini Baby/Comfortable Kitchen/Rachael's/Something from Nothing/Eating Out Loud) store the **cleaned name only** (0-1% lead with a quantity; amount parsed into the `quantity_amount`/`quantity_unit` columns + `quantity_parse_metadata`). The app rendered `original_text` directly (`IngredientsSection.parseAndScaleQuantity`), so new books showed names with no amounts. The verbatim line + sections live uniformly in the **`recipes.ingredients` JSONB** (per display line: full `original_text`, `group_name`, `group_number`).
+
+**Fix (Tom-approved: "display all through the old model, text as extracted").** `screens/RecipeDetailScreen.tsx` now builds the ingredient list from the `recipes.ingredients` JSONB (verbatim line + group_name/group_number) when populated, falling back to the old `recipe_ingredients` mapping when the JSONB is empty (web/app imports). The 4-level pantry-match glyph + tap-sheet are **overlaid** by attaching each JSONB line's `ingredient_id` best-effort (sequence_order → bare-name substring), since the new pipeline splits compound lines / skips sub-recipe refs (only ~66% of new recipes align 1:1; misaligned ones differ by ~1.3 lines, so ~98% of lines map). Lines that don't map still render correctly, just without a per-row glyph. Scaling (`parseAndScaleQuantity`) unchanged. **No migration, no new columns, no re-import — fixes the whole library.**
+
+**Verified against prod (read-only mapping replay):** NEW Six Seasons "Slightly Tangy Flatbreads" → all 6 lines now show verbatim quantities; NEW Dinner Tonight "sheet pan ratatouille" → 19/19 mapped, renders "FOR THE RATATOUILLE/GNOCCHI/TO FINISH" sections with amounts; OLD Plenty "Asparagus mimosa" → unchanged (full text, 6/6 matched, correctly no sections). `tsc --noEmit` clean.
+
+**Files:** `screens/RecipeDetailScreen.tsx` ⚠️ PK snapshot now stale (was 2026-05-19, already HIGH). Committed `e9c4d12` (local). **Rule E:** RecipeDetailScreen tier-listed + already HIGH → flagged, no row change.
+
+**Remaining (approved, not yet done) — Step 4 web/URL section capture:** the `scrape-recipe` edge fn must parse NYT's ingredient-group **HTML** (JSON-LD `recipeIngredient` is flat), `unifiedParser`/`webExtractor` carry `group_name`/`group_number`, and `recipeService.saveRecipe` must start **writing `recipes.ingredients`** (it currently doesn't — web imports land in the fallback with full text but no sections). Requires a `scrape-recipe` redeploy + squash re-import. Chunkier edge-fn effort; flagged to Tom to do next or after testing the core fix. Also flagged follow-up: `recipe_ingredients.source_line_index` from frigo-book-ingest to take per-row match coverage to 100%; cleanup of 347 `__smoke8d_*` junk recipes (zero ingredient rows).
+
+**Recommended doc updates:** `DEFERRED_WORK.md` — add the two flagged follow-ups (web/URL section capture incl. saveRecipe writing the JSONB; `source_line_index` link for 100% match coverage) + the `__smoke8d_*` junk cleanup. `FRIGO_ARCHITECTURE.md` — note the recipe detail now renders ingredients from `recipes.ingredients` JSONB (display layer) with `recipe_ingredients` as the match overlay. `PROJECT_CONTEXT.md` / `FF_LAUNCH_MASTER_PLAN.md` — none.
+
+**Recommended next steps for Tom:** (1) Reload Expo → open a Six Seasons / Dinner Tonight recipe → confirm quantities + section headers now show; double servings → confirm scaling. (2) Decide whether to proceed with Step 4 (web/URL section capture) now or after testing.
+
+---
+
+## 2026-06-17 — Deferred-work review cut (pre/post-F&F × workflow) for Tom
+
+Tom asked for a review file re-organizing the backlog by pre-/post-F&F and by UX workflow (master-plan-style sections). Created **`docs/DEFERRED_WORK_REVIEW_2026-06-17.md`** — a non-canonical review lens over `DEFERRED_WORK.md` v5.39. A read-only research agent inventoried all ~300 IDs (faithful: ID, priority, type, resolved/open, the item's own pre/post signal, a workflow bucket); I authored the file from that. Structure: **Part I Pre-F&F** (§A ~12 flagged + §B ~10 recommended-for-Tom's-call: security NYT-2/3, admin guard OB-2, orphaned-session OB-18, onboarding completeness OB-16/22/P10F-2, NYT-9 smoke), **Part II Post-F&F** by 11 workflow domains (the ~250 default bucket), **Appendix** ~25 resolved-this-era to prune. Classification basis stated explicitly in the doc; it's a recommendation for Tom, not a canonical decision. No code touched → **Rule E:** none. Left uncommitted for review.
+
+**Recommended doc updates:** none beyond the prior 2026-06-17 reconciliation entry — ratified pre/post calls from this review fold back into `DEFERRED_WORK.md` on a Claude.ai pass.
+
+---
+
+## 2026-06-17 — Living-doc reconciliation to current June state (Tom-directed) — master plan, project context, deferred work, status HTML
+
+Tom confirmed the 4 book-pipeline edge functions are **redeployed on Sonnet 4.6 and functioning** (NYT-1 risk cleared), then explicitly instructed: "make the updates to the master plan, project context, all relevant docs yourself, as well as the status html file." Per CLAUDE.md, an explicit prompt authorizes CC to edit living docs following the DOC_MAINTENANCE Section 4 propagation pattern (update `Last Updated`, stage dated `_pk_sync/` copies). All edits grounded in SESSION_LOG / DEFERRED_WORK v5.39 / onboarding WORKSTREAM_PLAN v0.3.11 — no invented status; the one structural call (treating onboarding as Phase-12 work) follows the master plan's own Phase-12 definition and is flagged for Claude.ai to ratify.
+
+**Edits:**
+- **`DEFERRED_WORK.md`** (v5.38 → **v5.39**) — NYT-1 marked ✅ RESOLVED (edge-fn redeploy done, Tom-confirmed); changelog row added.
+- **`FF_LAUNCH_MASTER_PLAN.md`** (→ **v6.9**) — header status rewritten (8+10 done, **11 active**, **12 underway**, 9 only un-started gate phase); Phase Sequence rows 11+12 moved 🔲→🟡 with shipped-CP detail; Phase 11 + Phase 12 scope sections gained "Shipped/live as of 2026-06-17" blocks; remaining-work line recomputed (~10-14 wks); changelog v6.9 row. Last Reconciled/Updated → 2026-06-17.
+- **`PROJECT_CONTEXT.md`** (v10.8 → **v10.9**) — corrected the **Active-phase pointer** (was stuck at "Phase 8") → Phase 11 active + Phase 12 onboarding underway; Active-phase section rebuilt; Project Vision table updated (10 ✅, 11 🟡, 12 🟡); Data Metrics refreshed (recipes 475→**1,896**, catalog **311**); admin track refreshed (site live); changelog v10.9 row.
+- **`docs/frigo_project_status_2026-06-17.html`** — edge-fn deadline strip flipped from red "past due/unverified" → green "✓ Resolved"; KPI + risk-item + admin row + open-threads card repointed from the edge-fn alarm to the Apple-enrollment long pole; "living docs lag" card → "reconciliation done, verify"; version refs bumped (v5.39/v6.9/v10.9).
+- **`_pk_sync/`** — staged dated copies `FF_LAUNCH_MASTER_PLAN_2026-06-17.md`, `PROJECT_CONTEXT_2026-06-17.md`, `DEFERRED_WORK_2026-06-17.md` for Tom to upload to PK after review.
+
+No app code touched → **Rule E:** no PK snapshot action. Docs left **uncommitted** for Tom's review.
+
+**Recommended doc updates:** This entry *is* the living-doc reconciliation. `FRIGO_ARCHITECTURE.md` — still not refreshed this pass (flagged ~3 wks+ stale; should gain `bookmarkService` + `user_bookmarks` + onboarding services + catalog on a dedicated Claude.ai pass). `PHASE_11_RECIPE_POLISH.md` (active phase doc) — not edited here; should absorb the custom-bookmarks ship + 11D/search/NYT shipped status on a Claude.ai pass. DEFERRED_WORK / PROJECT_CONTEXT / FF_LAUNCH_MASTER_PLAN — done (above), pending Claude.ai verification.
+
+**Recommended next steps for Tom:** (1) Review the four updated docs; if good, I'll commit them. (2) Upload the three `_pk_sync/*_2026-06-17.md` copies to PK. (3) On the next Claude.ai planning pass, verify the CC-authored reconciliation and decide whether onboarding becomes its own numbered phase vs. staying Phase-12 work.
+
+---
+
+## 2026-06-17 — Refreshed the project status briefing (HTML) to current state
+
+Tom: "review the project status file and update based on where we are currently at." The existing `docs/frigo_project_status_2026-06-08.html` (status through Jun 4) was ~13 days stale. Compiled current state from the authoritative docs (SESSION_LOG Jun 8→16, DEFERRED_WORK v5.38, onboarding WORKSTREAM_PLAN anchor v0.3.11, FF_LAUNCH_MASTER_PLAN, PROJECT_CONTEXT, git log) via a research agent, then wrote a **new dated snapshot** `docs/frigo_project_status_2026-06-17.html` (preserved the Jun-8 file rather than overwriting — matches the `_YYYY-MM-DD` snapshot convention).
+
+**Key content refreshes (all sourced, not invented):** Phase 12 distribution work reframed from "not started" → **underway** (15-screen onboarding spine complete, CP9b last on Jun 16; invite codes + shared-pantry join + admin verification live; 311-book catalog); new "Onboarding & cold-start" section with the CP map; custom bookmarks + 1000-row sweep added to Phase 11 spine and "what works"; metrics refreshed (recipes 822→**1,896/1,900**, catalog **311** / 253 covers); P7-23 migrations-under-VC marked resolved.
+
+**Flagged, NOT asserted:** the **June-15 edge-function model-retirement deadline is PAST DUE and unverified** — the 4 book-pipeline functions' code was migrated to Sonnet 4.6 on Jun 1 but no `functions deploy` is logged and NYT-1 is still open 🔴 in DEFERRED_WORK v5.38 (Jun 16). The briefing surfaces this as the #1 open thread and the masthead deadline strip; I did not claim it was met. **Needs Tom to confirm.**
+
+**Files:** `docs/frigo_project_status_2026-06-17.html` (new); `docs/SESSION_LOG.md`. No code touched. **Rule E:** no app code edited → no PK snapshot action.
+
+**Recommended doc updates:** `FF_LAUNCH_MASTER_PLAN.md` (v6.8, May 28) and `PROJECT_CONTEXT.md` (Jun 9) are both stale and disagree on the "active phase" (8 vs 11), and neither reflects the June onboarding/distribution thrust — **a Claude.ai reconciliation pass should formalize whether onboarding is Phase 12 and advance the active-phase pointer.** `DEFERRED_WORK.md` — none (v5.38 current). `FRIGO_ARCHITECTURE.md` — none.
+
+**Recommended next steps for Tom:** (1) **Confirm the edge-function redeploy** — if `supabase functions deploy` wasn't run for scan-book-pages / process-recipe-queue / extract-book-toc / assemble-book-recipes, book extraction is failing in prod as of Jun 15. (2) Review the new briefing; tell me if you'd rather I overwrite the Jun-8 file instead of keeping both.
+
+---
+
 ## 2026-06-16 — Bookmarks round 3: book-screen filters + per-recipe card glyphs + quick-add
 
 Tom: add bookmark filters to the **individual book (landing) screen**, move its "Browse all recipes" CTA to the top with **bookmark pills (showing counts)**, and on recipe lists let you **see a recipe's bookmark(s) and add one** — all without clutter. (Continuation of the same-day bookmarks work below.)
