@@ -7,6 +7,7 @@
 // ============================================
 
 import { supabase } from '../supabase';
+import { fetchAllRows } from '../utils/fetchAllRows';
 import { Book, BookWithRecipeCount, AuthorWithBooks, RecipeWithBook, BookGroup, AuthorGroup } from '../types/recipeFeatures';
 import { getCookingHistory, getFriendsCookingInfo } from './recipeHistoryService';
 import { getRecipesWithTag } from './userRecipeTagsService';
@@ -799,13 +800,18 @@ export async function getBooksForIndex(
   try {
     // 1. Get the user's recipes with a book_id — gives the book set + the
     //    per-book recipe list (needed for both recipe_count and cooked_count).
-    const { data: userRecipes, error: recipesError } = await supabase
-      .from('recipes')
-      .select('id, book_id')
-      .eq('user_id', userId)
-      .not('book_id', 'is', null);
-    if (recipesError) throw recipesError;
-    if (!userRecipes || userRecipes.length === 0) return [];
+    //    Paginated: an unpaginated select caps at 1000 rows, which silently
+    //    UNDERCOUNTS per-book recipe_count for users with >1000 recipes (the
+    //    books-page-shows-67-but-detail-shows-120 bug).
+    const userRecipes = await fetchAllRows<{ id: string; book_id: string | null }>((from, to) =>
+      supabase
+        .from('recipes')
+        .select('id, book_id')
+        .eq('user_id', userId)
+        .not('book_id', 'is', null)
+        .range(from, to)
+    );
+    if (userRecipes.length === 0) return [];
 
     const bookRecipeIds = new Map<string, string[]>();
     for (const r of userRecipes) {

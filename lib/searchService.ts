@@ -5,6 +5,7 @@
 // Last updated: October 27, 2025
 
 import { supabase } from './supabase';
+import { fetchAllRows } from './utils/fetchAllRows';
 import { SearchOptions, SearchResult, SearchError } from './types/search';
 import type { Suggestion, SearchTerm } from './searchTerms';
 
@@ -294,25 +295,22 @@ export async function searchRecipesByCuisine(
     const search = searchTerm.toLowerCase().trim();
     console.log('🔍 Searching cuisine types for:', search);
 
-    const { data: recipes, error } = await supabase
-      .from('recipes')
-      .select('id, cuisine_types')
-      .not('cuisine_types', 'is', null);
-
-    if (error) {
-      throw new SearchError(
-        'Failed to search cuisines',
-        searchTerm,
-        error
-      );
-    }
+    // Paginated: loads the full recipe set (capped at 1000 otherwise → search
+    // would miss recipes beyond the first 1000 for users with many recipes).
+    const recipes = await fetchAllRows<{ id: string; cuisine_types: string[] | null }>((from, to) =>
+      supabase
+        .from('recipes')
+        .select('id, cuisine_types')
+        .not('cuisine_types', 'is', null)
+        .range(from, to)
+    );
 
     // Filter recipes that have matching cuisine type
-    const matchingRecipes = recipes?.filter(r => 
-      r.cuisine_types?.some((c: string) => 
+    const matchingRecipes = recipes.filter(r =>
+      r.cuisine_types?.some((c: string) =>
         c.toLowerCase().includes(search)
       )
-    ) || [];
+    );
 
     const recipeIds = matchingRecipes.map(r => r.id);
     console.log('✅ Found', recipeIds.length, 'recipes with cuisine:', search);
@@ -354,13 +352,14 @@ export async function searchRecipesByMetadata(
     const search = searchTerm.toLowerCase().trim();
     console.log('🔍 Searching recipe metadata (cuisine/methods/vibes/course/difficulty) for:', search);
 
-    const { data: recipes, error } = await supabase
-      .from('recipes')
-      .select('id, cuisine_types, cooking_methods, vibe_tags, course_type, difficulty_level');
-
-    if (error) {
-      throw new SearchError('Failed to search recipe metadata', searchTerm, error);
-    }
+    // Paginated: full recipe set (otherwise capped at 1000 → metadata search
+    // misses recipes beyond the first 1000).
+    const recipes = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('recipes')
+        .select('id, cuisine_types, cooking_methods, vibe_tags, course_type, difficulty_level')
+        .range(from, to)
+    );
 
     const arrHit = (arr: unknown): boolean =>
       Array.isArray(arr) &&

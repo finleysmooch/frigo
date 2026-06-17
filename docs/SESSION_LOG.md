@@ -7,6 +7,23 @@ _Phase 10 era entries (8D cleanup pass + Phase 10 ship) are archived at `docs/_S
 _Direct Tom↔CC UX iteration work on existing pantry/grocery surfaces is logged separately in `docs/UX_ITERATIONS_LOG.md` — not here. This log captures phase-checkpoint-level work only._
 
 
+## 2026-06-16 — Systemic 1000-row-cap sweep: shared `fetchAllRows` helper + 4 more call sites fixed (books-page recipe count 67→120, recipe search, tag counts)
+
+**Tom: "address this issue across ALL affected pages."** After the recipes-page fix, an Explore-agent audit of `lib/services/**` + `screens/**` + `components/**` found the cap class in several more spots. Fixed the ones that **actually truncate in practice** (large/growing tables, real >1000 sets); banked the theoretically-bounded ones.
+
+**New shared helper:** `lib/utils/fetchAllRows.ts` — loops `.range()` until a query is exhausted; the standard way to read a >1000-row set going forward (docstring also points to `{count:'exact',head:true}` for pure counts and id-chunking for `.in()`).
+
+**Fixed (verified):**
+1. **`bookViewService.getBooksForIndex`** — THE reported books-page bug. Loaded the user's recipes unpaginated then grouped per book → capped at 1000 → undercounted. **Prod-verified:** Plenty's count was **67** under the cap (exactly what Tom saw), **120** paginated (matches the exact head-count); Tom has 1543 book-attached recipes. Book *detail* was always right (it queries one book, <1000).
+2. **`searchService.searchRecipesByCuisine`** + **`searchRecipesByMetadata`** — loaded the whole recipes set to filter in JS → search silently missed recipes beyond 1000. Paginated.
+3. **`userRecipeTagsService.getTagCounts`** — user's tag rows unpaginated → undercounted tag totals for >1000-tag users. Paginated.
+
+**Audited + banked (bounded in practice, no change — OB-23):** `statsService.getBookStats` (per-book, ≤~200), `mealPlanService.getMealPlanItems/Summary` (per-meal), `annotationService.getAnnotationStats` (per user+recipe), `bookViewService.getAllAuthors` (books table, ~314), `recipeHistoryService.getFriendsCookingInfo` (friends' posts). These can't exceed 1000 today; flagged to adopt `fetchAllRows` if their scope ever grows. **The two already-fixed inline loops** (RecipeListScreen.loadRecipes, getCookingHistory) left as-is (working); can adopt the helper later.
+
+`tsc` clean. **Files:** `lib/utils/fetchAllRows.ts` (new), `lib/services/bookViewService.ts` ⚠️ PK stale (HIGH), `lib/searchService.ts` ⚠️ PK stale (HIGH), `lib/services/userRecipeTagsService.ts` ⚠️ PK stale (Low→noted), `docs/SESSION_LOG.md` / `docs/DEFERRED_WORK.md` / `docs/PK_CODE_SNAPSHOTS.md`. **Rule E:** 3 rows updated.
+
+---
+
 ## 2026-06-16 — Fix: recipes page silently capped at 1000 (PostgREST default) — paginate the recipe + cook-history fetches (Tom: owns 1896 recipes, saw 1000)
 
 **Same 1000-row cap, third instance** (after the two CP4b inspection misses). Tom saw only 1000 recipes on the Recipes page; confirmed-from-DB he owns **1896** (of 1900 total; 0 no-owner). Root cause: `RecipeListScreen.loadRecipes` did an unpaginated `.from('recipes').select('*').eq('user_id', …)` — PostgREST caps a single select at 1000 rows, so the latest 1000 showed and any count over the loaded set was wrong.

@@ -4,6 +4,7 @@
 // Updated: December 12, 2025 - Fixed chefs join (was incorrectly using user_profiles)
 
 import { supabase } from '../supabase';
+import { fetchAllRows } from '../utils/fetchAllRows';
 
 // ============================================================================
 // TYPES
@@ -255,15 +256,18 @@ export async function getTagCounts(
   userId: string
 ): Promise<Record<string, number>> {
   try {
-    const { data, error } = await supabase
-      .from('user_recipe_tags')
-      .select('tag')
-      .eq('user_id', userId);
-
-    if (error) throw error;
+    // Paginated: a user with >1000 tag rows would otherwise have undercounted
+    // tag totals (the 1000-row cap).
+    const data = await fetchAllRows<{ tag: string }>((from, to) =>
+      supabase
+        .from('user_recipe_tags')
+        .select('tag')
+        .eq('user_id', userId)
+        .range(from, to)
+    );
 
     const counts: Record<string, number> = {};
-    (data || []).forEach((item: any) => {
+    data.forEach((item) => {
       counts[item.tag] = (counts[item.tag] || 0) + 1;
     });
     return counts;

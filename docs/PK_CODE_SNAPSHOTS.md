@@ -30,7 +30,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | File | Snapshot Date | Last Touched By | Staleness Risk | Notes |
 |------|--------------|-----------------|----------------|-------|
 | `lib/services/annotationService.ts` | 2026-04-22 | | Low | |
-| `lib/services/bookViewService.ts` | 2026-04-22 | | HIGH | 2026-06-01: getRecipesByBook rewritten off the missing recipes_with_books view. |
+| `lib/services/bookViewService.ts` | 2026-04-22 | | HIGH | 2026-06-01: getRecipesByBook rewritten off the missing recipes_with_books view. 2026-06-16: getBooksForIndex paginates the recipe load via `fetchAllRows` (1000-cap per-book undercount — the 67-vs-120 bug) — snapshot stale. |
 | `lib/services/commentsService.ts` | 2026-04-22 | | Low | |
 | `lib/services/cookCardDataService.ts` | 2026-05-19 | Phase 7I CP5 / CP6 | Low | SELECT-column SSoT per v4.0 arch doc |
 | `lib/services/cookingService.ts` | 2026-05-19 | Phase 7B-Rev | Low | recipe_step_notes CRUD |
@@ -55,7 +55,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/statsService.ts` | 2026-05-19 | Phase 4 | Low | 38 exports |
 | `lib/services/subscriptionService.ts` | 2026-04-22 | | Low | |
 | `lib/services/unitConverter.ts` | 2026-05-19 | Phase 8R-CP6e-Services-a | Low | CP6e-Services-a (2026-05-06): added `convertBetween(amount, fromUnit, toUnit)` — converts between specific units (vs convertUnit which targets metric/imperial systems). Used by lotsService for cross-lot deduction unit-compatibility checks. |
-| `lib/services/userRecipeTagsService.ts` | 2026-04-22 | | Low | |
+| `lib/services/userRecipeTagsService.ts` | 2026-04-22 | | Low | 2026-06-16: getTagCounts paginates via `fetchAllRows` (1000-cap) — snapshot stale. |
 | `lib/services/vibeService.ts` | 2026-05-19 | Phase 7F | Low | `getRecipeVibe`, `computeMealVibe` |
 | `lib/services/recipeExtraction/bookService.ts` | 2026-04-22 | | HIGH | 10 exports; Phase 7K backfill callers. 2026-06-12: CP4-ext added `has_recipes` to `searchBookCatalog`/`CatalogBookResult` — snapshot stale. (Also predates the CP4 `searchBookCatalog` addition itself.) |
 | `lib/services/recipeExtraction/chefService.ts` | 2026-05-19 | Phase 7K | Low | `backfillChefIds` added 2026-04-17 |
@@ -88,7 +88,7 @@ Tier assignments can be revised via a deliberate edit to this doc. Do not move f
 | `lib/services/viewsService.ts` | 2026-05-19 | Phase 8R-CP2b | HIGH | NEW (8R-CP2b): Views CRUD + filter replace + toggleHidden + setRenderMode + seed-defaults RPC wrapper. Default-view delete blocked via DefaultViewDeleteError. |
 | `lib/services/lotsService.ts` | 2026-05-19 | Phase 8R-CP6e-Services-a / Services-b | HIGH | NEW (CP6e-Services-a): supply_lots CRUD (createLot/updateLot/archiveLot/deleteLot), reads (getLotsForSupply/getLotById), pure-ish aggregator (getLotAggregate — async for unit-bridging), cookDepletion entry-point (deductFromOldest with oldest-first cross-lot draw + S3 unit/insufficient-stock semantics), storage move with expiration recompute (moveLotStorage per Q47). Internal helpers: _maybeAutoOutOfStock (Q44), _maybeAutoRestock (Q45), _getShelfLifeDays. CP6e-Services-b (2026-05-06): added `deductFromSpecificLots(supplyId, plan)` for manual-override path (validates lot ownership, soft-fails on unit incompat, partial-deducts on insufficient stock, fires Q44 cascade). Updated `LotDeductionResult.lots_affected[]` to include `quantity_unit` (consumed by cookDepletionService for the persisted JSONB record). Mutually imports setSupplyStatus from suppliesService. |
 | `lib/services/tagsService.ts` | 2026-05-19 | Phase 8R-CP2a | Low | NEW (8R-CP2a): Tag CRUD + supply-tag junction + need-tag junction (Q39 split tables). |
-| `lib/searchService.ts` | 2026-04-22 | | HIGH | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
+| `lib/searchService.ts` | 2026-04-22 | | HIGH | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. 2026-06-16: searchRecipesByCuisine/Metadata paginate via `fetchAllRows` (1000-cap) — snapshot stale. |
 | `lib/storeService.ts` | 2026-04-22 | | Low | ⚠️ Currently at lib/ root; should relocate to lib/services/ per FRIGO_ARCHITECTURE — tracked as T4 in DEFERRED_WORK. |
 | `lib/ingredientsParser.ts` | 2026-04-22 | | Low | Core ingredient matching pipeline (755 lines). Currently at lib/ root; review location during the lib/services/ relocation pass (T4). |
 
